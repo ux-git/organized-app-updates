@@ -3157,6 +3157,16 @@ export const schedulesGetMeetingDate = ({
           (record) => record.type === 'main'
         )?.weekday.value ?? 2;
     }
+
+    // CO visit midweek meeting is always on Tuesday (day 2)
+    // Check both the week type AND the CO visits list from settings
+    const isCOVisitWeek = settings.cong_settings.circuit_overseer.visits.some(
+      (visit) => !visit._deleted && visit.weekOf === week
+    );
+
+    if (weekType === Week.CO_VISIT || isCOVisitWeek) {
+      meetingDay = 2;
+    }
   }
 
   if (meeting === 'weekend') {
