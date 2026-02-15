@@ -97,11 +97,15 @@ const NavBar = ({ isSupported }: NavBarType) => {
           minHeight: '62px',
           position: 'fixed',
           top: 0,
+          paddingTop: 'env(safe-area-inset-top)',
           left: 0,
           width: '100%',
           overflow: 'hidden',
           zIndex: (theme) => theme.zIndex.drawer + 1,
           boxShadow: 'none',
+          '@media all and (display-mode: standalone)': {
+            borderBottom: 'none',
+          },
         }}
       >
         <Toolbar sx={{ padding: 0, minHeight: '62px', alignItems: 'center' }}>

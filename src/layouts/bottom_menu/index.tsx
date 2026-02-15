@@ -12,9 +12,9 @@ const BottomMenu = (props: BottomMenuProps) => {
           bottom: 0,
           left: 0,
           right: 0,
-          height: '120px',
+          height: 'calc(100px + env(safe-area-inset-bottom))',
           background:
-            'linear-gradient(180deg, rgba(var(--accent-100-base), 0) 0%, rgba(var(--accent-100-base), 0.85) 100%)',
+            'linear-gradient(180deg, rgba(var(--accent-100-base), 0) 25%, rgba(var(--accent-100-base), 1) 100%)',
           zIndex: (theme) => theme.zIndex.drawer,
           pointerEvents: 'none',
         }}
@@ -28,7 +28,7 @@ const BottomMenu = (props: BottomMenuProps) => {
           border: '1px solid var(--accent-200)',
           borderRadius: 'var(--radius-xl)',
           overflow: 'hidden',
-          bottom: '16px',
+          bottom: 'calc(16px + env(safe-area-inset-bottom))',
           width: 'fit-content',
           maxWidth: 'calc(100% - 32px)',
           left: '50%',
