@@ -40,12 +40,14 @@ const OAuthButtonBase = (props: OAuthButtonBaseProps) => {
       onClick={handleOAuthAction}
     >
       {logo}
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <Typography className="h4" color="var(--black)">
           {text}
         </Typography>
-        {isAuthProcessing && currentProvider === provider?.providerId && (
-          <IconLoading width={22} height={22} color="var(--black)" />
+        {isAuthProcessing && currentProvider === provider?.providerId ? (
+          <IconLoading width={20} height={20} color="var(--black)" />
+        ) : (
+          <Box sx={{ width: 20, height: 20 }} />
         )}
       </Box>
     </Button>
