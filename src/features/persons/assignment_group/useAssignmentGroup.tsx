@@ -46,7 +46,12 @@ const useAssignmentGroup = (male: boolean) => {
       person.person_data.assignments.find((a) => a.type === dataView)?.values ??
       [];
 
-    if (code === AssignmentCode.MINISTRY_HOURS_CREDIT) {
+    if (
+      code === AssignmentCode.MINISTRY_HOURS_CREDIT ||
+      code === AssignmentCode.MINISTRY_BETHELITE ||
+      code === AssignmentCode.MINISTRY_BETHEL_COMMUTER ||
+      code === AssignmentCode.MINISTRY_LDC_VOLUNTEER
+    ) {
       const isFR = personIsFR(person);
       const isFS = personIsFS(person);
 

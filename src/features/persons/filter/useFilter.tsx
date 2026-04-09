@@ -140,6 +140,14 @@ const useFilter = () => {
         ],
       },
       {
+        name: t('tr_ministry'),
+        items: [
+          { id: 'bethelite', name: t('tr_bethelite') },
+          { id: 'bethelCommuter', name: t('tr_bethelCommuter') },
+          { id: 'ldcVolunteer', name: t('tr_ldcVolunteer') },
+        ],
+      },
+      {
         name: t('tr_enrollments'),
         items: [
           { id: 'pioneerAll', name: t('tr_allPioneers') },

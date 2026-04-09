@@ -22,6 +22,7 @@ import { AppRoleType } from '@definition/app';
 import { fieldWithLanguageGroupsState } from '@states/field_service_groups';
 import { APP_READ_ONLY_ROLES } from '@constants/index';
 import { getTranslation } from '@services/i18n/translation';
+import { AssignmentCode } from '@definition/assignment';
 
 const personUnarchiveMidweekMeeting = (person: PersonType) => {
   if (person.person_data.midweek_meeting_student.active.value) {
@@ -493,6 +494,7 @@ export const applyGroupFilters = (
   filtersKey: string[]
 ) => {
   const groups = filtersKey.filter((item) => typeof item === 'string');
+  const dataView = store.get(userDataViewState);
 
   const finalResult: PersonType[] = [];
 
@@ -525,6 +527,10 @@ export const applyGroupFilters = (
       const isMidweekStudentFilter = groups.includes('midweekStudent');
       const isNoAssignmentFilter = groups.includes('noAssignment');
 
+      const isBetheliteFilter = groups.includes('bethelite');
+      const isBethelCommuterFilter = groups.includes('bethelCommuter');
+      const isLDCVolunteerFilter = groups.includes('ldcVolunteer');
+
       const male = person.person_data.male.value;
       const female = person.person_data.female.value;
       const anointed = person.person_data.publisher_baptized.anointed.value;
@@ -542,6 +548,10 @@ export const applyGroupFilters = (
         person.person_data.midweek_meeting_student.active.value;
       const hasNoAssignment = personHasNoAssignment(person);
       const isFamilyHead = person.person_data.family_members?.head;
+
+      const activeAssignments =
+        person.person_data.assignments.find((a) => a.type === dataView)
+          ?.values ?? [];
 
       // if you want to add another condition here, add it after the male and
       // female check to avoid it to be overwritten
@@ -604,6 +614,22 @@ export const applyGroupFilters = (
 
       // family head selected
       if (isPassed && isFamilyHeadFilter) isPassed = isFamilyHead;
+
+      // bethelite selected
+      if (isPassed && isBetheliteFilter)
+        isPassed = activeAssignments.includes(AssignmentCode.MINISTRY_BETHELITE);
+
+      // bethel commuter selected
+      if (isPassed && isBethelCommuterFilter)
+        isPassed = activeAssignments.includes(
+          AssignmentCode.MINISTRY_BETHEL_COMMUTER
+        );
+
+      // ldc volunteer selected
+      if (isPassed && isLDCVolunteerFilter)
+        isPassed = activeAssignments.includes(
+          AssignmentCode.MINISTRY_LDC_VOLUNTEER
+        );
 
       if (isPassed) {
         finalResult.push(person);

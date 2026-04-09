@@ -23,7 +23,12 @@ const useAssignments = () => {
   }, []);
 
   const duplicateAssignmentsCode = useMemo(() => {
-    return [AssignmentCode.MINISTRY_HOURS_CREDIT];
+    return [
+      AssignmentCode.MINISTRY_HOURS_CREDIT,
+      AssignmentCode.MINISTRY_BETHELITE,
+      AssignmentCode.MINISTRY_BETHEL_COMMUTER,
+      AssignmentCode.MINISTRY_LDC_VOLUNTEER,
+    ];
   }, []);
 
   const checkedItems = useMemo(() => {
@@ -132,6 +137,18 @@ const useAssignments = () => {
           {
             code: AssignmentCode.MINISTRY_HOURS_CREDIT,
             name: t('tr_reportHoursCredit'),
+          },
+          {
+            code: AssignmentCode.MINISTRY_BETHELITE,
+            name: t('tr_bethelite'),
+          },
+          {
+            code: AssignmentCode.MINISTRY_BETHEL_COMMUTER,
+            name: t('tr_bethelCommuter'),
+          },
+          {
+            code: AssignmentCode.MINISTRY_LDC_VOLUNTEER,
+            name: t('tr_ldcVolunteer'),
           },
         ],
       },
