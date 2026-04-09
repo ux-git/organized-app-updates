@@ -13,6 +13,8 @@ import {
 import { buildPersonFullname } from '@utils/common';
 import {
   addDays,
+  addMonths,
+  createArrayFromMonths,
   dateFirstDayMonth,
   dateLastDatePreviousMonth,
   formatDate,
@@ -23,6 +25,7 @@ import { fieldWithLanguageGroupsState } from '@states/field_service_groups';
 import { APP_READ_ONLY_ROLES } from '@constants/index';
 import { getTranslation } from '@services/i18n/translation';
 import { AssignmentCode } from '@definition/assignment';
+import { reportsMapState } from '@states/field_service_reports';
 
 const personUnarchiveMidweekMeeting = (person: PersonType) => {
   if (person.person_data.midweek_meeting_student.active.value) {
@@ -320,6 +323,35 @@ export const personIsMS = (person: PersonType) => {
   return hasActive ? true : false;
 };
 
+export const personIsIrregularPublisher = (
+  person: PersonType,
+  reportMonths?: Set<string>
+) => {
+  const now = new Date();
+  const firstReportValue = person.person_data.first_report?.value;
+  if (!firstReportValue) return false;
+
+  const firstReportDate = new Date(firstReportValue);
+
+  const sixMonthsAgo = new Date(now);
+  sixMonthsAgo.setMonth(now.getMonth() - 6);
+
+  if (firstReportDate > sixMonthsAgo) return false;
+
+  if (!reportMonths || reportMonths.size === 0) return true;
+
+  const end = formatDate(addMonths(new Date(), -1), 'yyyy/MM');
+  const start = formatDate(addMonths(new Date(), -6), 'yyyy/MM');
+
+  const months = createArrayFromMonths(start, end);
+
+  for (const m of months) {
+    if (!reportMonths.has(m)) return true;
+  }
+
+  return false;
+};
+
 export const personIsEnrollmentActive = (
   person: PersonType,
   enrollment: EnrollmentType,
@@ -493,6 +525,7 @@ export const applyGroupFilters = (
   persons: PersonType[],
   filtersKey: string[]
 ) => {
+  const reportsMap = store.get(reportsMapState);
   const groups = filtersKey.filter((item) => typeof item === 'string');
   const dataView = store.get(userDataViewState);
 
@@ -526,6 +559,8 @@ export const applyGroupFilters = (
       const isMSFilter = groups.includes('ministerialServant');
       const isMidweekStudentFilter = groups.includes('midweekStudent');
       const isNoAssignmentFilter = groups.includes('noAssignment');
+      const isRegularFilter = groups.includes('regular');
+      const isIrregularFilter = groups.includes('irregular');
 
       const isBetheliteFilter = groups.includes('bethelite');
       const isBethelCommuterFilter = groups.includes('bethelCommuter');
@@ -544,6 +579,7 @@ export const applyGroupFilters = (
       const isFMF = personIsFMF(person);
       const isElder = personIsElder(person);
       const isMS = personIsMS(person);
+
       const isMidweekStudent =
         person.person_data.midweek_meeting_student.active.value;
       const hasNoAssignment = personHasNoAssignment(person);
@@ -552,6 +588,9 @@ export const applyGroupFilters = (
       const activeAssignments =
         person.person_data.assignments.find((a) => a.type === dataView)
           ?.values ?? [];
+
+      const reportMonths = reportsMap.get(person.person_uid);
+      const isIrregular = personIsIrregularPublisher(person, reportMonths);
 
       // if you want to add another condition here, add it after the male and
       // female check to avoid it to be overwritten
@@ -567,6 +606,12 @@ export const applyGroupFilters = (
 
       // anointed selected
       if (isAnointedFilter) isPassed = anointed;
+
+      // regular selected
+      if (isRegularFilter && !isIrregularFilter) isPassed = !isIrregular;
+
+      // irregular selected
+      if (!isRegularFilter && isIrregularFilter) isPassed = isIrregular;
 
       // baptized selected
       if (isPassed && isBaptizedFilter) isPassed = isBaptized;
