@@ -19,15 +19,20 @@ const InputTextField = forwardRef(function DatePickerInputField(
           height: `${heightLocal}px`,
           paddingTop: 'auto',
           paddingBottom: 'auto',
+          paddingLeft: '12px',
+          paddingRight: '12px',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          gap: '4px',
         },
         '.MuiPickersInputBase-input': {
           overflow: 'hidden',
           textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
           paddingTop: `calc(14.5px - ${varHeight}px)`,
           paddingBottom: `calc(14.5px - ${varHeight}px)`,
+          paddingLeft: '0px',
+          paddingRight: '0px',
           flex: '1 0 0',
           color:
             props.value || props.inputProps['value']
@@ -35,10 +40,13 @@ const InputTextField = forwardRef(function DatePickerInputField(
               : 'var(--accent-400)',
           cursor: props.disabled && 'not-allowed',
         },
-        '.MuiPickersInput-root:before': {
+        '.MuiInputAdornment-root': {
+          margin: 0,
+        },
+        '.MuiInput-root:before': {
           borderBottom: '1px solid var(--accent-300) !important',
         },
-        '.MuiPickersInput-root:after': {
+        '.MuiInput-root:after': {
           borderBottom: '1px solid var(--accent-main)',
         },
         '.MuiPickersInput-root:hover:before': {
