@@ -82,6 +82,10 @@ const InputTextField = forwardRef(function DatePickerInputField(
           },
         },
         '.MuiInputLabel-root': {
+          maxWidth: '100%',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
           color: !props.disabled ? 'var(--accent-350)' : 'var(--accent-200)',
           '&.Mui-focused': {
             color: 'var(--accent-350)',

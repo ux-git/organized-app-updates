@@ -133,6 +133,10 @@ const TextField = (props: TextFieldTypeProps) => {
           },
         },
         '.MuiInputLabel-root': {
+          maxWidth: '100%',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
           color: !props.disabled
             ? success
               ? 'var(--green-main)'
