@@ -23,7 +23,14 @@ const InputTextField = forwardRef(function DatePickerInputField(
           paddingRight: '12px',
           display: 'flex',
           alignItems: 'center',
-          gap: '4px',
+          gap: '2px',
+        },
+        '.MuiPickersInputBase-sectionsContainer': {
+          display: 'block',
+          width: '100%',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
         },
         '.MuiPickersInputBase-input': {
           overflow: 'hidden',

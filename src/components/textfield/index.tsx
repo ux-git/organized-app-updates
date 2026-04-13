@@ -69,7 +69,7 @@ const TextField = (props: TextFieldTypeProps) => {
           paddingRight: '12px',
           display: 'flex',
           alignItems: 'center',
-          gap: '4px',
+          gap: '2px',
         },
         '.MuiInputBase-input': {
           overflow: isMultiLine ? 'unset' : 'hidden',
