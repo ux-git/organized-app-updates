@@ -8,7 +8,7 @@ import {
   congAccessCodeState,
   congDataSyncState,
   countryCodeState,
-  fullnameOptionState,
+  formatNameInAppState,
 } from '@states/settings';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
@@ -36,7 +36,7 @@ const usePersonSelect = ({
 
   const personsDb = useAtomValue(personsState);
   const personsActive = useAtomValue(personsActiveState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const countryCode = useAtomValue(countryCodeState);
   const congPrefix = useAtomValue(congPrefixState);
   const congLocalAccessCode = useAtomValue(congAccessCodeState);
@@ -67,10 +67,11 @@ const usePersonSelect = ({
       return {
         person_uid: person.person_uid,
         person_name: buildPersonFullname(
-          person.person_data.person_lastname.value,
-          person.person_data.person_firstname.value,
-          fullnameOption
-        ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          ),
       };
     });
   }, [persons_available, fullnameOption]);

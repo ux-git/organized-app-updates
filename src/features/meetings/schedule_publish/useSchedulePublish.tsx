@@ -22,7 +22,7 @@ import { speakerGetDisplayName, updateObject } from '@utils/common';
 import {
   congIDState,
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   JWLangState,
   settingsState,
   userDataViewState,
@@ -49,7 +49,7 @@ const useSchedulePublish = ({ type, onClose }: SchedulePublishProps) => {
   const schedules = useAtomValue(schedulesState);
   const incomingSpeakers = useAtomValue(incomingSpeakersState);
   const displayNameEnabled = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const dataView = useAtomValue(userDataViewState);
   const congregations = useAtomValue(speakersCongregationsState);
   const settings = useAtomValue(settingsState);

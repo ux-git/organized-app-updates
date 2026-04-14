@@ -5,26 +5,50 @@ export const changeFirstname = (newPerson: PersonType, value: string) => {
   newPerson.person_data.person_firstname.value = value;
   newPerson.person_data.person_firstname.updatedAt = new Date().toISOString();
 
-  const dispName = generateDisplayName(
-    newPerson.person_data.person_lastname.value,
-    value
-  );
-  newPerson.person_data.person_display_name.value = dispName;
-  newPerson.person_data.person_display_name.updatedAt =
-    new Date().toISOString();
+  if (!newPerson.person_data.person_display_name.value.trim()) {
+    const dispName = generateDisplayName(
+      newPerson.person_data.person_lastname.value,
+      value,
+      newPerson.person_data.person_middlename?.value
+    );
+    newPerson.person_data.person_display_name.value = dispName;
+    newPerson.person_data.person_display_name.updatedAt =
+      new Date().toISOString();
+  }
+};
+
+export const changeMiddlename = (newPerson: PersonType, value: string) => {
+  newPerson.person_data.person_middlename =
+    newPerson.person_data.person_middlename || { value: '', updatedAt: '' };
+  newPerson.person_data.person_middlename.value = value;
+  newPerson.person_data.person_middlename.updatedAt = new Date().toISOString();
+
+  if (!newPerson.person_data.person_display_name.value.trim()) {
+    const dispName = generateDisplayName(
+      newPerson.person_data.person_lastname.value,
+      newPerson.person_data.person_firstname.value,
+      value
+    );
+    newPerson.person_data.person_display_name.value = dispName;
+    newPerson.person_data.person_display_name.updatedAt =
+      new Date().toISOString();
+  }
 };
 
 export const changeLastname = (newPerson: PersonType, value: string) => {
   newPerson.person_data.person_lastname.value = value;
   newPerson.person_data.person_lastname.updatedAt = new Date().toISOString();
 
-  const dispName = generateDisplayName(
-    value,
-    newPerson.person_data.person_firstname.value
-  );
-  newPerson.person_data.person_display_name.value = dispName;
-  newPerson.person_data.person_display_name.updatedAt =
-    new Date().toISOString();
+  if (!newPerson.person_data.person_display_name.value.trim()) {
+    const dispName = generateDisplayName(
+      value,
+      newPerson.person_data.person_firstname.value,
+      newPerson.person_data.person_middlename?.value
+    );
+    newPerson.person_data.person_display_name.value = dispName;
+    newPerson.person_data.person_display_name.updatedAt =
+      new Date().toISOString();
+  }
 };
 
 export const toggleGender = (

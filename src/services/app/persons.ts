@@ -7,7 +7,7 @@ import {
 } from '@definition/person';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   userDataViewState,
 } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
@@ -717,21 +717,23 @@ export const personIsMidweekStudent = (person: PersonType) => {
 };
 
 export const personsSortByName = (persons: PersonType[]) => {
-  const fullnameOption = store.get(fullnameOptionState);
+  const fullnameOption = store.get(formatNameInAppState);
 
   return persons
     .filter((person) => person._deleted?.value === false)
     .sort((a, b) => {
       const fullnameA = buildPersonFullname(
-        a.person_data.person_lastname.value,
-        a.person_data.person_firstname.value,
-        fullnameOption
-      );
+            a.person_data.person_lastname.value,
+            a.person_data.person_firstname.value,
+            fullnameOption,
+            a.person_data.person_middlename?.value
+          );
       const fullnameB = buildPersonFullname(
-        b.person_data.person_lastname.value,
-        b.person_data.person_firstname.value,
-        fullnameOption
-      );
+            b.person_data.person_lastname.value,
+            b.person_data.person_firstname.value,
+            fullnameOption,
+            b.person_data.person_middlename?.value
+          );
 
       return fullnameA.localeCompare(fullnameB, undefined, {
         sensitivity: 'base',
@@ -893,7 +895,7 @@ export const personsFilterActiveTimeAway = (records: TimeAwayType[]) => {
 export const personGetScheduleName = (person: PersonType) => {
   const useDisplayName = store.get(displayNameMeetingsEnableState);
 
-  const fullnameOption = store.get(fullnameOptionState);
+  const fullnameOption = store.get(formatNameInAppState);
   const firstName = person.person_data.person_firstname.value;
   const lastName = person.person_data.person_lastname.value;
 

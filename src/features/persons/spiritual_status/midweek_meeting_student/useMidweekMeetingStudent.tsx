@@ -5,7 +5,7 @@ import { useAppTranslation } from '@hooks/index';
 import { personCurrentDetailsState, personsActiveState } from '@states/persons';
 import { setPersonCurrentDetails } from '@services/states/persons';
 import { buildPersonFullname } from '@utils/common';
-import { fullnameOptionState, userDataViewState } from '@states/settings';
+import { formatNameInAppState, userDataViewState } from '@states/settings';
 import { languageGroupsState } from '@states/field_service_groups';
 
 const useMidweekMeetingStudent = () => {
@@ -18,7 +18,7 @@ const useMidweekMeetingStudent = () => {
   const person = useAtomValue(personCurrentDetailsState);
   const groups = useAtomValue(languageGroupsState);
   const persons = useAtomValue(personsActiveState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const dataView = useAtomValue(userDataViewState);
 
   const current_group = useMemo(() => {
@@ -61,10 +61,11 @@ const useMidweekMeetingStudent = () => {
     if (!findPerson) return;
 
     const name = buildPersonFullname(
-      findPerson.person_data.person_lastname.value,
-      findPerson.person_data.person_firstname.value,
-      fullnameOption
-    );
+            findPerson.person_data.person_lastname.value,
+            findPerson.person_data.person_firstname.value,
+            fullnameOption,
+            findPerson.person_data.person_middlename?.value
+          );
 
     return t('tr_groupWithOverseerName', { name });
   }, [groups, group, persons, fullnameOption, t]);

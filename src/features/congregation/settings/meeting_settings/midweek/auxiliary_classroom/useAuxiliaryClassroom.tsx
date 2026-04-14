@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   midweekMeetingAssigFSGState,
   midweekMeetingAuxCounselorDefaultEnabledState,
   midweekMeetingAuxCounselorDefaultState,
@@ -20,7 +20,7 @@ const useMidweekSettings = () => {
   const dataView = useAtomValue(userDataViewState);
   const persons = useAtomValue(personsActiveState);
   const useDisplayName = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const classCount = useAtomValue(midweekMeetingClassCountState);
   const defaultAuxPerson = useAtomValue(midweekMeetingAuxCounselorDefaultState);
   const assignFSGInitial = useAtomValue(midweekMeetingAssigFSGState);

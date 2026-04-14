@@ -1,5 +1,5 @@
 import { Locale } from 'date-fns';
-import { FullnameOption } from './settings';
+import { FormatNameOption } from './settings';
 import { ReactElement } from 'react';
 
 export type ColorSchemeType = 'blue' | 'green' | 'purple' | 'orange';
@@ -12,7 +12,7 @@ export type LanguageItem = {
   name: string;
   source?: boolean;
   font?: string;
-  fullnameOption?: FullnameOption;
+  fullnameOption?: FormatNameOption;
   threeLettersCode: string;
   browserLangCode?: string[];
   fnsLocale?: Locale;

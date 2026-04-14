@@ -1,5 +1,6 @@
+import { Box } from '@mui/material';
 import { useAppTranslation, useCurrentUser } from '@hooks/index';
-import { FullnameOption } from '@definition/settings';
+import { FormatNameOption } from '@definition/settings';
 import useNameFormat from './useNameFormat';
 import MenuItem from '@components/menuitem';
 import Select from '@components/select';
@@ -11,24 +12,55 @@ const NameFormat = () => {
   const { isMidweekEditor, isWeekendEditor, isPublicTalkCoordinator } =
     useCurrentUser();
 
-  const { fullnameOption, handleFullnameOptionChange } = useNameFormat();
+  const { formatInApp, formatPrint, handleFormatInAppChange, handleFormatPrintChange } = useNameFormat();
+
+  const readOnly = !isMidweekEditor && !isWeekendEditor && !isPublicTalkCoordinator;
+
+  const renderOptions = () => (
+    <>
+      <MenuItem value={FormatNameOption.FIRST_LAST}>
+        <Typography>{t('tr_formatFirstLast')} (John Smith)</Typography>
+      </MenuItem>
+      <MenuItem value={FormatNameOption.LAST_FIRST}>
+        <Typography>{t('tr_formatLastFirst')} (Smith John)</Typography>
+      </MenuItem>
+      <MenuItem value={FormatNameOption.FULL_NAME}>
+        <Typography>{t('tr_formatFullName')} (John Robert Smith)</Typography>
+      </MenuItem>
+      <MenuItem value={FormatNameOption.ABBREVIATED_LAST}>
+        <Typography>{t('tr_formatAbbreviatedLast')} (John S.)</Typography>
+      </MenuItem>
+      <MenuItem value={FormatNameOption.ABBREVIATED_FIRST}>
+        <Typography>{t('tr_formatAbbreviatedFirst')} (Smith J.)</Typography>
+      </MenuItem>
+      <MenuItem value={FormatNameOption.ABBREVIATED_FULL_NAME}>
+        <Typography>{t('tr_formatAbbreviatedFullName')} (John R. S.)</Typography>
+      </MenuItem>
+      <MenuItem value={FormatNameOption.FIRST_MIDDLE_INITIAL_LAST}>
+        <Typography>{t('tr_formatFirstMiddleInitialLast')} (John R. Smith)</Typography>
+      </MenuItem>
+    </>
+  );
 
   return (
-    <Select
-      label={t('tr_nameFormat')}
-      value={fullnameOption}
-      onChange={(e) => handleFullnameOptionChange(+e.target.value)}
-      readOnly={
-        !isMidweekEditor && !isWeekendEditor && !isPublicTalkCoordinator
-      }
-    >
-      <MenuItem value={FullnameOption.FIRST_BEFORE_LAST}>
-        <Typography>{t('tr_formatFirstLast')}</Typography>
-      </MenuItem>
-      <MenuItem value={FullnameOption.LAST_BEFORE_FIRST}>
-        <Typography>{t('tr_formatLastFirst')}</Typography>
-      </MenuItem>
-    </Select>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <Select
+        label={t('tr_formatNameInApp')}
+        value={formatInApp}
+        onChange={(e) => handleFormatInAppChange(+e.target.value)}
+        readOnly={readOnly}
+      >
+        {renderOptions()}
+      </Select>
+      <Select
+        label={t('tr_formatNamePrint')}
+        value={formatPrint}
+        onChange={(e) => handleFormatPrintChange(+e.target.value)}
+        readOnly={readOnly}
+      >
+        {renderOptions()}
+      </Select>
+    </Box>
   );
 };
 

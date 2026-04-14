@@ -1,5 +1,5 @@
 import { PersonType } from '@definition/person';
-import { FullnameOption } from '@definition/settings';
+import { FormatNameOption } from '@definition/settings';
 import { VisitingSpeakerType } from '@definition/visiting_speakers';
 
 export const convertStringToBoolean = (value) => {
@@ -51,40 +51,102 @@ export const matchIsNumeric = (text) => {
 export const buildPersonFullname = (
   lastname: string,
   firstname: string,
-  option?: FullnameOption
+  option?: FormatNameOption,
+  middlename: string = ''
 ) => {
-  const buildOption = option || FullnameOption.FIRST_BEFORE_LAST;
+  const buildOption = option || FormatNameOption.FIRST_LAST;
 
-  if (lastname.length === 0) {
-    return firstname;
+  const fName = firstname.trim();
+  const mName = middlename.trim();
+  const lName = lastname.trim();
+
+  if (buildOption === FormatNameOption.FIRST_LAST) {
+    return [fName, lName].filter(Boolean).join(' ');
   }
 
-  if (firstname.length === 0) {
-    return lastname;
+  if (buildOption === FormatNameOption.LAST_FIRST) {
+    if (lName && fName) return `${lName}, ${fName}`;
+    return [lName, fName].filter(Boolean).join(' ');
   }
 
-  if (buildOption === FullnameOption.FIRST_BEFORE_LAST) {
-    return `${firstname} ${lastname}`;
+  if (buildOption === FormatNameOption.FULL_NAME) {
+    return [fName, mName, lName].filter(Boolean).join(' ');
   }
 
-  return `${lastname} ${firstname}`;
+  if (buildOption === FormatNameOption.ABBREVIATED_LAST) {
+    const lastNameInitials = lName
+      .split(' ')
+      .map((name) => (name ? name.substring(0, 1) + '.' : ''))
+      .join(' ');
+    // Keep middle name spelled out if it exists
+    const firstMiddle = [fName, mName].filter(Boolean).join(' ');
+    return [firstMiddle, lastNameInitials].filter(Boolean).join(' ');
+  }
+
+  if (buildOption === FormatNameOption.ABBREVIATED_FIRST) {
+    const firstMiddle = [fName, mName].filter(Boolean).join(' ');
+    const firstMiddleInitials = firstMiddle
+      .split(' ')
+      .map((name) => (name ? name.substring(0, 1) + '.' : ''))
+      .join(' ');
+    
+    if (lName && firstMiddleInitials) return `${lName}, ${firstMiddleInitials}`;
+    return [lName, firstMiddleInitials].filter(Boolean).join(' ');
+  }
+
+  if (buildOption === FormatNameOption.ABBREVIATED_FULL_NAME) {
+    const lastNameInitials = lName
+      .split(' ')
+      .map((name) => (name ? name.substring(0, 1) + '.' : ''))
+      .join(' ');
+    const middleNameInitials = mName
+      .split(' ')
+      .map((name) => (name ? name.substring(0, 1) + '.' : ''))
+      .join(' ');
+    
+    return [fName, middleNameInitials, lastNameInitials].filter(Boolean).join(' ');
+  }
+
+  if (buildOption === FormatNameOption.FIRST_MIDDLE_INITIAL_LAST) {
+    const middleNameInitials = mName
+      .split(' ')
+      .map((name) => (name ? name.substring(0, 1) + '.' : ''))
+      .join(' ');
+    
+    return [fName, middleNameInitials, lName].filter(Boolean).join(' ');
+  }
+
+  return [fName, lName].filter(Boolean).join(' ');
 };
 
-export const generateDisplayName = (lastname: string, firstname: string) => {
-  if (lastname.length === 0) {
-    return firstname;
+export const isMiddleNameVisible = (
+  inAppOption?: FormatNameOption,
+) => {
+  const inApp = inAppOption || FormatNameOption.FIRST_LAST;
+
+  return inApp !== FormatNameOption.FIRST_LAST && inApp !== FormatNameOption.LAST_FIRST;
+};
+
+export const generateDisplayName = (lastname: string, firstname: string, middlename: string = '') => {
+  const fName = firstname.trim();
+  const mName = middlename.trim();
+  const lName = lastname.trim();
+
+  if (lName.length === 0) {
+    return [fName, mName].filter(Boolean).join(' ');
   }
 
-  if (firstname.length === 0) {
-    return lastname;
+  if (fName.length === 0 && mName.length === 0) {
+    return lName;
   }
 
-  const lastNameInitials = lastname
+  const lastNameInitials = lName
     .split(' ')
     .map((name) => (name ? name.substring(0, 1) + '.' : ''))
     .join(' ');
 
-  return `${lastNameInitials} ${firstname}`;
+  const firstMiddle = [fName, mName].filter(Boolean).join(' ');
+  return [firstMiddle, lastNameInitials].filter(Boolean).join(' ');
 };
 
 export const localStorageGetItem = (key: string) => {
@@ -184,7 +246,7 @@ export const updateObject = <T extends object>(oldObj: T, newObj: T): T => {
 export const personGetDisplayName = (
   option: PersonType,
   displayNameEnabled: boolean,
-  fullnameOption: FullnameOption
+  fullnameOption: FormatNameOption
 ) => {
   let result: string;
 
@@ -196,7 +258,8 @@ export const personGetDisplayName = (
     result = buildPersonFullname(
       option.person_data.person_lastname.value,
       option.person_data.person_firstname.value,
-      fullnameOption
+      fullnameOption,
+      option.person_data.person_middlename?.value
     );
   }
 
@@ -206,7 +269,7 @@ export const personGetDisplayName = (
 export const speakerGetDisplayName = (
   speaker: VisitingSpeakerType,
   displayNameEnabled: boolean,
-  fullnameOption: FullnameOption
+  fullnameOption: FormatNameOption
 ) => {
   let result: string;
 
@@ -214,11 +277,12 @@ export const speakerGetDisplayName = (
     result = speaker.speaker_data.person_display_name.value;
   }
 
-  if (!displayNameEnabled) {
+  if (result?.length === 0 || !displayNameEnabled) {
     result = buildPersonFullname(
       speaker.speaker_data.person_lastname.value,
       speaker.speaker_data.person_firstname.value,
-      fullnameOption
+      fullnameOption,
+      speaker.speaker_data.person_middlename?.value
     );
   }
 

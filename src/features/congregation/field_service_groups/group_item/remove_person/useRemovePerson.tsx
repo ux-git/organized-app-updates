@@ -2,13 +2,13 @@ import { useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { RemovePersonProps } from './index.types';
 import { personsState } from '@states/persons';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
 import { fieldGroupsState } from '@states/field_service_groups';
 
 const useRemovePerson = ({ group_id, index, member }: RemovePersonProps) => {
   const persons = useAtomValue(personsState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const groups = useAtomValue(fieldGroupsState);
 
   const group = useMemo(() => {
@@ -23,10 +23,11 @@ const useRemovePerson = ({ group_id, index, member }: RemovePersonProps) => {
     if (!person) return '';
 
     const name = buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
 
     return name;
   }, [person, fullnameOption]);

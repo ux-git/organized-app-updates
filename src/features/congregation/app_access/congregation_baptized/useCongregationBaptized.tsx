@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router';
 import { useAtomValue } from 'jotai';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { congregationsBaptizedPersonsState } from '@states/congregation';
 
 const useCongregationBaptized = () => {
   const navigate = useNavigate();
 
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const users = useAtomValue(congregationsBaptizedPersonsState);
 
   const handleOpenUserDetails = (value: string) => {

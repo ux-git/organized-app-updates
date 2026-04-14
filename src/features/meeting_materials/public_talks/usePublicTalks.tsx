@@ -11,7 +11,7 @@ import { personsAllState } from '@states/persons';
 import { personGetDisplayName, speakerGetDisplayName } from '@utils/common';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   userDataViewState,
 } from '@states/settings';
 import { visitingSpeakersActiveState } from '@states/visiting_speakers';
@@ -22,7 +22,7 @@ const usePublicTalks = () => {
   const assignmentsHistory = useAtomValue(assignmentsHistoryState);
   const persons = useAtomValue(personsAllState);
   const useDisplayName = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const speakers = useAtomValue(visitingSpeakersActiveState);
   const dataView = useAtomValue(userDataViewState);
 

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { personsActiveState } from '@states/persons';
 import { GroupDetailsProps, UsersOption } from './index.types';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
 import { fieldGroupsState } from '@states/field_service_groups';
 import { FieldServiceGroupMemberType } from '@definition/field_service_groups';
@@ -12,7 +12,7 @@ const useGroupDetails = ({ group, onChange }: GroupDetailsProps) => {
   const { personIsElder, personIsMS } = usePerson();
 
   const persons = useAtomValue(personsActiveState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const groups = useAtomValue(fieldGroupsState);
 
   const groups_members = useMemo(() => {
@@ -65,10 +65,11 @@ const useGroupDetails = ({ group, onChange }: GroupDetailsProps) => {
     return {
       person_uid: person.person_uid,
       person_name: buildPersonFullname(
-        person.person_data.person_lastname.value,
-        person.person_data.person_firstname.value,
-        fullnameOption
-      ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          ),
     } as UsersOption;
   }, [group, persons, fullnameOption]);
 
@@ -93,10 +94,11 @@ const useGroupDetails = ({ group, onChange }: GroupDetailsProps) => {
     return {
       person_uid: person.person_uid,
       person_name: buildPersonFullname(
-        person.person_data.person_lastname.value,
-        person.person_data.person_firstname.value,
-        fullnameOption
-      ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          ),
     } as UsersOption;
   }, [group, persons, fullnameOption]);
 
@@ -109,7 +111,8 @@ const useGroupDetails = ({ group, onChange }: GroupDetailsProps) => {
           person_name: buildPersonFullname(
             person.person_data.person_lastname.value,
             person.person_data.person_firstname.value,
-            fullnameOption
+            fullnameOption,
+            person.person_data.person_middlename?.value
           ),
           elder: personIsElder(person),
         };
@@ -125,7 +128,8 @@ const useGroupDetails = ({ group, onChange }: GroupDetailsProps) => {
           person_name: buildPersonFullname(
             person.person_data.person_lastname.value,
             person.person_data.person_firstname.value,
-            fullnameOption
+            fullnameOption,
+            person.person_data.person_middlename?.value
           ),
           elder: personIsElder(person),
         };

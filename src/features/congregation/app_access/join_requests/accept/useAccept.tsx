@@ -4,13 +4,13 @@ import { AppRoleType } from '@definition/app';
 import { AcceptRequestProps, UsersOption } from './index.types';
 import { buildPersonFullname } from '@utils/common';
 import { personsActiveState } from '@states/persons';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { congregationUsersState } from '@states/congregation';
 import { refreshReadOnlyRoles } from '@services/app/persons';
 
 const useAcceptRequest = ({ onConfirm }: AcceptRequestProps) => {
   const persons = useAtomValue(personsActiveState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const users = useAtomValue(congregationUsersState);
 
   const [open, setOpen] = useState(false);
@@ -31,10 +31,11 @@ const useAcceptRequest = ({ onConfirm }: AcceptRequestProps) => {
       return {
         person_uid: person.person_uid,
         person_name: buildPersonFullname(
-          person.person_data.person_lastname.value,
-          person.person_data.person_firstname.value,
-          fullnameOption
-        ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          ),
       };
     });
   }, [available_persons, fullnameOption]);

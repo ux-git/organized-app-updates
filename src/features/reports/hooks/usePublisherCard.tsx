@@ -11,12 +11,12 @@ import { personsState } from '@states/persons';
 import { PersonType } from '@definition/person';
 import { congFieldServiceReportsState } from '@states/field_service_reports';
 import {
-  fullnameOptionState,
   JWLangLocaleState,
   JWLangState,
   shortDateFormatState,
 } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
+import { FormatNameOption } from '@definition/settings';
 import { generateMonthNames } from '@services/i18n/translation';
 import usePerson from '@features/persons/hooks/usePerson';
 
@@ -33,7 +33,6 @@ const usePublisherCard = () => {
   const persons = useAtomValue(personsState);
   const reports = useAtomValue(congFieldServiceReportsState);
   const dateFormat = useAtomValue(shortDateFormatState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
   const sourceLocale = useAtomValue(JWLangLocaleState);
 
   const years = useMemo(() => {
@@ -75,10 +74,11 @@ const usePublisherCard = () => {
     card.hope = { anointed: isAnointed, other_sheep: !isAnointed };
 
     card.name = buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            FormatNameOption.FULL_NAME,
+            person.person_data.person_middlename?.value
+          );
 
     const isElder = personIsPrivilegeYearActive(person, 'elder', year);
     const isMS = personIsPrivilegeYearActive(person, 'ms', year);

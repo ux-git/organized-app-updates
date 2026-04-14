@@ -3,26 +3,33 @@ import { useAtomValue } from 'jotai';
 import { personSchema } from '@services/dexie/schema';
 import { generateDisplayName } from '@utils/common';
 import { dbAppSettingsUpdate } from '@services/dexie/settings';
-import { settingsState } from '@states/settings';
+import { settingsState, formatNameInAppState } from '@states/settings';
 import { dbPersonsSave } from '@services/dexie/persons';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
 import { apiSetUserUid } from '@services/api/congregation';
+import { isMiddleNameVisible } from '@utils/common';
 
 const usePersonRecord = () => {
   const settings = useAtomValue(settingsState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
+
+  const middleNameVisible = isMiddleNameVisible(fullnameOption);
 
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [firstname, setFirstname] = useState(
     settings.user_settings.firstname.value
   );
+  const [middlename, setMiddlename] = useState(
+    settings.user_settings.middlename ? settings.user_settings.middlename.value : ''
+  );
   const [lastname, setLastname] = useState(
     settings.user_settings.lastname.value
   );
 
   const handleFirstnameChange = (value: string) => setFirstname(value);
-
+  const handleMiddlenameChange = (value: string) => setMiddlename(value);
   const handleLastnameChange = (value: string) => setLastname(value);
 
   const handleSavePerson = async () => {
@@ -33,7 +40,7 @@ const usePersonRecord = () => {
     try {
       setIsProcessing(true);
 
-      const dispname = generateDisplayName(lastname, firstname);
+      const dispname = generateDisplayName(lastname, firstname, middlename);
 
       const person = structuredClone(personSchema);
 
@@ -41,6 +48,11 @@ const usePersonRecord = () => {
 
       person.person_data.person_firstname = {
         value: firstname,
+        updatedAt: new Date().toISOString(),
+      };
+
+      person.person_data.person_middlename = {
+        value: middlename,
         updatedAt: new Date().toISOString(),
       };
 
@@ -80,10 +92,13 @@ const usePersonRecord = () => {
   return {
     handleSavePerson,
     firstname,
+    middlename,
     lastname,
     handleFirstnameChange,
+    handleMiddlenameChange,
     handleLastnameChange,
     isProcessing,
+    middleNameVisible,
   };
 };
 

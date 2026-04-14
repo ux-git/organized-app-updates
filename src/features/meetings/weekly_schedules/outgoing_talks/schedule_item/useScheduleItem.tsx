@@ -6,14 +6,14 @@ import { publicTalksLocaleState } from '@states/public_talks';
 import { personGetDisplayName } from '@utils/common';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
 } from '@states/settings';
 
 const useScheduleItem = ({ schedule }: ScheduleItemProps) => {
   const persons = useAtomValue(personsState);
   const talks = useAtomValue(publicTalksLocaleState);
   const displayNameEnabled = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
 
   const talkSchedule: TalkScheduleType = useMemo(() => {
     const person = persons.find(

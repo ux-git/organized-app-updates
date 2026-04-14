@@ -8,7 +8,7 @@ import { getMessageByCode } from '@services/i18n/translation';
 import { apiCongregationUserDelete } from '@services/api/congregation';
 import { CongregationUserType } from '@definition/api';
 import { buildPersonFullname } from '@utils/common';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { congregationUsersState } from '@states/congregation';
 
 const useDeleteUser = (
@@ -21,7 +21,7 @@ const useDeleteUser = (
 
   const setUsers = useSetAtom(congregationUsersState);
 
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
 
   const [isProcessing, setIsProcessing] = useState(false);
 

@@ -3,7 +3,7 @@ import { useAtomValue } from 'jotai/react';
 import { personCurrentDetailsState, personsActiveState } from '@states/persons';
 import { setPersonCurrentDetails } from '@services/states/persons';
 import { buildPersonFullname } from '@utils/common';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 
 const DEFAULT_FAMILY_DATA = {
   head: false,
@@ -14,7 +14,7 @@ const DEFAULT_FAMILY_DATA = {
 const useFamilyMembers = () => {
   const personsActive = useAtomValue(personsActiveState);
   const currentPerson = useAtomValue(personCurrentDetailsState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
 
   const isFamilyHead = currentPerson.person_data.family_members?.head;
 
@@ -101,10 +101,11 @@ const useFamilyMembers = () => {
           return {
             person_uid: person.person_uid,
             person_name: buildPersonFullname(
-              person.person_data.person_lastname.value,
-              person.person_data.person_firstname.value,
-              fullnameOption
-            ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          ),
           };
         }),
     [currentPerson, fullnameOption, personsActive, isMemberOfFamily]

@@ -25,6 +25,7 @@ const PersonBasicInfo = () => {
     age,
     handleToggleGender,
     handleChangeFirstname,
+    handleChangeMiddlename,
     handleChangeLastname,
     handleChangeDisplayName,
     handleChangeAddress,
@@ -36,7 +37,8 @@ const PersonBasicInfo = () => {
     displayNameEnabled,
     isCurrentPersonMemberOfAFamily,
     familyHeadName,
-    isFamilyHead
+    isFamilyHead,
+    middleNameVisible,
   } = useBasicInfo();
 
   return (
@@ -140,6 +142,14 @@ const PersonBasicInfo = () => {
             onChange={(e) => handleChangeFirstname(e.target.value)}
             slotProps={{ input: { readOnly: !isPersonEditor } }}
           />
+          {middleNameVisible && (
+            <TextField
+              label={t('tr_middlename')}
+              value={person.person_data.person_middlename?.value || ''}
+              onChange={(e) => handleChangeMiddlename(e.target.value)}
+              slotProps={{ input: { readOnly: !isPersonEditor } }}
+            />
+          )}
           <TextField
             label={t('tr_lastname')}
             value={person.person_data.person_lastname.value}

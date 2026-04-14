@@ -4,7 +4,7 @@ import { useAtomValue } from 'jotai';
 import { useAppTranslation } from '@hooks/index';
 import { personsState } from '@states/persons';
 import { buildPersonFullname } from '@utils/common';
-import { fullnameOptionState, shortDateFormatState } from '@states/settings';
+import { formatNameInAppState, shortDateFormatState } from '@states/settings';
 import { ApplicationProps } from './index.types';
 import { formatDate } from '@utils/date';
 
@@ -14,7 +14,7 @@ const useApplication = ({ application }: ApplicationProps) => {
   const { t } = useAppTranslation();
 
   const persons = useAtomValue(personsState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const shortDateFormat = useAtomValue(shortDateFormatState);
 
   const person = useMemo(() => {
@@ -27,10 +27,11 @@ const useApplication = ({ application }: ApplicationProps) => {
     if (!person) return '';
 
     return buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
   }, [person, fullnameOption]);
 
   const isFemale = useMemo(() => {

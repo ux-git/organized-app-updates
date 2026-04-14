@@ -16,9 +16,12 @@ const PersonRecord = ({ onPrevious }: PersonRecordProps) => {
     handleSavePerson,
     firstname,
     handleFirstnameChange,
+    middlename,
+    handleMiddlenameChange,
     handleLastnameChange,
     lastname,
     isProcessing,
+    middleNameVisible,
   } = usePersonRecord();
 
   return (
@@ -42,6 +45,14 @@ const PersonRecord = ({ onPrevious }: PersonRecordProps) => {
           value={firstname}
           onChange={(e) => handleFirstnameChange(e.target.value)}
         />
+        {middleNameVisible && (
+          <TextField
+            label={t('tr_middlename')}
+            height={48}
+            value={middlename}
+            onChange={(e) => handleMiddlenameChange(e.target.value)}
+          />
+        )}
         <TextField
           label={t('tr_lastname')}
           height={48}

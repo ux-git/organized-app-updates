@@ -4,7 +4,7 @@ import { IconError } from '@components/icons';
 import { PersonOptionsType, PersonSelectorType } from '../index.types';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   userDataViewState,
 } from '@states/settings';
 import {
@@ -29,7 +29,7 @@ const useVisitingSpeaker = ({ week, assignment, talk }: PersonSelectorType) => {
   const setLocalSongSelectorOpen = useSetAtom(weekendSongSelectorOpenState);
 
   const displayNameEnabled = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const schedules = useAtomValue(schedulesState);
   const incomingSpeakers = useAtomValue(incomingSpeakersState);
   const dataView = useAtomValue(userDataViewState);

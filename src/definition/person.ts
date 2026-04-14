@@ -68,6 +68,7 @@ export type PersonType = {
   person_uid: string;
   person_data: {
     person_firstname: { value: string; updatedAt: string };
+    person_middlename?: { value: string; updatedAt: string };
     person_lastname: { value: string; updatedAt: string };
     person_display_name: { value: string; updatedAt: string };
     male: { value: boolean; updatedAt: string };
@@ -100,6 +101,9 @@ export type PersonType = {
     enrollments: EnrollmentHistoryType[];
     emergency_contacts: EmergencyContactsType[];
     categories?: { value: string[]; updatedAt: string };
+    bethelite?: { value: boolean; updatedAt: string };
+    bethel_commuter?: { value: boolean; updatedAt: string };
+    ldc_volunteer?: { value: boolean; updatedAt: string };
     family_members: {
       head: boolean;
       members: string[];

@@ -1,9 +1,14 @@
 import { AppRoleType } from './app';
 import { AssignmentFieldType } from './assignment';
 
-export enum FullnameOption {
-  FIRST_BEFORE_LAST = 1,
-  LAST_BEFORE_FIRST = 2,
+export enum FormatNameOption {
+  FIRST_LAST = 1,
+  LAST_FIRST = 2,
+  FULL_NAME = 3,
+  ABBREVIATED_LAST = 4,
+  ABBREVIATED_FIRST = 5,
+  ABBREVIATED_FULL_NAME = 6,
+  FIRST_MIDDLE_INITIAL_LAST = 7,
 }
 
 export type AccountTypeState = 'vip' | 'pocket';
@@ -63,9 +68,21 @@ export type SettingsType = {
       _deleted: boolean;
     }[];
     cong_discoverable: { value: boolean; updatedAt: string };
-    fullname_option: {
+    fullname_option?: {
       type: string;
-      value: FullnameOption;
+      value: FormatNameOption;
+      updatedAt: string;
+      _deleted: boolean;
+    }[];
+    format_name_in_app: {
+      type: string;
+      value: FormatNameOption;
+      updatedAt: string;
+      _deleted: boolean;
+    }[];
+    format_name_print: {
+      type: string;
+      value: FormatNameOption;
       updatedAt: string;
       _deleted: boolean;
     }[];
@@ -145,6 +162,7 @@ export type SettingsType = {
     }[];
     circuit_overseer: {
       firstname: { value: string; updatedAt: string };
+      middlename?: { value: string; updatedAt: string };
       lastname: { value: string; updatedAt: string };
       display_name: { value: string; updatedAt: string };
       visits: CircuitOverseerVisitType[];
@@ -201,6 +219,7 @@ export type SettingsType = {
     user_local_uid: string;
     user_members_delegate: string[];
     firstname: { value: string; updatedAt: string };
+    middlename?: { value: string; updatedAt: string };
     lastname: { value: string; updatedAt: string };
     backup_automatic: {
       enabled: { value: boolean; updatedAt: string };

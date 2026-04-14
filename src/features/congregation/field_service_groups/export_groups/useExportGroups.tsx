@@ -10,7 +10,7 @@ import { personsActiveState } from '@states/persons';
 import {
   JWLangLocaleState,
   congNameState,
-  fullnameOptionState,
+  formatNamePrintState,
   publishersSortState,
 } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
@@ -26,7 +26,7 @@ const useExportGroups = () => {
 
   const groups_list = useAtomValue(fieldWithLanguageGroupsState);
   const persons = useAtomValue(personsActiveState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNamePrintState);
   const congName = useAtomValue(congNameState);
   const sortMethod = useAtomValue(publishersSortState);
   const locale = useAtomValue(JWLangLocaleState);
@@ -72,10 +72,11 @@ const useExportGroups = () => {
               return {
                 ...record,
                 person_name: buildPersonFullname(
-                  person.person_data.person_lastname.value,
-                  person.person_data.person_firstname.value,
-                  fullnameOption
-                ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          ),
               };
             })
             .sort((a, b) => {

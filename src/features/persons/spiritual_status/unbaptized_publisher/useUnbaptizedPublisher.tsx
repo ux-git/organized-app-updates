@@ -7,7 +7,7 @@ import { setPersonCurrentDetails } from '@services/states/persons';
 import { PersonType } from '@definition/person';
 import { dateFirstDayMonth, formatDate } from '@utils/date';
 import { fieldWithLanguageGroupsState } from '@states/field_service_groups';
-import { fullnameOptionState, userDataViewState } from '@states/settings';
+import { formatNameInAppState, userDataViewState } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
 import useFirstReport from '../first_report/useFirstReport';
 
@@ -23,7 +23,7 @@ const useUnbaptizedPublisher = () => {
   const person = useAtomValue(personCurrentDetailsState);
   const groups = useAtomValue(fieldWithLanguageGroupsState);
   const persons = useAtomValue(personsActiveState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const dataView = useAtomValue(userDataViewState);
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -69,10 +69,11 @@ const useUnbaptizedPublisher = () => {
     if (!findPerson) return;
 
     const name = buildPersonFullname(
-      findPerson.person_data.person_lastname.value,
-      findPerson.person_data.person_firstname.value,
-      fullnameOption
-    );
+            findPerson.person_data.person_lastname.value,
+            findPerson.person_data.person_firstname.value,
+            fullnameOption,
+            findPerson.person_data.person_middlename?.value
+          );
 
     return t('tr_groupWithOverseerName', { name });
   }, [groups, group, persons, fullnameOption, t]);

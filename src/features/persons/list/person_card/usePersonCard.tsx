@@ -18,7 +18,7 @@ import {
   updateRecentPersons,
 } from '@services/app/persons';
 import { personsFilterOpenState, personsRecentState } from '@states/persons';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { getMessageByCode } from '@services/i18n/translation';
 
 const usePersonCard = (person: PersonType) => {
@@ -28,7 +28,7 @@ const usePersonCard = (person: PersonType) => {
 
   const setPersonsRecent = useSetAtom(personsRecentState);
 
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const filterOpen = useAtomValue(personsFilterOpenState);
 
   const [isDeleting, setIsDeleting] = useState(false);

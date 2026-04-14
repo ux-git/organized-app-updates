@@ -37,6 +37,7 @@ const useExportPersons = () => {
       const header_row: Row = [
         { value: t('tr_lastname', { lng }), fontWeight: 'bold' },
         { value: t('tr_firstname', { lng }), fontWeight: 'bold' },
+        { value: t('tr_middlename', { lng }), fontWeight: 'bold' },
         { value: t('tr_phoneNumber', { lng }), fontWeight: 'bold' },
         { value: t('tr_address', { lng }), fontWeight: 'bold' },
         { value: t('tr_emergencyContacts', { lng }), fontWeight: 'bold' },
@@ -80,6 +81,7 @@ const useExportPersons = () => {
           return [
             { value: person.person_data.person_lastname.value },
             { value: person.person_data.person_firstname.value },
+            { value: person.person_data.person_middlename?.value || '' },
             { value: person.person_data.phone.value, type: String },
             { value: person.person_data.address.value },
             { value: emergencyContacts.join('; ') },
@@ -95,6 +97,7 @@ const useExportPersons = () => {
         columns: [
           { width: 30 },
           { width: 35 },
+          { width: 25 },
           { width: 45 },
           { width: 45 },
           { width: 45 },

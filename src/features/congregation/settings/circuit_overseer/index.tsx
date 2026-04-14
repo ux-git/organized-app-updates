@@ -1,4 +1,4 @@
-import { FullnameOption } from '@definition/settings';
+import { FormatNameOption } from '@definition/settings';
 import {
   useAppTranslation,
   useBreakpoints,
@@ -31,9 +31,13 @@ const CircuitOverseer = () => {
     handleDisplaynameSave,
     handleFirstnameChange,
     handleFirstnameSave,
+    handleMiddlenameChange,
+    handleMiddlenameSave,
     handleLastnameChange,
     handleLastnameSave,
     lastname,
+    middlename,
+    middleNameVisible,
   } = useCircuitOverseer();
 
   return (
@@ -48,10 +52,10 @@ const CircuitOverseer = () => {
           <TwoColumnsRow
             sx={{
               flexDirection: tablet600Up
-                ? fullnameOption === FullnameOption.FIRST_BEFORE_LAST
+                ? fullnameOption === FormatNameOption.FIRST_LAST
                   ? 'row'
                   : 'row-reverse'
-                : fullnameOption === FullnameOption.FIRST_BEFORE_LAST
+                : fullnameOption === FormatNameOption.FIRST_LAST
                   ? 'column'
                   : 'column-reverse',
             }}
@@ -64,6 +68,16 @@ const CircuitOverseer = () => {
               onKeyUp={handleFirstnameSave}
               slotProps={{ input: { readOnly: !isAdmin } }}
             />
+            {middleNameVisible && (
+              <TextField
+                type="text"
+                label={t('tr_middlename')}
+                value={middlename}
+                onChange={(e) => handleMiddlenameChange(e.target.value)}
+                onKeyUp={handleMiddlenameSave}
+                slotProps={{ input: { readOnly: !isAdmin } }}
+              />
+            )}
             <TextField
               type="text"
               label={t('tr_lastname')}

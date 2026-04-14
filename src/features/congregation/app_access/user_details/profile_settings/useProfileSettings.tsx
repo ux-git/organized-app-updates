@@ -3,7 +3,7 @@ import { useAtomValue } from 'jotai';
 import { personsActiveState } from '@states/persons';
 import { UsersOption } from './index.types';
 import { buildPersonFullname } from '@utils/common';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
 import { refreshReadOnlyRoles } from '@services/app/persons';
@@ -13,7 +13,7 @@ const useProfileSettings = () => {
   const { handleSaveDetails, currentUser } = useUserDetails();
 
   const personsActive = useAtomValue(personsActiveState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
 
   const [selectedPerson, setSelectedPerson] = useState<UsersOption>(null);
   const [delegatedPersons, setDelegatedPersons] = useState<UsersOption[]>([]);
@@ -29,10 +29,11 @@ const useProfileSettings = () => {
       return {
         person_uid: person.person_uid,
         person_name: buildPersonFullname(
-          person.person_data.person_lastname.value,
-          person.person_data.person_firstname.value,
-          fullnameOption
-        ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          ),
       };
     });
   }, [available_persons, fullnameOption]);
@@ -48,7 +49,8 @@ const useProfileSettings = () => {
           person_name: buildPersonFullname(
             person.person_data.person_lastname.value,
             person.person_data.person_firstname.value,
-            fullnameOption
+            fullnameOption,
+            person.person_data.person_middlename?.value
           ),
         };
       });
@@ -149,10 +151,11 @@ const useProfileSettings = () => {
       setSelectedPerson({
         person_uid: person.person_uid,
         person_name: buildPersonFullname(
-          person.person_data.person_lastname.value,
-          person.person_data.person_firstname.value,
-          fullnameOption
-        ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          ),
       });
     }
 
@@ -169,7 +172,8 @@ const useProfileSettings = () => {
           person_name: buildPersonFullname(
             found.person_data.person_lastname.value,
             found.person_data.person_firstname.value,
-            fullnameOption
+            fullnameOption,
+            found.person_data.person_middlename?.value
           ),
         });
       }

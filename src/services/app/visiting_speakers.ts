@@ -1,23 +1,25 @@
 import { store } from '@states/index';
 import { VisitingSpeakerType } from '@definition/visiting_speakers';
 import { buildPersonFullname } from '@utils/common';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 
 export const speakersSortByName = (speakers: VisitingSpeakerType[]) => {
-  const fullnameOption = store.get(fullnameOptionState);
+  const fullnameOption = store.get(formatNameInAppState);
 
   return speakers.toSorted((a, b) => {
     const fullnameA = buildPersonFullname(
-      a.speaker_data.person_lastname.value,
-      a.speaker_data.person_firstname.value,
-      fullnameOption
-    );
+            a.speaker_data.person_lastname.value,
+            a.speaker_data.person_firstname.value,
+            fullnameOption,
+            a.speaker_data.person_middlename?.value
+          );
 
     const fullnameB = buildPersonFullname(
-      b.speaker_data.person_lastname.value,
-      b.speaker_data.person_firstname.value,
-      fullnameOption
-    );
+            b.speaker_data.person_lastname.value,
+            b.speaker_data.person_firstname.value,
+            fullnameOption,
+            b.speaker_data.person_middlename?.value
+          );
 
     if (fullnameA === '') return 1;
     if (fullnameB === '') return -1;

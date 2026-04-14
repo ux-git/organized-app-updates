@@ -1,28 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import {
-  fullnameOptionState,
+  formatNameInAppState,
+  formatNamePrintState,
   settingsState,
   userDataViewState,
 } from '@states/settings';
 import { dbAppSettingsUpdate } from '@services/dexie/settings';
-import { FullnameOption } from '@definition/settings';
+import { FormatNameOption } from '@definition/settings';
 
 const useNameFormat = () => {
   const settings = useAtomValue(settingsState);
   const dataView = useAtomValue(userDataViewState);
-  const optionInitial = useAtomValue(fullnameOptionState);
+  const optionInAppInitial = useAtomValue(formatNameInAppState);
+  const optionPrintInitial = useAtomValue(formatNamePrintState);
 
-  const [fullnameOption, setFullnameOption] = useState(
-    FullnameOption.FIRST_BEFORE_LAST
-  );
+  const [formatInApp, setFormatInApp] = useState(optionInAppInitial);
+  const [formatPrint, setFormatPrint] = useState(optionPrintInitial);
 
-  const handleFullnameOptionChange = async (value: FullnameOption) => {
-    const fullnameOption = structuredClone(
-      settings.cong_settings.fullname_option
+  const handleFormatInAppChange = async (value: FormatNameOption) => {
+    setFormatInApp(value);
+
+    const formatNameInApp = structuredClone(
+      settings.cong_settings.format_name_in_app || []
     );
 
-    const current = fullnameOption.find((record) => record.type === dataView);
+    const current = formatNameInApp.find((record) => record.type === dataView);
 
     if (current) {
       current.value = value;
@@ -30,7 +33,7 @@ const useNameFormat = () => {
     }
 
     if (!current) {
-      fullnameOption.push({
+      formatNameInApp.push({
         _deleted: false,
         type: dataView,
         updatedAt: new Date().toISOString(),
@@ -39,18 +42,54 @@ const useNameFormat = () => {
     }
 
     await dbAppSettingsUpdate({
-      'cong_settings.fullname_option': fullnameOption,
+      'cong_settings.format_name_in_app': formatNameInApp,
     });
   };
 
+  const handleFormatPrintChange = async (value: FormatNameOption) => {
+    setFormatPrint(value);
+
+    const formatNamePrint = structuredClone(
+      settings.cong_settings.format_name_print || []
+    );
+
+    const current = formatNamePrint.find((record) => record.type === dataView);
+
+    if (current) {
+      current.value = value;
+      current.updatedAt = new Date().toISOString();
+    }
+
+    if (!current) {
+      formatNamePrint.push({
+        _deleted: false,
+        type: dataView,
+        updatedAt: new Date().toISOString(),
+        value,
+      });
+    }
+
+    await dbAppSettingsUpdate({
+      'cong_settings.format_name_print': formatNamePrint,
+    });
+  };
+
+  // Keep in sync if the atom changes externally (e.g. remote sync)
   useEffect(() => {
-    setFullnameOption(optionInitial);
-  }, [optionInitial]);
+    setFormatInApp(optionInAppInitial);
+  }, [optionInAppInitial]);
+
+  useEffect(() => {
+    setFormatPrint(optionPrintInitial);
+  }, [optionPrintInitial]);
 
   return {
-    fullnameOption,
-    handleFullnameOptionChange,
+    formatInApp,
+    formatPrint,
+    handleFormatInAppChange,
+    handleFormatPrintChange,
   };
 };
 
 export default useNameFormat;
+

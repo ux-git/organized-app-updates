@@ -4,21 +4,22 @@ import { buildPersonFullname } from '@utils/common';
 import {
   congNameState,
   congNumberState,
-  fullnameOptionState,
+  formatNameInAppState,
 } from '@states/settings';
 import { speakersCongregationsState } from '@states/speakers_congregations';
 
 const useSpeakerDetails = (speaker: VisitingSpeakerType) => {
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const congName = useAtomValue(congNameState);
   const congNumber = useAtomValue(congNumberState);
   const congregations = useAtomValue(speakersCongregationsState);
 
   const personName = buildPersonFullname(
-    speaker.speaker_data.person_lastname.value,
-    speaker.speaker_data.person_firstname.value,
-    fullnameOption
-  );
+            speaker.speaker_data.person_lastname.value,
+            speaker.speaker_data.person_firstname.value,
+            fullnameOption,
+            speaker.speaker_data.person_middlename?.value
+          );
 
   const congId = congregations.find(
     (record) => record.cong_data.cong_number.value === congNumber

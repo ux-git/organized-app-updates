@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { useAtomValue } from 'jotai';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { userIDState } from '@states/app';
 import { congregationUsersState } from '@states/congregation';
 
@@ -9,7 +9,7 @@ const useUserDetails = () => {
   const { id } = useParams();
 
   const users = useAtomValue(congregationUsersState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const userID = useAtomValue(userIDState);
 
   const user = useMemo(() => {

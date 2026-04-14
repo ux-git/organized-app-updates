@@ -6,7 +6,7 @@ import { PersonOptionsType, PersonSelectorType } from '../index.types';
 import { personsByViewState } from '@states/persons';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   JWLangLocaleState,
   JWLangState,
   midweekMeetingAssigFSGState,
@@ -45,7 +45,7 @@ const useStudentSelector = ({ type, assignment, week }: PersonSelectorType) => {
   const assignmentsHistory = useAtomValue(assignmentsHistoryState);
   const shortDateFormat = useAtomValue(shortDateFormatState);
   const displayNameEnabled = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const schedules = useAtomValue(schedulesState);
   const sources = useAtomValue(sourcesState);
   const dataView = useAtomValue(userDataViewState);

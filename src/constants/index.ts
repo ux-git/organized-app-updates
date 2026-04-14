@@ -28,7 +28,7 @@ import {
 } from 'date-fns/locale';
 import { AppRoleType, LanguageItem } from '@definition/app';
 import { AssignmentCode } from '@definition/assignment';
-import { FullnameOption } from '@definition/settings';
+import { FormatNameOption } from '@definition/settings';
 import { Week } from '@definition/week_type';
 
 export const LANGUAGE_LIST: LanguageItem[] = [
@@ -90,7 +90,7 @@ export const LANGUAGE_LIST: LanguageItem[] = [
     locale: 'mg-MG',
     name: 'Malagasy',
     source: true,
-    fullnameOption: FullnameOption.LAST_BEFORE_FIRST,
+    fullnameOption: FormatNameOption.LAST_FIRST,
     threeLettersCode: 'mlg',
     browserLangCode: ['mg-MG', 'mg'],
   },
@@ -143,7 +143,7 @@ export const LANGUAGE_LIST: LanguageItem[] = [
     locale: 'mg-TND',
     name: 'Tandroy',
     source: true,
-    fullnameOption: FullnameOption.LAST_BEFORE_FIRST,
+    fullnameOption: FormatNameOption.LAST_FIRST,
     threeLettersCode: 'tnd',
     browserLangCode: ['mg-MG', 'mg'],
   },
@@ -152,7 +152,7 @@ export const LANGUAGE_LIST: LanguageItem[] = [
     locale: 'mg-TNK',
     name: 'Tankarana',
     source: true,
-    fullnameOption: FullnameOption.LAST_BEFORE_FIRST,
+    fullnameOption: FormatNameOption.LAST_FIRST,
     threeLettersCode: 'tnk',
     browserLangCode: ['mg-MG', 'mg'],
   },
@@ -161,7 +161,7 @@ export const LANGUAGE_LIST: LanguageItem[] = [
     locale: 'mg-TTM',
     name: 'Tenin’ny Tanana Malagasy',
     source: true,
-    fullnameOption: FullnameOption.LAST_BEFORE_FIRST,
+    fullnameOption: FormatNameOption.LAST_FIRST,
     threeLettersCode: 'ttm',
     browserLangCode: ['mg-MG', 'mg'],
   },
@@ -187,7 +187,7 @@ export const LANGUAGE_LIST: LanguageItem[] = [
     locale: 'mg-VZ',
     name: 'Vezo',
     source: true,
-    fullnameOption: FullnameOption.LAST_BEFORE_FIRST,
+    fullnameOption: FormatNameOption.LAST_FIRST,
     threeLettersCode: 'vez',
     browserLangCode: ['mg-MG', 'mg'],
   },
@@ -216,7 +216,7 @@ export const LANGUAGE_LIST: LanguageItem[] = [
     name: '日本語',
     source: true,
     font: 'NotoSansJP',
-    fullnameOption: FullnameOption.LAST_BEFORE_FIRST,
+    fullnameOption: FormatNameOption.LAST_FIRST,
     threeLettersCode: 'jpn',
     browserLangCode: ['ja-JP', 'ja'],
     fnsLocale: ja,

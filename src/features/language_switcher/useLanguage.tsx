@@ -10,7 +10,7 @@ import {
 } from '@states/app';
 import { LANGUAGE_LIST } from '@constants/index';
 import { getTranslation } from '@services/i18n/translation';
-import { FullnameOption } from '@definition/settings';
+import { FormatNameOption } from '@definition/settings';
 import { dbAppSettingsUpdate } from '@services/dexie/settings';
 import { settingsState, userDataViewState } from '@states/settings';
 import i18n, { refreshLocalesResources } from '@services/i18n';
@@ -58,20 +58,41 @@ const useLanguage = () => {
       (record) => record.threeLettersCode === ui_lang
     );
 
-    const fullnameOption =
-      findLanguage?.fullnameOption || FullnameOption.FIRST_BEFORE_LAST;
+    const langDefaultFormat =
+      findLanguage?.fullnameOption || FormatNameOption.FIRST_LAST;
 
-    const nameOption = structuredClone(settings.cong_settings.fullname_option);
-    const current = nameOption.find((record) => record.type === dataView);
-
-    if (current) {
-      current.value = fullnameOption;
-      current.updatedAt = new Date().toISOString();
+    const formatNameInApp = structuredClone(
+      settings.cong_settings.format_name_in_app || []
+    );
+    const currentInApp = formatNameInApp.find(
+      (record) => record.type === dataView
+    );
+    if (currentInApp) {
+      currentInApp.value = langDefaultFormat;
+      currentInApp.updatedAt = new Date().toISOString();
     } else {
-      nameOption.push({
+      formatNameInApp.push({
         _deleted: false,
         type: dataView,
-        value: fullnameOption,
+        value: langDefaultFormat,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    const formatNamePrint = structuredClone(
+      settings.cong_settings.format_name_print || []
+    );
+    const currentPrint = formatNamePrint.find(
+      (record) => record.type === dataView
+    );
+    if (currentPrint) {
+      currentPrint.value = langDefaultFormat;
+      currentPrint.updatedAt = new Date().toISOString();
+    } else {
+      formatNamePrint.push({
+        _deleted: false,
+        type: dataView,
+        value: langDefaultFormat,
         updatedAt: new Date().toISOString(),
       });
     }
@@ -92,7 +113,8 @@ const useLanguage = () => {
     }
 
     await dbAppSettingsUpdate({
-      'cong_settings.fullname_option': nameOption,
+      'cong_settings.format_name_in_app': formatNameInApp,
+      'cong_settings.format_name_print': formatNamePrint,
       'cong_settings.source_material.language': sourceLanguage,
     });
 

@@ -1,6 +1,7 @@
 import { UpdateSpec } from 'dexie';
 import {
   FirstDayWeekOption,
+  FormatNameOption,
   PublishersSortOption,
   SettingsType,
 } from '@definition/settings';
@@ -341,4 +342,34 @@ export const dbAppSettingsUpdateCongNumber = async () => {
   await dbAppSettingsUpdate({
     'cong_settings.cong_number': cong_number,
   });
+};
+
+export const dbAppSettingsNameFormatMigration = async () => {
+  const settings = await appDb.app_settings.get(1);
+
+  const hasInApp = (settings.cong_settings.format_name_in_app?.length ?? 0) > 0;
+  const hasPrint = (settings.cong_settings.format_name_print?.length ?? 0) > 0;
+
+  if (hasInApp && hasPrint) {
+    return;
+  }
+
+  const newSettings = structuredClone(settings);
+
+  if (settings.cong_settings.fullname_option?.length > 0) {
+    // Migrate from legacy fullname_option — values 1 and 2 map directly to FIRST_LAST and LAST_FIRST
+    if (!hasInApp) {
+      newSettings.cong_settings.format_name_in_app = structuredClone(settings.cong_settings.fullname_option);
+    }
+    if (!hasPrint) {
+      newSettings.cong_settings.format_name_print = structuredClone(settings.cong_settings.fullname_option);
+    }
+  } else {
+    // Fresh install with no legacy data — set defaults
+    const defaultEntry = [{ type: 'main', value: FormatNameOption.FIRST_LAST, updatedAt: '', _deleted: false }];
+    if (!hasInApp) newSettings.cong_settings.format_name_in_app = defaultEntry;
+    if (!hasPrint) newSettings.cong_settings.format_name_print = structuredClone(defaultEntry);
+  }
+
+  await appDb.app_settings.put(newSettings, 1);
 };

@@ -9,7 +9,7 @@ import { buildPersonFullname } from '@utils/common';
 import { currentServiceYear } from '@utils/date';
 import {
   FirstDayWeekOption,
-  FullnameOption,
+  FormatNameOption,
   PublishersSortOption,
   SourceFrequency,
 } from '@definition/settings';
@@ -83,14 +83,25 @@ export const congRoleState = atom((get) => {
   return settings.user_settings.cong_role;
 });
 
-export const fullnameOptionState = atom((get) => {
+export const formatNameInAppState = atom((get) => {
   const settings = get(settingsState);
   const dataView = get(userDataViewState);
 
   return (
-    settings.cong_settings.fullname_option.find(
+    settings.cong_settings.format_name_in_app?.find(
       (record) => record.type === dataView
-    )?.value || FullnameOption.FIRST_BEFORE_LAST
+    )?.value || FormatNameOption.FIRST_LAST
+  );
+});
+
+export const formatNamePrintState = atom((get) => {
+  const settings = get(settingsState);
+  const dataView = get(userDataViewState);
+
+  return (
+    settings.cong_settings.format_name_print?.find(
+      (record) => record.type === dataView
+    )?.value || FormatNameOption.FIRST_LAST
   );
 });
 
@@ -137,9 +148,9 @@ export const CODisplayNameState = atom((get) => {
 export const COFullnameState = atom((get) => {
   const firstname = get(COFirstnameState);
   const lastname = get(COLastnameState);
-  const fullnameOption = get(fullnameOptionState);
+  const formatNameInApp = get(formatNameInAppState);
 
-  const fullname = buildPersonFullname(lastname, firstname, fullnameOption);
+  const fullname = buildPersonFullname(lastname, firstname, formatNameInApp);
 
   return fullname;
 });
@@ -541,9 +552,9 @@ export const firstDayWeekState = atom((get) => {
 export const fullnameState = atom((get) => {
   const firstname = get(firstnameState);
   const lastname = get(lastnameState);
-  const fullnameOption = get(fullnameOptionState);
+  const formatNameInApp = get(formatNameInAppState);
 
-  const fullname = buildPersonFullname(lastname, firstname, fullnameOption);
+  const fullname = buildPersonFullname(lastname, firstname, formatNameInApp);
 
   return fullname;
 });

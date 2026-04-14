@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { Navigate, useParams } from 'react-router';
 import { applicationsState, personsState } from '@states/persons';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
 
 const useApplicationDetails = () => {
@@ -10,7 +10,7 @@ const useApplicationDetails = () => {
 
   const applications = useAtomValue(applicationsState);
   const persons = useAtomValue(personsState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
 
   const application = useMemo(() => {
     return applications.find((record) => record.request_id === id);
@@ -26,10 +26,11 @@ const useApplicationDetails = () => {
     if (!person) return '';
 
     return buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
   }, [application, persons, fullnameOption]);
 
   if (!application) return <Navigate to="/pioneer-applications" />;

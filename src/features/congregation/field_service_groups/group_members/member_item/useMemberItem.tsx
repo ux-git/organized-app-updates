@@ -3,11 +3,11 @@ import { useAtomValue } from 'jotai';
 import { personsState } from '@states/persons';
 import { MemberItemProps } from './index.types';
 import { buildPersonFullname } from '@utils/common';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 
 const useMemberItem = ({ member, onDelete }: MemberItemProps) => {
   const persons = useAtomValue(personsState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
 
   const name = useMemo(() => {
     if (!member) return '';
@@ -15,10 +15,11 @@ const useMemberItem = ({ member, onDelete }: MemberItemProps) => {
     const person = persons.find((record) => record.person_uid === member);
 
     return buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
   }, [member, persons, fullnameOption]);
 
   const handleRemove = () => {

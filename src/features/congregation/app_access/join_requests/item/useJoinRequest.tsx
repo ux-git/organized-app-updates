@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useAppTranslation } from '@hooks/index';
 import { JoinRequestProps } from './index.types';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
@@ -24,7 +24,7 @@ const useJoinRequest = ({ request }: JoinRequestProps) => {
   const setRequests = useSetAtom(joinRequestsState);
   const setUsers = useSetAtom(congregationUsersState);
 
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const persons = useAtomValue(personsState);
 
   const [isProcessingDecline, setIsProcessingDecline] = useState(false);

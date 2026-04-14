@@ -8,7 +8,7 @@ import {
   CODisplayNameState,
   COFullnameState,
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   settingsState,
   userLocalUIDState,
 } from '@states/settings';
@@ -26,7 +26,7 @@ const usePersonComponent = ({
   const schedules = useAtomValue(schedulesState);
   const persons = useAtomValue(personsState);
   const displayNameEnabled = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const userUID = useAtomValue(userLocalUIDState);
   const coDisplayName = useAtomValue(CODisplayNameState);
   const coFullname = useAtomValue(COFullnameState);

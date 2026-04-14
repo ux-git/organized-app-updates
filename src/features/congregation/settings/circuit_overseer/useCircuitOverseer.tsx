@@ -2,26 +2,30 @@ import { useEffect, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   settingsState,
 } from '@states/settings';
 import { dbAppSettingsUpdate } from '@services/dexie/settings';
-import { generateDisplayName } from '@utils/common';
+import { generateDisplayName, isMiddleNameVisible } from '@utils/common';
 
 const useCircuitOverseer = () => {
-  type FieldKey = 'firstname' | 'lastname' | 'displayname';
+  type FieldKey = 'firstname' | 'middlename' | 'lastname' | 'displayname';
 
   const saveTimers = useRef<Partial<Record<FieldKey, ReturnType<typeof setTimeout>>>>({});
 
   const settings = useAtomValue(settingsState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const displayNameEnabled = useAtomValue(displayNameMeetingsEnableState);
 
+  const middleNameVisible = isMiddleNameVisible(fullnameOption);
+
   const [firstname, setFirstname] = useState('');
+  const [middlename, setMiddlename] = useState('');
   const [lastname, setLastname] = useState('');
   const [displayname, setDisplayname] = useState('');
   const [editing, setEditing] = useState<Record<FieldKey, boolean>>({
     firstname: false,
+    middlename: false,
     lastname: false,
     displayname: false,
   });
@@ -64,7 +68,15 @@ const useCircuitOverseer = () => {
     markEditing(['firstname', 'displayname']);
     setFirstname(value);
 
-    const dispName = generateDisplayName(lastname, value);
+    const dispName = generateDisplayName(lastname, value, middlename);
+    setDisplayname(dispName);
+  };
+
+  const handleMiddlenameChange = (value: string) => {
+    markEditing(['middlename', 'displayname']);
+    setMiddlename(value);
+
+    const dispName = generateDisplayName(lastname, firstname, value);
     setDisplayname(dispName);
   };
 
@@ -72,7 +84,7 @@ const useCircuitOverseer = () => {
     markEditing(['lastname', 'displayname']);
     setLastname(value);
 
-    const dispName = generateDisplayName(value, firstname);
+    const dispName = generateDisplayName(value, firstname, middlename);
     setDisplayname(dispName);
   };
 
@@ -83,6 +95,10 @@ const useCircuitOverseer = () => {
 
   const handleFirstnameSave = () => {
     scheduleSave('firstname', handleFirstnameSaveDb, ['firstname', 'displayname']);
+  };
+
+  const handleMiddlenameSave = () => {
+    scheduleSave('middlename', handleMiddlenameSaveDb, ['middlename', 'displayname']);
   };
 
   const handleLastnameSave = () => {
@@ -109,6 +125,26 @@ const useCircuitOverseer = () => {
 
     await dbAppSettingsUpdate({
       'cong_settings.circuit_overseer.firstname': firstnameField,
+      'cong_settings.circuit_overseer.display_name': displayNameField,
+    });
+  };
+
+  const handleMiddlenameSaveDb = async () => {
+    const middlenameField = structuredClone(
+      settings.cong_settings.circuit_overseer.middlename || { value: '', updatedAt: '' }
+    );
+    const displayNameField = structuredClone(
+      settings.cong_settings.circuit_overseer.display_name
+    );
+
+    middlenameField.value = middlename;
+    middlenameField.updatedAt = new Date().toISOString();
+
+    displayNameField.value = displayname;
+    displayNameField.updatedAt = new Date().toISOString();
+
+    await dbAppSettingsUpdate({
+      'cong_settings.circuit_overseer.middlename': middlenameField,
       'cong_settings.circuit_overseer.display_name': displayNameField,
     });
   };
@@ -150,6 +186,7 @@ const useCircuitOverseer = () => {
     const co = settings.cong_settings.circuit_overseer;
 
     setFirstname((prev) => (editing.firstname ? prev : co.firstname.value));
+    setMiddlename((prev) => (editing.middlename ? prev : co.middlename?.value || ''));
     setLastname((prev) => (editing.lastname ? prev : co.lastname.value));
     setDisplayname((prev) => (editing.displayname ? prev : co.display_name.value));
   }, [settings, editing]);
@@ -173,12 +210,16 @@ const useCircuitOverseer = () => {
     firstname,
     handleFirstnameChange,
     handleFirstnameSave,
+    middlename,
+    handleMiddlenameChange,
+    handleMiddlenameSave,
     lastname,
     handleLastnameChange,
     handleLastnameSave,
     displayname,
     handleDisplaynameChange,
     handleDisplaynameSave,
+    middleNameVisible,
   };
 };
 

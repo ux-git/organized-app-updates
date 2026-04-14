@@ -38,6 +38,7 @@ import {
   dbAppSettingsUpdateCongNumber,
   dbAppSettingsUpdateWithoutNotice,
   dbConvertAutoAssignPrayers,
+  dbAppSettingsNameFormatMigration,
 } from '@services/dexie/settings';
 import { dbRemoveDuplicateReports } from '@services/dexie/cong_field_service_reports';
 import { LanguageItem } from '@definition/app';
@@ -95,6 +96,7 @@ export const runUpdater = async () => {
   await dbUpcomingEventsCleanup();
   await dbAppSettingsUpdateCongNumber();
   await dbSpeakersCongregationsSetName();
+  await dbAppSettingsNameFormatMigration();
 };
 
 export const userLogoutSuccess = async () => {
@@ -327,6 +329,8 @@ const handleUpdateSettings = async (data: UserLoginResponseType) => {
     'user_settings.cong_role': app_settings.user_settings.cong_role,
     'cong_settings.cong_location': app_settings.cong_settings.cong_location,
     'cong_settings.cong_circuit': app_settings.cong_settings.cong_circuit,
+    'cong_settings.format_name_in_app': app_settings.cong_settings.format_name_in_app,
+    'cong_settings.format_name_print': app_settings.cong_settings.format_name_print,
     'cong_settings.midweek_meeting': midweekMeeting,
     'cong_settings.weekend_meeting': weekendMeeting,
   });

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { personsActiveState } from '@states/persons';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { GroupMembersProps, MemberType, UsersOption } from './index.types';
 import { fieldWithLanguageGroupsState } from '@states/field_service_groups';
 import { FieldServiceGroupMemberType } from '@definition/field_service_groups';
@@ -9,7 +9,7 @@ import { buildPersonFullname } from '@utils/common';
 
 const useGroupMembers = ({ group, onChange }: GroupMembersProps) => {
   const persons = useAtomValue(personsActiveState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const groups_data = useAtomValue(fieldWithLanguageGroupsState);
 
   const [members, setMembers] = useState<MemberType[]>([]);
@@ -64,10 +64,11 @@ const useGroupMembers = ({ group, onChange }: GroupMembersProps) => {
       return {
         person_uid: person.person_uid,
         person_name: buildPersonFullname(
-          person.person_data.person_lastname.value,
-          person.person_data.person_firstname.value,
-          fullnameOption
-        ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          ),
       };
     });
   }, [

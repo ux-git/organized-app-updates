@@ -6,7 +6,7 @@ import { personsState } from '@states/persons';
 import { personGetDisplayName } from '@utils/common';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   shortDateFormatState,
   userDataViewState,
 } from '@states/settings';
@@ -20,7 +20,7 @@ const useHistoryRow = ({ assignment, isDialog }: HistoryRowType) => {
 
   const persons = useAtomValue(personsState);
   const displayNameEnabled = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const shortDateFormat = useAtomValue(shortDateFormatState);
   const dataView = useAtomValue(userDataViewState);
 

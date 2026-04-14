@@ -16,7 +16,7 @@ import {
   adminRoleState,
   congRoleState,
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   userDataViewState,
   weekendMeetingWTStudyConductorDefaultState,
 } from './settings';
@@ -66,7 +66,7 @@ export const defaultWTStudyConductorNameState = atom((get) => {
   const value = get(weekendMeetingWTStudyConductorDefaultState);
   const useDisplayName = get(displayNameMeetingsEnableState);
   const persons = get(personsState);
-  const fullnameOption = get(fullnameOptionState);
+  const fullnameOption = get(formatNameInAppState);
 
   if (value.length === 0) return '';
 
@@ -82,10 +82,11 @@ export const defaultWTStudyConductorNameState = atom((get) => {
 
   if (!useDisplayName) {
     result = buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
   }
 
   return result;

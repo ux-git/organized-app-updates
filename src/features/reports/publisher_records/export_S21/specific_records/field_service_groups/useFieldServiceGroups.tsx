@@ -3,20 +3,19 @@ import { useAtomValue } from 'jotai';
 import { TreeViewBaseItem } from '@mui/x-tree-view';
 import { currentReportMonth } from '@utils/date';
 import { useAppTranslation } from '@hooks/index';
-import { fullnameOptionState } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
 import { fieldWithLanguageGroupsState } from '@states/field_service_groups';
 import { FieldServiceGroupType } from '@definition/field_service_groups';
 import { personsState } from '@states/persons';
 import { FieldServiceGroupsProps } from './index.types';
 import usePersons from '@features/persons/hooks/usePersons';
+import { FormatNameOption } from '@definition/settings';
 
 const useFieldServiceGroups = ({ onExport }: FieldServiceGroupsProps) => {
   const { t } = useAppTranslation();
 
   const { getPublishersActive } = usePersons();
 
-  const fullnameOption = useAtomValue(fullnameOptionState);
   const fieldGroups = useAtomValue(fieldWithLanguageGroupsState);
   const persons = useAtomValue(personsState);
 
@@ -77,7 +76,8 @@ const useFieldServiceGroups = ({ onExport }: FieldServiceGroupsProps) => {
               label: buildPersonFullname(
                 person.person_data.person_lastname.value,
                 person.person_data.person_firstname.value,
-                fullnameOption
+                FormatNameOption.FULL_NAME,
+                person.person_data.person_middlename?.value
               ),
             };
           })
@@ -89,7 +89,7 @@ const useFieldServiceGroups = ({ onExport }: FieldServiceGroupsProps) => {
     });
 
     return result;
-  }, [t, fullnameOption, persons, active_publishers, search]);
+  }, [t, persons, active_publishers, search]);
 
   const btnLabel = useMemo(() => {
     let label = t('tr_export');

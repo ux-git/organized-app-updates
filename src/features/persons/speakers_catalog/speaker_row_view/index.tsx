@@ -74,10 +74,11 @@ const SpeakerRowView = ({ speaker }: SpeakerReadOnlyViewType) => {
               }}
             >
               {buildPersonFullname(
-                speaker.speaker_data.person_lastname.value,
-                speaker.speaker_data.person_firstname.value,
-                fullnameOption
-              )}
+            speaker.speaker_data.person_lastname.value,
+            speaker.speaker_data.person_firstname.value,
+            fullnameOption,
+            speaker.speaker_data.person_middlename?.value
+          )}
             </Typography>
             {speaker.speaker_data.person_notes.value.length > 0 && (
               <Typography className="label-small-regular">

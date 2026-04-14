@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   settingsState,
   userDataViewState,
   weekendMeetingWTStudyConductorDefaultState,
@@ -18,7 +18,7 @@ const useStudyConductor = () => {
   const dataView = useAtomValue(userDataViewState);
   const persons = useAtomValue(personsByViewState);
   const useDisplayName = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const substituteInitial = useAtomValue(
     weekendMeetingWTSubstituteDisplayedState
   );

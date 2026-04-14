@@ -10,14 +10,14 @@ import {
 import { publicTalksLocaleState } from '@states/public_talks';
 import { PublicTalkLocaleType } from '@definition/public_talks';
 import { myCongSpeakersState } from '@states/visiting_speakers';
-import { fullnameOptionState, userDataViewState } from '@states/settings';
+import { formatNameInAppState, userDataViewState } from '@states/settings';
 import { SongType } from '@definition/songs';
 
 const useEdit = ({ speaker, outgoing }: SpeakerEditViewType) => {
   const activePersons = useAtomValue(personsByViewState);
   const publicTalks = useAtomValue(publicTalksLocaleState);
   const outgoingSpeakers = useAtomValue(myCongSpeakersState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const dataView = useAtomValue(userDataViewState);
 
   const [openSongAdd, setOpenSongAdd] = useState(false);

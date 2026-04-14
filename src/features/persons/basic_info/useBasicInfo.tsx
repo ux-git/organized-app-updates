@@ -8,10 +8,11 @@ import { buildPersonFullname, generateDisplayName } from '@utils/common';
 import { appLangState } from '@states/app';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
 } from '@states/settings';
 import { UsersOption } from '../../congregation/field_service_groups/group_members/index.types';
 import useFamilyMembers from '../family_members/useFamilyMembers';
+import { isMiddleNameVisible } from '@utils/common';
 
 const useBasicInfo = () => {
   const person = useAtomValue(personCurrentDetailsState);
@@ -26,7 +27,10 @@ const useBasicInfo = () => {
     'row' | 'row-reverse' | 'column' | 'column-reverse'
   >('row');
   const personsActive = useAtomValue(personsActiveState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
+
+  const middleNameVisible = isMiddleNameVisible(fullnameOption);
+
   const { isFamilyHead, familyHeadName, isCurrentPersonMemberOfAFamily } =
     useFamilyMembers();
 
@@ -39,7 +43,8 @@ const useBasicInfo = () => {
           person_name: buildPersonFullname(
             p.person_data.person_lastname.value,
             p.person_data.person_firstname.value,
-            fullnameOption
+            fullnameOption,
+            p.person_data.person_middlename?.value
           ),
         };
       });
@@ -57,6 +62,32 @@ const useBasicInfo = () => {
     if (!displayNameCurrent) {
       const dispName = generateDisplayName(
         newPerson.person_data.person_lastname.value,
+        value,
+        newPerson.person_data.person_middlename?.value
+      );
+
+      newPerson.person_data.person_display_name.value = dispName;
+      newPerson.person_data.person_display_name.updatedAt =
+        new Date().toISOString();
+    }
+
+    setPersonCurrentDetails(newPerson);
+  };
+
+  const handleChangeMiddlename = async (value: string) => {
+    const newPerson = structuredClone(person);
+
+    newPerson.person_data.person_middlename = newPerson.person_data.person_middlename || { value: '', updatedAt: '' };
+    newPerson.person_data.person_middlename.value = value;
+    newPerson.person_data.person_middlename.updatedAt = new Date().toISOString();
+
+    const displayNameCurrent =
+      newPerson.person_data.person_display_name.value.trim();
+
+    if (!displayNameCurrent) {
+      const dispName = generateDisplayName(
+        newPerson.person_data.person_lastname.value,
+        newPerson.person_data.person_firstname.value,
         value
       );
 
@@ -80,7 +111,8 @@ const useBasicInfo = () => {
     if (!displayNameCurrent) {
       const dispName = generateDisplayName(
         value,
-        newPerson.person_data.person_firstname.value
+        newPerson.person_data.person_firstname.value,
+        newPerson.person_data.person_middlename?.value
       );
 
       newPerson.person_data.person_display_name.value = dispName;
@@ -229,6 +261,7 @@ const useBasicInfo = () => {
     age,
     handleToggleGender,
     handleChangeFirstname,
+    handleChangeMiddlename,
     handleChangeLastname,
     handleChangeDisplayName,
     handleChangeEmailAddress,
@@ -242,6 +275,7 @@ const useBasicInfo = () => {
     isCurrentPersonMemberOfAFamily,
     familyHeadName,
     isFamilyHead,
+    middleNameVisible,
   };
 };
 

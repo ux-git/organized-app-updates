@@ -13,7 +13,7 @@ import {
 import { personIsAway, personIsElder } from '@services/app/persons';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
   JWLangLocaleState,
   JWLangState,
   midweekMeetingAuxCounselorDefaultEnabledState,
@@ -71,7 +71,7 @@ const useBrotherSelector = ({ type, week, assignment }: PersonSelectorType) => {
   const assignmentsHistory = useAtomValue(assignmentsHistoryState);
   const shortDateFormat = useAtomValue(shortDateFormatState);
   const displayNameEnabled = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const schedules = useAtomValue(schedulesState);
   const defaultWTConductor = useAtomValue(
     weekendMeetingWTStudyConductorDefaultState

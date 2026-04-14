@@ -9,7 +9,7 @@ import { publicTalksLocaleState } from '@states/public_talks';
 import { VisitingSpeakerType } from '@definition/visiting_speakers';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
 } from '@states/settings';
 import { speakerGetDisplayName } from '@utils/common';
 import { personsState } from '@states/persons';
@@ -37,7 +37,7 @@ const useSpeakersCatalog = ({
   const localSpeakers = useAtomValue(myCongSpeakersState);
   const talksData = useAtomValue(publicTalksLocaleState);
   const useDisplayName = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const persons = useAtomValue(personsState);
   const schedules = useAtomValue(schedulesState);
 

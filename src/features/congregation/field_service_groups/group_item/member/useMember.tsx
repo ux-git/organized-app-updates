@@ -4,7 +4,7 @@ import { IconAssistant, IconOverseer, IconPerson } from '@components/icons';
 import { useAppTranslation, useCurrentUser } from '@hooks/index';
 import { buildPersonFullname } from '@utils/common';
 import { personsState } from '@states/persons';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { fieldGroupsState } from '@states/field_service_groups';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
@@ -20,7 +20,7 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
   const { personIsElder, personIsMS, personIsBaptizedPublisher } = usePerson();
 
   const persons = useAtomValue(personsState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const groups = useAtomValue(fieldGroupsState);
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -68,10 +68,11 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
     if (!person) return '';
 
     return buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
   }, [person, fullnameOption]);
 
   const member_desc = useMemo(() => {

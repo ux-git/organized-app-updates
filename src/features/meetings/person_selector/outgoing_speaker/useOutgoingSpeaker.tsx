@@ -5,7 +5,7 @@ import { PersonOptionsType, PersonSelectorType } from '../index.types';
 import { personsByViewState } from '@states/persons';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
 } from '@states/settings';
 import {
   outgoingSongSelectorOpenState,
@@ -27,7 +27,7 @@ const useOutgoingSpeaker = ({
 
   const persons = useAtomValue(personsByViewState);
   const displayNameEnabled = useAtomValue(displayNameMeetingsEnableState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const schedules = useAtomValue(schedulesState);
   const outgoingSpeakers = useAtomValue(outgoingSpeakersState);
 

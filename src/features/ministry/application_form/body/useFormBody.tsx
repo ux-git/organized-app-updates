@@ -4,7 +4,7 @@ import { useAtomValue } from 'jotai';
 import { useAppTranslation, useCurrentUser } from '@hooks/index';
 import { monthNamesState } from '@states/app';
 import {
-  fullnameOptionState,
+  formatNameInAppState,
   JWLangState,
   settingsState,
 } from '@states/settings';
@@ -28,7 +28,7 @@ const useFormBody = ({ application, onChange }: ApplicationFormProps) => {
   const lang = useAtomValue(JWLangState);
   const settings = useAtomValue(settingsState);
   const persons = useAtomValue(personsState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const months = useAtomValue(monthNamesState);
 
   const isPublisherAP = useMemo(() => {
@@ -59,10 +59,11 @@ const useFormBody = ({ application, onChange }: ApplicationFormProps) => {
     if (!person) return '';
 
     return buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
   }, [settings, persons, fullnameOption]);
 
   const secretary = useMemo(() => {
@@ -72,10 +73,11 @@ const useFormBody = ({ application, onChange }: ApplicationFormProps) => {
     if (!person) return '';
 
     return buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
   }, [settings, persons, fullnameOption]);
 
   const service_overseer = useMemo(() => {
@@ -85,10 +87,11 @@ const useFormBody = ({ application, onChange }: ApplicationFormProps) => {
     if (!person) return '';
 
     return buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
   }, [settings, persons, fullnameOption]);
 
   const monthOptions = useMemo(() => {

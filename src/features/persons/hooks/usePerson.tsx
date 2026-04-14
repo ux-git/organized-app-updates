@@ -2,21 +2,22 @@ import { useAtomValue } from 'jotai';
 import { EnrollmentType, PersonType, PrivilegeType } from '@definition/person';
 import { useAppTranslation } from '@hooks/index';
 import { BadgeColor } from '@definition/app';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
 import { formatDate } from '@utils/date';
 
 const usePerson = () => {
   const { t } = useAppTranslation();
 
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
 
   const getName = (person: PersonType) => {
     return buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
   };
 
   const personIsMidweekStudent = (person: PersonType) => {

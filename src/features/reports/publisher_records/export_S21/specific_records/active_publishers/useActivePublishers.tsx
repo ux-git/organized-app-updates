@@ -1,19 +1,16 @@
 import { useMemo, useState } from 'react';
-import { useAtomValue } from 'jotai';
 import { TreeViewBaseItem } from '@mui/x-tree-view';
 import { currentReportMonth } from '@utils/date';
 import { useAppTranslation } from '@hooks/index';
-import { fullnameOptionState } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
 import { ActivePublishersProps } from './index.types';
 import usePersons from '@features/persons/hooks/usePersons';
+import { FormatNameOption } from '@definition/settings';
 
 const useActivePublishers = ({ onExport }: ActivePublishersProps) => {
   const { t } = useAppTranslation();
 
   const { getFTSMonths, getAPMonths, getPublisherMonths } = usePersons();
-
-  const fullnameOption = useAtomValue(fullnameOptionState);
 
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState('');
@@ -47,10 +44,11 @@ const useActivePublishers = ({ onExport }: ActivePublishersProps) => {
             return {
               id: person.person_uid,
               label: buildPersonFullname(
-                person.person_data.person_lastname.value,
-                person.person_data.person_firstname.value,
-                fullnameOption
-              ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            FormatNameOption.FULL_NAME,
+            person.person_data.person_middlename?.value
+          ),
             };
           })
           .filter((record) =>
@@ -67,10 +65,11 @@ const useActivePublishers = ({ onExport }: ActivePublishersProps) => {
           return {
             id: person.person_uid,
             label: buildPersonFullname(
-              person.person_data.person_lastname.value,
-              person.person_data.person_firstname.value,
-              fullnameOption
-            ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            FormatNameOption.FULL_NAME,
+            person.person_data.person_middlename?.value
+          ),
           };
         }),
       });
@@ -84,17 +83,18 @@ const useActivePublishers = ({ onExport }: ActivePublishersProps) => {
           return {
             id: person.person_uid,
             label: buildPersonFullname(
-              person.person_data.person_lastname.value,
-              person.person_data.person_firstname.value,
-              fullnameOption
-            ),
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            FormatNameOption.FULL_NAME,
+            person.person_data.person_middlename?.value
+          ),
           };
         }),
       });
     }
 
     return result;
-  }, [person_FTS, person_AP, t, fullnameOption, person_publishers, search]);
+  }, [person_FTS, person_AP, t, person_publishers, search]);
 
   const btnLabel = useMemo(() => {
     let label = t('tr_export');

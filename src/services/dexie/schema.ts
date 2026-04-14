@@ -7,7 +7,7 @@ import { MeetingAttendanceType } from '@definition/meeting_attendance';
 import { PersonType } from '@definition/person';
 import { SchedWeekType } from '@definition/schedules';
 import {
-  FullnameOption,
+  FormatNameOption,
   PublishersSortOption,
   SettingsType,
   SourceFrequency,
@@ -194,6 +194,7 @@ export const personSchema: PersonType = {
   person_uid: '',
   person_data: {
     person_firstname: { value: '', updatedAt: '' },
+    person_middlename: { value: '', updatedAt: '' },
     person_lastname: { value: '', updatedAt: '' },
     person_display_name: { value: '', updatedAt: '' },
     male: { value: true, updatedAt: '' },
@@ -261,10 +262,18 @@ export const settingSchema: SettingsType = {
     schedule_exact_date_enabled: [
       { type: 'main', value: false, updatedAt: '', _deleted: false },
     ],
-    fullname_option: [
+    format_name_in_app: [
       {
         type: 'main',
-        value: FullnameOption.FIRST_BEFORE_LAST,
+        value: FormatNameOption.FIRST_LAST,
+        updatedAt: '',
+        _deleted: false,
+      },
+    ],
+    format_name_print: [
+      {
+        type: 'main',
+        value: FormatNameOption.FIRST_LAST,
         updatedAt: '',
         _deleted: false,
       },
@@ -293,6 +302,7 @@ export const settingSchema: SettingsType = {
     },
     circuit_overseer: {
       firstname: { value: '', updatedAt: '' },
+      middlename: { value: '', updatedAt: '' },
       lastname: { value: '', updatedAt: '' },
       display_name: { value: '', updatedAt: '' },
       visits: [],
@@ -355,6 +365,7 @@ export const settingSchema: SettingsType = {
     },
     hour_credits_enabled: { value: false, updatedAt: '' },
     firstname: { value: '', updatedAt: '' },
+    middlename: { value: '', updatedAt: '' },
     lastname: { value: '', updatedAt: '' },
     theme_follow_os_enabled: { value: false, updatedAt: '' },
     user_avatar: undefined,
@@ -388,6 +399,7 @@ export const vistingSpeakerSchema: VisitingSpeakerType = {
     cong_id: '',
     person_display_name: { value: '', updatedAt: '' },
     person_firstname: { value: '', updatedAt: '' },
+    person_middlename: { value: '', updatedAt: '' },
     person_lastname: { value: '', updatedAt: '' },
     person_notes: { value: '', updatedAt: '' },
     elder: { value: false, updatedAt: '' },

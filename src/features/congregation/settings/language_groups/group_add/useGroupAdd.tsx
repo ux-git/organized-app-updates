@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { useAppTranslation } from '@hooks/index';
-import { FirstDayWeekOption, FullnameOption } from '@definition/settings';
+import { FirstDayWeekOption, FormatNameOption } from '@definition/settings';
 import { circuitNumberState, settingsState } from '@states/settings';
 import { displaySnackNotification } from '@services/states/app';
 import { dbAppSettingsUpdate } from '@services/dexie/settings';
@@ -114,13 +114,24 @@ const useGroupAdd = ({ onClose }: GroupAddProps) => {
         others: false,
       });
 
-      const fullnameOption = appSettings.cong_settings.fullname_option;
+      const formatNameInApp =
+        appSettings.cong_settings.format_name_in_app || [];
 
-      fullnameOption.push({
+      formatNameInApp.push({
         _deleted: false,
         type: group.group_id,
         updatedAt: new Date().toISOString(),
-        value: FullnameOption.FIRST_BEFORE_LAST,
+        value: FormatNameOption.FIRST_LAST,
+      });
+
+      const formatNamePrint =
+        appSettings.cong_settings.format_name_print || [];
+
+      formatNamePrint.push({
+        _deleted: false,
+        type: group.group_id,
+        updatedAt: new Date().toISOString(),
+        value: FormatNameOption.FIRST_LAST,
       });
 
       const shortDateFormat = appSettings.cong_settings.short_date_format;
@@ -190,7 +201,8 @@ const useGroupAdd = ({ onClose }: GroupAddProps) => {
         'cong_settings.source_material.language': sourceLanguages,
         'cong_settings.cong_circuit': congCircuit,
         'cong_settings.display_name_enabled': displayName,
-        'cong_settings.fullname_option': fullnameOption,
+        'cong_settings.format_name_in_app': formatNameInApp,
+        'cong_settings.format_name_print': formatNamePrint,
         'cong_settings.short_date_format': shortDateFormat,
         'cong_settings.format_24h_enabled': format24h,
         'cong_settings.attendance_online_record': onlineRecord,

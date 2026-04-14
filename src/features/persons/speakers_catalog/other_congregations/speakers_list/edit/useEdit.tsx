@@ -2,25 +2,30 @@ import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import {
   displayNameMeetingsEnableState,
-  fullnameOptionState,
+  formatNameInAppState,
 } from '@states/settings';
 import { VisitingSpeakerType } from '@definition/visiting_speakers';
 import {
   dbVisitingSpeakersDelete,
   dbVisitingSpeakersUpdate,
 } from '@services/dexie/visiting_speakers';
-import { generateDisplayName } from '@utils/common';
+import { generateDisplayName, isMiddleNameVisible } from '@utils/common';
 import { publicTalksLocaleState } from '@states/public_talks';
 import { PublicTalkType } from '@definition/public_talks';
 import { SongType } from '@definition/songs';
 
 const useEdit = (speaker: VisitingSpeakerType) => {
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const displayNameEnabled = useAtomValue(displayNameMeetingsEnableState);
   const publicTalks = useAtomValue(publicTalksLocaleState);
 
+  const middleNameVisible = isMiddleNameVisible(fullnameOption);
+
   const [firstname, setFirstname] = useState(
     speaker.speaker_data.person_firstname.value
+  );
+  const [middlename, setMiddlename] = useState(
+    speaker.speaker_data.person_middlename?.value || ''
   );
   const [lastname, setLastname] = useState(
     speaker.speaker_data.person_lastname.value
@@ -71,6 +76,43 @@ const useEdit = (speaker: VisitingSpeakerType) => {
     if (!displayNameCurrent && displayNameEnabled) {
       const dispName = generateDisplayName(
         speaker.speaker_data.person_lastname.value,
+        value,
+        speaker.speaker_data.person_middlename?.value
+      );
+
+      setDisplayName(dispName);
+
+      await dbVisitingSpeakersUpdate(
+        {
+          'speaker_data.person_display_name': {
+            value: dispName,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+        speaker.person_uid
+      );
+    }
+  };
+
+  const handleMiddlenameChange = async (value: string) => {
+    setMiddlename(value);
+
+    await dbVisitingSpeakersUpdate(
+      {
+        'speaker_data.person_middlename': {
+          value: value,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      speaker.person_uid
+    );
+
+    const displayNameCurrent = displayName.trim();
+
+    if (!displayNameCurrent && displayNameEnabled) {
+      const dispName = generateDisplayName(
+        speaker.speaker_data.person_lastname.value,
+        speaker.speaker_data.person_firstname.value,
         value
       );
 
@@ -106,7 +148,8 @@ const useEdit = (speaker: VisitingSpeakerType) => {
     if (!displayNameCurrent && displayNameEnabled) {
       const dispName = generateDisplayName(
         value,
-        speaker.speaker_data.person_firstname.value
+        speaker.speaker_data.person_firstname.value,
+        speaker.speaker_data.person_middlename?.value
       );
 
       setDisplayName(dispName);
@@ -312,6 +355,8 @@ const useEdit = (speaker: VisitingSpeakerType) => {
     displayNameEnabled,
     handleFirstnameChange,
     firstname,
+    handleMiddlenameChange,
+    middlename,
     handleLastnameChange,
     lastname,
     handleToggleGender,
@@ -338,6 +383,7 @@ const useEdit = (speaker: VisitingSpeakerType) => {
     handleSongsTalkUpdate,
     handleSongsTalkDelete,
     handleDeleteSpeaker,
+    middleNameVisible,
   };
 };
 

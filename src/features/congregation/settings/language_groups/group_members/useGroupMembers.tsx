@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAtomValue } from 'jotai';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 import { personsActiveState } from '@states/persons';
 import { buildPersonFullname } from '@utils/common';
 import { LanguageGroupMembersProps, PersonOption } from './index.types';
@@ -13,7 +13,7 @@ const useLanguageGroupMembers = ({
 }: LanguageGroupMembersProps) => {
   const { personIsElder, personIsMS } = usePerson();
 
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const persons = useAtomValue(personsActiveState);
   const groups = useAtomValue(fieldGroupsState);
 
@@ -50,7 +50,8 @@ const useLanguageGroupMembers = ({
           person_name: buildPersonFullname(
             record.person_data.person_lastname.value,
             record.person_data.person_firstname.value,
-            fullnameOption
+            fullnameOption,
+            record.person_data.person_middlename?.value
           ),
         };
       });

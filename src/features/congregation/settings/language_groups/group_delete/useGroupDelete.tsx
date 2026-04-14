@@ -87,17 +87,26 @@ const useGroupDelete = ({ group }: GroupDeleteProps) => {
         findDisplayName.updatedAt = new Date().toISOString();
       }
 
-      const fullnameOption = structuredClone(
-        settings.cong_settings.fullname_option
+      const formatNameInApp = structuredClone(
+        settings.cong_settings.format_name_in_app || []
       );
-
-      const findOption = fullnameOption.find(
+      const findInApp = formatNameInApp.find(
         (record) => record.type === group.group_id
       );
+      if (findInApp) {
+        findInApp._deleted = true;
+        findInApp.updatedAt = new Date().toISOString();
+      }
 
-      if (findOption) {
-        findOption._deleted = true;
-        findOption.updatedAt = new Date().toISOString();
+      const formatNamePrint = structuredClone(
+        settings.cong_settings.format_name_print || []
+      );
+      const findPrint = formatNamePrint.find(
+        (record) => record.type === group.group_id
+      );
+      if (findPrint) {
+        findPrint._deleted = true;
+        findPrint.updatedAt = new Date().toISOString();
       }
 
       const shortDateFormat = structuredClone(
@@ -201,7 +210,8 @@ const useGroupDelete = ({ group }: GroupDeleteProps) => {
         'cong_settings.source_material.language': sourceLanguages,
         'cong_settings.cong_circuit': circuits,
         'cong_settings.display_name_enabled': displayName,
-        'cong_settings.fullname_option': fullnameOption,
+        'cong_settings.format_name_in_app': formatNameInApp,
+        'cong_settings.format_name_print': formatNamePrint,
         'cong_settings.short_date_format': shortDateFormat,
         'cong_settings.format_24h_enabled': format24h,
         'cong_settings.attendance_online_record': onlineRecord,

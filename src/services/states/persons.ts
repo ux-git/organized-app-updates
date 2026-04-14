@@ -13,7 +13,7 @@ import {
   personsState,
   selectedPersonState,
 } from '@states/persons';
-import { fullnameOptionState } from '@states/settings';
+import { formatNameInAppState } from '@states/settings';
 
 export const setIsPersonDelete = (value: boolean) => {
   store.set(isPersonDeleteState, value);
@@ -48,15 +48,16 @@ export const setPersonsRecent = (data: string[]) => {
 
 export const personGetFullname = (person_uid: string) => {
   const persons = store.get(personsState);
-  const fullnameOption = store.get(fullnameOptionState);
+  const fullnameOption = store.get(formatNameInAppState);
 
   const person = persons.find((record) => record.person_uid === person_uid);
 
   if (!person) return '';
 
   return buildPersonFullname(
-    person.person_data.person_lastname.value,
-    person.person_data.person_firstname.value,
-    fullnameOption
-  );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
 };

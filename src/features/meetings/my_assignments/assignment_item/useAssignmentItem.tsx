@@ -5,7 +5,7 @@ import { AssignmentCode } from '@definition/assignment';
 import { personsState } from '@states/persons';
 import { buildPersonFullname } from '@utils/common';
 import {
-  fullnameOptionState,
+  formatNameInAppState,
   userDataViewState,
   userLocalUIDState,
 } from '@states/settings';
@@ -20,7 +20,7 @@ const useAssignmentItem = ({ history }: AssignmentItemProps) => {
   const { t } = useAppTranslation();
 
   const persons = useAtomValue(personsState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const userUID = useAtomValue(userLocalUIDState);
   const dataView = useAtomValue(userDataViewState);
 
@@ -93,10 +93,11 @@ const useAssignmentItem = ({ history }: AssignmentItemProps) => {
     if (!person) return '';
 
     const name = buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
 
     return name;
   };

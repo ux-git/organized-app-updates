@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { IconCheckCircle, IconError } from '@components/icons';
 import { APFormType, APRecordType } from '@definition/ministry';
 import { applicationsState, personsState } from '@states/persons';
-import { congAccessCodeState, fullnameOptionState } from '@states/settings';
+import { congAccessCodeState, formatNameInAppState } from '@states/settings';
 import { buildPersonFullname } from '@utils/common';
 import { useAppTranslation } from '@hooks/index';
 import { displaySnackNotification } from '@services/states/app';
@@ -35,7 +35,7 @@ const useApplicationPerson = () => {
   const [applications, setApplications] = useAtom(applicationsState);
 
   const persons = useAtomValue(personsState);
-  const fullnameOption = useAtomValue(fullnameOptionState);
+  const fullnameOption = useAtomValue(formatNameInAppState);
   const congAccessCode = useAtomValue(congAccessCodeState);
 
   const application = useMemo(() => {
@@ -52,10 +52,11 @@ const useApplicationPerson = () => {
     if (!person) return '';
 
     return buildPersonFullname(
-      person.person_data.person_lastname.value,
-      person.person_data.person_firstname.value,
-      fullnameOption
-    );
+            person.person_data.person_lastname.value,
+            person.person_data.person_firstname.value,
+            fullnameOption,
+            person.person_data.person_middlename?.value
+          );
   }, [application, persons, fullnameOption]);
 
   const [formData, setFormData] = useState<APFormType>({
