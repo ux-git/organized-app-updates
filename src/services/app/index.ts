@@ -143,6 +143,32 @@ export const checkPwaUpdate = () => {
   }
 };
 
+export const manualCheckPwaUpdate = async (): Promise<boolean> => {
+  if ('serviceWorker' in navigator) {
+    const swUrl = `${import.meta.env.BASE_URL}service-worker.js`;
+    try {
+      const reg = await navigator.serviceWorker.register(swUrl, { updateViaCache: 'none' });
+      
+      if (reg.waiting || reg.installing) {
+        return true;
+      }
+
+      let updateFound = false;
+      const onUpdateFound = () => { updateFound = true; };
+      reg.addEventListener('updatefound', onUpdateFound);
+
+      await reg.update();
+
+      reg.removeEventListener('updatefound', onUpdateFound);
+
+      return updateFound;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+};
+
 export const getUserDataView = <T extends { type: string }>(
   data: T[],
   dataView: string

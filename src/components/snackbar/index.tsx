@@ -102,6 +102,7 @@ const Snackbar = (props: SnackbarPropsType) => {
           actionClick={props.actionClick}
           actionIcon={props.actionIcon}
           onClose={props.onClose}
+          sx={props.sx}
         />
       }
     />

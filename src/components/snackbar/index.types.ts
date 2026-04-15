@@ -1,4 +1,5 @@
 import { ReactElement } from 'react';
+import { SxProps, Theme } from '@mui/material';
 
 /**
  * Props for the Snackbar component.
@@ -53,4 +54,9 @@ export type SnackbarPropsType = {
    * Callback function invoked when the Snackbar is closed.
    */
   onClose?: VoidFunction;
+
+  /**
+   * Additional styles to be applied to the inner InfoMessage.
+   */
+  sx?: SxProps<Theme>;
 };

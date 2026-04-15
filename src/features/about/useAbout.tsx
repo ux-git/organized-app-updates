@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { useAppTranslation } from '@hooks/index';
 import { isAboutOpenState } from '@states/app';
 import { setIsAboutOpen, setIsSupportOpen } from '@services/states/app';
 import { AboutProps } from './index.types';
+import { manualCheckPwaUpdate } from '@services/app';
 
 const parser = new DOMParser();
 
@@ -34,6 +35,31 @@ const useAbout = ({ updatePwa }: AboutProps) => {
     }
   };
 
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+  const [isUpdateCheckComplete, setIsUpdateCheckComplete] = useState(false);
+  const [updateFoundResult, setUpdateFoundResult] = useState(false);
+
+  const handleCheckUpdatesClose = () => {
+    setIsCheckingUpdates(false);
+    setIsUpdateCheckComplete(false);
+  };
+
+  const handleCheckUpdates = async () => {
+    setIsCheckingUpdates(true);
+    setIsUpdateCheckComplete(false);
+
+    try {
+      const updateFound = await manualCheckPwaUpdate();
+      // wait a minimum amount of time to show the spinner gracefully
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      setUpdateFoundResult(updateFound);
+      setIsUpdateCheckComplete(true);
+    } catch {
+      setIsCheckingUpdates(false);
+    }
+  };
+
   const handleClose = () => setIsAboutOpen(false);
 
   const handleOpenSupport = () => {
@@ -52,6 +78,11 @@ const useAbout = ({ updatePwa }: AboutProps) => {
     handleOpenDoc,
     handleOpenSupport,
     handleForceReload,
+    handleCheckUpdates,
+    handleCheckUpdatesClose,
+    isCheckingUpdates,
+    isUpdateCheckComplete,
+    updateFoundResult,
     privacyText,
   };
 };

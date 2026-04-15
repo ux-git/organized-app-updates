@@ -1,9 +1,12 @@
 import { Box, Link } from '@mui/material';
-import { IconClose, IconInfo, IconLogo, IconRestart } from '@icons/index';
+import { IconClose, IconInfo, IconLogo, IconRestart, IconUpdate } from '@icons/index';
 import { useAppTranslation } from '@hooks/index';
 import { AboutProps } from './index.types';
 import useAbout from './useAbout';
 import Button from '@components/button';
+import SnackBar from '@components/snackbar';
+import { IconCheckCircle } from '@components/icons';
+import IconLoading from '@components/icon_loading';
 import Dialog from '@components/dialog';
 import IconButton from '@components/icon_button';
 import TextMarkup from '@components/text_markup';
@@ -18,12 +21,18 @@ const About = (props: AboutProps) => {
     handleOpenDoc,
     handleOpenSupport,
     handleForceReload,
+    handleCheckUpdates,
+    handleCheckUpdatesClose,
+    isCheckingUpdates,
+    isUpdateCheckComplete,
+    updateFoundResult,
     privacyText,
   } = useAbout(props);
 
   const { t } = useAppTranslation();
 
   return (
+    <>
     <Dialog open={isOpen} onClose={handleClose}>
       <Box
         sx={{
@@ -75,11 +84,19 @@ const About = (props: AboutProps) => {
           </Box>
         </Box>
 
-        <Tooltip title={t('tr_forceRefreshButtonTooltip')} delaySpeed="slow">
-          <IconButton onClick={handleForceReload}>
-            <IconRestart color="var(--black)" />
-          </IconButton>
-        </Tooltip>
+        <Box sx={{ display: 'flex', gap: '8px' }}>
+          <Tooltip title={t('tr_checkForUpdates', { defaultValue: 'Check for updates' })} delaySpeed="slow">
+            <IconButton onClick={handleCheckUpdates}>
+              <IconUpdate color="var(--black)" />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title={t('tr_forceRefreshButtonTooltip')} delaySpeed="slow">
+            <IconButton onClick={handleForceReload}>
+              <IconRestart color="var(--black)" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
       <TextMarkup content={t('tr_appAboutDesc')} className="body-regular" />
@@ -124,6 +141,32 @@ const About = (props: AboutProps) => {
         </Link>
       </Typography>
     </Dialog>
+    <SnackBar
+      open={isCheckingUpdates || isUpdateCheckComplete}
+      onClose={isUpdateCheckComplete ? handleCheckUpdatesClose : null}
+      messageHeader={
+        isUpdateCheckComplete
+          ? t('tr_updateCheckComplete', { defaultValue: 'Update check complete' })
+          : t('tr_checkingForUpdates', { defaultValue: 'Checking for updates...' })
+      }
+      message={
+        isUpdateCheckComplete
+          ? updateFoundResult
+            ? t('tr_newVersionFound')
+            : t('tr_latestVersion')
+          : t('tr_pleaseWait', { defaultValue: 'Please wait' })
+      }
+      messageIcon={
+        isUpdateCheckComplete ? (
+          <IconCheckCircle color="var(--always-white)" />
+        ) : (
+          <IconLoading color="var(--always-white)" />
+        )
+      }
+      variant={isUpdateCheckComplete ? 'success' : 'message-with-button'}
+      sx={{ width: { mobile: 'calc(100vw - 32px)', tablet: '450px' } }}
+    />
+    </>
   );
 };
 
