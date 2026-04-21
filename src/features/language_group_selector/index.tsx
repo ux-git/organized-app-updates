@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Box, InputAdornment, SelectChangeEvent } from '@mui/material';
 import { IconCheck, IconJwHome, IconLanguageGroup } from '@components/icons';
 import { useBreakpoints } from '@hooks/index';
@@ -15,9 +16,12 @@ const LanguageGroupSelector = () => {
   if (!display) return <></>;
 
   return (
-    <Box width={tablet688Up ? 'unset' : '100%'}>
+    <Box width={tablet688Up ? 'unset' : '100%'} sx={{ minWidth: '300px' }}>
       <Select
         value={value}
+        open={open}
+        onOpen={() => setOpen(true)}
+        onClose={() => setOpen(false)}
         onChange={(e: SelectChangeEvent<string>) =>
           handleChange(e.target.value)
         }
@@ -29,9 +33,15 @@ const LanguageGroupSelector = () => {
             borderRadius: 'var(--radius-max)',
             '& > .MuiSelect-select': {
               color: 'var(--accent-dark)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              paddingRight: '32px !important',
             },
             '& > .MuiSelect-icon': {
               color: 'var(--accent-dark)',
+              transition: 'transform 0.2s ease-in-out',
+              transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
             },
           },
         }}
