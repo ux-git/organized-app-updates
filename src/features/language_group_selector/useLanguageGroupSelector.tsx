@@ -12,6 +12,7 @@ import { schedulesBuildHistoryList } from '@services/app/schedules';
 import { assignmentsHistoryState } from '@states/schedules';
 import { languageGroupsState } from '@states/field_service_groups';
 import { refreshLocalesResources } from '@services/i18n';
+import { useTextWidth } from '@hooks/useTextWidth';
 
 const useGroupLanguageSelector = () => {
   const { t } = useAppTranslation();
@@ -96,7 +97,15 @@ const useGroupLanguageSelector = () => {
     validateDataView();
   }, [value, languageGroups]);
 
-  return { display, options, value, renderValue, handleChange };
+  const selectWidth = useTextWidth({
+    texts: [
+      t('tr_hostCongregation'),
+      ...options.map((option) => (option.value !== 'main' ? option.label : '')),
+    ],
+    padding: 82,
+  });
+
+  return { display, options, value, renderValue, handleChange, selectWidth };
 };
 
 export default useGroupLanguageSelector;

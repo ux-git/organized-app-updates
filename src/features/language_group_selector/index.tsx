@@ -9,7 +9,7 @@ import Typography from '@components/typography';
 const LanguageGroupSelector = () => {
   const { tablet688Up } = useBreakpoints();
 
-  const { display, options, value, renderValue, handleChange } =
+  const { display, options, value, renderValue, handleChange, selectWidth } =
     useGroupLanguageSelector();
 
   if (!display) return <></>;
@@ -23,7 +23,7 @@ const LanguageGroupSelector = () => {
         }
         renderValue={(value: string) => renderValue(value)}
         sx={{
-          width: tablet688Up ? '250px' : '100%',
+          width: tablet688Up ? `${selectWidth}px` : '100%',
           '&.MuiInputBase-root': {
             backgroundColor: 'var(--white)',
             borderRadius: 'var(--radius-max)',
