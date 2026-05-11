@@ -432,9 +432,9 @@ const handleMMAssignPrayer = (
   let main = '';
   let selected: PersonType;
 
-  const prayer = schedule?.midweek_meeting?.[
+  const prayer = (schedule?.midweek_meeting?.[
     `${type.toLowerCase()}_prayer`
-  ] as AssignmentCongregation[];
+  ] ?? []) as AssignmentCongregation[];
 
   main = prayer.find((record) => record.type === dataView)?.value ?? '';
 
@@ -1115,9 +1115,11 @@ export const schedulesStartAutofill = async (
       return isValid;
     });
 
-    // If no schedule records matched the requested week(s), bail out with a
-    // user-visible error rather than silently doing nothing.
-    if (weeksList.length === 0) return;
+    // If no schedule records matched the requested week(s), throw so callers
+    // (WeekBadge.handleAutofill) can surface a user-visible snackbar.
+    if (weeksList.length === 0) {
+      throw new Error('NO_SCHEDULE_FOR_WEEK');
+    }
 
     if (meeting === 'midweek') {
       await handleAutofillMidweek(weeksList);

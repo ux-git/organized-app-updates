@@ -125,12 +125,12 @@ const useMonthlyView = () => {
     for (const weekOf of selectedWeeks) {
       const source = sourcesByWeek.get(weekOf);
 
-      counts.push(source?.midweek_meeting?.ayf_count[lang] || 3);
+      counts.push(source?.midweek_meeting?.ayf_count?.[lang] || 3);
 
       for (let i = 0; i < 4; i++) {
-        const ayfPart = source?.midweek_meeting[`ayf_part${i + 1}`];
+        const ayfPart = source?.midweek_meeting?.[`ayf_part${i + 1}`];
 
-        let partType = ayfPart?.type[lang];
+        let partType = ayfPart?.type?.[lang];
         if (!partType || partType === 0) {
           partType = AssignmentCode.MM_StartingConversation;
         }
@@ -139,7 +139,7 @@ const useMonthlyView = () => {
         isTalk[i].push(
           partType === AssignmentCode.MM_ExplainingBeliefs
             ? sourcesCheckAYFExplainBeliefsAssignment(
-                ayfPart?.src[lang],
+                ayfPart?.src?.[lang],
                 lang
               )
             : false

@@ -57,21 +57,24 @@ const WeekBadge = (props: WeekBadgeType) => {
           show={!isProcessing}
           placement="top"
         >
-          <IconButton
-            onClick={handleAutofill}
-            disabled={isProcessing}
-            sx={{
-              padding: '4px',
-              position: 'absolute',
-              right: '4px',
-            }}
-          >
-            {isProcessing ? (
-              <IconLoading width={16} height={16} color="var(--accent-dark)" />
-            ) : (
-              <IconGenerate color="var(--accent-dark)" />
-            )}
-          </IconButton>
+          <span>
+            <IconButton
+              onClick={handleAutofill}
+              disabled={isProcessing}
+              aria-label={t('tr_autofillThisWeek')}
+              sx={{
+                padding: '4px',
+                position: 'absolute',
+                right: '4px',
+              }}
+            >
+              {isProcessing ? (
+                <IconLoading width={16} height={16} color="var(--accent-dark)" />
+              ) : (
+                <IconGenerate color="var(--accent-dark)" />
+              )}
+            </IconButton>
+          </span>
         </Tooltip>
       )}
     </Box>
