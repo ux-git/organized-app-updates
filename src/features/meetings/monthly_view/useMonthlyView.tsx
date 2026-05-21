@@ -51,10 +51,7 @@ const useMonthlyView = () => {
   const [addCustomModalWindowWeek, setAddCustomModalWindowWeek] =
     useState(null);
 
-  // Derive which month indices (0-11) have published material for the current year.
-  // IMPORTANT: uses the actual meeting date (weekOf + congregation weekday offset)
-  // so that e.g. weekOf=2026/08/31 with Thursday meeting correctly shows under
-  // September (meeting date = Sept 3), not August. Mirrors schedulesGetMeetingDate.
+  // Uses meeting date (weekOf + weekday offset) to map months correctly.
   const availableMonthIndices = useMemo(() => {
     const set = new Set<number>();
     sources.forEach((s) => {
@@ -69,7 +66,7 @@ const useMonthlyView = () => {
     return set;
   }, [sources, currentYear, lang, meetingWeekday]);
 
-  // Index maps for O(1) lookups instead of repeated .find() (js-index-maps rule).
+
   const sourcesByWeek = useMemo(
     () => new Map(sources.map((s) => [s.weekOf, s])),
     [sources]
@@ -80,7 +77,7 @@ const useMonthlyView = () => {
     [schedules]
   );
 
-  // Derive weeks for the selected month (rerender-derived-state-no-effect rule).
+
   const selectedWeeks = useMemo(() => {
     return sources
       .filter((s) => {
@@ -301,8 +298,7 @@ const useMonthlyView = () => {
 
   const handleToggleLC = () => setOpenLC((prev) => !prev);
 
-  // Clamp selectedMonth to an available month when the current selection has no data.
-  // This prevents rendering an empty month and jumps to the closest available month.
+
   useEffect(() => {
     if (availableMonthIndices.size > 0 && !availableMonthIndices.has(selectedMonth)) {
       setSelectedMonth(Math.max(...Array.from(availableMonthIndices)));

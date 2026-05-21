@@ -1,37 +1,16 @@
-import useAppTranslation from '@hooks/useAppTranslation';
-import { useState, MouseEvent } from 'react';
-import Typography from '@components/typography';
-import Tooltip from '@components/tooltip';
+import { Box } from '@mui/material';
+import IconButton from '@components/icon_button';
 import IconLoading from '@components/icon_loading';
+import Tooltip from '@components/tooltip';
+import Typography from '@components/typography';
 import { IconGenerate } from '@components/icons';
-import { Box, IconButton } from '@mui/material';
+import useAppTranslation from '@hooks/useAppTranslation';
 import { WeekBadgeType } from './index.types';
-import { schedulesStartAutofill } from '@services/app/autofill';
-import { displaySnackNotification } from '@services/states/app';
-import { getMessageByCode } from '@services/i18n/translation';
+import useWeekBadge from './useWeekBadge';
 
 const WeekBadge = (props: WeekBadgeType) => {
   const { t } = useAppTranslation();
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleAutofill = async (e: MouseEvent) => {
-    e.stopPropagation();
-    if (!props.week) return;
-
-    try {
-      setIsProcessing(true);
-      await schedulesStartAutofill(props.week, props.week, 'midweek');
-    } catch (error) {
-      console.error(error);
-      displaySnackNotification({
-        header: getMessageByCode('error_app_generic-title'),
-        message: getMessageByCode(error.message),
-        severity: 'error',
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  const { isProcessing, handleAutofill } = useWeekBadge(props.week);
 
   return (
     <Box
@@ -60,6 +39,7 @@ const WeekBadge = (props: WeekBadgeType) => {
           <IconButton
             onClick={handleAutofill}
             disabled={isProcessing}
+            aria-label={t('tr_autofillThisWeek')}
             sx={{
               padding: '4px',
               position: 'absolute',

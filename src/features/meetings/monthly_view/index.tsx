@@ -81,8 +81,6 @@ const MonthlyView = () => {
           border: '1px solid var(--accent-300)',
           borderRadius: 'var(--radius-xl)',
           backgroundColor: 'var(--white)',
-          // Constrain helper/warning text to the column width without clipping
-          // the floating label (which is inside the input bounds, not a helper).
           '& .MuiFormHelperText-root': {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -90,7 +88,7 @@ const MonthlyView = () => {
           },
         }}
       >
-        {/* --------------------------- MonhlyView Header -------------------------- */}
+        {/* --------------------------- MonthlyView Header -------------------------- */}
         <StyledMonthlyViewRow
           sx={{
             alignItems: 'center',

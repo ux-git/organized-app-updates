@@ -432,9 +432,9 @@ const handleMMAssignPrayer = (
   let main = '';
   let selected: PersonType;
 
-  const prayer = schedule?.midweek_meeting?.[
+  const prayer = (schedule?.midweek_meeting?.[
     `${type.toLowerCase()}_prayer`
-  ] as AssignmentCongregation[];
+  ] ?? []) as AssignmentCongregation[];
 
   main = prayer.find((record) => record.type === dataView)?.value ?? '';
 
@@ -1108,15 +1108,29 @@ export const schedulesStartAutofill = async (
     if (start.length === 0 || end.length === 0) return;
 
     const schedules = store.get(schedulesState);
+    const sources = store.get(sourcesState);
+    const lang = store.get(JWLangState);
 
     const weeksList = schedules.filter((schedule) => {
       const isValid = schedule.weekOf >= start && schedule.weekOf <= end;
 
+      if (!isValid) return false;
+
+      const source = sources.find((src) => src.weekOf === schedule.weekOf);
+
+      if (!source) return false;
+
+      if (meeting === 'midweek') {
+        if (!source.midweek_meeting.week_date_locale[lang]) return false;
+      }
+
+      if (meeting === 'weekend') {
+        if (!source.weekend_meeting.w_study[lang]) return false;
+      }
+
       return isValid;
     });
 
-    // If no schedule records matched the requested week(s), bail out with a
-    // user-visible error rather than silently doing nothing.
     if (weeksList.length === 0) return;
 
     if (meeting === 'midweek') {
