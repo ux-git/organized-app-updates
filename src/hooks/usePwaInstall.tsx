@@ -26,6 +26,7 @@ if (typeof globalThis !== 'undefined') {
 }
 
 const isStandalone = () =>
+  typeof globalThis.matchMedia === 'function' &&
   globalThis.matchMedia('(display-mode: standalone)').matches;
 
 const usePwaInstall = () => {
@@ -50,12 +51,10 @@ const usePwaInstall = () => {
     if (!prompt) return;
 
     await prompt.prompt();
-    const { outcome } = await prompt.userChoice;
+    await prompt.userChoice;
 
-    if (outcome === 'accepted') {
-      cachedPrompt = null;
-      listeners.forEach((fn) => fn());
-    }
+    cachedPrompt = null;
+    listeners.forEach((fn) => fn());
   }, []);
 
   return { isPwaInstallable, installPwa, isStandalone: isStandalone() };

@@ -160,11 +160,12 @@ try {
   const nonFigmaFiles = await fs.readdir(nonFigmaDir);
   for (const file of nonFigmaFiles) {
     if (!file.endsWith('.tsx')) continue;
-    const name = file.replace('.tsx', '');
+    const name = path.parse(file).name;
     strImport += `export { default as ${name}} from './nonFigmaIcons/${name}';`;
   }
-} catch {
+} catch (error) {
   // nonFigmaIcons directory doesn't exist yet — skip
+  if (error.code !== 'ENOENT') throw error;
 }
 
-fs.writeFile(jsFile, strImport);
+await fs.writeFile(jsFile, strImport);
