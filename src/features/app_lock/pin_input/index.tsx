@@ -243,7 +243,7 @@ const PinInput = forwardRef<PinInputHandle, PinInputProps>(
 
           return (
             <Box
-              key={`pin-symbol-${symbolIndex}`}
+              key={`pin-symbol-${index}`}
               sx={{
                 width: CELL_SIZE,
                 height: CELL_SIZE,
@@ -260,7 +260,7 @@ const PinInput = forwardRef<PinInputHandle, PinInputProps>(
                   opacity: filled ? 1 : 0,
                   transform: filled
                     ? 'scale(1) rotate(0deg)'
-                    : 'scale(0.7) rotate(-25deg)',
+                    : 'scale(0.6) rotate(-60deg)',
                   transition: [
                     `opacity ${ANIMATION_DURATION} ${ANIMATION_EASING}`,
                     `transform 220ms ${SPRING}`,
