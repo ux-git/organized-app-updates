@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Organized pinwheel logo (simplified) for the animated splashscreen -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group android:name="pinwheel" android:pivotX="54" android:pivotY="54">
+        <!-- yellow — top right -->
+        <path
+            android:name="petal_yellow"
+            android:pathData="M57,30 L74,30 A10,10 0 0 1 84,40 L84,51 L67,51 A10,10 0 0 1 57,41 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="57" android:startY="30"
+                    android:endX="84" android:endY="51"
+                    android:type="linear">
+                    <item android:offset="0" android:color="#FFEEAF35" />
+                    <item android:offset="1" android:color="#FFFBC93C" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- purple — top left -->
+        <path
+            android:name="petal_purple"
+            android:pathData="M24,34 A10,10 0 0 1 34,24 L51,24 L51,41 A10,10 0 0 1 41,51 L24,51 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="24" android:startY="24"
+                    android:endX="51" android:endY="51"
+                    android:type="linear">
+                    <item android:offset="0" android:color="#FFAC6CBB" />
+                    <item android:offset="1" android:color="#FF7D5FBD" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- green — bottom left -->
+        <path
+            android:name="petal_green"
+            android:pathData="M24,57 L41,57 A10,10 0 0 1 51,67 L51,84 L34,84 A10,10 0 0 1 24,74 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="24" android:startY="57"
+                    android:endX="51" android:endY="84"
+                    android:type="linear">
+                    <item android:offset="0" android:color="#FF5C9B1C" />
+                    <item android:offset="1" android:color="#FF50B600" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- blue — bottom right -->
+        <path
+            android:name="petal_blue"
+            android:pathData="M57,57 L84,57 L84,74 A10,10 0 0 1 74,84 L67,84 A10,10 0 0 1 57,74 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="57" android:startY="57"
+                    android:endX="84" android:endY="84"
+                    android:type="linear">
+                    <item android:offset="0" android:color="#FF0ABBE5" />
+                    <item android:offset="1" android:color="#FF3B98CC" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+</vector>

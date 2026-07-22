@@ -39,3 +39,4 @@ replit.nix
 .vercel
 
 api/
+*.apk

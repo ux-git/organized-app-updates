@@ -6,6 +6,7 @@ import {
   IconCheckboxMultiple,
 } from '@icons/index';
 import { CheckboxPropsType } from './index.types';
+import { hapticFeedback } from '@utils/native';
 import {
   StyleCheckboxBorder,
   StyleCheckboxBorderChecked,
@@ -54,7 +55,12 @@ const Checkbox = (props: CheckboxPropsType) => {
           indeterminate={indeterminate}
           disabled={disabled}
           onChange={
-            props.readOnly ? null : (e, checked) => props.onChange?.(e, checked)
+            props.readOnly
+              ? null
+              : (e, checked) => {
+                  hapticFeedback();
+                  props.onChange?.(e, checked);
+                }
           }
           sx={{
             padding: 0,

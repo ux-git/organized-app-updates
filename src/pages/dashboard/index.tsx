@@ -13,6 +13,7 @@ import Markup from '@components/text_markup';
 import MinistryCard from './ministry';
 import MeetingsCard from './meetings';
 import MeetingsMaterialsCard from './meeting_materials';
+import NativeNotificationTest from './native_test';
 import PersonsCard from './persons';
 import ReportsCard from './reports';
 import Snackbar from '@components/snackbar';
@@ -96,6 +97,8 @@ const Dashboard = () => {
 
         <CongregationCard />
       </Box>
+
+      <NativeNotificationTest />
 
       {newCongSnack && (
         <Snackbar
