@@ -41,12 +41,21 @@ android {
         }
         getByName("release") {
             isMinifyEnabled = true
+            // drops resources that survive minification but nothing references
+            isShrinkResources = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
                     .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
                     .toList().toTypedArray()
             )
         }
+    }
+    // Play delivers only the slices a given device needs: one ABI instead of
+    // four, one screen density, one language.
+    bundle {
+        abi { enableSplit = true }
+        density { enableSplit = true }
+        language { enableSplit = true }
     }
     packaging {
         jniLibs {

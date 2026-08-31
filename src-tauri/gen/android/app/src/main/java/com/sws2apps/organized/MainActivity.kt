@@ -14,7 +14,9 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
+import androidx.core.graphics.Insets
 import androidx.core.view.WindowInsetsCompat
+import kotlin.math.roundToInt
 import com.airbnb.lottie.LottieAnimationView
 import com.airbnb.lottie.LottieDrawable
 
@@ -28,6 +30,7 @@ class MainActivity : TauriActivity() {
   private var splashOverlay: FrameLayout? = null
   private var splashShownAt = 0L
   private var splashDismissed = false
+  private var lastSafeAreaScript: String? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     // Native splashscreen (Android 12 SplashScreen API, backported pre-31)
@@ -47,14 +50,17 @@ class MainActivity : TauriActivity() {
     }
 
     // Keep content below the status bar / display cutout while the bottom
-    // stays edge-to-edge behind the transparent navigation bar. The web layer
-    // positions itself against the bottom inset with env(safe-area-inset-*).
+    // stays edge-to-edge behind the transparent navigation bar, so the menu
+    // gradient shows through it.
     val content = findViewById<ViewGroup>(android.R.id.content)
     ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
-      val top = insets.getInsets(
-        WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
-      ).top
-      view.setPadding(0, top, 0, 0)
+      val bars = insets.getInsets(
+        WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+      )
+
+      view.setPadding(0, bars.top, 0, 0)
+      publishSafeArea(view, bars)
+
       insets
     }
 
@@ -131,6 +137,52 @@ class MainActivity : TauriActivity() {
         }
       }
     )
+  }
+
+  /**
+   * Hands the system bar heights to the web layer as CSS variables.
+   *
+   * Android WebView below M136 reports zero for `env(safe-area-inset-*)`, so a
+   * floating element positioned with it alone ends up underneath the
+   * navigation bar on a large share of devices. The web side reads
+   * `var(--safe-area-inset-*, env(safe-area-inset-*, 0px))`, so these values
+   * win where they exist and `env()` still covers iOS and the browser.
+   *
+   * The top is published as zero on purpose: this activity already pads the
+   * content view below the status bar, and counting it twice would leave a
+   * visible gap under the navigation bar.
+   */
+  private fun publishSafeArea(root: View, bars: Insets) {
+    val density = resources.displayMetrics.density
+    val toCssPx = { value: Int -> (value / density).roundToInt() }
+
+    val css = buildString {
+      append("(function(){var s=document.documentElement.style;")
+      append("s.setProperty('--safe-area-inset-top','0px');")
+      append("s.setProperty('--safe-area-inset-right','${toCssPx(bars.right)}px');")
+      append("s.setProperty('--safe-area-inset-bottom','${toCssPx(bars.bottom)}px');")
+      append("s.setProperty('--safe-area-inset-left','${toCssPx(bars.left)}px');")
+      append("})()")
+    }
+
+    lastSafeAreaScript = css
+
+    findWebView(root)?.evaluateJavascript(css, null)
+  }
+
+  /**
+   * Reapplies the last known insets. A reload drops the inline properties, and
+   * no inset change is guaranteed to follow it.
+   */
+  override fun onResume() {
+    super.onResume()
+
+    val script = lastSafeAreaScript ?: return
+    val root = findViewById<ViewGroup>(android.R.id.content) ?: return
+
+    findWebView(root)?.let { webView ->
+      webView.post { webView.evaluateJavascript(script, null) }
+    }
   }
 
   private fun findWebView(view: View): WebView? {

@@ -24,7 +24,8 @@
     "android:dev": "tauri android dev",
     "android:build": "tauri android build",
     "ios:dev": "tauri ios dev",
-    "ios:build": "tauri ios build"
+    "ios:build": "tauri ios build",
+    "android:build:apk": "tauri android build --apk --split-per-abi"
   },
   "eslintConfig": {
     "extends": [

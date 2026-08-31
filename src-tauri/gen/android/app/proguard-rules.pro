@@ -19,3 +19,20 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# --- Tauri -----------------------------------------------------------------
+# The Rust side reaches these classes over JNI, by name. R8 sees no caller and
+# would rename or delete them, which fails at runtime in release builds only.
+-keep class app.tauri.** { *; }
+-keep class com.sws2apps.organized.** { *; }
+
+# Plugin commands are dispatched by their annotated name.
+-keepclassmembers class * {
+    @app.tauri.annotation.Command <methods>;
+}
+
+# The webview bridge is instantiated reflectively.
+-keep class * extends android.webkit.WebView { *; }
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}

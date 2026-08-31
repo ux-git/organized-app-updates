@@ -69,6 +69,60 @@ NDKs cannot produce the 16 KB-aligned libraries Google Play requires. Set
 `ANDROID_HOME` and `NDK_HOME`. iOS needs full Xcode (not just the command line
 tools) plus `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`.
 
+## Safe areas
+
+Every fixed element positions itself against four variables defined once in
+`src/global/index.css`:
+
+```css
+bottom: calc(15px + var(--safe-area-bottom));
+```
+
+Each resolves in priority order — `--safe-area-inset-*` injected by the shell,
+then `env(safe-area-inset-*)`, then zero. The injection exists because Android
+WebView below M136 reports **zero** for `env(safe-area-inset-bottom)`, so a
+floating element positioned with `env()` alone sits underneath the navigation
+bar on a large share of devices while looking correct in a browser.
+`MainActivity.publishSafeArea` hands the real system bar heights to the web
+layer in CSS pixels on every inset change and again on resume.
+
+The top is published as zero on purpose: the activity already pads its content
+view below the status bar, so counting it twice would open a gap.
+
+Do not reach for `env(safe-area-inset-*)` directly in a component.
+
+## App size
+
+The web layer is the bulk of the download, and it is what `build:native`
+trims: store screenshots, PWA launch artwork, home-screen icons the OS already
+has natively, the install-prompt script and the web manifest, plus the tags in
+`index.html` that point at them — about 24 MB, leaving roughly 19 MB after
+deflate.
+
+What is deliberately *not* done, and why:
+
+- **Fonts (11 MB deflated, the single largest item).** The CJK and Hebrew
+  families are shared between the UI and `@react-pdf/renderer`, which only
+  reads TTF. Serving woff2 to the UI would ship both formats and make the
+  bundle larger. Only the four Medium weights, which the PDF renderer never
+  registers, were converted.
+- **Bitmaps (3.3 MB deflated).** They barely shrink under deflate, so they are
+  already well compressed; quantising them further would degrade the S-89 and
+  S-140 form templates.
+- **JavaScript chunking.** 854 files sounds wasteful, but the zip entry
+  overhead is well under 100 KB against a 19 MB payload — not worth changing
+  the chunking the PWA also depends on.
+
+On the native side: the release profile optimises for size, R8 and resource
+shrinking are on, and the bundle splits by ABI, density and language so Play
+delivers one slice per device. Build the AAB with `npm run android:build`. For
+direct APK distribution use `npm run android:build:apk`, which emits one APK
+per ABI — a universal APK carries four copies of the Rust library.
+
+R8 needs the keep rules in `proguard-rules.pro`: Tauri resolves its Android
+classes from Rust by name over JNI, so R8 sees no caller and would otherwise
+rename them, breaking release builds only.
+
 ## Constraints worth knowing
 
 **The native webview is not a secure context.** Assets are served from

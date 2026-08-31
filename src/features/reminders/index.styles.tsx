@@ -7,8 +7,8 @@ export const StyledRemindersCard = styled(Box)({
   gap: '8px',
   color: 'var(--always-white)',
   position: 'fixed',
-  bottom: '15px',
-  right: '15px',
+  bottom: 'calc(15px + var(--safe-area-bottom))',
+  right: 'calc(15px + var(--safe-area-right))',
 }) as unknown as typeof Box;
 
 export const StyledRemindersTitle = styled(Box)({

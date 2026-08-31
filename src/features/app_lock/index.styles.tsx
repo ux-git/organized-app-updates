@@ -52,8 +52,8 @@ export const AppLockPage = styled(Box)<{ exiting?: boolean }>(
     alignItems: 'flex-start',
     justifyContent: 'center',
     padding: '24px',
-    paddingTop: 'clamp(48px, 12vh, 120px)',
-    paddingBottom: '24px',
+    paddingTop: 'calc(clamp(48px, 12vh, 120px) + var(--safe-area-top))',
+    paddingBottom: 'calc(24px + var(--safe-area-bottom))',
     backgroundColor: 'var(--accent-100)',
     overflowY: 'auto',
     '@supports (height: 100dvh)': {
