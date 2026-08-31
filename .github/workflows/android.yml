@@ -1,0 +1,133 @@
+name: Android build
+
+on:
+  # workflow_dispatch is only offered for the default branch, so a feature
+  # branch needs a push trigger to produce its first package
+  push:
+    branches: [feat/tauri-native-foundation]
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Build profile'
+        type: choice
+        options: [debug, release]
+        default: debug
+      app_mode:
+        description: 'VITE_APP_MODE baked into the bundle'
+        type: choice
+        options: [TEST, PROD]
+        default: TEST
+
+permissions:
+  contents: read
+
+env:
+  # r28 is the first NDK that links 16 KB-aligned shared objects
+  NDK_VERSION: 28.0.13004108
+
+jobs:
+  build:
+    name: Build Android APKs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js LTS version
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: lts/Krypton
+
+      # The Android Gradle Plugin does not support the runner's default JDK.
+      - name: Select JDK 21
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
+
+      - name: Install the Android NDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
+      - name: Install Rust with the Android targets
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" target add \
+            aarch64-linux-android \
+            armv7-linux-androideabi \
+            i686-linux-android \
+            x86_64-linux-android
+
+      # A cold Rust build of the Tauri tree is the slowest step by far.
+      - name: Cache Rust artefacts
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: android-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: android-cargo-
+
+      - name: Install package dependencies
+        run: npm ci
+
+      - name: Write the frontend environment
+        run: |
+          {
+            echo "VITE_APP_MODE=${{ inputs.app_mode || 'TEST' }}"
+            echo "VITE_FIREBASE_APIKEY=${{ secrets.VITE_FIREBASE_APIKEY }}"
+            echo "VITE_FIREBASE_AUTHDOMAIN=${{ secrets.VITE_FIREBASE_AUTHDOMAIN }}"
+            echo "VITE_FIREBASE_PROJECTID=${{ secrets.VITE_FIREBASE_PROJECTID }}"
+            echo "VITE_FIREBASE_APPID=${{ secrets.VITE_FIREBASE_APPID }}"
+            echo "VITE_BACKEND_API=${{ secrets.VITE_BACKEND_API }}"
+          } > .env
+
+      # Release builds have to be signed or the package will not install.
+      - name: Restore the signing keystore
+        if: ${{ inputs.profile == 'release' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::A release build needs ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD to be set as repository secrets. Build the debug profile instead, or add them."
+            exit 1
+          fi
+
+          KEYSTORE_PATH="$RUNNER_TEMP/upload.keystore"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+
+          {
+            echo "storeFile=$KEYSTORE_PATH"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > src-tauri/gen/android/keystore.properties
+
+      - name: Build
+        run: |
+          if [ "${{ inputs.profile || 'debug' }}" = "debug" ]; then
+            npm run tauri -- android build --debug --apk --split-per-abi
+          else
+            npm run tauri -- android build --apk --split-per-abi
+          fi
+
+      - name: Collect the packages
+        run: |
+          mkdir -p artifacts
+          find src-tauri/gen/android -name '*.apk' -exec cp {} artifacts/ \;
+          ls -lh artifacts
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: organized-android-${{ inputs.profile || 'debug' }}
+          path: artifacts/*.apk
+          if-no-files-found: error

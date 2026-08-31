@@ -13,6 +13,15 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Written by CI from repository secrets, or created locally by whoever holds
+// the upload key. Absent on a debug build, which signs itself.
+val keystoreProperties = Properties().apply {
+    val propFile = rootProject.file("keystore.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     compileSdk = 36
     // r28 is the first NDK that links 16 KB-aligned shared objects, which
@@ -27,6 +36,16 @@ android {
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
+    signingConfigs {
+        if (keystoreProperties.containsKey("storeFile")) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
@@ -40,6 +59,8 @@ android {
             }
         }
         getByName("release") {
+            // an unsigned release package cannot be installed or uploaded
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             // drops resources that survive minification but nothing references
             isShrinkResources = true

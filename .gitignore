@@ -40,3 +40,8 @@ replit.nix
 
 api/
 *.apk
+
+# Android upload key
+keystore.properties
+*.keystore
+*.jks
