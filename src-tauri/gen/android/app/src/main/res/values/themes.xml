@@ -7,11 +7,4 @@
         <item name="android:enforceNavigationBarContrast" tools:targetApi="q">false</item>
     </style>
 
-    <!-- Splashscreen theme: shows the launcher icon the user just tapped -->
-    <style name="Theme.organized.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#f8f9ff</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
-        <item name="windowSplashScreenAnimationDuration">900</item>
-        <item name="postSplashScreenTheme">@style/Theme.organized</item>
-    </style>
 </resources>

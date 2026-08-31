@@ -135,6 +135,13 @@ export const setCongAccountConnected = (value: boolean) => {
 
 export const setIsAppLoad = (value: boolean) => {
   store.set(isAppLoadState, value);
+
+  // lets the boot watchdog tell a slow start from a stalled one
+  if (value) {
+    delete document.documentElement.dataset.appReady;
+  } else {
+    document.documentElement.dataset.appReady = 'true';
+  }
 };
 
 export const setIsUserSignIn = (value: boolean) => {

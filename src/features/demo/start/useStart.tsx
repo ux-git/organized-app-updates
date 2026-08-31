@@ -23,6 +23,7 @@ import { dbAssignmentUpdate } from '@services/dexie/assignment';
 import { TIMER_KEY } from '@constants/index';
 import useInternetChecker from '@hooks/useInternetChecker';
 import logger from '@services/logger/index';
+import { bootStep } from '@platform/boot_diagnostics';
 import { dbPersonsAssignFamilyHeads } from '@services/dexie/persons';
 
 const useStart = () => {
@@ -34,22 +35,38 @@ const useStart = () => {
     const handlePrepareTest = async () => {
       localStorage.removeItem(TIMER_KEY);
 
+      bootStep('dbAppDelete');
       await dbAppDelete();
+      bootStep('dbAppOpen');
       await dbAppOpen();
 
+      bootStep('dbSongUpdate');
       await dbSongUpdate();
+      bootStep('dbPublicTalkUpdate');
       await dbPublicTalkUpdate();
+      bootStep('dbWeekTypeUpdate');
       await dbWeekTypeUpdate();
+      bootStep('dbAssignmentUpdate');
       await dbAssignmentUpdate();
+      bootStep('importDummyPersons');
       await importDummyPersons(false);
+      bootStep('dbAppSettingsBuildTest');
       await dbAppSettingsBuildTest();
+      bootStep('dbSpeakersCongregationsDummy');
       await dbSpeakersCongregationsDummy();
+      bootStep('dbVisitingSpeakersDummy');
       await dbVisitingSpeakersDummy();
+      bootStep('dbSettingsAssignMainWTStudyConductor');
       await dbSettingsAssignMainWTStudyConductor();
+      bootStep('dbFieldGroupAutoAssign');
       await dbFieldGroupAutoAssign();
+      bootStep('dbReportsFillRandom');
       await dbReportsFillRandom();
+      bootStep('dbMeetingAttendanceFill');
       await dbMeetingAttendanceFill();
+      bootStep('dbBranchS1ReportsFill');
       await dbBranchS1ReportsFill();
+      bootStep('dbPersonsAssignFamilyHeads');
       await dbPersonsAssignFamilyHeads();
 
       if (isNavigatorOnline) {
@@ -70,8 +87,10 @@ const useStart = () => {
         }
       }
 
+      bootStep('runUpdater');
       await runUpdater();
 
+      bootStep('loadApp');
       loadApp();
     };
 

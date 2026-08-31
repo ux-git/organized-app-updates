@@ -7,11 +7,4 @@
         <item name="android:enforceNavigationBarContrast" tools:targetApi="q">false</item>
     </style>
 
-    <!-- Dark splashscreen background -->
-    <style name="Theme.organized.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#1c1c25</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
-        <item name="windowSplashScreenAnimationDuration">900</item>
-        <item name="postSplashScreenTheme">@style/Theme.organized</item>
-    </style>
 </resources>

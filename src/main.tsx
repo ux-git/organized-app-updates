@@ -1,5 +1,8 @@
 // must precede every other import: app modules call these APIs at load time
 import '@platform/polyfills';
+import { installBootDiagnostics } from '@platform/boot_diagnostics';
+
+installBootDiagnostics();
 
 import React from 'react';
 import { createRoot } from 'react-dom/client';
