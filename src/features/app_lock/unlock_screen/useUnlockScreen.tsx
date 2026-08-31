@@ -13,7 +13,7 @@ import {
   APP_LOCK_PBKDF2_ITERATIONS,
   verifyPin,
 } from '@services/app_lock/crypto';
-import { verifyBiometric } from '@services/app_lock/webauthn';
+import { verifyBiometric } from '@platform/adapters/biometric';
 import { appLockClearPinResetRequest } from '@services/app_lock/reset';
 
 const PIN_LENGTH = 4;

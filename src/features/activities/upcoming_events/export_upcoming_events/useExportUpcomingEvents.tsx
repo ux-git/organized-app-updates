@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { pdf } from '@react-pdf/renderer';
-import saveAs from 'file-saver';
+import { saveFile } from '@platform/adapters/files';
 import { getMessageByCode } from '@services/i18n/translation';
 import { displaySnackNotification } from '@services/states/app';
 import { congNameState, JWLangLocaleState } from '@states/settings';
@@ -48,7 +48,7 @@ const useExportUpcomingEvents = () => {
 
       const filename = 'UpcomingEvents.pdf';
 
-      saveAs(blob, filename);
+      await saveFile(blob, filename);
       setIsProcessing(false);
     } catch (error) {
       console.error(error);

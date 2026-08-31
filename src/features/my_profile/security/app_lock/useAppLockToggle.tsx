@@ -13,7 +13,7 @@ import { displaySnackNotification } from '@services/states/app';
 import {
   isBiometricAvailable,
   registerBiometric,
-} from '@services/app_lock/webauthn';
+} from '@platform/adapters/biometric';
 
 const useAppLockToggle = () => {
   const { t } = useAppTranslation();

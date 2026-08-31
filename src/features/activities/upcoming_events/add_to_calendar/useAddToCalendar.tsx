@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { createEvent, EventAttributes } from 'ics';
 import { AddToCalendarProps } from './index.types';
-import { UpcomingEventCategory } from '@definition/upcoming_events';
-import { isWholeDayEvent } from '@services/app/upcoming_events';
+import {
+  UpcomingEventCategory,
+  UpcomingEventDuration,
+} from '@definition/upcoming_events';
 import { useAppTranslation } from '@hooks/index';
 import { decorationsForEvent } from '../decorations_for_event';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
-import { saveAs } from 'file-saver';
+import { addToCalendar } from '@platform/adapters/calendar';
 
 const useAddToCalendar = ({ event }: AddToCalendarProps) => {
   const { t } = useAppTranslation();
@@ -19,72 +20,37 @@ const useAddToCalendar = ({ event }: AddToCalendarProps) => {
       ? decorationsForEvent[event.event_data.category]
       : decorationsForEvent[decorationsForEvent.length - 1];
 
-  const handleAddToCalendar = () => {
+  const handleAddToCalendar = async () => {
     if (isProcessing) return;
 
     setIsProcessing(true);
 
-    const startDate = new Date(event.event_data.start);
-    const endDate = new Date(event.event_data.end);
-    const wholeDay = isWholeDayEvent(event);
-
+    // a custom event with no label still needs a name in the calendar
     const eventTitle =
       event.event_data.category !== UpcomingEventCategory.Custom
         ? t(eventDecoration.translationKey)
-        : event.event_data.custom;
+        : (event.event_data.custom ?? t(eventDecoration.translationKey));
 
-    const eventDetails: EventAttributes = {
-      title: eventTitle,
-      description: event.event_data.description,
-      start: wholeDay
-        ? [
-            startDate.getFullYear(),
-            startDate.getMonth() + 1,
-            startDate.getDate(),
-          ]
-        : [
-            startDate.getFullYear(),
-            startDate.getMonth() + 1,
-            startDate.getDate(),
-            startDate.getHours(),
-            startDate.getMinutes(),
-          ],
-      end: wholeDay
-        ? [
-            endDate.getFullYear(),
-            endDate.getMonth() + 1,
-            // all-day ranges are exclusive of the end date
-            endDate.getDate() + 1,
-          ]
-        : [
-            endDate.getFullYear(),
-            endDate.getMonth() + 1,
-            endDate.getDate(),
-            endDate.getHours(),
-            endDate.getMinutes(),
-          ],
-    };
+    try {
+      await addToCalendar({
+        uid: event.event_uid,
+        title: eventTitle,
+        description: event.event_data.description,
+        start: new Date(event.event_data.start),
+        end: new Date(event.event_data.end),
+        allDay: event.event_data.duration !== UpcomingEventDuration.SingleDay,
+      });
+    } catch (error) {
+      console.error(error);
 
-    createEvent(eventDetails, (error, value) => {
-      if (error) {
-        console.error(error);
-
-        setIsProcessing(false);
-
-        displaySnackNotification({
-          header: getMessageByCode('error_app_generic-title'),
-          message: getMessageByCode(error.message),
-          severity: 'error',
-        });
-      } else {
-        const blob = new Blob([value], { type: 'text/calendar' });
-
-        const filename = `${event.event_uid}.ics`;
-
-        saveAs(blob, filename);
-      }
+      displaySnackNotification({
+        header: getMessageByCode('error_app_generic-title'),
+        message: getMessageByCode((error as Error).message),
+        severity: 'error',
+      });
+    } finally {
       setIsProcessing(false);
-    });
+    }
   };
 
   return {

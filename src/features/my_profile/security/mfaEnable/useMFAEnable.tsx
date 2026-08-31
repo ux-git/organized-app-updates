@@ -8,6 +8,7 @@ import {
 } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
 import { apiGetUser2FA, apiHandleVerifyOTP } from '@services/api/user';
+import { copyToClipboard } from '@utils/common';
 
 const useMFAEnable = (closeDialog: VoidFunction) => {
   const { t } = useAppTranslation();
@@ -28,7 +29,7 @@ const useMFAEnable = (closeDialog: VoidFunction) => {
   const [tokenDev, setTokenDev] = useState<string>(undefined);
 
   const handleCopyTokenClipboard = async () => {
-    await navigator.clipboard.writeText(token);
+    await copyToClipboard(token);
 
     displaySnackNotification({
       header: t('tr_codeCopied'),

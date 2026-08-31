@@ -13,6 +13,7 @@ import {
   secretaryRoleState,
 } from '@states/settings';
 import logger from '@services/logger/index';
+import { can } from '@platform/index';
 import useInternetChecker from '@hooks/useInternetChecker';
 
 // creating theme
@@ -79,7 +80,9 @@ const useGlobal = () => {
         return;
       }
 
-      if (!('serviceWorker' in navigator)) {
+      // the native shell serves the app from an insecure origin, where
+      // `serviceWorker` is absent by design — that is not an unsupported device
+      if (can('service-worker') && !('serviceWorker' in navigator)) {
         setIsSupported(false);
         logger.error('app', `Service Worker is not supported in this device`);
       }

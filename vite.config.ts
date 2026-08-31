@@ -27,6 +27,10 @@ export default defineConfig({
       { find: '@hooks', replacement: resolve(__dirname, 'src/hooks') },
       { find: '@layouts', replacement: resolve(__dirname, 'src/layouts') },
       { find: '@pages', replacement: resolve(__dirname, 'src/pages') },
+      {
+        find: '@platform',
+        replacement: resolve(__dirname, 'src/platform'),
+      },
       { find: '@routes', replacement: resolve(__dirname, 'src/routes') },
       { find: '@services', replacement: resolve(__dirname, 'src/services') },
       { find: '@states', replacement: resolve(__dirname, 'src/states') },

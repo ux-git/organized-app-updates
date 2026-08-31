@@ -6,7 +6,7 @@ import {
   IconCheckboxMultiple,
 } from '@icons/index';
 import { CheckboxPropsType } from './index.types';
-import { hapticFeedback } from '@utils/native';
+import { impact } from '@platform/adapters/haptics';
 import {
   StyleCheckboxBorder,
   StyleCheckboxBorderChecked,
@@ -63,7 +63,7 @@ const Checkbox = (props: CheckboxPropsType) => {
             props.readOnly
               ? null
               : (e, checked) => {
-                  hapticFeedback();
+                  impact();
                   props.onChange?.(e, checked);
                 }
           }

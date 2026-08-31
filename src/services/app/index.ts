@@ -65,6 +65,7 @@ import { settingSchema } from '@services/dexie/schema';
 import { dbUpcomingEventsCleanup } from '@services/dexie/upcoming_events';
 import appDb from '@db/appDb';
 import { dbSpeakersCongregationsSetName } from '@services/dexie/speakers_congregations';
+import { can } from '@platform/index';
 
 export const loadApp = () => {
   const appLang = store.get(appLangState);
@@ -132,6 +133,9 @@ export const handleDeleteDatabase = async () => {
 };
 
 export const checkPwaUpdate = () => {
+  // native builds are updated through the app store
+  if (!can('web-update')) return;
+
   if ('serviceWorker' in navigator) {
     const swUrl = `${import.meta.env.BASE_URL}service-worker.js`;
     navigator.serviceWorker

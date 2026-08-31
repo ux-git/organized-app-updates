@@ -19,6 +19,7 @@
       "@hooks/*": ["./src/hooks/*"],
       "@layouts/*": ["./src/layouts/*"],
       "@pages/*": ["./src/pages/*"],
+      "@platform/*": ["./src/platform/*"],
       "@routes/*": ["./src/routes/*"],
       "@services/*": ["./src/services/*"],
       "@states/*": ["./src/states/*"],

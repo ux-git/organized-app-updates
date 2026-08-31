@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { pdf } from '@react-pdf/renderer';
-import { saveAs } from 'file-saver';
+import { saveFile } from '@platform/adapters/files';
 import { WeekendExportType } from './index.types';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
@@ -69,7 +69,7 @@ const useWeekendExport = (onClose: WeekendExportType['onClose']) => {
 
     const filename = `WM_${firstWeek}-${lastWeek}.pdf`;
 
-    saveAs(blob, filename);
+    await saveFile(blob, filename);
   };
 
   const exportOutgoingSpeakersSchedule = async (weeksList: SchedWeekType[]) => {
@@ -94,7 +94,7 @@ const useWeekendExport = (onClose: WeekendExportType['onClose']) => {
     ).toBlob();
 
     const filename = `OS_${firstWeek}-${lastWeek}.pdf`;
-    saveAs(blob, filename);
+    await saveFile(blob, filename);
   };
 
   const handleExportSchedules = async () => {

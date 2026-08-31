@@ -1,7 +1,7 @@
 import { FC } from 'react';
 import { Switch as MUISwitch, SwitchProps } from '@mui/material';
 import { IconOffCircle, IconOnCircle } from '@icons/index';
-import { hapticFeedback } from '@utils/native';
+import { impact } from '@platform/adapters/haptics';
 
 const Switch: FC<SwitchProps> = (props) => {
   return (
@@ -18,7 +18,7 @@ const Switch: FC<SwitchProps> = (props) => {
           return;
         }
 
-        hapticFeedback();
+        impact();
         props.onChange?.(e, e.target.checked);
       }}
       sx={{

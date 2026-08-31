@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { useAtomValue } from 'jotai';
 import { pdf } from '@react-pdf/renderer';
-import { saveAs } from 'file-saver';
+import { saveFile } from '@platform/adapters/files';
 import { currentReportMonth } from '@utils/date';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
@@ -50,7 +50,7 @@ const useExportS21 = () => {
 
       const filename = `S-21_${data.at(0).name}.pdf`;
 
-      saveAs(blob, filename);
+      await saveFile(blob, filename);
 
       setIsProcessing(false);
     } catch (error) {

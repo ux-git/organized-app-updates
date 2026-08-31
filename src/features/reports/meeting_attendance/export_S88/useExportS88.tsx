@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { pdf } from '@react-pdf/renderer';
-import { saveAs } from 'file-saver';
+import { saveFile } from '@platform/adapters/files';
 import { displaySnackNotification } from '@services/states/app';
 import {
   generateMonthNames,
@@ -203,7 +203,7 @@ const useExportS88 = () => {
         <TemplateS88 attendance={finalData} lang={lang} />
       ).toBlob();
 
-      saveAs(blob, 'S-88.pdf');
+      await saveFile(blob, 'S-88.pdf');
 
       setIsProcessing(false);
     } catch (error) {

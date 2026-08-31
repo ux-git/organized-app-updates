@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAtomValue } from 'jotai';
-import { saveAs } from 'file-saver';
+import { saveFile } from '@platform/adapters/files';
 import { displaySnackNotification } from '@services/states/app';
 import { ExportType } from './index.types';
 import { getMessageByCode } from '@services/i18n/translation';
@@ -117,7 +117,7 @@ const useExport = ({ onClose }: ExportType) => {
 
       const blob = new Blob([prettyJsonData], { type: 'application/json' });
 
-      saveAs(blob, filename);
+      await saveFile(blob, filename);
 
       onClose?.();
 

@@ -9,6 +9,7 @@ import {
 } from '../shared_styles';
 import { useAppTranslation } from '@hooks/index';
 import SwitchWithLabel from '@components/switch_with_label';
+import { copyToClipboard } from '@utils/common';
 
 const PageLinkItem = ({
   label,
@@ -28,7 +29,7 @@ const PageLinkItem = ({
   let seed: NodeJS.Timeout;
 
   const handleClick = () => {
-    navigator.clipboard.writeText(link);
+    copyToClipboard(link);
     setIsCopied(true);
     seed = setTimeout(handlePopupClose, 3000);
   };

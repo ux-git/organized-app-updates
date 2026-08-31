@@ -342,7 +342,8 @@ export const styledRemoveProps = (prop: PropertyKey, userProp: string[]) =>
   !userProp.includes(String(prop));
 
 export const copyToClipboard = async (value: string) => {
-  await navigator.clipboard.writeText(value);
+  const { writeText } = await import('@platform/adapters/clipboard');
+  await writeText(value);
 };
 
 export const getRandomArrayItem = <T>(array: T[]) => {

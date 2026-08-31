@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { pdf } from '@react-pdf/renderer';
-import { saveAs } from 'file-saver';
+import { saveFile } from '@platform/adapters/files';
 import JSZip from 'jszip';
 import { Week } from '@definition/week_type';
 import { MidweekExportType, PDFBlobType } from './index.types';
@@ -110,7 +110,7 @@ const useMidweekExport = (onClose: MidweekExportType['onClose']) => {
 
         const filename = `S-89_${firstWeek}-${lastWeek}.pdf`;
 
-        saveAs(blob, filename);
+        await saveFile(blob, filename);
       }
 
       if (S89Template === 'S89_1x1') {
@@ -187,7 +187,7 @@ const useMidweekExport = (onClose: MidweekExportType['onClose']) => {
 
       const filename = `MM_${firstWeek}-${lastWeek}.pdf`;
 
-      saveAs(blob, filename);
+      await saveFile(blob, filename);
     }
   };
 

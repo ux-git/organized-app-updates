@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { pdf } from '@react-pdf/renderer';
-import { saveAs } from 'file-saver';
+import { saveFile } from '@platform/adapters/files';
 import { useAppTranslation } from '@hooks/index';
 import { fieldWithLanguageGroupsState } from '@states/field_service_groups';
 import { displaySnackNotification } from '@services/states/app';
@@ -125,7 +125,7 @@ const useExportGroups = () => {
 
       const filename = `Field_Service_Groups.pdf`;
 
-      saveAs(blob, filename);
+      await saveFile(blob, filename);
 
       setIsProcessing(false);
     } catch (error) {
