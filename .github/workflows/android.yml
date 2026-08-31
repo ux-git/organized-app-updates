@@ -73,6 +73,25 @@ jobs:
           key: android-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: android-cargo-
 
+      # A push cannot carry an input, so the presence of the upload key decides:
+      # once the secrets exist, every build is the signed, optimised one.
+      - name: Decide the build profile
+        id: profile
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          REQUESTED: ${{ inputs.profile }}
+        run: |
+          if [ -n "$REQUESTED" ]; then
+            profile="$REQUESTED"
+          elif [ -n "$KEYSTORE_BASE64" ]; then
+            profile=release
+          else
+            profile=debug
+          fi
+
+          echo "value=$profile" >> "$GITHUB_OUTPUT"
+          echo "Building the $profile profile."
+
       - name: Install package dependencies
         run: npm ci
 
@@ -89,7 +108,7 @@ jobs:
 
       # Release builds have to be signed or the package will not install.
       - name: Restore the signing keystore
-        if: ${{ inputs.profile == 'release' }}
+        if: ${{ steps.profile.outputs.value == 'release' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -113,7 +132,7 @@ jobs:
 
       - name: Build
         run: |
-          if [ "${{ inputs.profile || 'debug' }}" = "debug" ]; then
+          if [ "${{ steps.profile.outputs.value }}" = "debug" ]; then
             npm run tauri -- android build --debug --apk --split-per-abi
           else
             npm run tauri -- android build --apk --split-per-abi
@@ -128,6 +147,6 @@ jobs:
       - name: Upload the packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: organized-android-${{ inputs.profile || 'debug' }}
+          name: organized-android-${{ steps.profile.outputs.value }}
           path: artifacts/*.apk
           if-no-files-found: error
