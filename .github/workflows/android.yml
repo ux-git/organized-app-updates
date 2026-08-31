@@ -81,16 +81,19 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           REQUESTED: ${{ inputs.profile }}
         run: |
-          if [ -n "$REQUESTED" ]; then
-            profile="$REQUESTED"
-          elif [ -n "$KEYSTORE_BASE64" ]; then
-            profile=release
-          else
-            profile=debug
+          profile="${REQUESTED:-release}"
+
+          signed=no
+          if [ "$profile" = "release" ] && [ -n "$KEYSTORE_BASE64" ]; then
+            signed=yes
           fi
 
           echo "value=$profile" >> "$GITHUB_OUTPUT"
-          echo "Building the $profile profile."
+          echo "signed=$signed" >> "$GITHUB_OUTPUT"
+
+          if [ "$profile" = "release" ] && [ "$signed" = "no" ]; then
+            echo "::warning::No upload key configured, so this release build is unsigned. It reports the real shipping size but cannot be installed. Set ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD to get an installable package."
+          fi
 
       - name: Install package dependencies
         run: npm ci
@@ -108,18 +111,13 @@ jobs:
 
       # Release builds have to be signed or the package will not install.
       - name: Restore the signing keystore
-        if: ${{ steps.profile.outputs.value == 'release' }}
+        if: ${{ steps.profile.outputs.signed == 'yes' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::A release build needs ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD to be set as repository secrets. Build the debug profile instead, or add them."
-            exit 1
-          fi
-
           KEYSTORE_PATH="$RUNNER_TEMP/upload.keystore"
           echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
 
@@ -142,11 +140,22 @@ jobs:
         run: |
           mkdir -p artifacts
           find src-tauri/gen/android -name '*.apk' -exec cp {} artifacts/ \;
-          ls -lh artifacts
+
+          {
+            echo "### Android packages"
+            echo
+            echo "profile: ${{ steps.profile.outputs.value }}, signed: ${{ steps.profile.outputs.signed }}"
+            echo
+            echo '| package | size |'
+            echo '| --- | ---: |'
+            for apk in artifacts/*.apk; do
+              printf '| %s | %s |\n' "$(basename "$apk")" "$(du -h "$apk" | cut -f1)"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: organized-android-${{ steps.profile.outputs.value }}
+          name: organized-android-${{ steps.profile.outputs.value }}-${{ steps.profile.outputs.signed == 'yes' && 'signed' || 'unsigned' }}
           path: artifacts/*.apk
           if-no-files-found: error
