@@ -92,7 +92,7 @@ jobs:
           echo "signed=$signed" >> "$GITHUB_OUTPUT"
 
           if [ "$profile" = "release" ] && [ "$signed" = "no" ]; then
-            echo "::warning::No upload key configured, so this release build is unsigned. It reports the real shipping size but cannot be installed. Set ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD to get an installable package."
+            echo "::warning::No upload key configured. This release build is signed with a throwaway key generated for this run, so it installs but cannot upgrade over a package from another run - uninstall first. Set ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD for a stable key."
           fi
 
       - name: Install package dependencies
@@ -111,7 +111,7 @@ jobs:
 
       # Release builds have to be signed or the package will not install.
       - name: Restore the signing keystore
-        if: ${{ steps.profile.outputs.signed == 'yes' }}
+        if: ${{ steps.profile.outputs.value == 'release' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -119,7 +119,21 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           KEYSTORE_PATH="$RUNNER_TEMP/upload.keystore"
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          else
+            # Nothing configured: mint a key that lives and dies with this run.
+            # It makes the package installable for testing, and is deliberately
+            # not kept so it can never be mistaken for a real upload key.
+            KEYSTORE_PASSWORD="$(openssl rand -base64 24 | tr -d '/+=' | head -c 28)"
+            KEY_PASSWORD="$KEYSTORE_PASSWORD"
+            KEY_ALIAS=throwaway
+            keytool -genkeypair -keystore "$KEYSTORE_PATH" -alias "$KEY_ALIAS" \
+              -keyalg RSA -keysize 4096 -validity 10000 \
+              -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
+              -dname "CN=Organized Test Build, O=Organized, C=DE"
+          fi
 
           {
             echo "storeFile=$KEYSTORE_PATH"
@@ -156,6 +170,6 @@ jobs:
       - name: Upload the packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: organized-android-${{ steps.profile.outputs.value }}-${{ steps.profile.outputs.signed == 'yes' && 'signed' || 'unsigned' }}
+          name: organized-android-${{ steps.profile.outputs.value }}-${{ steps.profile.outputs.signed == 'yes' && 'signed' || 'testkey' }}
           path: artifacts/*.apk
           if-no-files-found: error
