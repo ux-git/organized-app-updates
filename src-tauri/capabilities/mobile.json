@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Capabilities that only exist on phones and tablets",
+  "windows": ["main"],
+  "platforms": ["android", "iOS"],
+  "permissions": [
+    "haptics:allow-impact-feedback",
+    "haptics:allow-notification-feedback",
+    "haptics:allow-selection-feedback",
+    "haptics:allow-vibrate",
+    "biometric:default"
+  ]
+}

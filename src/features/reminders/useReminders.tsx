@@ -13,6 +13,9 @@ import { secretaryRoleState } from '@states/settings';
 import useCurrentUser from '@hooks/useCurrentUser';
 import useMinistryMonthlyRecord from '@features/ministry/hooks/useMinistryMonthlyRecord';
 import usePerson from '@features/persons/hooks/usePerson';
+import useReminderNotifications, {
+  resetReminderNotification,
+} from './useReminderNotifications';
 
 const useReminders = () => {
   const { t } = useAppTranslation();
@@ -84,6 +87,8 @@ const useReminders = () => {
       formatDate(tomorrow, 'yyyy/MM/dd')
     );
 
+    resetReminderNotification();
+
     setReminders([]);
   };
 
@@ -117,6 +122,8 @@ const useReminders = () => {
 
     setReminders(values);
   }, [checkPubReport, checkBranchReport, t]);
+
+  useReminderNotifications({ reminders, onSnooze: reminderMeTomorrow });
 
   return { reminders, reminderMeTomorrow };
 };

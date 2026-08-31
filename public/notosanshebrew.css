@@ -8,7 +8,7 @@
 
 @font-face {
   font-family: NotoSansHebrew;
-  src: url('assets/fonts/NotoSansHebrew-Medium.ttf') format('truetype');
+  src: url('assets/fonts/NotoSansHebrew-Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;

@@ -15,6 +15,9 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 36
+    // r28 is the first NDK that links 16 KB-aligned shared objects, which
+    // Google Play has required since 1 November 2025
+    ndkVersion = "28.0.13004108"
     namespace = "com.sws2apps.organized"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -43,6 +46,13 @@ android {
                     .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
                     .toList().toTypedArray()
             )
+        }
+    }
+    packaging {
+        jniLibs {
+            // 16 KB alignment only survives if the libraries are stored
+            // uncompressed in the APK
+            useLegacyPackaging = false
         }
     }
     kotlinOptions {

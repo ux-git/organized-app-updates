@@ -63,6 +63,7 @@
   "tr_reminderS4NotReady": "Your monthly field service report has not been submitted yet.",
   "tr_reminderS4NotReadyDesc": "It should be submitted to the secretary no later than the 6th day of the month.",
   "tr_remindMeTomorrow": "Remind me tomorrow",
+  "tr_reminderOpen": "Open",
   "tr_goToReports": "Go to reports",
   "tr_noInternetConnection": "No internet connection",
   "tr_noInternetConnectionDesc": "Organized is working offline right now. When you’re back online, any new data you entered will be able to sync.",

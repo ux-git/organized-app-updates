@@ -19,7 +19,12 @@
     "generate:icons": "node converter/svg/convert.js && prettier src/components/icons --write",
     "locales:unused": "tsx unused-i18n-keys.ts",
     "lint": "eslint src",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build:native": "vite build && node scripts/prune-native-assets.mjs",
+    "android:dev": "tauri android dev",
+    "android:build": "tauri android build",
+    "ios:dev": "tauri ios dev",
+    "ios:build": "tauri ios build"
   },
   "eslintConfig": {
     "extends": [

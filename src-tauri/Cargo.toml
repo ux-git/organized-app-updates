@@ -1,6 +1,6 @@
 [package]
 name = "organized"
-version = "3.37.1"
+version = "0.0.0"
 description = "Organized - app for Jehovah's Witnesses congregations"
 authors = ["sws2apps"]
 license = "MIT"
@@ -16,6 +16,30 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-notification = "2"
-tauri-plugin-haptics = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-clipboard-manager = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Mobile-only plugins. Listing these unconditionally would break desktop
+# builds, where the crates have no implementation to link against.
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-haptics = "2"
+tauri-plugin-biometric = "2"
+
+# Stops WKWebView from applying its own content insets, which is what makes
+# `env(safe-area-inset-*)` usable for an edge-to-edge layout on iOS.
+[target.'cfg(target_os = "ios")'.dependencies]
+tauri-plugin-ios-webview-insets = "0.1"
+
+# The release binary ships inside the app bundle on every platform, so size is
+# worth more here than the last few percent of runtime speed.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+trim-paths = "all"
+incremental = false

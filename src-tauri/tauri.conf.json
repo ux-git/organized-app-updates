@@ -1,35 +1,45 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Organized",
-  "version": "3.37.1",
+  "version": "../package.json",
   "identifier": "com.sws2apps.organized",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:4050",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
+    "beforeBuildCommand": "npm run build:native",
+    "frontendDist": "../dist",
+    "removeUnusedCommands": true
   },
   "app": {
     "windows": [
       {
         "title": "Organized",
         "width": 1200,
-        "height": 800
+        "height": 800,
+        "minWidth": 360,
+        "minHeight": 480,
+        "backgroundColor": "#F8F9FF"
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost https: wss:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": false,
+    "category": "Productivity",
+    "shortDescription": "Congregation management for Jehovah's Witnesses",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "android": {
+      "minSdkVersion": 24
+    }
   }
 }
