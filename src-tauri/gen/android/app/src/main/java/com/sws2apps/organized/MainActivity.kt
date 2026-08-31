@@ -85,12 +85,15 @@ class MainActivity : TauriActivity() {
     }
 
     val iconView = ImageView(this).apply {
+      // the foreground alone, drawn over the overlay's matching background:
+      // the adaptive icon's own background would show as a square tile here
       setImageResource(R.mipmap.ic_launcher_foreground)
-      // the adaptive foreground carries its own padding, so it is not cropped
       scaleType = ImageView.ScaleType.FIT_CENTER
     }
 
-    val sizePx = (192 * resources.displayMetrics.density).toInt()
+    // the artwork occupies the inner 66% of the drawable, so the canvas has to
+    // be larger than the icon should appear
+    val sizePx = (288 * resources.displayMetrics.density).toInt()
     overlay.addView(
       iconView,
       FrameLayout.LayoutParams(sizePx, sizePx, Gravity.CENTER)
