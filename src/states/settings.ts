@@ -4,6 +4,7 @@ Individual property are evaluated using recoil selector
 */
 
 import { atom } from 'jotai';
+import { appLockState } from '@services/app_lock/storage';
 import { settingSchema } from '@services/dexie/schema';
 import { buildPersonFullname } from '@utils/common';
 import { currentServiceYear } from '@utils/date';
@@ -113,6 +114,17 @@ export const hour24FormatState = atom((get) => {
     settings.cong_settings.format_24h_enabled.find(
       (record) => record.type === dataView
     )?.value ?? true
+  );
+});
+
+export const eventsMultiDayDisplayState = atom((get) => {
+  const settings = get(settingsState);
+  const dataView = get(userDataViewState);
+
+  return (
+    settings.cong_settings.events_multiday_display?.find(
+      (record) => record.type === dataView
+    )?.value ?? 'range'
   );
 });
 
@@ -255,6 +267,17 @@ export const attendanceOnlineRecordState = atom((get) => {
 
   return (
     settings.cong_settings.attendance_online_record.find(
+      (record) => record.type === dataView
+    )?.value ?? false
+  );
+});
+
+export const attendanceDeafRecordState = atom((get) => {
+  const settings = get(settingsState);
+  const dataView = get(userDataViewState);
+
+  return (
+    settings?.cong_settings?.attendance_deaf_record?.find(
       (record) => record.type === dataView
     )?.value ?? false
   );
@@ -422,6 +445,11 @@ export const midweekMeetingAuxCounselorDefaultState = atom((get) => {
 export const midweekMeetingAssigFSGState = atom((get) => {
   const settings = get(settingsState);
   return settings.cong_settings.aux_class_fsg?.value ?? false;
+});
+
+export const midweekMeetingAuxClassQualificationsState = atom((get) => {
+  const settings = get(settingsState);
+  return settings.cong_settings.aux_class_qualifications?.value ?? false;
 });
 
 // WEEKEND MEETING
@@ -609,6 +637,54 @@ export const themeFollowOSEnabledState = atom((get) => {
   const settings = get(settingsState);
 
   return settings.user_settings.theme_follow_os_enabled.value;
+});
+
+export const hapticsEnabledState = atom((get) => {
+  const settings = get(settingsState);
+
+  return settings.user_settings.haptics_enabled?.value ?? true;
+});
+
+export const appLockSettingsState = atom((get) => get(appLockState));
+
+export const appLockEnabledState = atom((get) => {
+  const appLock = get(appLockSettingsState);
+
+  return (
+    appLock?.enabled?.value === true &&
+    !!appLock?.pin_hash &&
+    !!appLock?.pin_salt
+  );
+});
+
+export const appLockAfterMinutesState = atom((get) => {
+  const appLock = get(appLockSettingsState);
+
+  return appLock?.lock_after_minutes?.value ?? 5;
+});
+
+export const appLockBiometricEnabledState = atom((get) => {
+  const appLock = get(appLockSettingsState);
+
+  return (
+    appLock?.biometric_enabled?.value === true &&
+    !!appLock?.webauthn_credential_id
+  );
+});
+
+export const appLockHasPinState = atom((get) => {
+  const appLock = get(appLockSettingsState);
+
+  return !!appLock?.pin_hash && !!appLock?.pin_salt;
+});
+
+export const appLockNeedsPinState = atom((get) => {
+  const appLock = get(appLockSettingsState);
+
+  const pending = appLock?.pin_create_pending?.value === true;
+
+  // a PIN that exists answers the request, whatever the flag still says
+  return pending && !get(appLockHasPinState);
 });
 
 export const hoursCreditsEnabledState = atom((get) => {
