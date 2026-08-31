@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.webkit.WebView
 import android.widget.FrameLayout
+import android.widget.ImageView
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -17,8 +18,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.graphics.Insets
 import androidx.core.view.WindowInsetsCompat
 import kotlin.math.roundToInt
-import com.airbnb.lottie.LottieAnimationView
-import com.airbnb.lottie.LottieDrawable
 
 class MainActivity : TauriActivity() {
   /** Shortest time the branded splash stays up, so it never just flickers. */
@@ -64,18 +63,18 @@ class MainActivity : TauriActivity() {
       insets
     }
 
-    showLottieSplash(content)
+    showSplash(content)
   }
 
   /**
-   * Continues the system splashscreen with the same Lottie logo animation the
-   * web app uses while loading (src/assets/lotties/loader.json).
+   * Continues the system splashscreen with the app icon, so the launcher icon
+   * the user tapped stays on screen until the web app has painted.
    *
    * The overlay is dismissed once the webview has actually drawn rather than
    * after a fixed delay, so fast devices are not held back and slow ones are
    * not revealed mid-boot.
    */
-  private fun showLottieSplash(content: ViewGroup) {
+  private fun showSplash(content: ViewGroup) {
     val isDark =
       (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
         Configuration.UI_MODE_NIGHT_YES
@@ -85,15 +84,15 @@ class MainActivity : TauriActivity() {
       isClickable = true // swallow touches while visible
     }
 
-    val lottieView = LottieAnimationView(this).apply {
-      setAnimation("splash_loader.json")
-      repeatCount = LottieDrawable.INFINITE
-      playAnimation()
+    val iconView = ImageView(this).apply {
+      setImageResource(R.mipmap.ic_launcher_foreground)
+      // the adaptive foreground carries its own padding, so it is not cropped
+      scaleType = ImageView.ScaleType.FIT_CENTER
     }
 
-    val sizePx = (240 * resources.displayMetrics.density).toInt()
+    val sizePx = (192 * resources.displayMetrics.density).toInt()
     overlay.addView(
-      lottieView,
+      iconView,
       FrameLayout.LayoutParams(sizePx, sizePx, Gravity.CENTER)
     )
 

@@ -11,6 +11,7 @@ import CongregationCard from './congregation';
 import LanguageGroupSelector from '@features/language_group_selector';
 import Markup from '@components/text_markup';
 import MinistryCard from './ministry';
+import NativeDiagnostics from '@features/dashboard/native_diagnostics';
 import MeetingsCard from './meetings';
 import MeetingsMaterialsCard from './meeting_materials';
 import PersonsCard from './persons';
@@ -95,6 +96,8 @@ const Dashboard = () => {
         {(isElder || isAttendanceEditor || isGroupOverseer) && <ReportsCard />}
 
         <CongregationCard />
+
+        <NativeDiagnostics />
       </Box>
 
 
