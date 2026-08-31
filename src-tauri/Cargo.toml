@@ -34,9 +34,12 @@ tauri-plugin-biometric = "2"
 tauri-plugin-ios-webview-insets = "0.1"
 
 # The release binary ships inside the app bundle on every platform, so size is
-# worth more here than the last few percent of runtime speed.
+# worth more here than the last few percent of runtime speed. The Rust half
+# does very little work in a webview app - it starts the process, serves the
+# embedded assets and relays plugin calls - so optimising it purely for size
+# costs nothing a user can perceive.
 [profile.release]
-opt-level = "s"
+opt-level = "z"
 lto = true
 codegen-units = 1
 panic = "abort"
