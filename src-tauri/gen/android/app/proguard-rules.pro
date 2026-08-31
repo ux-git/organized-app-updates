@@ -36,3 +36,10 @@
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
+
+# --- Compile-time-only annotations ------------------------------------------
+# okio, and transitively anything built on it, references JSR-305 annotations
+# that are never packaged because they are not needed at runtime. R8 counts
+# them as missing classes and fails the build rather than warning.
+-dontwarn javax.annotation.**
+-dontwarn javax.annotation.concurrent.**
