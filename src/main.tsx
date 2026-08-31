@@ -1,3 +1,6 @@
+// must precede every other import: app modules call these APIs at load time
+import '@platform/polyfills';
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import AppRoot from './RootWrap';
