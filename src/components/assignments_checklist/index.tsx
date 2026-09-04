@@ -61,6 +61,9 @@ export const AssignmentCheckList = ({
   }, [mainChildrenIndices, checkedItems]);
 
   const onMainCheckboxClick = useCallback(() => {
+    // nothing to toggle when every child is disabled
+    if (mainChildrenIndices.length === 0) return;
+
     const newCheckedState = allChecked ? !allChecked : !checkedMain;
     const newCheckedItems = { ...checkedItems };
 
@@ -76,7 +79,14 @@ export const AssignmentCheckList = ({
     setCheckedMain(newCheckedState);
 
     onChange?.(newCheckedState);
-  }, [allChecked, checkedMain, children, onChange, checkedItems, mainChildrenIndices]);
+  }, [
+    allChecked,
+    checkedMain,
+    children,
+    onChange,
+    checkedItems,
+    mainChildrenIndices,
+  ]);
 
   const onChildCheckboxClick = (index) => {
     setCheckedItems({ ...checkedItems, [index]: !checkedItems[index] });

@@ -61,17 +61,18 @@ import {
 } from '@definition/schedules';
 import {
   ASSIGNMENT_PATH,
+  ASSISTANT_ASSIGNMENT,
   MIDWEEK_FULL,
   MIDWEEK_WITH_CBS,
   MIDWEEK_WITH_LIVING,
   MIDWEEK_WITH_STUDENTS,
   MIDWEEK_WITH_STUDENTS_LANGUAGE_GROUP,
   MIDWEEK_WITH_TREASURES_TALKS,
-  WEEK_TYPE_LANGUAGE_GROUPS,
-  WEEK_TYPE_NO_MEETING,
   WEEKEND_FULL,
   WEEKEND_WITH_TALKS,
   WEEKEND_WITH_WTSTUDY,
+  WEEK_TYPE_LANGUAGE_GROUPS,
+  WEEK_TYPE_NO_MEETING,
 } from '@constants/index';
 import { assignmentState } from '@states/assignment';
 import { setAssignmentsHistory } from '@services/states/schedules';
@@ -1664,9 +1665,9 @@ export const schedulesSelectRandomPerson = (data: {
   const dataView = store.get(userDataViewState);
 
   const isAssistant = data.mainStudent && data.mainStudent.length > 0;
-  const filters = isAssistant
-    ? [data.type, AssignmentCode.MM_AssistantOnly]
-    : [data.type];
+
+  // the same eligibility the manual selector applies to assistants
+  const filters = isAssistant ? ASSISTANT_ASSIGNMENT : [data.type];
 
   let personsElligible = applyAssignmentFilters(persons, filters).filter(
     (record) => {
@@ -1684,6 +1685,7 @@ export const schedulesSelectRandomPerson = (data: {
         AssignmentCode.MM_MakingDisciples,
         AssignmentCode.MM_ExplainingBeliefs,
         AssignmentCode.MM_Talk,
+        AssignmentCode.MM_Discussion,
         AssignmentCode.MM_InitialCall,
         AssignmentCode.MM_ReturnVisit,
         AssignmentCode.MM_BibleStudy,

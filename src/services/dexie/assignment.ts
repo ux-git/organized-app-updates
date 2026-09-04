@@ -31,6 +31,7 @@ export const dbAssignmentUpdate = async () => {
   const wtStudyConductor: { [language: string]: string } = {};
   const auxClassroomMMObj: { [language: string]: string } = {};
   const assistantOnlyMMObj: { [language: string]: string } = {};
+  const auxClassroomOnlyMMObj: { [language: string]: string } = {};
   const startingConversationObj: { [language: string]: string } = {};
   const followingUpObj: { [language: string]: string } = {};
   const makingDisciplesObj: { [language: string]: string } = {};
@@ -181,6 +182,10 @@ export const dbAssignmentUpdate = async () => {
       language: lang.locale,
     });
     assistantOnlyMMObj[langCode] = getTranslation({ key: 'tr_assistantOnly' });
+    auxClassroomOnlyMMObj[langCode] = getTranslation({
+      key: 'tr_auxiliaryClassroomOnly',
+      language: lang.locale,
+    });
     startingConversationObj[langCode] = getTranslation({
       key: 'tr_startingConversation',
       language: lang.locale,
@@ -497,6 +502,16 @@ export const dbAssignmentUpdate = async () => {
     type: 'ayf',
     assignment_type_name: {
       ...dicussionObj,
+    },
+  });
+
+  await appDb.assignment.put({
+    code: AssignmentCode.MM_AuxiliaryClassroomOnly,
+    maleOnly: false,
+    assignable: true,
+    type: 'ayf',
+    assignment_type_name: {
+      ...auxClassroomOnlyMMObj,
     },
   });
 
