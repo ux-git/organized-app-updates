@@ -36,12 +36,8 @@
   --group-3-base: 83, 96, 208;
   --group-4: #ea8135ff;
   --group-4-base: 234, 129, 53;
-  --group-5: #a8b93eff;
-  --group-5-base: 168, 185, 62;
-  /* optional per group: text in the group color, and content on a filled
-     group color. Only needed when the color is too light for both roles */
-  --group-5-text: #56650aff;
-  --group-5-on: #1c1c1cff;
+  --group-5: #7c9200ff;
+  --group-5-base: 124, 146, 0;
   --group-6: #944cb5ff;
   --group-6-base: 148, 76, 181;
   --group-7: #25a9a9ff;
@@ -74,9 +70,6 @@
 }
 
 [data-theme$='dark'] {
-  /* the bright group 5 lime already reads well as text on dark backgrounds */
-  --group-5-text: var(--group-5);
-
   --big-card-shadow: 0px 8px 12px 0px #00000052, 0px 2px 4px 0px #00000014;
   --small-card-shadow: 0px 4px 12px 0px #0000003d, 0px 2px 4px 0px #00000029;
   --pop-up-shadow: 0px 16px 24px 0px #0000003d;

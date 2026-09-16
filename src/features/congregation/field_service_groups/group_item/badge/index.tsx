@@ -5,7 +5,7 @@ import useBadge from './useBadge';
 import Typography from '@components/typography';
 
 const GroupBadge = (props: GroupBadgeProps) => {
-  const { bg_color, content_color, members_count } = useBadge(props);
+  const { bg_color, members_count } = useBadge(props);
 
   return (
     <Box
@@ -18,8 +18,8 @@ const GroupBadge = (props: GroupBadgeProps) => {
         backgroundColor: bg_color,
       }}
     >
-      <IconVisitors color={content_color} width={16} height={16} />
-      <Typography className="body-small-semibold" color={content_color}>
+      <IconVisitors color="var(--always-white)" width={16} height={16} />
+      <Typography className="body-small-semibold" color={'var(--always-white)'}>
         {members_count}
       </Typography>
     </Box>

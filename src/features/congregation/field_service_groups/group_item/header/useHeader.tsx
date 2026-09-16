@@ -25,7 +25,7 @@ const useHeader = ({ group, index, editable }: GroupHeaderProps) => {
 
   const color = useMemo(() => {
     const css = `--group-${index}`;
-    return `var(${css}-text, var(${css}))`;
+    return `var(${css})`;
   }, [index]);
 
   const group_index = useMemo(() => {
