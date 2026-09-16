@@ -8,6 +8,7 @@ import {
 import { useAppTranslation } from '@hooks/index';
 import { GroupMemberProps } from './index.types';
 import useMember from './useMember';
+import Badge from '@components/badge';
 import IconButton from '@components/icon_button';
 import MenuItem from '@components/menuitem';
 import RemovePerson from '../remove_person';
@@ -20,6 +21,7 @@ const GroupMember = (props: GroupMemberProps) => {
     member_icon,
     member_name,
     member_desc,
+    member_badges,
     icon_hover_color,
     anchorEl,
     handleCloseMenu,
@@ -63,11 +65,40 @@ const GroupMember = (props: GroupMemberProps) => {
         />
       )}
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {member_icon}
+      <Box
+        sx={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}
+      >
+        <Box sx={{ display: 'flex', flexShrink: 0 }}>{member_icon}</Box>
 
-        <Stack>
-          <Typography>{member_name}</Typography>
+        <Stack sx={{ minWidth: 0 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              minWidth: 0,
+              overflow: 'hidden',
+            }}
+          >
+            <Typography sx={{ flexShrink: 0, maxWidth: '100%' }}>
+              {member_name}
+            </Typography>
+
+            {member_badges.map((badge, index) => (
+              <Badge
+                key={badge.name}
+                text={badge.name}
+                color={badge.color}
+                size="small"
+                filled={false}
+                truncate
+                sx={{
+                  flexShrink: index === 0 ? 1 : 100,
+                  minWidth: '40px',
+                }}
+              />
+            ))}
+          </Box>
 
           {member_desc && (
             <Typography

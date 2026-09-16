@@ -72,6 +72,7 @@ const Badge = (props: BadgePropsType) => {
     borderStyle,
     className,
     faded,
+    truncate,
     sx = {},
   } = props;
 
@@ -123,6 +124,7 @@ const Badge = (props: BadgePropsType) => {
     <>
       {size === 'small' && (
         <Box
+          title={truncate ? text : undefined}
           sx={{
             border: '2px',
             height: props.multiLine ? 'unset' : '20px',
@@ -132,7 +134,8 @@ const Badge = (props: BadgePropsType) => {
             borderRadius: 'var(--radius-xs)',
             gap: '4px',
             padding: '2px 6px',
-            flexShrink: '0',
+            flexShrink: truncate ? '1' : '0',
+            minWidth: truncate ? 0 : undefined,
             width: fullWidth ? '100%' : 'auto',
             justifyContent: centerContent ? 'center' : 'flex-start',
             borderStyle: borderStyle || 'none',
@@ -152,6 +155,12 @@ const Badge = (props: BadgePropsType) => {
                 fontWeight: '400',
                 lineHeight: '16px',
                 color: getColor(),
+                ...(truncate && {
+                  display: 'block',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }),
               }}
             >
               {text}
