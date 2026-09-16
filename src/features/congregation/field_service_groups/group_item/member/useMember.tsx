@@ -121,7 +121,7 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
   }, [isServiceCommittee, person, personIsBaptizedPublisher, member]);
 
   const member_badges = useMemo(() => {
-    const badges: { name: string; color: BadgeColor; filled?: boolean }[] = [];
+    const badges: { name: string; color: BadgeColor }[] = [];
 
     if (!person) return badges;
 
@@ -134,7 +134,7 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
     }
 
     if (personIsElder(person)) {
-      badges.push({ name: t('tr_elder'), color: 'green', filled: true });
+      badges.push({ name: t('tr_elder'), color: 'accent' });
     }
 
     if (personIsMS(person)) {

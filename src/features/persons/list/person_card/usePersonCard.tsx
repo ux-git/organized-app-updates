@@ -48,7 +48,7 @@ const usePersonCard = (person: PersonType) => {
     const isInactivePublisher = personIsInactive(person);
     const isFamilyHead = person.person_data?.family_members?.head ?? false;
 
-    const badges: { name: string; color: BadgeColor; filled?: boolean }[] = [];
+    const badges: { name: string; color: BadgeColor }[] = [];
 
     if (disqualified) {
       badges.push({ name: t('tr_disqualified'), color: 'red' });
@@ -60,7 +60,7 @@ const usePersonCard = (person: PersonType) => {
 
     if (!disqualified && !isInactivePublisher) {
       if (isElder) {
-        badges.push({ name: t('tr_elder'), color: 'green', filled: true });
+        badges.push({ name: t('tr_elder'), color: 'accent' });
       }
 
       if (isMS) {

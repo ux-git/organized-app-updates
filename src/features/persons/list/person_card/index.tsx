@@ -56,7 +56,7 @@ const PersonCard = ({ person }: PersonCardType) => {
             text={badge.name}
             color={badge.color}
             size="small"
-            filled={badge.filled ?? false}
+            filled={false}
           />
         ))}
       </UserCard>
