@@ -5,7 +5,12 @@ import { IconAssistant, IconOverseer, IconPerson } from '@components/icons';
 import { useAppTranslation, useCurrentUser } from '@hooks/index';
 import { buildPersonFullname } from '@utils/common';
 import { personsState } from '@states/persons';
-import { fullnameOptionState, groupBadgesEnabledState } from '@states/settings';
+import {
+  fullnameOptionState,
+  groupBadgesEnabledState,
+  settingsState,
+} from '@states/settings';
+import { formatDate, formatDateShortMonth } from '@utils/date';
 import { fieldGroupsState } from '@states/field_service_groups';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
@@ -23,7 +28,9 @@ import usePerson from '@features/persons/hooks/usePerson';
 const useMember = ({ member, index, group_id }: GroupMemberProps) => {
   const { t } = useAppTranslation();
 
-  const { isServiceCommittee, isElder } = useCurrentUser();
+  const { isServiceCommittee, isElder, isAppointed } = useCurrentUser();
+
+  const settings = useAtomValue(settingsState);
 
   const badgesEnabled = useAtomValue(groupBadgesEnabledState);
 
@@ -95,6 +102,41 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
       return t('tr_groupOverseerAssistant');
     }
   }, [member, person, personIsElder, t]);
+
+  const member_away = useMemo(() => {
+    if (!person) return;
+
+    const timeAwayPublic = settings.cong_settings.time_away_public?.value;
+
+    if (!isAppointed && !timeAwayPublic) return;
+
+    const today = formatDate(new Date(), 'yyyy/MM/dd');
+
+    // current or next time away that has not ended yet
+    const timeAway = person.person_data.timeAway
+      ?.filter((record) => {
+        if (record._deleted || !record.start_date) return false;
+        if (!record.end_date) return true;
+
+        return formatDate(new Date(record.end_date), 'yyyy/MM/dd') >= today;
+      })
+      .sort((a, b) => a.start_date.localeCompare(b.start_date))
+      .at(0);
+
+    if (!timeAway) return;
+
+    const startDate = formatDateShortMonth(timeAway.start_date);
+
+    if (!timeAway.end_date) {
+      return t('tr_awayFrom', { date: startDate });
+    }
+
+    const endDate = formatDateShortMonth(timeAway.end_date);
+
+    return t('tr_awayDates', {
+      date: t('tr_dateRangeNoYear', { startDate, endDate }),
+    });
+  }, [person, settings, isAppointed, t]);
 
   const make_overseer = useMemo(() => {
     if (!isServiceCommittee) return false;
@@ -325,6 +367,7 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
     member_icon,
     member_name,
     member_desc,
+    member_away,
     member_badges,
     icon_hover_color,
     anchorEl,
