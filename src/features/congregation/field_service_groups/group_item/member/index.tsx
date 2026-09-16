@@ -84,20 +84,34 @@ const GroupMember = (props: GroupMemberProps) => {
               {member_name}
             </Typography>
 
-            {member_badges.map((badge, index) => (
-              <Badge
-                key={badge.name}
-                text={badge.name}
-                color={badge.color}
-                size="small"
-                filled={false}
-                truncate
+            {member_badges.length > 0 && (
+              // badges that do not fit wrap onto a hidden second line,
+              // so only whole badges show next to the name
+              <Box
+                title={member_badges.map((badge) => badge.name).join(', ')}
                 sx={{
-                  flexShrink: index === 0 ? 1 : 100,
-                  minWidth: '40px',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: '6px',
+                  height: '20px',
+                  minWidth: 0,
+                  overflow: 'hidden',
                 }}
-              />
-            ))}
+              >
+                {member_badges.map((badge) => (
+                  <Badge
+                    key={badge.name}
+                    text={badge.name}
+                    color={badge.color}
+                    size="small"
+                    filled={false}
+                    truncate
+                    sx={{ minWidth: '40px' }}
+                  />
+                ))}
+              </Box>
+            )}
           </Box>
 
           {member_desc && (
