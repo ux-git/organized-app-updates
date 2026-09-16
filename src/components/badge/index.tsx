@@ -111,7 +111,7 @@ const Badge = (props: BadgePropsType) => {
 
         return `var(--${color}-150)`;
       } else if (color === 'accent') {
-        return `var(--accent-200)`;
+        return `var(--accent-150)`;
       } else {
         return `var(--${color}-secondary)`;
       }
