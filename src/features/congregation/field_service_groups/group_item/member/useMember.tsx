@@ -10,7 +10,7 @@ import {
   groupBadgesEnabledState,
   settingsState,
 } from '@states/settings';
-import { formatDate, formatDateShortMonth } from '@utils/date';
+import { addMonths, formatDate, formatDateShortMonth } from '@utils/date';
 import { fieldGroupsState } from '@states/field_service_groups';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
@@ -125,16 +125,25 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
 
     if (!timeAway) return;
 
+    const start = formatDate(new Date(timeAway.start_date), 'yyyy/MM/dd');
+    const noticeFrom = formatDate(addMonths(new Date(), 1), 'yyyy/MM/dd');
+
+    // announce a time away one month before it starts
+    if (start > noticeFrom) return;
+
+    const isAway = start <= today;
+
     const startDate = formatDateShortMonth(timeAway.start_date);
 
     if (!timeAway.end_date) {
-      return t('tr_awayFrom', { date: startDate });
+      return t(isAway ? 'tr_awayFrom' : 'tr_awaySoonFrom', { startDate });
     }
 
     const endDate = formatDateShortMonth(timeAway.end_date);
 
-    return t('tr_awayDates', {
-      date: t('tr_dateRangeNoYear', { startDate, endDate }),
+    return t(isAway ? 'tr_awayDates' : 'tr_awaySoonDates', {
+      startDate,
+      endDate,
     });
   }, [person, settings, isAppointed, t]);
 
