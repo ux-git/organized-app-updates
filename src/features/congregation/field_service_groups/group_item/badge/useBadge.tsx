@@ -7,11 +7,16 @@ const useBadge = ({ group, index }: GroupBadgeProps) => {
     return `var(${css})`;
   }, [index]);
 
+  const content_color = useMemo(() => {
+    const css = `--group-${index}-on`;
+    return `var(${css}, var(--always-white))`;
+  }, [index]);
+
   const members_count = useMemo(() => {
     return group.group_data.members.length;
   }, [group]);
 
-  return { bg_color, members_count };
+  return { bg_color, content_color, members_count };
 };
 
 export default useBadge;

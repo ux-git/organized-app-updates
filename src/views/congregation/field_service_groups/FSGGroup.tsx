@@ -15,7 +15,10 @@ import styles from './index.styles';
 const FSGGroup = ({ card, fontSize }: FSGGroupProps) => {
   const { group, span, columns, membersCount } = card;
 
-  const groupColor = getCSSPropertyValue(`--group-${group.group_number}`);
+  // prefer the text tone: light group colors are unreadable on white paper
+  const groupColor =
+    getCSSPropertyValue(`--group-${group.group_number}-text`) ||
+    getCSSPropertyValue(`--group-${group.group_number}`);
 
   const badge = badgePadding(fontSize);
 
