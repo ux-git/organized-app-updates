@@ -67,16 +67,23 @@ const GroupMember = (props: GroupMemberProps) => {
       )}
 
       <Box
-        sx={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}
+        sx={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '8px',
+          minWidth: 0,
+        }}
       >
         <Box sx={{ display: 'flex', flexShrink: 0 }}>{member_icon}</Box>
 
         <Stack sx={{ minWidth: 0 }}>
+          {/* name line matches the icon height so both share one center */}
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
+              minHeight: '24px',
               minWidth: 0,
               overflow: 'hidden',
             }}
