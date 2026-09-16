@@ -5,7 +5,7 @@ import { IconAssistant, IconOverseer, IconPerson } from '@components/icons';
 import { useAppTranslation, useCurrentUser } from '@hooks/index';
 import { buildPersonFullname } from '@utils/common';
 import { personsState } from '@states/persons';
-import { fullnameOptionState } from '@states/settings';
+import { fullnameOptionState, groupBadgesEnabledState } from '@states/settings';
 import { fieldGroupsState } from '@states/field_service_groups';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';
@@ -24,6 +24,8 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
   const { t } = useAppTranslation();
 
   const { isServiceCommittee, isElder } = useCurrentUser();
+
+  const badgesEnabled = useAtomValue(groupBadgesEnabledState);
 
   const { personIsElder, personIsMS, personIsBaptizedPublisher } = usePerson();
 
@@ -123,7 +125,7 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
   const member_badges = useMemo(() => {
     const badges: { name: string; color: BadgeColor }[] = [];
 
-    if (!person) return badges;
+    if (!person || !badgesEnabled) return badges;
 
     if (personIsInactive(person)) {
       if (isElder) {
@@ -158,7 +160,7 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
     }
 
     return badges;
-  }, [person, isElder, personIsElder, personIsMS, t]);
+  }, [person, badgesEnabled, isElder, personIsElder, personIsMS, t]);
 
   const current_group = useMemo(() => {
     return groups.find((record) => record.group_id === group_id);
