@@ -5,5 +5,5 @@ export type PersonDetailsProps = {
   person: PersonType;
   month: string;
   className?: CustomClassName;
-  badgesOverride?: { name: string; color: BadgeColor }[];
+  badgesOverride?: { name: string; color: BadgeColor; filled?: boolean }[];
 };

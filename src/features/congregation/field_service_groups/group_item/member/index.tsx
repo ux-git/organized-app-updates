@@ -105,7 +105,7 @@ const GroupMember = (props: GroupMemberProps) => {
                     text={badge.name}
                     color={badge.color}
                     size="small"
-                    filled={false}
+                    filled={badge.filled ?? false}
                     truncate
                     sx={{ minWidth: '40px' }}
                   />

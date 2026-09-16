@@ -193,7 +193,7 @@ const usePerson = () => {
   };
 
   const getBadges = (person: PersonType, month?: string) => {
-    const badges: { name: string; color: BadgeColor }[] = [];
+    const badges: { name: string; color: BadgeColor; filled?: boolean }[] = [];
 
     const isElder = personIsPrivilegeActive(person, 'elder', month);
     const isMS = personIsPrivilegeActive(person, 'ms', month);
@@ -213,12 +213,12 @@ const usePerson = () => {
     }
 
     if (isInactivePublisher) {
-      badges.push({ name: t('tr_inactivePublisher'), color: 'red' });
+      badges.push({ name: t('tr_inactivePublisher'), color: 'grey' });
     }
 
     if (!isDisqualified && !isInactivePublisher) {
       if (isElder) {
-        badges.push({ name: t('tr_elder'), color: 'green' });
+        badges.push({ name: t('tr_elder'), color: 'green', filled: true });
       }
 
       if (isMS) {

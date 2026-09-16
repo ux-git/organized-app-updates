@@ -28,7 +28,7 @@ const PersonDetails = (props: PersonDetailsProps) => {
               text={badge.name}
               color={badge.color}
               size="small"
-              filled={false}
+              filled={badge.filled ?? false}
             />
           ))}
         </Box>
