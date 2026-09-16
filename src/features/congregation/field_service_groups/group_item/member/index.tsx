@@ -128,6 +128,7 @@ const GroupMember = (props: GroupMemberProps) => {
             <Typography
               className="label-small-regular"
               color={'var(--grey-350)'}
+              sx={{ marginTop: '2px' }}
             >
               {member_away}
             </Typography>
