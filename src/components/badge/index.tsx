@@ -43,17 +43,15 @@ const BadgeContent = (props: BadgeContentPropsType) => {
 
 const BadgeTypography = ({
   children,
-  className = 'body-small-semibold',
+  className,
   sx,
 }: BadgeTypographyPropsType) => {
+  const styles = { display: 'flex', alignItems: 'center', ...sx };
+
   return (
     <Typography
-      className={className}
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        ...sx,
-      }}
+      className={className ?? 'body-small-semibold'}
+      sx={className ? styles : { '&&': styles }}
     >
       {children}
     </Typography>
@@ -151,9 +149,10 @@ const Badge = (props: BadgePropsType) => {
             <BadgeTypography
               className={className}
               sx={{
-                fontSize: '12px',
-                fontWeight: '400',
+                fontSize: '11px',
+                fontWeight: '520',
                 lineHeight: '16px',
+                letterSpacing: '0.1px',
                 color: getColor(),
                 ...(truncate && {
                   display: 'block',
@@ -196,9 +195,10 @@ const Badge = (props: BadgePropsType) => {
             <BadgeTypography
               className={className}
               sx={{
-                fontSize: '14px',
+                fontSize: '12px',
                 fontWeight: '520',
                 lineHeight: '16px',
+                letterSpacing: '0.05px',
                 color: getColor(),
               }}
             >
@@ -235,9 +235,10 @@ const Badge = (props: BadgePropsType) => {
               <BadgeTypography
                 className={className}
                 sx={{
-                  fontSize: '16px',
-                  fontWeight: '420',
+                  fontSize: '14px',
+                  fontWeight: '500',
                   lineHeight: '20px',
+                  letterSpacing: '0px',
                   color: getColor(),
                 }}
               >
