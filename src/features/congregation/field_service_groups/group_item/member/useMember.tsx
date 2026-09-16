@@ -115,8 +115,9 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
     // current or next time away that has not ended yet
     const timeAway = person.person_data.timeAway
       ?.filter((record) => {
-        if (record._deleted || !record.start_date) return false;
-        if (!record.end_date) return true;
+        if (record._deleted || !record.start_date || !record.end_date) {
+          return false;
+        }
 
         return formatDate(new Date(record.end_date), 'yyyy/MM/dd') >= today;
       })
@@ -134,11 +135,6 @@ const useMember = ({ member, index, group_id }: GroupMemberProps) => {
     const isAway = start <= today;
 
     const startDate = formatDateShortMonth(timeAway.start_date);
-
-    if (!timeAway.end_date) {
-      return t(isAway ? 'tr_awayFrom' : 'tr_awaySoonFrom', { startDate });
-    }
-
     const endDate = formatDateShortMonth(timeAway.end_date);
 
     return t(isAway ? 'tr_awayDates' : 'tr_awaySoonDates', {
