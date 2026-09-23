@@ -111,6 +111,23 @@ fn remove_peer(id: String) -> Result<()> {
 }
 
 #[tauri::command]
+fn sync_log() -> Result<Vec<Value>> {
+    store()?.log()
+}
+
+#[tauri::command]
+fn conflicts() -> Result<Vec<Value>> {
+    store()?.conflicts()
+}
+
+#[tauri::command]
+fn resolve_conflict(table: String, id: String, field: String, use_other: bool) -> Result<()> {
+    store()?.resolve(&table, &id, &field, use_other)?;
+    changed();
+    Ok(())
+}
+
+#[tauri::command]
 fn pairing_card() -> Result<String> {
     qr::card(&*store()?, PLATFORM)
 }
@@ -157,6 +174,9 @@ pub fn run() {
             set_name,
             peers,
             remove_peer,
+            sync_log,
+            conflicts,
+            resolve_conflict,
             pairing_card,
             add_pairing_card,
             export_bundle,

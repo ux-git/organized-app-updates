@@ -59,6 +59,7 @@ pub fn add_card(store: &Store, text: &str) -> Result<Peer> {
         paired_at: 0,
         last_sync: None,
         pending: 0,
+        introduced_by: None,
     };
     if peer.public_key.len() != 32 || peer.id.len() != ID_LEN {
         return Err("not a pairing code".into());
@@ -109,6 +110,7 @@ pub fn export(store: &Store, peer_id: &str) -> Result<String> {
 pub struct Imported {
     pub name: String,
     pub received: usize,
+    pub items: std::collections::BTreeMap<String, usize>,
 }
 
 pub fn import(store: &mut Store, text: &str) -> Result<Imported> {
@@ -129,10 +131,12 @@ pub fn import(store: &mut Store, text: &str) -> Result<Imported> {
         .decrypt(nonce.into(), Payload { msg: sealed, aad: header })
         .map_err(|_| "the transfer did not open")?;
     let contents: Contents = unpack(&plain)?;
-    let received = store.apply(&contents.cells, &contents.versions)?;
+    let applied = store.apply(&contents.cells, &contents.versions)?;
+    store.log_sync(&peer.id, &peer.name, 0, &applied)?;
     Ok(Imported {
         name: peer.name,
-        received,
+        received: applied.cells,
+        items: applied.items,
     })
 }
 

@@ -32,3 +32,37 @@ export const haptic = (intent: HapticIntent) => {
     // never let a non-essential enhancement break the interaction
   }
 };
+
+/** The sync's own vibrations (Haptics.kt); a plain one elsewhere. */
+export type SyncHaptic =
+  | 'wave'
+  | 'contact'
+  | 'found'
+  | 'code'
+  | 'start'
+  | 'paired'
+  | 'synced'
+  | 'error'
+  | 'remove';
+
+const FALLBACK: Record<SyncHaptic, HapticIntent> = {
+  wave: 'tap',
+  contact: 'tap',
+  found: 'tap',
+  code: 'tap',
+  start: 'tap',
+  paired: 'celebrate',
+  synced: 'celebrate',
+  error: 'limit',
+  remove: 'reset',
+};
+
+export const play = (name: SyncHaptic) => {
+  try {
+    if (!store.get(hapticsEnabledState)) return;
+    if (window.OrganizedHaptics?.perform(name)) return;
+    haptic(FALLBACK[name]);
+  } catch {
+    // as above
+  }
+};

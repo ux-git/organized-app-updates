@@ -22,7 +22,9 @@ import {
   readList,
 } from '../people';
 import { loadPeople, PEOPLE, Person, writeRows } from '../persistence';
-import { notify } from './sync/dialogs';
+import { play } from '../haptics';
+import { confirm } from './confirm';
+import { notify } from './sync/text';
 import { Avatar } from './sync/parts';
 import usePeople from './usePeople';
 
@@ -247,11 +249,13 @@ const Publishers = () => {
   }, [people, search]);
 
   const remove = async (person: Person) => {
-    if (
-      !window.confirm(`Remove ${person.name}? Their assignment history stays.`)
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Remove ${person.name}?`,
+      description: 'Their assignment history stays.',
+      action: 'Remove',
+    });
+    if (!ok) return;
+    play('remove');
     await writeRows([{ table: PEOPLE, id: person.id, deleted: true }]);
     await loadPeople();
   };
@@ -293,7 +297,7 @@ const Publishers = () => {
                   remove(person);
                 }}
               >
-                <IconDelete color="var(--grey-400)" />
+                <IconDelete color="var(--red-main)" />
               </IconButton>
             </Box>
           ))}

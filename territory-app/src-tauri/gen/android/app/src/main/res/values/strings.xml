@@ -9,6 +9,45 @@
     <string name="sync_channel">Sync with paired phones</string>
     <string name="sync_title">Territories</string>
     <string name="sync_looking">Looking for paired phones nearby</string>
+    <string name="sync_background">Syncs with paired phones in the background</string>
+    <string name="results_channel">Sync results</string>
+    <string name="done_title">Synced with %1$s</string>
+    <string name="done_someone">the other phone</string>
+    <string name="done_received">You got %1$s.</string>
+    <string name="done_both">You got %1$s, and your changes went over too.</string>
+    <string name="done_joined">%1$s joined through %2$s. You now sync with them too.</string>
+    <string name="and">and</string>
+    <plurals name="done_sent">
+        <item quantity="one">Your change is now on %2$s’s phone too.</item>
+        <item quantity="other">Your %1$d changes are now on %2$s’s phone too.</item>
+    </plurals>
+    <plurals name="done_conflicts">
+        <item quantity="one">1 detail was changed on both phones. Open the app to check it.</item>
+        <item quantity="other">%1$d details were changed on both phones. Open the app to check them.</item>
+    </plurals>
+    <plurals name="item_territories">
+        <item quantity="one">1 territory</item>
+        <item quantity="other">%1$d territories</item>
+    </plurals>
+    <plurals name="item_assignments">
+        <item quantity="one">1 assignment</item>
+        <item quantity="other">%1$d assignments</item>
+    </plurals>
+    <plurals name="item_do_not_calls">
+        <item quantity="one">1 do-not-call address</item>
+        <item quantity="other">%1$d do-not-call addresses</item>
+    </plurals>
+    <plurals name="item_people">
+        <item quantity="one">1 name</item>
+        <item quantity="other">%1$d names</item>
+    </plurals>
+    <plurals name="item_other">
+        <item quantity="one">1 setting</item>
+        <item quantity="other">%1$d settings</item>
+    </plurals>
+    <string name="found_title">%1$s is nearby</string>
+    <string name="found_text">Your phones haven’t synced yet. Tap Sync now, or open the app.</string>
+    <string name="found_action">Sync now</string>
     <string name="sync_running">Syncing...</string>
     <string name="sync_done">Synced with %1$s at %2$s</string>
     <string name="sync_timeout">The other phone stopped answering</string>

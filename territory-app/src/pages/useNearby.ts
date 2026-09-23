@@ -8,6 +8,8 @@ export type Peer = {
   paired_at: number;
   last_sync: number | null;
   pending: number;
+  /** The phone it was introduced by, when it wasn't paired in person. */
+  introduced_by?: string | null;
 };
 
 export type SessionStatus = {
@@ -18,9 +20,14 @@ export type SessionStatus = {
   reason?: string;
   sent?: number;
   received?: number;
+  items?: Record<string, number>;
+  conflicts?: number;
+  introduced?: string[];
   address?: string;
   mode?: number;
 };
+
+export type SyncMode = 'always' | 'meetings';
 
 export type Meeting = { day: number; time: string };
 
@@ -43,15 +50,25 @@ export type NearbyStatus = {
     nfcOn?: boolean;
     bluetoothOn?: boolean;
     camera?: boolean;
+    battery?: boolean;
   };
   schedule?: {
     enabled?: boolean;
+    mode?: SyncMode;
+    notify?: boolean;
     meetings?: Meeting[];
     before?: number;
     after?: number;
   };
   hall?: { lat: number; lng: number; radius: number } | null;
 };
+
+/**
+ * Changes no paired phone has yet. Once one has them, they travel on to the
+ * rest of the circle.
+ */
+export const unsynced = (peers: Peer[]) =>
+  peers.length ? Math.min(...peers.map((peer) => peer.pending)) : 0;
 
 /** Paired phones from the store, and Bluetooth state from Android. */
 const useNearby = () => {

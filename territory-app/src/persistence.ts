@@ -13,7 +13,7 @@ import {
 } from '@states/territories';
 import { parseDate } from '@features/territories/helpers';
 import { store } from '@states/index';
-import { invoke, listen } from './native';
+import { invoke, listen, nearby } from './native';
 import { setCurrentPublisher, setMapCenter, setPeople } from './data';
 import { seedPeople } from './seed';
 
@@ -41,9 +41,13 @@ export const PEOPLE = 'people';
 
 const rows = (table: string) => invoke<Row[]>('store_list', { table });
 
+// every edit tells paired phones nearby at once (NearbyService.changed)
 export const writeRows = (writes: Write[]) =>
   writes.length
-    ? invoke<number>('store_write', { writes })
+    ? invoke<number>('store_write', { writes }).then((written) => {
+        if (written) nearby('changed');
+        return written;
+      })
     : Promise.resolve(0);
 
 const byDate = (field: string) => (a: Row, b: Row) =>

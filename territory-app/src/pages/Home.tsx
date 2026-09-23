@@ -6,7 +6,7 @@ import PageTitle from '@components/page_title';
 import Typography from '@components/typography';
 import TerritoriesCard from './TerritoriesCard';
 import SettingsCard from './SettingsCard';
-import useNearby from './useNearby';
+import useNearby, { unsynced } from './useNearby';
 
 const escape = (text: string) =>
   text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -20,7 +20,7 @@ const Home = () => {
   const { peers, name } = useNearby();
 
   const firstName = name.trim().split(/\s+/)[0];
-  const pending = peers.reduce((sum, peer) => sum + peer.pending, 0);
+  const pending = unsynced(peers);
   const names = escape(
     peers.map((peer) => peer.name || 'a paired phone').join(', ')
   );

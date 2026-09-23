@@ -1,31 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Box } from '@mui/material';
+import { IconCheck } from '@icons/index';
 import QRCode from 'qrcode';
 import Button from '@components/button';
 import Dialog from '@components/dialog';
+import TextField from '@components/textfield';
 import Typography from '@components/typography';
-import { displaySnackNotification } from '@services/states/app';
-import { haptic } from '../../haptics';
+import { play } from '../../haptics';
 import { invoke, listen, nearby } from '../../native';
 import { NearbyStatus, Peer, SessionStatus } from '../useNearby';
 import { IconBluetooth, IconTap } from './icons';
 import { PhoneRow, Pulse } from './parts';
-
-export const notify = (
-  header: string,
-  message: string,
-  severity: 'success' | 'error' = 'success'
-) => displaySnackNotification({ header, message, severity });
-
-export const time = (date: Date) =>
-  date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-export const ago = (seconds: number | null) => {
-  if (!seconds) return 'Never synced';
-  const date = new Date(seconds * 1000);
-  const today = new Date().toDateString() === date.toDateString();
-  return `Synced ${today ? 'today' : date.toLocaleDateString()} at ${time(date)}`;
-};
+import { describeItems, notify } from './text';
 
 // ---- what a scanned QR code or an opened file contains ----
 
@@ -34,20 +20,23 @@ export const receive = async (text: string) => {
     if (text.startsWith('OTC1:')) {
       const peer = await invoke<Peer>('add_pairing_card', { text });
       nearby('paired');
-      haptic('celebrate');
+      play('paired');
       notify(
         'Phone paired',
         `${peer.name || 'The other phone'} is paired. Now let it scan your code too.`
       );
     } else if (text.startsWith('OTB1:')) {
-      const imported = await invoke<{ name: string; received: number }>(
-        'import_bundle',
-        { text }
-      );
-      haptic('celebrate');
+      const imported = await invoke<{
+        name: string;
+        received: number;
+        items: Record<string, number>;
+      }>('import_bundle', { text });
+      play('synced');
       notify(
-        'Changes received',
-        `${imported.received} changes from ${imported.name} were added.`
+        `Received from ${imported.name}`,
+        imported.received
+          ? `You got ${describeItems(imported.items)}.`
+          : 'Nothing new. You already had all of it.'
       );
     } else {
       notify(
@@ -57,6 +46,7 @@ export const receive = async (text: string) => {
       );
     }
   } catch (error) {
+    play('error');
     notify('Something went wrong', String(error), 'error');
   }
 };
@@ -73,59 +63,139 @@ const centered = {
   paddingBlock: '8px',
 } as const;
 
+const WAVE_MS = 4000;
+
 export const MeetDialog = ({
   open,
   method,
   onClose,
   status,
+  myName,
+  onNamed,
 }: {
   open: boolean;
   method: PairMethod;
   onClose: VoidFunction;
   status: NearbyStatus;
+  myName: string;
+  onNamed: VoidFunction;
 }) => {
   const [tapped, setTapped] = useState<SessionStatus | null>(null);
+  const [touching, setTouching] = useState(false);
+  const [name, setName] = useState('');
+  const needsName = open && !myName.trim();
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || needsName) return;
     setTapped(null);
+    setTouching(false);
     nearby('meetStart');
-    const stop = listen<SessionStatus>('tap', setTapped);
+    const stop = listen<SessionStatus | { state: 'touching' | 'apart' }>(
+      'tap',
+      (event) => {
+        if (event.state === 'touching') setTouching(true);
+        else if (event.state === 'apart') setTouching(false);
+        else {
+          setTouching(false);
+          setTapped(event as SessionStatus);
+        }
+      }
+    );
     return () => {
       nearby('meetStop');
       stop.then((unlisten) => unlisten());
     };
-  }, [open]);
+  }, [open, needsName]);
 
   const pairing = status.exchanges?.find((exchange) => exchange.mode === 1);
   const paired =
     status.lastDone && status.lastDone.at > Date.now() - 30_000
       ? status.lastDone
       : null;
+  const seen = status.seen ?? [];
+  const nfcOn = !!status.permissions?.nfcOn;
+  const waiting =
+    open && method === 'tap' && nfcOn && !touching && !tapped && !paired;
+
+  // NFC: a ripple now and then, as if the phone were sending out waves
+  useEffect(() => {
+    if (!waiting) return;
+    play('wave');
+    const timer = setInterval(() => play('wave'), WAVE_MS);
+    return () => clearInterval(timer);
+  }, [waiting]);
 
   useEffect(() => {
-    if (pairing?.state === 'confirm') haptic('tap');
+    if (open && seen.length) play('found');
+  }, [open, seen.length]);
+
+  useEffect(() => {
+    if (pairing?.state === 'confirm') play('code');
+    if (pairing?.state === 'failed') play('error');
   }, [pairing?.state]);
 
   useEffect(() => {
-    if (paired && open) haptic('celebrate');
+    if (paired && open) play('paired');
   }, [paired, open]);
 
+  const saveName = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    await invoke('set_name', { name: trimmed });
+    onNamed();
+  };
+
+  const success = (who?: string) => (
+    <Box sx={centered}>
+      <Pulse icon={<IconCheck color="var(--green-main)" />} active={false} />
+      <Typography className="h3" sx={{ textAlign: 'center' }}>
+        Paired with {who || 'the other phone'}
+      </Typography>
+      <Typography
+        className="body-regular"
+        color="var(--grey-400)"
+        sx={{ textAlign: 'center' }}
+      >
+        Your phones now sync by themselves whenever they are close. The first
+        sync starts right away.
+      </Typography>
+    </Box>
+  );
+
   const body = () => {
-    if (tapped?.state === 'done') {
+    if (needsName) {
       return (
-        <Typography className="body-regular">
-          Paired with {tapped.name}. Your phones now sync by themselves when
-          they are close to each other.
-        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <Typography className="body-regular">
+            First, your name. The other phone shows it, so the other brother
+            knows it’s you.
+          </Typography>
+          <TextField
+            label="Your name"
+            value={name}
+            autoFocus
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => event.key === 'Enter' && saveName()}
+          />
+          <Button variant="main" disabled={!name.trim()} onClick={saveName}>
+            Continue
+          </Button>
+        </Box>
       );
     }
+    if (tapped?.state === 'done') return success(tapped.name);
     if (tapped?.state === 'failed') {
       return (
-        <Typography className="body-regular" sx={{ color: 'var(--red-main)' }}>
-          Pairing didn&apos;t finish. Hold the phones together a little longer
-          and try again.
-        </Typography>
+        <Box sx={centered}>
+          <Pulse icon={<IconTap />} active />
+          <Typography
+            className="body-regular"
+            sx={{ color: 'var(--red-main)', textAlign: 'center' }}
+          >
+            The phones moved apart too soon. Hold them together again, a little
+            longer.
+          </Typography>
+        </Box>
       );
     }
     if (pairing?.state === 'confirm') {
@@ -169,7 +239,12 @@ export const MeetDialog = ({
       );
     }
     if (pairing?.state === 'connecting' || pairing?.state === 'exchanging') {
-      return <Typography className="body-regular">Connecting...</Typography>;
+      return (
+        <Box sx={centered}>
+          <Pulse icon={<IconBluetooth />} active />
+          <Typography className="body-regular">Connecting...</Typography>
+        </Box>
+      );
     }
     if (pairing?.state === 'failed') {
       return (
@@ -178,25 +253,30 @@ export const MeetDialog = ({
         </Typography>
       );
     }
-    if (paired) {
-      return (
-        <Typography className="body-regular">
-          Paired with {paired.name}. Your phones now sync by themselves when
-          they are close to each other.
-        </Typography>
-      );
-    }
+    if (paired) return success(paired.name);
     if (method === 'tap') {
-      const on = status.permissions?.nfcOn;
       return (
         <Box sx={centered}>
-          <Pulse icon={<IconTap />} active={!!on} />
+          <Pulse icon={<IconTap />} active={nfcOn} />
           <Typography className="body-regular" sx={{ textAlign: 'center' }}>
-            {on
-              ? 'Hold the backs of both phones together until they vibrate. The other brother opens this screen too.'
-              : 'NFC is off on this phone. Turn it on to pair by holding the phones together.'}
+            {!nfcOn
+              ? 'NFC is off on this phone. Turn it on to pair by holding the phones together.'
+              : touching
+                ? 'Found it. Keep holding the phones together...'
+                : 'Hold the backs of both phones together until they vibrate. The other brother opens this screen too.'}
           </Typography>
-          {!on && (
+          {nfcOn && !touching && (
+            <Typography
+              className="label-small-regular"
+              color="var(--grey-400)"
+              sx={{ textAlign: 'center' }}
+            >
+              NFC needs no permission. Both phones stay unlocked with this
+              screen open. The NFC spot is usually in the middle of the back,
+              near the camera.
+            </Typography>
+          )}
+          {!nfcOn && (
             <Button variant="main" onClick={() => nearby('nfcSettings')}>
               Open NFC settings
             </Button>
@@ -204,7 +284,6 @@ export const MeetDialog = ({
         </Box>
       );
     }
-    const seen = status.seen ?? [];
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <Box sx={centered}>
@@ -243,7 +322,7 @@ export const MeetDialog = ({
         body()
       )}
       <Button variant="tertiary" onClick={onClose}>
-        Close
+        {tapped?.state === 'done' || paired ? 'Done' : 'Close'}
       </Button>
     </Dialog>
   );

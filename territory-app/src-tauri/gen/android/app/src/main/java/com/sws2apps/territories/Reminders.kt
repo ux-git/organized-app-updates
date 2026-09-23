@@ -23,6 +23,7 @@ import org.json.JSONObject
 
 /**
  * When the phone looks for its paired phones without anyone opening the app:
+ * - all the time, when automatic sync is set to that (the default);
  * - during meeting times (an alarm starts the search, as a foreground service
  *   may be started from an exact alarm);
  * - when a paired phone's beacon is seen (Android scans for it in the
@@ -49,6 +50,12 @@ object Reminders {
   fun saveSchedule(context: Context, json: String) {
     Nearby.prefs(context).edit().putString("schedule", json).apply()
     plan(context)
+  }
+
+  /** Automatic sync is on and not limited to meeting times. */
+  fun always(context: Context): Boolean {
+    val schedule = schedule(context)
+    return schedule.optBoolean("enabled", true) && schedule.optString("mode", "always") == "always"
   }
 
   /** Meeting times as [start, end] of the search, from now for a week. */
@@ -108,6 +115,7 @@ object Reminders {
 
   /** Sets the alarms for the next meeting, and searches now if one is on. */
   fun plan(context: Context) {
+    NearbyService.keepRunning(context)
     val manager = context.getSystemService(AlarmManager::class.java)
     manager.cancel(alarm(context, ACTION_START, 0))
     manager.cancel(alarm(context, ACTION_END, 0))
@@ -258,13 +266,15 @@ object Reminders {
       BluetoothLeScanner.EXTRA_LIST_SCAN_RESULT,
       ScanResult::class.java
     ) ?: return
-    val wanted = results.any { result ->
-      val payload = result.scanRecord?.getServiceData(ParcelUuid(Nearby.SERVICE)) ?: return@any false
-      if (payload.isEmpty() || payload[0] != Nearby.KIND_BEACON) return@any false
+    val peer = results.firstNotNullOfOrNull { result ->
+      val payload = result.scanRecord?.getServiceData(ParcelUuid(Nearby.SERVICE)) ?: return@firstNotNullOfOrNull null
+      if (payload.isEmpty() || payload[0] != Nearby.KIND_BEACON) return@firstNotNullOfOrNull null
       val sighting = Native.recognise(payload.copyOfRange(1, payload.size))
-      sighting.isNotEmpty() && JSONObject(sighting).optBoolean("needsSync")
-    }
-    if (wanted) NearbyService.start(context, "peer", 3 * 60_000L)
+      if (sighting.isEmpty()) return@firstNotNullOfOrNull null
+      JSONObject(sighting).takeIf { it.optBoolean("needsSync") }?.optString("peer")
+    } ?: return
+    // without the battery exception Android may refuse; then one tap does it
+    if (!NearbyService.start(context, "peer", 3 * 60_000L)) SyncNotices.found(context, peer)
   }
 
   fun isPeerIntent(intent: Intent) = intent.action == ACTION_PEER

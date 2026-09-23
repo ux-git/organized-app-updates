@@ -180,13 +180,17 @@ class Link(private val context: Context, private val listener: Listener) {
     }
   }
 
-  fun scan(fast: Boolean) {
+  /** `fast` while someone waits for it; `quiet` when it runs all day. */
+  fun scan(fast: Boolean, quiet: Boolean = false) {
     val scanner = adapter?.bluetoothLeScanner ?: return
     stopScan()
     val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(Nearby.SERVICE)).build()
-    val settings = ScanSettings.Builder()
-      .setScanMode(if (fast) ScanSettings.SCAN_MODE_LOW_LATENCY else ScanSettings.SCAN_MODE_BALANCED)
-      .build()
+    val mode = when {
+      fast -> ScanSettings.SCAN_MODE_LOW_LATENCY
+      quiet -> ScanSettings.SCAN_MODE_LOW_POWER
+      else -> ScanSettings.SCAN_MODE_BALANCED
+    }
+    val settings = ScanSettings.Builder().setScanMode(mode).build()
     runCatching { scanner.startScan(listOf(filter), settings, scanCallback) }
       .onSuccess { scanning = true }
   }

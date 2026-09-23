@@ -8,6 +8,7 @@
 //! code (when the phones may be anywhere in the room) or trusts the link
 //! itself (an NFC tap).
 
+use std::collections::BTreeMap;
 use std::io::{Read, Write};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -17,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use snow::{Builder, HandshakeState, TransportState};
 
-use crate::store::{Cell, Peer, Result, Store, Versions};
+use crate::store::{Applied, Cell, Member, Peer, Result, Store, Versions};
 
 const PARAMS: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
 const PROLOGUE: &[u8] = b"organized-territories-1";
@@ -33,6 +34,7 @@ const PART: u8 = 6;
 const DONE: u8 = 7;
 const ACK: u8 = 8;
 const FAIL: u8 = 9;
+const CIRCLE: u8 = 10;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Mode {
@@ -57,6 +59,12 @@ pub enum Status {
         name: String,
         sent: usize,
         received: usize,
+        /// Records received, per table.
+        items: BTreeMap<String, usize>,
+        /// Fields both phones had changed.
+        conflicts: usize,
+        /// Phones of the circle this one met through the other.
+        introduced: Vec<String>,
     },
     Failed {
         reason: String,
@@ -97,7 +105,8 @@ pub struct Session {
     sent_versions: Option<Versions>,
     sent: usize,
     parts: Vec<u8>,
-    received: Option<(usize, Versions)>,
+    received: Option<(Applied, Versions)>,
+    introduced: Vec<String>,
     acked: bool,
 }
 
@@ -168,6 +177,7 @@ impl Session {
             sent: 0,
             parts: Vec::new(),
             received: None,
+            introduced: Vec::new(),
             acked: false,
         })
     }
@@ -367,6 +377,12 @@ impl Session {
                 }
                 self.paired(store, out)?;
             }
+            // only once the other phone is trusted: paired, or a peer already
+            CIRCLE if self.peer.is_some() => {
+                let members: Vec<Member> = unpack(body)?;
+                let by = self.peer.clone().unwrap_or_default();
+                self.introduced = store.introduce(&members, &by)?;
+            }
             PART => self.parts.extend_from_slice(body),
             DONE => {
                 let cells: Vec<Cell> = unpack(&std::mem::take(&mut self.parts))?;
@@ -425,6 +441,7 @@ impl Session {
             paired_at: 0,
             last_sync: None,
             pending: 0,
+            introduced_by: None,
         })?;
         self.peer = Some(hello.id.clone());
         // a tap only introduces the phones; the data follows over Bluetooth,
@@ -435,6 +452,9 @@ impl Session {
                 name: hello.name,
                 sent: 0,
                 received: 0,
+                items: BTreeMap::new(),
+                conflicts: 0,
+                introduced: Vec::new(),
             };
             return Ok(());
         }
@@ -445,9 +465,9 @@ impl Session {
         let theirs = self.hello.as_ref().ok_or("no hello")?.versions.clone();
         let cells = store.changes_since(&theirs)?;
         let mine = store.versions()?;
-        self.status = Status::Exchanging {
-            peer: self.peer.clone().unwrap_or_default(),
-        };
+        let peer = self.peer.clone().unwrap_or_default();
+        self.status = Status::Exchanging { peer: peer.clone() };
+        self.send(out, CIRCLE, &pack(&store.circle(&peer)?)?)?;
         for chunk in pack(&cells)?.chunks(CHUNK) {
             self.send(out, PART, chunk)?;
         }
@@ -471,11 +491,19 @@ impl Session {
         }
         let peer = self.peer.clone().unwrap_or_default();
         store.record_sync(&peer, &held)?;
+        if let Some(hello) = &self.hello {
+            store.rename_peer(&peer, &hello.name)?;
+        }
+        let name = store.peer(&peer)?.map(|p| p.name).unwrap_or_default();
+        store.log_sync(&peer, &name, self.sent, received)?;
         self.status = Status::Done {
-            name: store.peer(&peer)?.map(|p| p.name).unwrap_or_default(),
+            name,
             peer,
             sent: self.sent,
-            received: *received,
+            received: received.cells,
+            items: received.items.clone(),
+            conflicts: received.conflicts,
+            introduced: self.introduced.clone(),
         };
         Ok(())
     }
@@ -632,7 +660,10 @@ mod tests {
                 peer: sb.identity.id.clone(),
                 name: "Ben".into(),
                 sent: 1,
-                received: 1
+                received: 1,
+                items: BTreeMap::from([("territories".into(), 1)]),
+                conflicts: 0,
+                introduced: Vec::new(),
             }
         );
         assert_eq!(sa.list("territories").unwrap().len(), 2);
@@ -719,5 +750,54 @@ mod tests {
         put(&mut sa, "t1", json!({"n": 1}));
         let beacon_a = beacon(&sa, now).unwrap();
         assert!(recognise(&sb, &beacon_a, now).unwrap().unwrap().needs_sync);
+    }
+
+    fn sync(sa: &mut Store, sb: &mut Store) -> Status {
+        let mut a = Session::new(sa, Mode::Sync, true, "android").unwrap();
+        let mut b = Session::new(sb, Mode::Sync, false, "android").unwrap();
+        run(&mut a, sa, &mut b, sb);
+        a.status().clone()
+    }
+
+    #[test]
+    fn pairing_with_one_phone_joins_its_circle() {
+        let mut sa = store("Anna");
+        let mut sb = store("Ben");
+        let mut sc = store("Carl");
+        pair(&mut sa, &mut sb);
+        // Carl pairs with Ben only, and hears about Anna from him
+        pair(&mut sb, &mut sc);
+        assert_eq!(sc.peers().unwrap().len(), 2);
+
+        let Status::Done { introduced, .. } = sync(&mut sa, &mut sb) else {
+            panic!()
+        };
+        assert_eq!(introduced, vec!["Carl".to_string()]);
+        let carl = sa.peer(&sc.identity.id).unwrap().unwrap();
+        assert_eq!(carl.introduced_by, Some(sb.identity.id.clone()));
+
+        // Anna and Carl now sync without ever having met
+        put(&mut sa, "t1", json!({"number": "1"}));
+        assert!(matches!(sync(&mut sa, &mut sc), Status::Done { sent: 1, .. }));
+        assert_eq!(sc.list("territories").unwrap().len(), 1);
+
+        // an unpaired phone stays unpaired
+        sa.remove_peer(&sc.identity.id).unwrap();
+        sync(&mut sa, &mut sb);
+        assert!(sa.peer(&sc.identity.id).unwrap().is_none());
+    }
+
+    #[test]
+    fn changes_one_phone_of_the_circle_has_count_as_sent() {
+        let mut sa = store("Anna");
+        let mut sb = store("Ben");
+        let mut sc = store("Carl");
+        pair(&mut sa, &mut sb);
+        pair(&mut sb, &mut sc);
+        sync(&mut sa, &mut sb);
+        put(&mut sa, "t1", json!({"number": "1"}));
+        assert_eq!(sa.unsynced().unwrap(), 1);
+        sync(&mut sa, &mut sb);
+        assert_eq!(sa.unsynced().unwrap(), 0);
     }
 }

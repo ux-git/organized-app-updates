@@ -104,6 +104,7 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onPause() {
+    visible = false
     Tap.stop()
     super.onPause()
   }
@@ -235,6 +236,7 @@ class MainActivity : TauriActivity() {
 
   override fun onResume() {
     super.onResume()
+    visible = true
     takeBackPress()
     handleRoute(intent)
     emitNearby()
@@ -248,6 +250,7 @@ class MainActivity : TauriActivity() {
       NearbyService.start(this, "open", 2 * 60_000L)
       Reminders.watchPeers(this)
     }
+    NearbyService.keepRunning(this)
     webView?.evaluateJavascript(THEME_COLOR_SCRIPT) { result ->
       parseCssColor(result?.trim('"'))?.let(::applyBarColor)
     }
@@ -346,6 +349,7 @@ class MainActivity : TauriActivity() {
   private inner class HapticsBridge {
     @JavascriptInterface
     fun perform(intent: String): Boolean {
+      if (Haptics.has(intent)) return Haptics.play(this@MainActivity, intent)
       val effect = HAPTIC_EFFECTS[intent] ?: return false
       handler.post { webView?.performHapticFeedback(effect) }
       return true
@@ -398,6 +402,13 @@ class MainActivity : TauriActivity() {
         }
       }
       "syncNow" -> NearbyService.start(this, "open", 2 * 60_000L)
+      "changed" -> NearbyService.changed(this)
+      "battery" -> runCatching {
+        startActivity(
+          Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            .setData(android.net.Uri.parse("package:$packageName"))
+        )
+      }
       "meetStart" -> {
         Tap.start(this)
         NearbyService.wantMeet = true
@@ -451,6 +462,10 @@ class MainActivity : TauriActivity() {
         getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.isEnabled == true
       )
       .put("camera", Nearby.granted(this, Manifest.permission.CAMERA))
+      .put(
+        "battery",
+        getSystemService(android.os.PowerManager::class.java)?.isIgnoringBatteryOptimizations(packageName) == true
+      )
       .put("nfc", Tap.available(this))
       .put("nfcOn", Tap.enabled(this))
       .put(
@@ -550,6 +565,9 @@ class MainActivity : TauriActivity() {
 
     /** A code or transfer the scanner read, for the page once it is back. */
     @Volatile var received: String? = null
+
+    /** On screen: sync results show on the page, not as notifications. */
+    @Volatile var visible = false
 
     /** The open activity, which adds settings and permissions to sync status. */
     var current: MainActivity? = null

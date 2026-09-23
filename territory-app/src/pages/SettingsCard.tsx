@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { ListItem } from '@mui/material';
 import {
+  IconAccount,
   IconCalendarClock,
   IconLocation,
   IconPerson,
@@ -8,41 +10,58 @@ import {
 import DashboardCard from '@features/dashboard/card';
 import DashboardMenu from '@features/dashboard/menu';
 import Switch from '@components/switch';
+import { play } from '../haptics';
 import { nearby } from '../native';
-import useNearby from './useNearby';
+import PhoneNameDialog from './PhoneNameDialog';
+import { missingForAutomatic } from './permissions';
+import { when } from './sync/text';
+import useNearby, { unsynced } from './useNearby';
 import usePeople from './usePeople';
 
-const syncedAt = (seconds: number | null) => {
-  if (!seconds) return undefined;
-  const date = new Date(seconds * 1000);
-  const time = date.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  return new Date().toDateString() === date.toDateString()
-    ? `Last synced today at ${time}`
-    : `Last synced on ${date.toLocaleDateString()}`;
-};
-
 const SettingsCard = () => {
-  const { peers, status, android } = useNearby();
+  const { peers, status, android, name, refreshPeers } = useNearby();
   const people = usePeople();
+  const [naming, setNaming] = useState(false);
 
-  const pending = peers.reduce((sum, peer) => sum + peer.pending, 0);
+  const pending = unsynced(peers);
   const lastSync = Math.max(0, ...peers.map((peer) => peer.last_sync ?? 0));
-  const automatic = status.schedule?.enabled !== false;
+  const schedule = status.schedule ?? {};
+  const automatic = schedule.enabled !== false;
+  const missing = missingForAutomatic(status);
+
+  const syncText = () => {
+    if (!peers.length) return 'No phones paired yet';
+    const phones = peers.length === 1 ? '1 phone' : `${peers.length} phones`;
+    return lastSync
+      ? `${phones} · Last synced ${when(lastSync).replace(/^Today/, 'today')}`
+      : `${phones} · Not synced yet`;
+  };
+
+  const automaticText = () => {
+    if (!automatic) return 'Off';
+    if (missing.length) return 'Almost ready: allow what it needs';
+    return schedule.mode === 'meetings'
+      ? 'Around meeting times'
+      : 'All the time, in the background';
+  };
 
   return (
     <DashboardCard header="Settings">
       <ListItem disablePadding>
         <DashboardMenu
+          icon={<IconAccount color="var(--black)" />}
+          primaryText="Your name"
+          secondaryText={
+            name || 'Add your name, so paired phones know it’s you'
+          }
+          onClick={() => setNaming(true)}
+        />
+      </ListItem>
+      <ListItem disablePadding>
+        <DashboardMenu
           icon={<IconSync color="var(--black)" />}
           primaryText="Sync"
-          secondaryText={
-            peers.length
-              ? (syncedAt(lastSync || null) ?? 'Not synced yet')
-              : 'No phones paired yet'
-          }
+          secondaryText={syncText()}
           badgeText={pending ? String(pending) : undefined}
           path="/sync"
         />
@@ -52,14 +71,16 @@ const SettingsCard = () => {
           <DashboardMenu
             icon={<IconCalendarClock color="var(--black)" />}
             primaryText="Automatic sync"
-            path="/settings?section=automatic"
+            secondaryText={automaticText()}
+            path="/settings/automatic"
             actionComponent={
               <Switch
                 checked={automatic}
                 onClick={(event) => event.stopPropagation()}
-                onChange={(_, enabled) =>
-                  nearby('schedule', { ...status.schedule, enabled })
-                }
+                onChange={(_, enabled) => {
+                  play(enabled ? 'start' : 'remove');
+                  nearby('schedule', { ...schedule, enabled });
+                }}
               />
             }
           />
@@ -70,8 +91,8 @@ const SettingsCard = () => {
           <DashboardMenu
             icon={<IconLocation color="var(--black)" />}
             primaryText="Kingdom Hall"
-            secondaryText={status.hall ? 'Location saved' : 'Not set'}
-            path="/settings?section=hall"
+            secondaryText={status.hall ? 'Location saved' : 'Optional'}
+            path="/settings/hall"
           />
         </ListItem>
       )}
@@ -83,6 +104,15 @@ const SettingsCard = () => {
           path="/publishers"
         />
       </ListItem>
+
+      <PhoneNameDialog
+        open={naming}
+        name={name}
+        onClose={() => {
+          setNaming(false);
+          refreshPeers();
+        }}
+      />
     </DashboardCard>
   );
 };

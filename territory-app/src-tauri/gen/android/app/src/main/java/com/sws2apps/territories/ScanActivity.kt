@@ -50,7 +50,7 @@ class ScanActivity : ComponentActivity() {
 
   private fun finishWith(text: String) {
     done = true
-    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+    Haptics.play(this, "synced")
     MainActivity.received = text
     finish()
   }

@@ -19,6 +19,8 @@ import Typography from '@components/typography';
 import WaitingLoader from '@components/waiting_loader';
 import usePageWidth from '@layouts/usePageWidth';
 import logo from './assets/logo.svg?url';
+import { ConfirmHost } from './pages/confirm';
+import useSyncFeedback from './pages/sync/useSyncFeedback';
 
 const HOME = '/';
 
@@ -26,6 +28,7 @@ const HOME = '/';
 // parts: the page title, back, the page's quick settings and its buttons.
 const Layout = () => {
   useNavigationTrail();
+  useSyncFeedback();
 
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -147,6 +150,7 @@ const Layout = () => {
       )}
 
       <AppFeedback />
+      <ConfirmHost />
 
       <Toolbar sx={{ padding: 0, minHeight: '62px' }} />
 

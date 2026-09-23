@@ -11,16 +11,19 @@ import {
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
 import { invoke, listen, nearby } from '../native';
-import useNearby, { Peer } from './useNearby';
+import useNearby, { Peer, unsynced } from './useNearby';
+import { play } from '../haptics';
 import {
-  ago,
   MeetDialog,
   PairMethod,
   QrPairDialog,
   QrSendDialog,
   receive,
-  time,
 } from './sync/dialogs';
+import { confirm } from './confirm';
+import Decisions from './sync/Decisions';
+import History from './sync/History';
+import { ago, time } from './sync/text';
 import { IconBluetooth, IconFile, IconQr, IconTap } from './sync/icons';
 import { Method, MethodState, PhoneRow, Pulse } from './sync/parts';
 
@@ -29,14 +32,14 @@ const READY: MethodState = { text: 'Ready', color: 'green' };
 const Sync = () => {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const { peers, status, refreshPeers, android } = useNearby();
+  const { peers, status, name, refreshPeers, android } = useNearby();
   const [pairing, setPairing] = useState<PairMethod | null>(null);
   const [qrPairOpen, setQrPairOpen] = useState(false);
   const [sendTo, setSendTo] = useState<Peer | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const permissions = status.permissions;
-  const pending = peers.reduce((sum, peer) => sum + peer.pending, 0);
+  const pending = unsynced(peers);
   const lastSync = Math.max(0, ...peers.map((peer) => peer.last_sync ?? 0));
   const syncing = status.exchanges?.find(
     (exchange) => exchange.mode === 0 && exchange.state === 'exchanging'
@@ -124,16 +127,25 @@ const Sync = () => {
   };
 
   const removePeer = async (peer: Peer) => {
-    if (
-      !window.confirm(
-        `Unpair ${peer.name || 'this phone'}? What it already sent stays on this phone.`
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Unpair ${peer.name || 'this phone'}?`,
+      description:
+        'Your phones stop syncing with each other. What it already sent stays on this phone.',
+      action: 'Unpair',
+    });
+    if (!ok) return;
+    play('remove');
     await invoke('remove_peer', { id: peer.id });
     refreshPeers();
   };
+
+  const syncNow = () => {
+    play('start');
+    nearby('syncNow');
+  };
+
+  const nameOf = (id?: string | null) =>
+    peers.find((peer) => peer.id === id)?.name || 'a paired phone';
 
   // one paired phone is the usual case; with more, the first is offered
   const target = peers[0];
@@ -185,9 +197,7 @@ const Sync = () => {
                 variant="main"
                 disableAutoStretch
                 disabled={!!syncing}
-                onClick={() =>
-                  bluetoothReady ? nearby('syncNow') : fixBluetooth()
-                }
+                onClick={() => (bluetoothReady ? syncNow() : fixBluetooth())}
               >
                 {bluetoothReady ? 'Sync now' : 'Allow Bluetooth'}
               </Button>
@@ -195,7 +205,7 @@ const Sync = () => {
             <Button
               variant="secondary"
               disableAutoStretch
-              onClick={() => navigate('/settings?section=automatic')}
+              onClick={() => navigate('/settings/automatic')}
             >
               {automatic ? 'Automatic sync on' : 'Automatic sync off'}
             </Button>
@@ -213,24 +223,29 @@ const Sync = () => {
         <CardSection>
           <CardSectionHeader
             title="Paired phones"
-            description="Territories only go to phones you paired in person."
+            description="Territories only go to these phones: the ones you paired in person, and the ones they paired with. All of them sync with each other."
           />
           <CardSectionContent spacing="4px" divider={undefined}>
             {peers.map((peer) => (
               <PhoneRow
                 key={peer.id}
                 name={peer.name || 'Unnamed phone'}
-                detail={`${ago(peer.last_sync)}${
-                  peer.pending > 0
-                    ? ` · ${peer.pending} ${peer.pending === 1 ? 'change' : 'changes'} to send`
-                    : ''
-                }`}
+                detail={[
+                  peer.introduced_by &&
+                    `Joined through ${nameOf(peer.introduced_by)}`,
+                  ago(peer.last_sync),
+                  peer.last_sync &&
+                    peer.pending > 0 &&
+                    `${peer.pending} ${peer.pending === 1 ? 'change' : 'changes'} to send`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
                 trailing={
                   <IconButton
                     aria-label={`Unpair ${peer.name}`}
                     onClick={() => removePeer(peer)}
                   >
-                    <IconDelete color="var(--grey-400)" />
+                    <IconDelete color="var(--red-main)" />
                   </IconButton>
                 }
               />
@@ -238,6 +253,8 @@ const Sync = () => {
           </CardSectionContent>
         </CardSection>
       )}
+
+      <Decisions />
 
       <CardSection>
         <CardSectionHeader
@@ -269,7 +286,7 @@ const Sync = () => {
           <Method
             icon={<IconTap />}
             title="Tap phones"
-            description="Hold the backs of both phones together. No number to check. Needs NFC on both phones."
+            description="Hold the backs of both Android phones together. No number to check. NFC needs no permission, it only has to be on."
             state={nfc}
             actions={
               permissions?.nfc
@@ -341,11 +358,15 @@ const Sync = () => {
         </Stack>
       </CardSection>
 
+      <History />
+
       <MeetDialog
         open={!!pairing}
         method={pairing ?? 'nearby'}
         onClose={() => setPairing(null)}
         status={status}
+        myName={name}
+        onNamed={refreshPeers}
       />
       <QrPairDialog
         open={qrPairOpen}

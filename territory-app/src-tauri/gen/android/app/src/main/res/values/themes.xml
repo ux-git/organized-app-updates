@@ -1,6 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.app" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.app" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Material 3, so native dialogs (and the WebView's own) are the rounded, current ones -->
         <!-- the web app's default accent (blue) until the page reports its own;
              tints the text selection handles -->
         <item name="colorSecondary">#5065D0</item>

@@ -3,6 +3,6 @@
     android:description="@string/tap_description"
     android:requireDeviceUnlock="true">
     <aid-group android:category="other" android:description="@string/tap_description">
-        <aid-filter android:name="F04F52475445525252" />
+        <aid-filter android:name="F04F524754455252" />
     </aid-group>
 </host-apdu-service>

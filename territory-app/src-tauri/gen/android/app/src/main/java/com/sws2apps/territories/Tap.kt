@@ -9,7 +9,6 @@ import android.nfc.tech.IsoDep
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.HapticFeedbackConstants
 import org.json.JSONObject
 
 /**
@@ -62,8 +61,8 @@ object Tap {
         adapter.enableReaderMode(
           activity,
           ::onTag,
-          NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK or
-            NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
+          NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
+            NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK or NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
           Bundle().apply { putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 1000) }
         )
       } else {
@@ -87,6 +86,7 @@ object Tap {
     val iso = IsoDep.get(tag) ?: return
     if (busy) return
     busy = true
+    handler.post(::touched)
     val handle = Native.tapReaderNew()
     try {
       iso.connect()
@@ -114,6 +114,7 @@ object Tap {
       busy = true
       setReading(false)
       Native.tapCardReset()
+      touched()
     }
     val response = Native.tapCardApdu(apdu, active)
     if (Native.tapCardDone()) {
@@ -131,22 +132,30 @@ object Tap {
     finish(status)
   }
 
+  /** The phones found each other: a knock, and "keep holding" on the page. */
+  private fun touched() {
+    activity?.let { Haptics.play(it, "contact") }
+    Native.emit("tap", JSONObject().put("state", "touching").toString())
+  }
+
   /** Tells the page once; a pairing then syncs over Bluetooth right away. */
   private fun finish(status: String) {
     busy = false
-    if (status.isEmpty()) return
-    val json = runCatching { JSONObject(status) }.getOrNull() ?: return
+    val json = runCatching { JSONObject(status) }.getOrNull() ?: JSONObject()
     val state = json.optString("state")
     // a tap that never got past the handshake is just the phones brushing by
-    if (state != "done" && state != "failed") return
+    if (state != "done" && state != "failed") {
+      Native.emit("tap", JSONObject().put("state", "apart").toString())
+      return
+    }
     Native.emit("tap", json.toString())
     val activity = activity ?: return
     if (state == "done") {
-      activity.window.decorView.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+      Haptics.play(activity, "paired")
       Reminders.watchPeers(activity)
       NearbyService.start(activity, "open", 2 * 60_000L)
     } else {
-      activity.window.decorView.performHapticFeedback(HapticFeedbackConstants.REJECT)
+      Haptics.play(activity, "error")
     }
     (activity as? MainActivity)?.emitNearby()
   }

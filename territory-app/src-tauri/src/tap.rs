@@ -174,6 +174,13 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    #[test]
+    fn android_routes_our_application_id_to_the_card() {
+        let xml = include_str!("../gen/android/app/src/main/res/xml/tap_aid.xml");
+        let hex: String = AID.iter().map(|b| format!("{b:02X}")).collect();
+        assert!(xml.contains(&format!("\"{hex}\"")), "tap_aid.xml must list {hex}");
+    }
+
     fn store(name: &str) -> Store {
         let mut s = Store::in_memory().unwrap();
         s.set_name(name).unwrap();
