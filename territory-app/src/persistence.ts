@@ -15,6 +15,7 @@ import { parseDate } from '@features/territories/helpers';
 import { store } from '@states/index';
 import { invoke, listen } from './native';
 import { setCurrentPublisher, setMapCenter, setPeople } from './data';
+import { seedPeople } from './seed';
 
 // The territory pages keep their data in Jotai atoms. This mirrors the atoms
 // into the phone's store, record by record, and reloads them when a sync
@@ -127,8 +128,28 @@ const centerOf = (points: [number, number][]) => {
   setMapCenter([lng, lat]);
 };
 
+const sameName = (name: string) =>
+  name.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
+
 export const loadPeople = async () => {
-  const people = (await rows(PEOPLE)) as unknown as Person[];
+  let people = (await rows(PEOPLE)) as unknown as Person[];
+
+  // the same name under two ids (typed or imported on two phones, then
+  // synced) is kept once; every phone keeps the same one
+  const kept = new Map<string, Person>();
+  const doubles: Person[] = [];
+  for (const person of [...people].sort((a, b) => a.id.localeCompare(b.id))) {
+    const key = `${person.group ? 'g' : 'p'}:${sameName(person.name)}`;
+    if (kept.has(key)) doubles.push(person);
+    else kept.set(key, person);
+  }
+  if (doubles.length) {
+    await writeRows(
+      doubles.map((person) => ({ table: PEOPLE, id: person.id, deleted: true }))
+    );
+    people = [...kept.values()];
+  }
+
   const names = (group: boolean) =>
     people
       .filter((person) => !!person.group === group)
@@ -161,6 +182,7 @@ export const load = async () => {
       rows(CATEGORIES),
       rows(SETTINGS),
     ]);
+    await seedPeople((await rows(PEOPLE)).length > 0);
     await Promise.all([loadPeople(), loadIdentity()]);
 
     const territories = assemble(territoryRows, assignmentRows, doNotCallRows);

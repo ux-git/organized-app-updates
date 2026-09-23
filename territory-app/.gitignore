@@ -1,2 +1,4 @@
 dist
 node_modules
+# congregation data compiled into private builds only
+seed/
