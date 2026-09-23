@@ -1,6 +1,19 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.territories" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
+    <style name="Theme.app" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- the web app's default accent (blue) until the page reports its own;
+             tints the text selection handles -->
+        <item name="colorSecondary">#485FD0</item>
+        <item name="colorControlActivated">#485FD0</item>
+        <!-- the web app's background, so launch and splash show no flash -->
+        <item name="android:windowBackground">#151519</item>
+    </style>
+
+    <!-- Launch theme (AndroidX SplashScreen): the page colour with a small logo,
+         held until the web app has drawn its first frame. -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#151519</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.app</item>
     </style>
 </resources>

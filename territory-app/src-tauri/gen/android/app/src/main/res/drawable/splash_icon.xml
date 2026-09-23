@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android scales this canvas to its splash icon size. The logo is set so it
+     shows at the size and place of the web app's first loader (the top inset
+     moves it down to the loader's centre), so launch hands over to it in place. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="288dp" android:height="288dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+    <item
+        android:width="34dp"
+        android:height="34dp"
+        android:top="42dp"
+        android:gravity="center"
+        android:drawable="@drawable/splash_logo" />
+</layer-list>

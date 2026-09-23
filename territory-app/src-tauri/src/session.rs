@@ -418,7 +418,7 @@ impl Session {
             .map_err(|e| e.to_string())?;
         store.add_peer(&Peer {
             id: hello.id.clone(),
-            name: hello.name,
+            name: hello.name.clone(),
             platform: hello.platform,
             public_key: self.remote_key.clone(),
             adv_secret: adv,
@@ -426,7 +426,18 @@ impl Session {
             last_sync: None,
             pending: 0,
         })?;
-        self.peer = Some(hello.id);
+        self.peer = Some(hello.id.clone());
+        // a tap only introduces the phones; the data follows over Bluetooth,
+        // so nobody has to hold two phones together through a whole transfer
+        if self.mode == (Mode::Pair { code: false }) {
+            self.status = Status::Done {
+                peer: hello.id,
+                name: hello.name,
+                sent: 0,
+                received: 0,
+            };
+            return Ok(());
+        }
         self.exchange(store, out)
     }
 
@@ -657,14 +668,18 @@ mod tests {
     }
 
     #[test]
-    fn a_tap_pairs_without_a_code() {
+    fn a_tap_pairs_without_a_code_and_leaves_the_data_to_bluetooth() {
         let mut sa = store("Anna");
         let mut sb = store("Ben");
+        put(&mut sa, "t1", json!({"number": "1"}));
         let mut a = Session::new(&sa, Mode::Pair { code: false }, true, "android").unwrap();
         let mut b = Session::new(&sb, Mode::Pair { code: false }, false, "ios").unwrap();
         run(&mut a, &mut sa, &mut b, &mut sb);
         assert!(matches!(a.status(), Status::Done { .. }), "{:?}", a.status());
+        assert!(matches!(b.status(), Status::Done { .. }), "{:?}", b.status());
         assert_eq!(sb.peers().unwrap().len(), 1);
+        assert_eq!(sa.peers().unwrap().len(), 1);
+        assert!(sb.list("territories").unwrap().is_empty());
     }
 
     #[test]

@@ -15,7 +15,6 @@ export const CONGREGATION_BOUNDARY: TerritoryBoundary | undefined = undefined;
 
 export const TERRITORIES: Territory[] = [];
 
-// eslint-disable-next-line import/no-mutable-exports
 export let CURRENT_PUBLISHER = '';
 
 export const setCurrentPublisher = (name: string) => {

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The web app's accent colours (accent-main-base in src/global/global.css,
+     one per data-theme). MainActivity applies the page's current one to the
+     activity theme, which tints the text selection handles. -->
+<resources>
+    <style name="Accent.blue.light" parent="">
+        <item name="colorControlActivated">#5065D0</item>
+        <item name="android:colorControlActivated">#5065D0</item>
+    </style>
+    <style name="Accent.blue.dark" parent="">
+        <item name="colorControlActivated">#485FD0</item>
+        <item name="android:colorControlActivated">#485FD0</item>
+    </style>
+    <style name="Accent.green.light" parent="">
+        <item name="colorControlActivated">#5A9B4A</item>
+        <item name="android:colorControlActivated">#5A9B4A</item>
+    </style>
+    <style name="Accent.green.dark" parent="">
+        <item name="colorControlActivated">#538348</item>
+        <item name="android:colorControlActivated">#538348</item>
+    </style>
+    <style name="Accent.purple.dark" parent="">
+        <item name="colorControlActivated">#7D61B8</item>
+        <item name="android:colorControlActivated">#7D61B8</item>
+    </style>
+    <style name="Accent.purple.light" parent="">
+        <item name="colorControlActivated">#7452BB</item>
+        <item name="android:colorControlActivated">#7452BB</item>
+    </style>
+    <style name="Accent.orange.dark" parent="">
+        <item name="colorControlActivated">#C88828</item>
+        <item name="android:colorControlActivated">#C88828</item>
+    </style>
+    <style name="Accent.orange.light" parent="">
+        <item name="colorControlActivated">#E59C0F</item>
+        <item name="android:colorControlActivated">#E59C0F</item>
+    </style>
+    <style name="Accent.teal.light" parent="">
+        <item name="colorControlActivated">#0D7581</item>
+        <item name="android:colorControlActivated">#0D7581</item>
+    </style>
+    <style name="Accent.teal.dark" parent="">
+        <item name="colorControlActivated">#0E7885</item>
+        <item name="android:colorControlActivated">#0E7885</item>
+    </style>
+    <style name="Accent.rose.light" parent="">
+        <item name="colorControlActivated">#EC4899</item>
+        <item name="android:colorControlActivated">#EC4899</item>
+    </style>
+    <style name="Accent.rose.dark" parent="">
+        <item name="colorControlActivated">#E84493</item>
+        <item name="android:colorControlActivated">#E84493</item>
+    </style>
+    <style name="Accent.slate.light" parent="">
+        <item name="colorControlActivated">#6E7D91</item>
+        <item name="android:colorControlActivated">#6E7D91</item>
+    </style>
+    <style name="Accent.slate.dark" parent="">
+        <item name="colorControlActivated">#738296</item>
+        <item name="android:colorControlActivated">#738296</item>
+    </style>
+</resources>

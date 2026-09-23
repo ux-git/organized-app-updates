@@ -14,6 +14,7 @@
       {
         "title": "Territories",
         "label": "main",
+        "create": false,
         "width": 420,
         "height": 860,
         "useHttpsScheme": true,
@@ -21,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost data: blob:"
+      "csp": "default-src 'self' ipc: http://ipc.localhost; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' data: blob: https://tiles.openfreemap.org https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://tiles.versatiles.org; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost data: blob: https://tiles.openfreemap.org https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://tiles.versatiles.org"
     }
   },
   "bundle": {

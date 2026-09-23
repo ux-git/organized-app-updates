@@ -9,13 +9,37 @@ const shared = base as UserConfig;
 const replacements: [RegExp, string][] = [
   [/features\/territories\/mockData\.ts$/, resolve(__dirname, 'src/data.ts')],
   [/hooks\/useCurrentUser\.tsx?$/, resolve(__dirname, 'src/currentUser.ts')],
+  [/services\/haptics\/index\.ts$/, resolve(__dirname, 'src/haptics.ts')],
+  // no account, server, error reporting or feature flags in this app
+  [
+    /services\/firebase\/index\.ts$/,
+    resolve(__dirname, 'src/offline/firebase.ts'),
+  ],
+  [
+    /services\/firebase\/auth\.ts$/,
+    resolve(__dirname, 'src/offline/firebaseAuth.ts'),
+  ],
+  [
+    /hooks\/useFirebaseAuth\.tsx$/,
+    resolve(__dirname, 'src/offline/useFirebaseAuth.ts'),
+  ],
+  [/services\/sentry\/index\.ts$/, resolve(__dirname, 'src/offline/sentry.ts')],
+  [
+    /services\/worker\/backupWorker\.ts$/,
+    resolve(__dirname, 'src/offline/backupWorker.ts'),
+  ],
+  [
+    /wrapper\/feature_flags\/useFeatureFlags\.tsx$/,
+    resolve(__dirname, 'src/offline/useFeatureFlags.ts'),
+  ],
 ];
 
 const replace = (): Plugin => ({
   name: 'territory-app-replace',
   enforce: 'pre',
   async resolveId(source, importer, options) {
-    if (importer?.startsWith(resolve(__dirname, 'src'))) return null;
+    if (importer?.startsWith(resolve(__dirname, 'src/offline'))) return null;
+    if (importer === resolve(__dirname, 'src/haptics.ts')) return null;
     const resolved = await this.resolve(source, importer, {
       ...options,
       skipSelf: true,

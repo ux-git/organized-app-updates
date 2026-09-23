@@ -11,7 +11,7 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use serde::Deserialize;
 use serde_json::{Map, Value};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WebviewWindowBuilder};
 
 use store::{Peer, Result, Store};
 
@@ -140,6 +140,13 @@ pub fn run() {
             let dir = app.path().app_data_dir()?;
             open_store(&dir)?;
             let _ = APP.set(app.handle().clone());
+
+            // Built here rather than from the config, for the script that
+            // takes the Android shell's bar sizes and colours
+            let config = app.config().app.windows[0].clone();
+            WebviewWindowBuilder::from_config(app.handle(), &config)?
+                .initialization_script(include_str!("system_bars.js"))
+                .build()?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

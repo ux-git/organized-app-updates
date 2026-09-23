@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/tap_description"
+    android:requireDeviceUnlock="true">
+    <aid-group android:category="other" android:description="@string/tap_description">
+        <aid-filter android:name="F04F52475445525252" />
+    </aid-group>
+</host-apdu-service>

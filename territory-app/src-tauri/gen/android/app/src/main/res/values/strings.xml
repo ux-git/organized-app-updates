@@ -1,4 +1,28 @@
 <resources>
     <string name="app_name">"Territories"</string>
     <string name="main_activity_title">"Territories"</string>
+    <string name="file_channel_name">Saved files</string>
+    <string name="file_saved">Saved to Downloads</string>
+    <string name="file_ready">Ready to open</string>
+    <string name="file_share">Share</string>
+    <string name="file_print">Print</string>
+    <string name="sync_channel">Sync with paired phones</string>
+    <string name="sync_title">Territories</string>
+    <string name="sync_looking">Looking for paired phones nearby</string>
+    <string name="sync_running">Syncing…</string>
+    <string name="sync_done">Synced with %1$s at %2$s</string>
+    <string name="sync_timeout">The other phone stopped answering</string>
+    <string name="sync_lost">The connection was lost</string>
+    <string name="reminder_channel">Sync reminders</string>
+    <string name="reminder_title">Territories</string>
+    <string name="reminder_leave">Before you leave: sync with %1$s. It takes a few seconds.</string>
+    <plurals name="reminder_arrive">
+        <item quantity="one">%1$d change to share with %2$s. Tap to sync.</item>
+        <item quantity="other">%1$d changes to share with %2$s. Tap to sync.</item>
+    </plurals>
+    <string name="shortcut_sync">Sync now</string>
+    <string name="shortcut_meet">Meet a phone</string>
+    <string name="scan_hint">Point the camera at the other phone\'s code</string>
+    <string name="scan_progress">%1$d of %2$d codes. Keep pointing.</string>
+    <string name="tap_description">Pair with another phone by holding them together</string>
 </resources>

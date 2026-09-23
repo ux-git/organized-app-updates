@@ -234,6 +234,40 @@ const removedChildren = (before: Territory, after?: Territory): Write[] => {
   ];
 };
 
+const slug = (name: string) =>
+  name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+/**
+ * Names on assignments (from an import, or typed in) join the pickers'
+ * list; groups are the names the imported data calls groups.
+ */
+const addPeople = async (territories: Territory[]) => {
+  const names = new Set<string>();
+  for (const territory of territories) {
+    for (const assignment of territory.assignments) {
+      if (assignment.publisher) names.add(assignment.publisher);
+    }
+    if (territory.holder) names.add(territory.holder);
+  }
+  const known = new Set(
+    ((await rows(PEOPLE)) as unknown as Person[]).map((person) => person.name)
+  );
+  const writes = [...names]
+    .filter((name) => !known.has(name))
+    .map((name) => ({
+      table: PEOPLE,
+      id: slug(name) || name,
+      fields: { name, group: /^group\b|^gruppe\b/i.test(name) },
+    }));
+  if (!writes.length) return;
+  await writeRows(writes);
+  await loadPeople();
+};
+
 /** Writes every change made on the pages to the store. */
 export const persist = () => {
   let previous = store.get(territoriesState);
@@ -256,7 +290,10 @@ export const persist = () => {
       writes.push(...removedChildren(old));
     }
     save(writes);
+    addPeople(next).catch(() => {});
   });
+
+  addPeople(store.get(territoriesState)).catch(() => {});
 
   store.sub(territoryCategoriesState, () => {
     if (loading) return;

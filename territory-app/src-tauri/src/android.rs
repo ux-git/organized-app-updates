@@ -194,6 +194,7 @@ pub extern "system" fn Java_com_sws2apps_territories_Native_summary(
     let json = store()
         .and_then(|s| {
             Ok(serde_json::json!({
+                "id": s.identity.id,
                 "name": s.identity.name,
                 "peers": s.peers()?,
                 "unsynced": s.unsynced()?,
