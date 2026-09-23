@@ -29,6 +29,9 @@ export const congregationBoundaryState = atom<TerritoryBoundary | undefined>(
 
 export const territoriesShowHouseholdsState = atom(true);
 
+// the offline territories app: one territory servant, so no requests
+export const territoryLocalModeState = atom(false);
+
 export const territoryOverdueMonthsState = atom(4);
 
 export const territoriesWithStatusState = atom((get) =>

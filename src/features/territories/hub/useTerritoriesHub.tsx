@@ -11,6 +11,7 @@ import { useBreakpoints, useCurrentUser, useSubpane } from '@hooks/index';
 import {
   territoriesShowHouseholdsState,
   territoriesState,
+  territoryLocalModeState,
   territoryOverdueMonthsState,
 } from '@states/territories';
 import {
@@ -66,6 +67,7 @@ const useTerritoriesHub = () => {
     territoryOverdueMonthsState
   );
   const access = useAtomValue(territoryAccessState);
+  const localMode = useAtomValue(territoryLocalModeState);
   const restrictedCategories = useAtomValue(territoryRestrictedCategoriesState);
   const restrictedTypes = useAtomValue(territoryRestrictedTypesState);
 
@@ -115,14 +117,15 @@ const useTerritoriesHub = () => {
     isGroupLead && my_group ? groupHolderName(my_group.group_data) : undefined;
 
   const canBrowse = isTerritoryEditor || access !== 'own';
-  const canRequest = isTerritoryEditor || access === 'request';
+  const canRequest = !localMode && (isTerritoryEditor || access === 'request');
 
   const tabGroups = TAB_GROUPS.map((ids) =>
     ids.filter(
       (id) =>
         (id !== 'group' || groupHolder) &&
         (canBrowse || !BROWSE_TABS.has(id)) &&
-        (canRequest || id !== 'requested')
+        (canRequest || id !== 'requested') &&
+        (!localMode || id !== 'requests')
     )
   ).filter((ids) => ids.length > 0);
 

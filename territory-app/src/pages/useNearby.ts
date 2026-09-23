@@ -41,6 +41,8 @@ export type NearbyStatus = {
     backgroundLocation: boolean;
     nfc?: boolean;
     nfcOn?: boolean;
+    bluetoothOn?: boolean;
+    camera?: boolean;
   };
   schedule?: {
     enabled?: boolean;

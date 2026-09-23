@@ -161,7 +161,7 @@ object Reminders {
       .setStyle(NotificationCompat.BigTextStyle().bigText(text))
       .setColor(Notify.accentColor(context))
       .setAutoCancel(true)
-      .setContentIntent(openApp(context, "/nearby?sync=1"))
+      .setContentIntent(openApp(context, "/sync?now=1"))
       .build()
     runCatching { NotificationManagerCompat.from(context).notify(id, notification) }
   }

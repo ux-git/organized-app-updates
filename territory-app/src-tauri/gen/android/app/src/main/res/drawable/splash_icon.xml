@@ -8,8 +8,8 @@
         </shape>
     </item>
     <item
-        android:width="112dp"
-        android:height="112dp"
+        android:width="96dp"
+        android:height="96dp"
         android:gravity="center"
         android:drawable="@drawable/splash_logo" />
 </layer-list>

@@ -146,7 +146,7 @@ class MainActivity : TauriActivity() {
     val text = openedFile ?: return
     openedFile = null
     // the sync page shows what came in
-    handleRoute(Intent().putExtra(EXTRA_ROUTE, "/nearby"))
+    handleRoute(Intent().putExtra(EXTRA_ROUTE, "/sync"))
     handler.postDelayed({
       Native.emit("file", JSONObject().put("text", text).toString())
     }, 800)
@@ -237,6 +237,7 @@ class MainActivity : TauriActivity() {
     super.onResume()
     takeBackPress()
     handleRoute(intent)
+    emitNearby()
     received?.let { text ->
       received = null
       Native.emit("qr", JSONObject().put("text", text).toString())
@@ -416,6 +417,11 @@ class MainActivity : TauriActivity() {
         Reminders.plan(this)
       }
       "scanQr" -> startActivity(Intent(this, ScanActivity::class.java))
+      "bluetoothOn" -> runCatching {
+        startActivity(Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))
+      }.onFailure {
+        runCatching { startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)) }
+      }
       "nfcSettings" -> runCatching { startActivity(Intent(android.provider.Settings.ACTION_NFC_SETTINGS)) }
       "hallSet" -> Reminders.setHall(
         this,
@@ -440,6 +446,11 @@ class MainActivity : TauriActivity() {
       .put("notifications", Notify.mayNotify(this))
       .put("exactAlarms", Reminders.canExact(this))
       .put("location", Nearby.granted(this, Manifest.permission.ACCESS_FINE_LOCATION))
+      .put(
+        "bluetoothOn",
+        getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.isEnabled == true
+      )
+      .put("camera", Nearby.granted(this, Manifest.permission.CAMERA))
       .put("nfc", Tap.available(this))
       .put("nfcOn", Tap.enabled(this))
       .put(
@@ -456,6 +467,7 @@ class MainActivity : TauriActivity() {
   private fun askPermissions(which: String) {
     val wanted = when (which) {
       "location" -> arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+      "camera" -> arrayOf(Manifest.permission.CAMERA)
       // asked on its own, after location, as Android requires
       "backgroundLocation" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
@@ -546,7 +558,7 @@ class MainActivity : TauriActivity() {
 
     /**
      * Back closes the top MUI dialog, drawer or menu (Escape), else goes back
-     * in the page history, else home to the territories list; there it leaves.
+     * in the page history, else home to the dashboard; there it leaves.
      */
     private const val BACK_SCRIPT = """(function(){
       var modals=document.querySelectorAll('.MuiModal-root:not(.MuiModal-hidden)');
@@ -556,9 +568,9 @@ class MainActivity : TauriActivity() {
         return 'closed';
       }
       var route=(location.hash.replace(/^#/,'')||'/').split('?')[0];
-      if(route!=='/'&&route!==''&&route!=='/territories'){
+      if(route!=='/'&&route!==''){
         if(window.navigation&&navigation.canGoBack){history.back();return 'back';}
-        location.hash='#/territories';
+        location.hash='#/';
         return 'home';
       }
       return 'exit';

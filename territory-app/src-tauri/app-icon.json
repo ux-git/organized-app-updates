@@ -1,6 +1,6 @@
 {
   "default": "icons-src/app-icon.png",
-  "bg_color": "#F1F3FD",
+  "bg_color": "#ffffff",
   "android_bg": "icons-src/android-background.png",
   "android_fg": "icons-src/android-foreground.png",
   "android_monochrome": "icons-src/android-monochrome.png"

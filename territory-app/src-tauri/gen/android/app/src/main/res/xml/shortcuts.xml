@@ -9,7 +9,7 @@
             android:action="android.intent.action.VIEW"
             android:targetPackage="com.sws2apps.territories"
             android:targetClass="com.sws2apps.territories.MainActivity">
-            <extra android:name="com.sws2apps.territories.ROUTE" android:value="/nearby?sync=1" />
+            <extra android:name="com.sws2apps.territories.ROUTE" android:value="/sync?now=1" />
         </intent>
     </shortcut>
     <shortcut
@@ -21,7 +21,7 @@
             android:action="android.intent.action.VIEW"
             android:targetPackage="com.sws2apps.territories"
             android:targetClass="com.sws2apps.territories.MainActivity">
-            <extra android:name="com.sws2apps.territories.ROUTE" android:value="/nearby" />
+            <extra android:name="com.sws2apps.territories.ROUTE" android:value="/sync?pair=nearby" />
         </intent>
     </shortcut>
 </shortcuts>

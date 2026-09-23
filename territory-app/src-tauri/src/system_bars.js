@@ -107,7 +107,7 @@
     var route = (location.hash.replace(/^#/, '') || '/').split('?')[0];
     var handled =
       !!document.querySelector('.MuiModal-root:not(.MuiModal-hidden)') ||
-      (route !== '/' && route !== '' && route !== '/territories');
+      (route !== '/' && route !== '');
     if (handled === lastBack) return;
     lastBack = handled;
     bridge.setBack(handled);

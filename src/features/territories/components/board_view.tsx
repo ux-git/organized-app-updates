@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
 import { ReactSortable } from 'react-sortablejs';
 import { Badge, Typography } from '@components/index';
@@ -9,6 +10,7 @@ import {
   TYPE_LABEL,
 } from '@definition/territory';
 import { useBreakpoints } from '@hooks/index';
+import { territoryLocalModeState } from '@states/territories';
 import AssignButton from './assign_button';
 import { clickableRow } from './table_styles';
 import {
@@ -63,6 +65,7 @@ const BoardView = ({
   overdueMonths,
 }: BoardViewProps) => {
   const { tablet688Up } = useBreakpoints();
+  const localMode = useAtomValue(territoryLocalModeState);
 
   const [dragging, setDragging] = useState(false);
   const [dragFrom, setDragFrom] = useState<Column>();
@@ -97,6 +100,10 @@ const BoardView = ({
     onDrop(moved.id, target as TerritoryStatus);
   };
 
+  const columns = localMode
+    ? COLUMNS.filter((column) => column !== 'requested')
+    : COLUMNS;
+
   return (
     <Box
       sx={{
@@ -118,7 +125,7 @@ const BoardView = ({
         },
       }}
     >
-      {COLUMNS.map((status) => {
+      {columns.map((status) => {
         const column = territories
           .filter((territory) => columnOf(territory) === status)
           .sort((a, b) => b.daysSinceCovered - a.daysSinceCovered);

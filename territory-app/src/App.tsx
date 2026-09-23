@@ -1,5 +1,10 @@
 import { lazy, useEffect, useState } from 'react';
-import { createHashRouter, Navigate, RouterProvider } from 'react-router';
+import {
+  createHashRouter,
+  Navigate,
+  RouterProvider,
+  useLocation,
+} from 'react-router';
 import { Provider, useAtomValue } from 'jotai';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
@@ -24,7 +29,15 @@ const TerritoryMapPage = lazy(() => import('@pages/territories/map'));
 const TerritoryDoNotCalls = lazy(
   () => import('@pages/territories/do_not_calls')
 );
-const Nearby = lazy(() => import('./pages/Nearby'));
+const Home = lazy(() => import('./pages/Home'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Sync = lazy(() => import('./pages/Sync'));
+
+// reminders and shortcuts from 0.2 open /nearby
+const OldSettingsLink = () => {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: '/sync', search }} replace />;
+};
 
 const cache = createCache({ key: 'css', prepend: true });
 
@@ -32,7 +45,7 @@ const router = createHashRouter([
   {
     element: <Layout />,
     children: [
-      { index: true, element: <Navigate to="/territories" replace /> },
+      { index: true, element: <Home /> },
       { path: '/territories', element: <Territories /> },
       { path: '/territories/history', element: <TerritoryHistory /> },
       { path: '/territories/history/:id', element: <TerritoryHistory /> },
@@ -40,8 +53,10 @@ const router = createHashRouter([
       { path: '/territories/map', element: <TerritoryMapPage /> },
       { path: '/territories/do-not-calls', element: <TerritoryDoNotCalls /> },
       { path: '/territories/:id', element: <TerritoryDetails /> },
-      { path: '/nearby', element: <Nearby /> },
-      { path: '*', element: <Navigate to="/territories" replace /> },
+      { path: '/settings', element: <Settings /> },
+      { path: '/sync', element: <Sync /> },
+      { path: '/nearby', element: <OldSettingsLink /> },
+      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
 ]);

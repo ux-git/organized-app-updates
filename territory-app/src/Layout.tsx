@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense } from 'react';
 import {
   Outlet,
   ScrollRestoration,
@@ -6,8 +6,8 @@ import {
   useNavigate,
 } from 'react-router';
 import { useAtomValue } from 'jotai';
-import { AppBar, Badge, Box, Container, Toolbar } from '@mui/material';
-import { IconNavigateLeft, IconSettings, IconSync } from '@icons/index';
+import { AppBar, Box, Container, Toolbar } from '@mui/material';
+import { IconNavigateLeft, IconSettings } from '@icons/index';
 import { navBarOptionsState } from '@states/app';
 import { useBreakpoints, useNavigationTrail } from '@hooks/index';
 import { markLastNavBarButton } from '@layouts/navbar/markLastNavBarButton';
@@ -18,32 +18,9 @@ import PageTransition from '@components/page_transition';
 import Typography from '@components/typography';
 import WaitingLoader from '@components/waiting_loader';
 import usePageWidth from '@layouts/usePageWidth';
-import { invoke, isNative, listen } from './native';
+import logo from './assets/logo.svg?url';
 
-const HOME = '/territories';
-
-/** Changes a paired phone hasn't received yet, shown on the sync button. */
-const useUnsynced = () => {
-  const [count, setCount] = useState(0);
-  const { pathname } = useLocation();
-
-  useEffect(() => {
-    if (!isNative()) return;
-    const refresh = () =>
-      invoke<{ unsynced: number }>('identity')
-        .then((identity) => setCount(identity.unsynced))
-        .catch(() => {});
-    refresh();
-    const timer = setInterval(refresh, 5000);
-    const stop = listen('store-changed', refresh);
-    return () => {
-      clearInterval(timer);
-      stop.then((unlisten) => unlisten());
-    };
-  }, [pathname]);
-
-  return count;
-};
+const HOME = '/';
 
 // The main app's nav bar without its account, notifications and dashboard
 // parts: the page title, back, the page's quick settings and its buttons.
@@ -55,10 +32,8 @@ const Layout = () => {
   const options = useAtomValue(navBarOptionsState);
   const { tablet688Up } = useBreakpoints();
   const pageWidth = usePageWidth();
-  const unsynced = useUnsynced();
 
-  // '/' redirects home; no back button for that moment either
-  const isHome = pathname === HOME || pathname === '/';
+  const isHome = pathname === HOME;
 
   const handleBack = () => {
     if (options.onBack) {
@@ -102,6 +77,7 @@ const Layout = () => {
                 flex: 1,
               }}
             >
+              {isHome && <img src={logo} alt="" width={40} height={40} />}
               {!isHome && (
                 <IconButton
                   className="back-arrow-button"
@@ -147,26 +123,6 @@ const Layout = () => {
                   }}
                 >
                   <IconSettings color="var(--black)" />
-                </IconButton>
-              )}
-              {isHome && (
-                <IconButton
-                  aria-label="Sync"
-                  onClick={() => navigate('/nearby')}
-                >
-                  <Badge
-                    badgeContent={unsynced}
-                    color="primary"
-                    max={99}
-                    sx={{
-                      '& .MuiBadge-badge': {
-                        backgroundColor: 'var(--accent-main)',
-                        color: 'var(--always-white)',
-                      },
-                    }}
-                  >
-                    <IconSync color="var(--black)" />
-                  </Badge>
                 </IconButton>
               )}
               {tablet688Up && options.buttons && (
