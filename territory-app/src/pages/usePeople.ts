@@ -15,8 +15,13 @@ const usePeople = () => {
   useEffect(() => {
     refresh();
     const stop = listen('store-changed', refresh);
+    // every load (after an edit here, an import or a sync) passes the list on
+    const changed = (event: Event) =>
+      setPeople((event as CustomEvent<Person[]>).detail);
+    window.addEventListener('people-changed', changed);
     return () => {
       stop.then((unlisten) => unlisten());
+      window.removeEventListener('people-changed', changed);
     };
   }, [refresh]);
 

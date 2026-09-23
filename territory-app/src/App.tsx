@@ -32,6 +32,7 @@ const TerritoryDoNotCalls = lazy(
 const Home = lazy(() => import('./pages/Home'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Sync = lazy(() => import('./pages/Sync'));
+const Publishers = lazy(() => import('./pages/Publishers'));
 
 // reminders and shortcuts from 0.2 open /nearby
 const OldSettingsLink = () => {
@@ -55,6 +56,7 @@ const router = createHashRouter([
       { path: '/territories/:id', element: <TerritoryDetails /> },
       { path: '/settings', element: <Settings /> },
       { path: '/sync', element: <Sync /> },
+      { path: '/publishers', element: <Publishers /> },
       { path: '/nearby', element: <OldSettingsLink /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],

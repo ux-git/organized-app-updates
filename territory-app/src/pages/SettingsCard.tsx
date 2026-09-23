@@ -80,7 +80,7 @@ const SettingsCard = () => {
           icon={<IconPerson color="var(--black)" />}
           primaryText="Publishers and groups"
           badgeText={String(people.length)}
-          path="/settings?section=people"
+          path="/publishers"
         />
       </ListItem>
     </DashboardCard>

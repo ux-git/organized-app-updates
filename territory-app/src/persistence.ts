@@ -135,6 +135,7 @@ export const loadPeople = async () => {
       .map((person) => person.name)
       .sort((a, b) => a.localeCompare(b));
   setPeople(names(true), names(false));
+  window.dispatchEvent(new CustomEvent('people-changed', { detail: people }));
   return people;
 };
 
@@ -242,8 +243,8 @@ const slug = (name: string) =>
     .replace(/^-|-$/g, '');
 
 /**
- * Names on assignments (from an import, or typed in) join the pickers'
- * list; groups are the names the imported data calls groups.
+ * With no list yet, the names on assignments start one; groups are the names
+ * the imported data calls groups.
  */
 const addPeople = async (territories: Territory[]) => {
   const names = new Set<string>();
@@ -253,9 +254,11 @@ const addPeople = async (territories: Territory[]) => {
     }
     if (territory.holder) names.add(territory.holder);
   }
-  const known = new Set(
-    ((await rows(PEOPLE)) as unknown as Person[]).map((person) => person.name)
-  );
+  const people = (await rows(PEOPLE)) as unknown as Person[];
+  // only to start a list, e.g. from a Service Territory import; once there is
+  // one (typed or imported), people who moved away don't come back from history
+  if (people.length) return;
+  const known = new Set(people.map((person) => person.name));
   const writes = [...names]
     .filter((name) => !known.has(name))
     .map((name) => ({

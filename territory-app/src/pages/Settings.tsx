@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Box, Chip, IconButton, Stack } from '@mui/material';
+import { Box, IconButton, Stack } from '@mui/material';
 import { useAtomValue } from 'jotai';
 import { IconAdd, IconDelete } from '@icons/index';
 import Button from '@components/button';
@@ -18,7 +18,6 @@ import {
 } from '@features/congregation/settings/shared_styles';
 import { hour24FormatState } from '@states/settings';
 import { invoke, nearby } from '../native';
-import { loadPeople, PEOPLE, Person, writeRows } from '../persistence';
 import HallPicker from './HallPicker';
 import useNearby, { Meeting, NearbyStatus } from './useNearby';
 
@@ -41,16 +40,10 @@ const Settings = () => {
   const hour24 = useAtomValue(hour24FormatState);
   const [params, setParams] = useSearchParams();
   const [hallOpen, setHallOpen] = useState(false);
-  const [people, setPeople] = useState<Person[]>([]);
-  const [newPerson, setNewPerson] = useState('');
 
   const schedule = status.schedule ?? {};
   const meetings = schedule.meetings ?? [];
   const permissions = status.permissions;
-
-  useEffect(() => {
-    loadPeople().then(setPeople);
-  }, []);
 
   // the home card's rows open their section
   useEffect(() => {
@@ -79,25 +72,6 @@ const Settings = () => {
         i === index ? { ...meeting, ...change } : meeting
       ),
     });
-
-  const addPerson = async () => {
-    const trimmed = newPerson.trim();
-    if (!trimmed) return;
-    await writeRows([
-      {
-        table: PEOPLE,
-        id: crypto.randomUUID(),
-        fields: { name: trimmed, group: false },
-      },
-    ]);
-    setNewPerson('');
-    setPeople(await loadPeople());
-  };
-
-  const removePerson = async (person: Person) => {
-    await writeRows([{ table: PEOPLE, id: person.id, deleted: true }]);
-    setPeople(await loadPeople());
-  };
 
   const buttons = { display: 'flex', gap: '8px', flexWrap: 'wrap' } as const;
 
@@ -254,42 +228,6 @@ const Settings = () => {
           </CardSectionContent>
         </CardSection>
       )}
-
-      <CardSection id="settings-people">
-        <CardSectionHeader
-          title="Publishers and groups"
-          description="Territories can be assigned to these names. They are shared with your paired phones only."
-        />
-        <CardSectionContent>
-          <Box sx={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <TextField
-              label="Name"
-              value={newPerson}
-              onChange={(event) => setNewPerson(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && addPerson()}
-            />
-            <Button variant="secondary" onClick={addPerson}>
-              Add
-            </Button>
-          </Box>
-          <Box sx={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            {people
-              .slice()
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((person) => (
-                <Chip
-                  key={person.id}
-                  label={person.name}
-                  onDelete={() => removePerson(person)}
-                  sx={{
-                    backgroundColor: 'var(--accent-150)',
-                    color: 'var(--accent-dark)',
-                  }}
-                />
-              ))}
-          </Box>
-        </CardSectionContent>
-      </CardSection>
 
       <HallPicker
         open={hallOpen}
