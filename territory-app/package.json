@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "android": "./scripts/android.sh"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4"
