@@ -1,5 +1,6 @@
 import { Box, Stack } from '@mui/material';
 import { Typography } from '@components/index';
+import { IconPerson } from '@icons/index';
 import { Territory, TYPE_LABEL } from '@definition/territory';
 import { CardLostBadge, CategoryBadges, StatusBadge } from './territory_badges';
 
@@ -48,9 +49,18 @@ const TerritorySummary = ({
     );
   }
 
+  // status and holder sit top right beside the title, wrapping under it on a phone
   return (
-    <Stack spacing="8px">
-      <Stack spacing="4px">
+    <Stack
+      direction="row"
+      sx={{
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: '8px 16px',
+      }}
+    >
+      <Stack spacing="4px" sx={{ minWidth: 0 }}>
         <Typography className="h2" color="var(--black)">
           Overview
         </Typography>
@@ -65,7 +75,19 @@ const TerritorySummary = ({
         </Stack>
       </Stack>
 
-      {state}
+      <Stack spacing="4px" sx={{ alignItems: 'flex-end' }}>
+        <Box sx={{ width: 'fit-content' }}>
+          <StatusBadge status={territory.status} />
+        </Box>
+        {meta && (
+          <Stack direction="row" sx={{ alignItems: 'center', gap: '4px' }}>
+            <IconPerson color="var(--grey-400)" width={16} height={16} />
+            <Typography className="label-small-regular" color="var(--grey-400)">
+              {meta}
+            </Typography>
+          </Stack>
+        )}
+      </Stack>
     </Stack>
   );
 };
