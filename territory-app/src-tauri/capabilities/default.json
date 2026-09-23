@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The bundled territories page; no remote page gets these",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
