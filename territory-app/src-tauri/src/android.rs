@@ -222,3 +222,151 @@ pub extern "system" fn Java_com_sws2apps_territories_Native_emit(
         let _ = app.emit(&String::from(event), payload);
     }
 }
+
+// ---- NFC tap (src/tap.rs); Kotlin only passes the APDUs ----
+
+static CARD: Mutex<Option<crate::tap::Card>> = Mutex::new(None);
+static READERS: Mutex<Option<HashMap<i64, crate::tap::Reader>>> = Mutex::new(None);
+
+fn status_json(status: Option<&Status>) -> String {
+    status
+        .map(|s| serde_json::to_string(s).unwrap_or_default())
+        .unwrap_or_default()
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sws2apps_territories_Native_tapCardApdu(
+    env: JNIEnv,
+    _: JObject,
+    apdu: JByteArray,
+    listening: jboolean,
+) -> jbyteArray {
+    let apdu = env.convert_byte_array(&apdu).unwrap_or_default();
+    let response = match (CARD.lock(), store()) {
+        (Ok(mut card), Ok(mut store)) => card.get_or_insert_with(Default::default).apdu(
+            &mut store,
+            &apdu,
+            listening == JNI_TRUE,
+            PLATFORM,
+        ),
+        _ => vec![0x69, 0x85],
+    };
+    bytes_out(&env, &response)
+}
+
+/// The card side's session status as JSON, "" before any tap.
+#[no_mangle]
+pub extern "system" fn Java_com_sws2apps_territories_Native_tapCardStatus(
+    env: JNIEnv,
+    _: JObject,
+) -> jstring {
+    let json = CARD
+        .lock()
+        .ok()
+        .map(|card| status_json(card.as_ref().and_then(|c| c.status())))
+        .unwrap_or_default();
+    string_out(&env, &json)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sws2apps_territories_Native_tapCardDone(
+    _env: JNIEnv,
+    _: JObject,
+) -> jboolean {
+    let done = CARD
+        .lock()
+        .ok()
+        .is_some_and(|card| card.as_ref().is_some_and(|c| c.done()));
+    if done {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sws2apps_territories_Native_tapCardReset(_env: JNIEnv, _: JObject) {
+    if let Ok(mut card) = CARD.lock() {
+        *card = None;
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sws2apps_territories_Native_tapReaderNew(
+    _env: JNIEnv,
+    _: JObject,
+) -> jlong {
+    let Ok(store) = store() else { return 0 };
+    let Ok(reader) = crate::tap::Reader::new(&store, PLATFORM) else {
+        return 0;
+    };
+    let handle = NEXT.fetch_add(1, Ordering::Relaxed);
+    if let Ok(mut readers) = READERS.lock() {
+        readers.get_or_insert_with(HashMap::new).insert(handle, reader);
+    }
+    handle
+}
+
+/// The next command APDU; empty when the pairing is over.
+#[no_mangle]
+pub extern "system" fn Java_com_sws2apps_territories_Native_tapReaderNext(
+    env: JNIEnv,
+    _: JObject,
+    handle: jlong,
+) -> jbyteArray {
+    let next = READERS
+        .lock()
+        .ok()
+        .and_then(|mut r| r.as_mut()?.get_mut(&handle)?.next())
+        .unwrap_or_default();
+    bytes_out(&env, &next)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sws2apps_territories_Native_tapReaderResponse(
+    env: JNIEnv,
+    _: JObject,
+    handle: jlong,
+    response: JByteArray,
+) -> jboolean {
+    let response = env.convert_byte_array(&response).unwrap_or_default();
+    let (Ok(mut readers), Ok(mut store)) = (READERS.lock(), store()) else {
+        return JNI_FALSE;
+    };
+    let ok = readers
+        .as_mut()
+        .and_then(|r| r.get_mut(&handle))
+        .is_some_and(|reader| reader.response(&mut store, &response).is_ok());
+    if ok {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sws2apps_territories_Native_tapReaderStatus(
+    env: JNIEnv,
+    _: JObject,
+    handle: jlong,
+) -> jstring {
+    let json = READERS
+        .lock()
+        .ok()
+        .map(|r| status_json(r.as_ref().and_then(|r| r.get(&handle)).map(|r| r.status())))
+        .unwrap_or_default();
+    string_out(&env, &json)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sws2apps_territories_Native_tapReaderClose(
+    _env: JNIEnv,
+    _: JObject,
+    handle: jlong,
+) {
+    if let Ok(mut readers) = READERS.lock() {
+        if let Some(readers) = readers.as_mut() {
+            readers.remove(&handle);
+        }
+    }
+}

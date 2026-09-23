@@ -55,6 +55,7 @@ export default defineConfig({
   root: __dirname,
   base: './',
   plugins: [replace(), ...(shared.plugins ?? [])],
+  worker: { ...shared.worker, format: 'es' },
   server: { port: 4060, host: true, strictPort: true },
   preview: { port: 4060 },
   build: {

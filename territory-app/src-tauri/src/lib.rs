@@ -2,6 +2,7 @@ mod hlc;
 mod qr;
 mod session;
 mod store;
+mod tap;
 
 #[cfg(target_os = "android")]
 mod android;

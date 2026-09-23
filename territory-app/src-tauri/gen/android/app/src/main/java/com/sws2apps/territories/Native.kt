@@ -34,4 +34,23 @@ object Native {
   external fun summary(): String
 
   external fun emit(event: String, payload: String)
+
+  // NFC tap pairing (src-tauri/src/tap.rs)
+  external fun tapCardApdu(apdu: ByteArray, listening: Boolean): ByteArray
+
+  external fun tapCardStatus(): String
+
+  external fun tapCardDone(): Boolean
+
+  external fun tapCardReset()
+
+  external fun tapReaderNew(): Long
+
+  external fun tapReaderNext(handle: Long): ByteArray
+
+  external fun tapReaderResponse(handle: Long, response: ByteArray): Boolean
+
+  external fun tapReaderStatus(handle: Long): String
+
+  external fun tapReaderClose(handle: Long)
 }

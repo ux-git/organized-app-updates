@@ -186,6 +186,11 @@ object Reminders {
     watchHall(context)
   }
 
+  fun clearHall(context: Context) {
+    Nearby.prefs(context).edit().remove("hall").apply()
+    runCatching { context.getSystemService(LocationManager::class.java)?.removeProximityAlert(hallIntent(context)) }
+  }
+
   private fun hallIntent(context: Context) =
     PendingIntent.getBroadcast(
       context,

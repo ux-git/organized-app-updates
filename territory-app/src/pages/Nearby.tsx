@@ -12,7 +12,13 @@ import { displaySnackNotification } from '@services/states/app';
 import { haptic } from '../haptics';
 import { invoke, listen, nearby } from '../native';
 import { loadPeople, PEOPLE, Person, writeRows } from '../persistence';
-import useNearby, { Meeting, NearbyStatus, Peer } from './useNearby';
+import useNearby, {
+  Meeting,
+  NearbyStatus,
+  Peer,
+  SessionStatus,
+} from './useNearby';
+import HallPicker from './HallPicker';
 
 const DAYS = [
   'Sunday',
@@ -95,10 +101,17 @@ const MeetDialog = ({
   onClose: VoidFunction;
   status: NearbyStatus;
 }) => {
+  const [tapped, setTapped] = useState<SessionStatus | null>(null);
+
   useEffect(() => {
     if (!open) return;
+    setTapped(null);
     nearby('meetStart');
-    return () => nearby('meetStop');
+    const stop = listen<SessionStatus>('tap', setTapped);
+    return () => {
+      nearby('meetStop');
+      stop.then((unlisten) => unlisten());
+    };
   }, [open]);
 
   const pairing = status.exchanges?.find((exchange) => exchange.mode === 1);
@@ -116,6 +129,22 @@ const MeetDialog = ({
   }, [paired, open]);
 
   const body = () => {
+    if (tapped?.state === 'done') {
+      return (
+        <Typography className="body-regular">
+          Paired with {tapped.name} by tapping. Your phones now sync by
+          themselves when they are near each other.
+        </Typography>
+      );
+    }
+    if (tapped?.state === 'failed') {
+      return (
+        <Typography className="body-regular" sx={{ color: 'var(--red-main)' }}>
+          The tap didn&apos;t finish ({tapped.reason}). Hold the phones together
+          a little longer.
+        </Typography>
+      );
+    }
     if (pairing?.state === 'confirm') {
       return (
         <Box
@@ -190,6 +219,29 @@ const MeetDialog = ({
             sx={{ color: 'var(--grey-350)' }}
           >
             Looking for phones…
+          </Typography>
+        )}
+        {status.permissions?.nfc && (
+          <Typography
+            className="body-small-regular"
+            sx={{ color: 'var(--grey-400)' }}
+          >
+            {status.permissions.nfcOn ? (
+              'Or hold the phones back to back for a second: that pairs them without a code.'
+            ) : (
+              <>
+                Turn on NFC to pair by holding the phones together.{' '}
+                <a
+                  href="#nfc"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    nearby('nfcSettings');
+                  }}
+                >
+                  NFC settings
+                </a>
+              </>
+            )}
           </Typography>
         )}
         {seen.map((phone) => (
@@ -380,6 +432,7 @@ const Nearby = () => {
   const [meetOpen, setMeetOpen] = useState(false);
   const [qrPairOpen, setQrPairOpen] = useState(false);
   const [sendTo, setSendTo] = useState<Peer | null>(null);
+  const [hallOpen, setHallOpen] = useState(false);
   const [people, setPeople] = useState<Person[]>([]);
   const [newPerson, setNewPerson] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
@@ -681,6 +734,9 @@ const Nearby = () => {
             >
               {status.hall ? 'Save again here' : 'I am at the Kingdom Hall'}
             </Button>
+            <Button variant="secondary" onClick={() => setHallOpen(true)}>
+              {status.hall ? 'Change on the map' : 'Choose on the map'}
+            </Button>
             {permissions?.location && !permissions.backgroundLocation && (
               <Button
                 variant="tertiary"
@@ -757,6 +813,14 @@ const Nearby = () => {
         android={android}
       />
       <QrSendDialog peer={sendTo} onClose={() => setSendTo(null)} />
+      <HallPicker
+        open={hallOpen}
+        hall={status.hall}
+        onClose={() => {
+          setHallOpen(false);
+          nearby('status');
+        }}
+      />
     </Box>
   );
 };

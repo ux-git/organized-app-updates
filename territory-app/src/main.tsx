@@ -1,7 +1,13 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { setWorkerUrl } from 'maplibre-gl';
+import mapWorker from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { getCSSPropertyValue } from '@utils/common';
 import App from './App';
+
+// maplibre builds its worker's address at runtime, so the bundler never sees
+// the file; this bundles the worker and tells maplibre where it went
+setWorkerUrl(mapWorker);
 
 const saved = (key: string, fallback: string) => {
   const value = localStorage.getItem(key);

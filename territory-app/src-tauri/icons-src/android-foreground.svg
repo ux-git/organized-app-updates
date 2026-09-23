@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 108 108">
+  <defs>
+    <linearGradient id="violet" x1="24" y1="22" x2="50" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#B274C4"/><stop offset="1" stop-color="#7D5FBD"/>
+    </linearGradient>
+    <linearGradient id="yellow" x1="58" y1="22" x2="86" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EEAF35"/><stop offset="1" stop-color="#FBC93C"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="24" y1="58" x2="51" y2="86" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0ABBE5"/><stop offset="1" stop-color="#3B98CC"/>
+    </linearGradient>
+    <linearGradient id="green" x1="84" y1="58" x2="58" y2="86" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5C9B1C"/><stop offset="1" stop-color="#50B600"/>
+    </linearGradient>
+    <linearGradient id="pin" x1="54" y1="34" x2="54" y2="66" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6378E0"/><stop offset="1" stop-color="#3E52BE"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="108" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FBFBFF"/><stop offset="1" stop-color="#E7EAFB"/>
+    </linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="1.6" stdDeviation="1.6" flood-color="#1B2466" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+    <polygon points="23,27 49,23 51,50 25,52" fill="url(#violet)" stroke="url(#violet)" stroke-width="4" stroke-linejoin="round"/>
+    <polygon points="57,23 85,28 84,50 57,50" fill="url(#yellow)" stroke="url(#yellow)" stroke-width="4" stroke-linejoin="round"/>
+    <polygon points="25,58 51,57 50,85 28,83" fill="url(#blue)" stroke="url(#blue)" stroke-width="4" stroke-linejoin="round"/>
+    <polygon points="57,57 84,57 81,84 58,86" fill="url(#green)" stroke="url(#green)" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M54 66 C50.6 60.4 45 55.2 45 47.4 A9 9 0 1 1 63 47.4 C63 55.2 57.4 60.4 54 66 Z" fill="url(#pin)" stroke="#FFFFFF" stroke-width="2.4" stroke-linejoin="round" filter="url(#shadow)"/>
+    <circle cx="54" cy="47.4" r="3.6" fill="#FFFFFF"/>
+</svg>

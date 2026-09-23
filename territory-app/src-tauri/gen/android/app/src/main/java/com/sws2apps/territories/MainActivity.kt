@@ -416,6 +416,14 @@ class MainActivity : TauriActivity() {
         Reminders.plan(this)
       }
       "scanQr" -> startActivity(Intent(this, ScanActivity::class.java))
+      "nfcSettings" -> runCatching { startActivity(Intent(android.provider.Settings.ACTION_NFC_SETTINGS)) }
+      "hallSet" -> Reminders.setHall(
+        this,
+        args.getDouble("lat"),
+        args.getDouble("lng"),
+        args.optDouble("radius", 150.0).toFloat()
+      ).also { if (!Nearby.granted(this, Manifest.permission.ACCESS_FINE_LOCATION)) askPermissions("location") }
+      "hallClear" -> Reminders.clearHall(this)
       "takeFile" -> deliverFile()
       "shareFile" -> {
         val bytes = args.optString("text").toByteArray(Charsets.UTF_8)
@@ -432,6 +440,8 @@ class MainActivity : TauriActivity() {
       .put("notifications", Notify.mayNotify(this))
       .put("exactAlarms", Reminders.canExact(this))
       .put("location", Nearby.granted(this, Manifest.permission.ACCESS_FINE_LOCATION))
+      .put("nfc", Tap.available(this))
+      .put("nfcOn", Tap.enabled(this))
       .put(
         "backgroundLocation",
         Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||

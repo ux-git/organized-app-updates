@@ -39,6 +39,8 @@ export type NearbyStatus = {
     exactAlarms: boolean;
     location: boolean;
     backgroundLocation: boolean;
+    nfc?: boolean;
+    nfcOn?: boolean;
   };
   schedule?: {
     enabled?: boolean;
