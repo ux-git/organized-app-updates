@@ -1,6 +1,6 @@
 import { formatDate } from '@utils/date';
 import { getTranslation } from '@services/i18n/translation';
-import { GROUPS, PUBLISHERS } from './mockData';
+import { CURRENT_PUBLISHER, GROUPS, PUBLISHERS } from './mockData';
 import {
   Territory,
   TerritoryAssignment,
@@ -175,7 +175,7 @@ const recommendedTerritories = (
     )
     .sort((a, b) => b.daysSinceCovered - a.daysSinceCovered);
 
-export const CURRENT_PUBLISHER = 'Mike Wallenter';
+export { CURRENT_PUBLISHER };
 
 // Apple devices open Apple Maps, everything else Google Maps (the app, where installed)
 export const openInMaps = (query: string) => {

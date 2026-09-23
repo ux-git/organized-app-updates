@@ -7,6 +7,8 @@ import {
   TerritoryType,
 } from '@definition/territory';
 
+export const CURRENT_PUBLISHER = 'Mike Wallenter';
+
 export const GROUPS = ['Group 3 – Kreuzberg', 'Group 5 – Neukölln'];
 
 export const PUBLISHERS_ONLY = [
