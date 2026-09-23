@@ -125,7 +125,11 @@ export const planImport = (
       plan.update.push({ ...entry, id: existing.id });
     }
   }
-  plan.missing = people.filter((person) => !matched.has(person.id));
+  // a pasted list has no groups, so it only replaces names
+  const withGroups = incoming.some((entry) => entry.group);
+  plan.missing = people.filter(
+    (person) => !matched.has(person.id) && (withGroups || !person.group)
+  );
   return plan;
 };
 

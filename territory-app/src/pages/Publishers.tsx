@@ -42,6 +42,7 @@ const ImportDialog = ({
   const [list, setList] = useState('');
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [removeMissing, setRemoveMissing] = useState(false);
+  const [source, setSource] = useState<'backup' | 'list'>('backup');
 
   const close = () => {
     setPlan(null);
@@ -56,6 +57,7 @@ const ImportDialog = ({
     if (!file) return;
     try {
       const { incoming, skipped } = readBackup(await file.text());
+      setSource('backup');
       setPlan(planImport(people, incoming, skipped));
     } catch (error) {
       notify('Something went wrong', (error as Error).message, 'error');
@@ -77,7 +79,9 @@ const ImportDialog = ({
       ['New', plan.add.length],
       ['Updated', plan.update.length],
       ['Already here', plan.unchanged],
-      ['Archived, not imported', plan.skipped],
+      ...(source === 'backup'
+        ? ([['Archived, not imported', plan.skipped]] as const)
+        : []),
     ] as const;
     return (
       <Dialog open={open} onClose={close} title="Import publishers">
@@ -98,7 +102,7 @@ const ImportDialog = ({
           <Checkbox
             checked={removeMissing}
             onChange={(_, checked) => setRemoveMissing(checked)}
-            label={`Remove ${count(plan.missing.length, 'name', 'names')} that aren’t in the backup`}
+            label={`Remove ${count(plan.missing.length, 'name', 'names')} that aren’t in the ${source}`}
             labelDescription="For example, people who moved away. Their assignment history stays."
           />
         )}
@@ -148,7 +152,10 @@ const ImportDialog = ({
         <Button
           variant="secondary"
           disabled={!list.trim()}
-          onClick={() => setPlan(planImport(people, readList(list)))}
+          onClick={() => {
+            setSource('list');
+            setPlan(planImport(people, readList(list)));
+          }}
         >
           Continue
         </Button>
