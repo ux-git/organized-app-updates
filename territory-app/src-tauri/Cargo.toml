@@ -29,3 +29,13 @@ base64 = "0.22"
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
+
+# The Rust core only stores, merges and encrypts small records, so size
+# counts for more than speed in the shipped app.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+incremental = false

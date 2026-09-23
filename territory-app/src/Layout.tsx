@@ -57,7 +57,8 @@ const Layout = () => {
   const pageWidth = usePageWidth();
   const unsynced = useUnsynced();
 
-  const isHome = pathname === HOME;
+  // '/' redirects home; no back button for that moment either
+  const isHome = pathname === HOME || pathname === '/';
 
   const handleBack = () => {
     if (options.onBack) {
