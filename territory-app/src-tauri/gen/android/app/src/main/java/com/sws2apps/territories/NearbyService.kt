@@ -440,15 +440,16 @@ fun ensureChannel(context: Context) {
       ).apply { setShowBadge(false) }
     )
   }
+  // 0.6.1 had it quieter; a sync result pops up now
+  if (manager.getNotificationChannel("results") != null) manager.deleteNotificationChannel("results")
   if (manager.getNotificationChannel(SyncNotices.CHANNEL) == null) {
     manager.createNotificationChannel(
       NotificationChannel(
         SyncNotices.CHANNEL,
         context.getString(R.string.results_channel),
-        NotificationManager.IMPORTANCE_DEFAULT
+        NotificationManager.IMPORTANCE_HIGH
       ).apply {
         setShowBadge(false)
-        setSound(null, null)
         enableVibration(true)
         vibrationPattern = longArrayOf(0, 30, 70, 30, 70, 90)
       }

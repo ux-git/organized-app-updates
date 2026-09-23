@@ -1,11 +1,14 @@
 package com.sws2apps.territories
 
 import android.app.Activity
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.cardemulation.HostApduService
 import android.nfc.tech.IsoDep
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -20,6 +23,12 @@ import org.json.JSONObject
  * random, so two Android phones end up one of each within a second or two.
  * Once a tap starts, the switching stops until it is over, or the answering
  * phone would turn into a reader in the middle of it. An iPhone only reads.
+ *
+ * While answering, the phone must not look for tags itself: it would find
+ * the other phone as an unknown tag, Android would open its own tag window
+ * over the app, and the tap would break off. Android 15+ turns the looking
+ * off (setDiscoveryTechnology); older versions catch such tags in this app
+ * (foreground dispatch) and ignore them.
  */
 object Tap {
   private val handler = Handler(Looper.getMainLooper())
@@ -32,6 +41,12 @@ object Tap {
   @Volatile private var busy = false
   private var reading = false
   private var activity: Activity? = null
+
+  /** Right after a tap the phones are still together; no second one. */
+  @Volatile private var quietUntil = 0L
+  private val quiet get() = System.currentTimeMillis() < quietUntil
+  private const val QUIET_MS = 4000L
+  private val listenOnly = Build.VERSION.SDK_INT >= 35
 
   fun available(context: Context) = NfcAdapter.getDefaultAdapter(context) != null
 
@@ -47,7 +62,14 @@ object Tap {
   fun stop() {
     active = false
     handler.removeCallbacks(toggle)
-    setReading(false)
+    activity?.let { activity ->
+      NfcAdapter.getDefaultAdapter(activity)?.let { adapter ->
+        runCatching { adapter.disableReaderMode(activity) }
+        runCatching { adapter.disableForegroundDispatch(activity) }
+        if (listenOnly) runCatching { adapter.resetDiscoveryTechnology(activity) }
+      }
+    }
+    reading = false
     activity = null
     busy = false
     Native.tapCardReset()
@@ -56,8 +78,10 @@ object Tap {
   private fun setReading(on: Boolean) {
     val activity = activity ?: return
     val adapter = NfcAdapter.getDefaultAdapter(activity) ?: return
-    runCatching {
-      if (on) {
+    if (on) {
+      runCatching { adapter.disableForegroundDispatch(activity) }
+      if (listenOnly) runCatching { adapter.resetDiscoveryTechnology(activity) }
+      runCatching {
         adapter.enableReaderMode(
           activity,
           ::onTag,
@@ -65,17 +89,43 @@ object Tap {
             NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK or NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
           Bundle().apply { putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 1000) }
         )
+      }
+    } else {
+      runCatching { adapter.disableReaderMode(activity) }
+      if (listenOnly) {
+        runCatching {
+          adapter.setDiscoveryTechnology(activity, NfcAdapter.FLAG_READER_DISABLE, NfcAdapter.FLAG_LISTEN_KEEP)
+        }
       } else {
-        adapter.disableReaderMode(activity)
+        runCatching { adapter.enableForegroundDispatch(activity, swallow(activity), null, null) }
       }
     }
     reading = on
   }
 
+  /** Tags found while answering come back to this app, which ignores them. */
+  private fun swallow(activity: Activity) =
+    PendingIntent.getActivity(
+      activity,
+      0x7a9,
+      Intent(activity, activity.javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+      PendingIntent.FLAG_MUTABLE
+    )
+
+  fun isTagIntent(intent: Intent?) = intent?.action in listOf(
+    NfcAdapter.ACTION_TAG_DISCOVERED,
+    NfcAdapter.ACTION_TECH_DISCOVERED,
+    NfcAdapter.ACTION_NDEF_DISCOVERED,
+  )
+
   private val toggle = object : Runnable {
     override fun run() {
       if (!active) return
-      if (!busy) setReading(!reading)
+      if (quiet) {
+        if (reading) setReading(false)
+      } else if (!busy) {
+        setReading(!reading)
+      }
       handler.postDelayed(this, 600L + (Math.random() * 900).toLong())
     }
   }
@@ -110,13 +160,14 @@ object Tap {
 
   fun onApdu(apdu: ByteArray): ByteArray {
     val select = apdu.size > 1 && apdu[1] == 0xA4.toByte()
-    if (select && active) {
+    if (select && active && !quiet) {
       busy = true
-      setReading(false)
+      // only if needed: switching the radio again would drop this very tap
+      if (reading) setReading(false)
       Native.tapCardReset()
       touched()
     }
-    val response = Native.tapCardApdu(apdu, active)
+    val response = Native.tapCardApdu(apdu, active && !quiet)
     if (Native.tapCardDone()) {
       val status = Native.tapCardStatus()
       Native.tapCardReset()
@@ -149,6 +200,7 @@ object Tap {
       return
     }
     Native.emit("tap", json.toString())
+    quietUntil = System.currentTimeMillis() + QUIET_MS
     val activity = activity ?: return
     if (state == "done") {
       Haptics.play(activity, "paired")

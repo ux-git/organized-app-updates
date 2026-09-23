@@ -105,8 +105,13 @@ class MainActivity : TauriActivity() {
 
   override fun onPause() {
     visible = false
-    Tap.stop()
     super.onPause()
+  }
+
+  // a window over the app (a permission, the shade) must not end a tap
+  override fun onStop() {
+    Tap.stop()
+    super.onStop()
   }
 
   override fun onDestroy() {
@@ -115,6 +120,8 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onNewIntent(intent: Intent) {
+    // a tag found while answering a tap (Tap.swallow): nothing to do
+    if (Tap.isTagIntent(intent)) return
     super.onNewIntent(intent)
     setIntent(intent)
     handleFileIntent(intent)

@@ -97,7 +97,10 @@ export const MeetDialog = ({
         else if (event.state === 'apart') setTouching(false);
         else {
           setTouching(false);
-          setTapped(event as SessionStatus);
+          // the phones stay together a moment after pairing; keep the success
+          setTapped((previous) =>
+            previous?.state === 'done' ? previous : (event as SessionStatus)
+          );
         }
       }
     );

@@ -12,10 +12,10 @@ import org.json.JSONObject
  * What a background sync tells the person: that it went through (with whom,
  * what came in, when), or that a paired phone is near but they haven't
  * synced, with a button to try right away. While the app is open the page
- * shows the same instead.
+ * shows it as well.
  */
 object SyncNotices {
-  const val CHANNEL = "results"
+  const val CHANNEL = "sync_results"
   private const val DONE_BASE = 1000
   private const val FOUND_BASE = 2000
 
@@ -34,10 +34,8 @@ object SyncNotices {
     if (sent + received == 0 && joined.isEmpty()) return
 
     val name = status.optString("name").ifBlank { context.getString(R.string.done_someone) }
-    if (MainActivity.visible) {
-      Native.emit("synced", status.toString())
-      return
-    }
+    // the page vibrates and shows it too; the notification stays either way
+    if (MainActivity.visible) Native.emit("synced", status.toString())
     if (!wanted(context) || !Notify.mayNotify(context)) return
 
     val lines = mutableListOf<String>()
@@ -101,7 +99,7 @@ object SyncNotices {
 
   /** A paired phone is close and has changes, but no sync got through. */
   fun found(context: Context, peer: String) {
-    if (MainActivity.visible || !Notify.mayNotify(context)) return
+    if (!Notify.mayNotify(context)) return
     val name = Nearby.peerName(peer).ifBlank { context.getString(R.string.done_someone) }
     ensureChannel(context)
     val notification = NotificationCompat.Builder(context, CHANNEL)
