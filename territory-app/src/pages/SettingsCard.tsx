@@ -37,9 +37,16 @@ const SettingsCard = () => {
       : `${phones} · Not synced yet`;
   };
 
+  const toggle = (enabled: boolean) => {
+    play(enabled ? 'start' : 'remove');
+    nearby('schedule', { ...schedule, enabled });
+    // turning it on is the moment to allow what it needs
+    if (enabled && missing.length) nearby('permissions', { which: 'all' });
+  };
+
   const automaticText = () => {
-    if (!automatic) return 'Off';
-    if (missing.length) return 'Almost ready: allow what it needs';
+    if (!automatic) return 'Off. Sync only when you tap Sync now';
+    if (missing.length) return 'Tap to allow what it needs';
     return schedule.mode === 'meetings'
       ? 'Around meeting times'
       : 'All the time, in the background';
@@ -72,15 +79,16 @@ const SettingsCard = () => {
             icon={<IconCalendarClock color="var(--black)" />}
             primaryText="Automatic sync"
             secondaryText={automaticText()}
-            path="/settings/automatic"
+            onClick={() =>
+              automatic && missing.length
+                ? nearby('permissions', { which: 'all' })
+                : toggle(!automatic)
+            }
             actionComponent={
               <Switch
                 checked={automatic}
                 onClick={(event) => event.stopPropagation()}
-                onChange={(_, enabled) => {
-                  play(enabled ? 'start' : 'remove');
-                  nearby('schedule', { ...schedule, enabled });
-                }}
+                onChange={(_, enabled) => toggle(enabled)}
               />
             }
           />

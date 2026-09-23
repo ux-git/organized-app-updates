@@ -403,12 +403,7 @@ class MainActivity : TauriActivity() {
       }
       "syncNow" -> NearbyService.start(this, "open", 2 * 60_000L)
       "changed" -> NearbyService.changed(this)
-      "battery" -> runCatching {
-        startActivity(
-          Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-            .setData(android.net.Uri.parse("package:$packageName"))
-        )
-      }
+      "battery" -> askBattery()
       "meetStart" -> {
         Tap.start(this)
         NearbyService.wantMeet = true
@@ -483,6 +478,14 @@ class MainActivity : TauriActivity() {
     val wanted = when (which) {
       "location" -> arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
       "camera" -> arrayOf(Manifest.permission.CAMERA)
+      // first start: everything at once, then the battery exception
+      "all" -> {
+        askBatteryAfter = true
+        Nearby.bluetoothPermissions() + Manifest.permission.CAMERA +
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS)
+          } else emptyArray()
+      }
       // asked on its own, after location, as Android requires
       "backgroundLocation" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
@@ -492,12 +495,31 @@ class MainActivity : TauriActivity() {
           arrayOf(Manifest.permission.POST_NOTIFICATIONS)
         } else emptyArray()
     }.filter { !Nearby.granted(this, it) }
-    if (wanted.isNotEmpty()) requestPermissions(wanted.toTypedArray(), REQUEST_PERMISSIONS)
+    if (wanted.isNotEmpty()) {
+      requestPermissions(wanted.toTypedArray(), REQUEST_PERMISSIONS)
+    } else if (askBatteryAfter) {
+      askBattery()
+    }
+  }
+
+  private var askBatteryAfter = false
+
+  private fun askBattery() {
+    askBatteryAfter = false
+    val power = getSystemService(android.os.PowerManager::class.java)
+    if (power?.isIgnoringBatteryOptimizations(packageName) == true) return
+    runCatching {
+      startActivity(
+        Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+          .setData(android.net.Uri.parse("package:$packageName"))
+      )
+    }
   }
 
   override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     if (requestCode != REQUEST_PERMISSIONS) return
+    if (askBatteryAfter) askBattery()
     Reminders.watchPeers(this)
     Reminders.watchHall(this)
     Reminders.plan(this)

@@ -36,7 +36,7 @@ const Layout = () => {
   const { tablet688Up } = useBreakpoints();
   const pageWidth = usePageWidth();
 
-  const isHome = pathname === HOME;
+  const isHome = pathname === HOME || pathname === '/welcome';
 
   const handleBack = () => {
     if (options.onBack) {

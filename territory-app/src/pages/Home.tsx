@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { useNavigate } from 'react-router';
+import { Navigate, useNavigate } from 'react-router';
 import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import Markup from '@components/text_markup';
 import PageTitle from '@components/page_title';
@@ -7,6 +7,8 @@ import Typography from '@components/typography';
 import TerritoriesCard from './TerritoriesCard';
 import SettingsCard from './SettingsCard';
 import useNearby, { unsynced } from './useNearby';
+import { welcomed } from './Welcome';
+import { hasNearby } from '../native';
 
 const escape = (text: string) =>
   text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -34,6 +36,9 @@ const Home = () => {
     }
     return `<p>All synced with <a href='#'>${names}</a></p>`;
   };
+
+  // first start: name and permissions before anything else
+  if (hasNearby() && !welcomed()) return <Navigate to="/welcome" replace />;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

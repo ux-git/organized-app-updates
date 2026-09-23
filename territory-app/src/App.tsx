@@ -30,7 +30,7 @@ const TerritoryDoNotCalls = lazy(
   () => import('@pages/territories/do_not_calls')
 );
 const Home = lazy(() => import('./pages/Home'));
-const AutomaticSync = lazy(() => import('./pages/AutomaticSync'));
+const Welcome = lazy(() => import('./pages/Welcome'));
 const KingdomHall = lazy(() => import('./pages/KingdomHall'));
 const Sync = lazy(() => import('./pages/Sync'));
 const Publishers = lazy(() => import('./pages/Publishers'));
@@ -55,11 +55,15 @@ const router = createHashRouter([
       { path: '/territories/map', element: <TerritoryMapPage /> },
       { path: '/territories/do-not-calls', element: <TerritoryDoNotCalls /> },
       { path: '/territories/:id', element: <TerritoryDetails /> },
-      { path: '/settings/automatic', element: <AutomaticSync /> },
+      { path: '/welcome', element: <Welcome /> },
+      {
+        path: '/settings/automatic',
+        element: <Navigate to="/sync?section=automatic" replace />,
+      },
       { path: '/settings/hall', element: <KingdomHall /> },
       {
         path: '/settings',
-        element: <Navigate to="/settings/automatic" replace />,
+        element: <Navigate to="/sync?section=automatic" replace />,
       },
       { path: '/sync', element: <Sync /> },
       { path: '/publishers', element: <Publishers /> },

@@ -1,5 +1,5 @@
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { Box, IconButton, Stack } from '@mui/material';
 import { IconDelete, IconSync } from '@icons/index';
 import Button from '@components/button';
@@ -21,6 +21,7 @@ import {
   receive,
 } from './sync/dialogs';
 import { confirm } from './confirm';
+import AutomaticSection from './sync/AutomaticSection';
 import Decisions from './sync/Decisions';
 import History from './sync/History';
 import { ago, time } from './sync/text';
@@ -30,7 +31,6 @@ import { Method, MethodState, PhoneRow, Pulse } from './sync/parts';
 const READY: MethodState = { text: 'Ready', color: 'green' };
 
 const Sync = () => {
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { peers, status, name, refreshPeers, android } = useNearby();
   const [pairing, setPairing] = useState<PairMethod | null>(null);
@@ -44,7 +44,6 @@ const Sync = () => {
   const syncing = status.exchanges?.find(
     (exchange) => exchange.mode === 0 && exchange.state === 'exchanging'
   );
-  const automatic = status.schedule?.enabled !== false;
 
   useEffect(() => {
     const stops = [
@@ -59,8 +58,15 @@ const Sync = () => {
     return () => stops.forEach((stop) => stop.then((unlisten) => unlisten()));
   }, [refreshPeers]);
 
-  // links from notifications and the launcher shortcuts
+  // links from notifications, the launcher shortcuts and the settings card
   useEffect(() => {
+    if (params.get('section') === 'automatic') {
+      requestAnimationFrame(() =>
+        document
+          .getElementById('automatic')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      );
+    }
     if (params.get('now')) nearby('syncNow');
     const pair = params.get('pair');
     if (pair === 'nearby' || pair === 'tap') setPairing(pair);
@@ -202,13 +208,6 @@ const Sync = () => {
                 {bluetoothReady ? 'Sync now' : 'Allow Bluetooth'}
               </Button>
             )}
-            <Button
-              variant="secondary"
-              disableAutoStretch
-              onClick={() => navigate('/settings/automatic')}
-            >
-              {automatic ? 'Automatic sync on' : 'Automatic sync off'}
-            </Button>
           </Box>
         )}
         {status.running && status.until && !syncing && (
@@ -255,6 +254,8 @@ const Sync = () => {
       )}
 
       <Decisions />
+
+      {android && <AutomaticSection status={status} />}
 
       <CardSection>
         <CardSectionHeader
