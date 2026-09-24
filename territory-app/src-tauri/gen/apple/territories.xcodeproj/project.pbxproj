@@ -335,6 +335,7 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
+				DEVELOPMENT_TEAM = "9N9L9FKJ3U";
 			};
 			name = debug;
 		};
@@ -368,6 +369,7 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
+				DEVELOPMENT_TEAM = "9N9L9FKJ3U";
 			};
 			name = release;
 		};

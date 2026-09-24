@@ -63,10 +63,16 @@ shutil.copy(SHELL / 'android-background.png', HERE / 'android-background.png')
 for name, size in [('app-icon', 1024), ('android-foreground', 1024), ('android-monochrome', 1024), ('logo', 384)]:
     subprocess.run(['rsvg-convert', '-w', str(size), '-h', str(size), f'{name}.svg', '-o', f'{name}.png'], cwd=HERE, check=True)
 
-# iOS rounds the corners itself and rejects transparency: the foreground on
-# white, full bleed. `tauri icon` then fills gen/apple's AppIcon set from it.
+# iOS rounds the corners itself and rejects transparency: the static app icon,
+# a little larger so none of its own rounded corners shows inside iOS's, on
+# white. The adaptive icon's layers are Android's and look blurred here.
 from PIL import Image
 
+icon = Image.open(HERE / 'app-icon.png').convert('RGBA')
+grow = int(1024 * 1.03)
+icon = icon.resize((grow, grow), Image.LANCZOS)
+offset = (grow - 1024) // 2
+icon = icon.crop((offset, offset, offset + 1024, offset + 1024))
 ios = Image.new('RGBA', (1024, 1024), (255, 255, 255, 255))
-ios.alpha_composite(Image.open(HERE / 'android-foreground.png').convert('RGBA').resize((1024, 1024)))
+ios.alpha_composite(icon)
 ios.convert('RGB').save(HERE / 'ios-icon.png')
