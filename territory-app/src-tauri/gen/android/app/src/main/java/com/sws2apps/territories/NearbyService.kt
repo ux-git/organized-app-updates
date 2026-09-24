@@ -192,6 +192,7 @@ class NearbyService : Service(), Link.Listener {
 
   private fun refresh() {
     link.advertise(if (meet) Nearby.meetPayload() else Nearby.beaconPayload())
+    if (!meet && Nearby.hasIphone()) link.advertiseIbeacon() else link.stopIbeacon()
     // the sessions are short, so the scan can be quick
     link.scan(fast = true)
   }

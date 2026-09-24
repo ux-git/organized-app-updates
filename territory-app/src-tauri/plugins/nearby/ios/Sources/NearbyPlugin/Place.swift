@@ -4,14 +4,24 @@ import Foundation
 /// The Kingdom Hall, for the "at the Kingdom Hall" mode: iOS watches the
 /// area in the location chip and wakes the app on arriving and leaving, as
 /// the proximity alert does on Android.
+///
+/// It also watches for a paired Android phone's iBeacon (Link.kt sends one
+/// while it looks for an iPhone): iOS wakes this app for it even when it was
+/// closed, and the app then finds the phone over Bluetooth.
 final class Place: NSObject, CLLocationManagerDelegate {
   static let shared = Place()
 
   private static let region = "hall"
+  private static let peers = "peers"
+  /// The iBeacon every Territories Android phone sends; only says "a phone
+  /// with this app is near", the Bluetooth session says which.
+  static let beaconUUID = UUID(uuidString: "7b1f0003-4f72-6761-6e69-7a6564547272")!
   private static let insideMaxSeconds = 4.0 * 60 * 60
   private let manager = CLLocationManager()
   private let defaults = UserDefaults.standard
   private var pendingHere: Double?
+  /// "Allow all": iOS asks for "always" only after "while using".
+  private var pendingAlways = false
 
   override init() {
     super.init()
@@ -38,7 +48,31 @@ final class Place: NSObject, CLLocationManagerDelegate {
   func askWhenInUse() { manager.requestWhenInUseAuthorization() }
 
   /// iOS asks for "always" only after "while using".
-  func askAlways() { manager.requestAlwaysAuthorization() }
+  func askAlways() {
+    if authorization == .notDetermined {
+      pendingAlways = true
+      manager.requestWhenInUseAuthorization()
+    } else {
+      manager.requestAlwaysAuthorization()
+    }
+  }
+
+  func watchPeers() {
+    guard CLLocationManager.isMonitoringAvailable(for: CLBeaconRegion.self), allowedAlways else {
+      return
+    }
+    let region = CLBeaconRegion(uuid: Self.beaconUUID, identifier: Self.peers)
+    region.notifyOnEntry = true
+    region.notifyOnExit = false
+    region.notifyEntryStateOnDisplay = true
+    manager.startMonitoring(for: region)
+  }
+
+  func unwatchPeers() {
+    manager.monitoredRegions.filter { $0.identifier == Self.peers }.forEach {
+      manager.stopMonitoring(for: $0)
+    }
+  }
 
   func setHall(lat: Double, lng: Double, radius: Double) {
     defaults.set(["lat": lat, "lng": lng, "radius": radius], forKey: "hall")
@@ -86,6 +120,10 @@ final class Place: NSObject, CLLocationManagerDelegate {
 
   func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
     if pendingHere != nil, allowed { manager.requestLocation() }
+    if pendingAlways, authorization == .authorizedWhenInUse {
+      pendingAlways = false
+      manager.requestAlwaysAuthorization()
+    }
     Nearby.shared.apply()
     Nearby.shared.onChange?()
   }
@@ -102,6 +140,10 @@ final class Place: NSObject, CLLocationManagerDelegate {
   }
 
   func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+    if region.identifier == Self.peers {
+      if Nearby.shared.mode != "manual" { Nearby.shared.start(reason: "beacon", seconds: 60) }
+      return
+    }
     guard region.identifier == Self.region, Nearby.shared.mode == "location" else { return }
     defaults.set(Date().timeIntervalSince1970, forKey: "inside")
     Nearby.shared.start(reason: "hall", seconds: 60)

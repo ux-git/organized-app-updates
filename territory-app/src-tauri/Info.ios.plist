@@ -17,6 +17,12 @@
 	<array>
 		<string>bluetooth-central</string>
 		<string>bluetooth-peripheral</string>
+		<string>fetch</string>
+	</array>
+	<!-- the occasional background refresh (Launch.swift) -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.sws2apps.territories.refresh</string>
 	</array>
 	<!-- transfer files from a paired phone open in the app -->
 	<key>CFBundleDocumentTypes</key>
@@ -53,7 +59,8 @@
 		</dict>
 	</array>
 	<!-- iOS 27 requires the scene lifecycle; with this key tao (Tauri's
-	     window layer) adopts it. An iPhone still shows one window. -->
+	     window layer) adopts it. Declaring tao's scene delegate here for one
+	     window instead leaves the screen black. -->
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

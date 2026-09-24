@@ -105,6 +105,45 @@ const MODES: { mode: SyncMode; title: string; text: string; badge?: string }[] =
     },
   ];
 
+const AUTOMATIONS = [
+  ['Arrive', 'At the Kingdom Hall, when you get there.'],
+  ['Time of Day', 'A few minutes after each meeting starts.'],
+  ['NFC', 'When you hold the iPhone to a sticker at the Kingdom Hall.'],
+];
+
+/**
+ * Two iPhones only find each other with one app open. A Shortcuts
+ * automation runs "Sync territories" (the app's App Intent) by itself, with
+ * the app closed. Each person sets it up once; an app can't do it for them.
+ */
+const ShortcutsGuide = () => (
+  <Stack spacing="12px">
+    <CardSubSectionHeader
+      title="Sync with other iPhones by itself"
+      description="Two iPhones find each other only while one has Territories open. Shortcuts can start the sync for you, with the app closed. Set it up once:"
+    />
+    <Typography className="body-small-regular">
+      In Shortcuts, open Automation, tap +, choose a trigger below, then the
+      action “Sync territories”, and choose “Run Immediately”.
+    </Typography>
+    <Stack spacing="8px">
+      {AUTOMATIONS.map(([trigger, text]) => (
+        <Box key={trigger}>
+          <Typography className="body-small-semibold">{trigger}</Typography>
+          <Typography className="body-small-regular" color="var(--grey-400)">
+            {text}
+          </Typography>
+        </Box>
+      ))}
+    </Stack>
+    <Actions
+      actions={[
+        { label: 'Open Shortcuts', onClick: () => nearby('shortcuts') },
+      ]}
+    />
+  </Stack>
+);
+
 /** How this phone syncs: always, at the Kingdom Hall, or by hand. */
 const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
   const navigate = useNavigate();
@@ -197,6 +236,8 @@ const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
           checked={schedule.notify !== false}
           onChange={(notify) => save({ notify })}
         />
+
+        {status.platform === 'ios' && <ShortcutsGuide />}
       </CardSectionContent>
     </CardSection>
   );

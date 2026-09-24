@@ -19,6 +19,27 @@ object Nearby {
   const val KIND_BEACON: Byte = 0
   const val KIND_MEET: Byte = 1
 
+  /** Apple's company id, under which an iBeacon travels. */
+  const val APPLE = 0x004C
+
+  /** The iBeacon every Territories phone sends (Place.swift watches for it). */
+  private val IBEACON: UUID = UUID.fromString("7b1f0003-4f72-6761-6e69-7a6564547272")
+
+  /** type 0x02, length 0x15, the id, major and minor 0, and the power at 1 m. */
+  fun ibeaconData(): ByteArray {
+    val id = java.nio.ByteBuffer.allocate(16)
+      .putLong(IBEACON.mostSignificantBits)
+      .putLong(IBEACON.leastSignificantBits)
+      .array()
+    return byteArrayOf(0x02, 0x15) + id + byteArrayOf(0, 0, 0, 0, 0xC5.toByte())
+  }
+
+  /** A paired iPhone: it can't be found while its app sleeps, only find us. */
+  fun hasIphone(): Boolean {
+    val peers = summary().optJSONArray("peers") ?: return false
+    return (0 until peers.length()).any { peers.getJSONObject(it).optString("platform") == "ios" }
+  }
+
   /** An iPhone in Meet puts this before its name (it can't send service data). */
   const val IOS_MEET = "M:"
 

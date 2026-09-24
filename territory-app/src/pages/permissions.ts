@@ -32,15 +32,28 @@ export const needsForAutomatic = (status: NearbyStatus): Need[] => {
       label: 'Allow',
       fix: () => nearby('permissions'),
     },
-    {
+  ];
+  const ios = status.platform === 'ios';
+  if (!ios) {
+    needs.push({
       key: 'battery',
       title: 'Run in the background',
       text: 'Lets Android start the sync by itself, without you opening the app.',
       ok: !!allowed.battery,
       label: 'Allow',
       fix: () => nearby('battery'),
-    },
-  ];
+    });
+  }
+  if (ios && mode === 'always') {
+    needs.push({
+      key: 'location',
+      title: 'Location all the time',
+      text: 'Wakes the app when a paired Android phone is near, also when it was closed.',
+      ok: allowed.location && allowed.backgroundLocation,
+      label: 'Allow',
+      fix: () => nearby('permissions', { which: 'backgroundLocation' }),
+    });
+  }
   if (mode === 'location') {
     needs.push({
       key: 'location',

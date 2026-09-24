@@ -169,6 +169,44 @@ class Link(private val context: Context, private val listener: Listener) {
   fun stopAdvertising() {
     runCatching { adapter?.bluetoothLeAdvertiser?.stopAdvertising(advertiseCallback) }
     advertising = null
+    stopIbeacon()
+  }
+
+  // ---- an iBeacon, next to the beacon, to wake a closed iPhone app ----
+
+  private var ibeacon = false
+  private val ibeaconCallback = object : AdvertiseCallback() {
+    override fun onStartFailure(errorCode: Int) {
+      ibeacon = false
+    }
+  }
+
+  /**
+   * iOS watches for an iBeacon even when the Territories app is closed and
+   * starts it on seeing one; the app then finds this phone over Bluetooth.
+   * A second advertisement, where the phone can send more than one.
+   */
+  fun advertiseIbeacon() {
+    if (ibeacon || adapter?.isMultipleAdvertisementSupported != true) return
+    val advertiser = adapter?.bluetoothLeAdvertiser ?: return
+    val settings = AdvertiseSettings.Builder()
+      .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
+      .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
+      .setConnectable(false)
+      .setTimeout(0)
+      .build()
+    val data = AdvertiseData.Builder()
+      .addManufacturerData(Nearby.APPLE, Nearby.ibeaconData())
+      .setIncludeDeviceName(false)
+      .build()
+    runCatching { advertiser.startAdvertising(settings, data, ibeaconCallback) }
+      .onSuccess { ibeacon = true }
+  }
+
+  fun stopIbeacon() {
+    if (!ibeacon) return
+    runCatching { adapter?.bluetoothLeAdvertiser?.stopAdvertising(ibeaconCallback) }
+    ibeacon = false
   }
 
   // ---- scanning ----

@@ -101,22 +101,32 @@ object Reminders {
     return (0 until peers.length()).any { peers.getJSONObject(it).optInt("pending") > 0 }
   }
 
-  /** 2, 4, 8, then every 15 minutes; at the hall 1, 2, then every 4. */
+  /**
+   * 2, 4, 8, then every 15 minutes; at the hall 1, 2, then every 4. With a
+   * paired iPhone and nothing new here, every 5: the iPhone can't be found
+   * while its app sleeps, but it notices this phone and sends its own news.
+   */
   private fun interval(context: Context): Long {
     val misses = Nearby.prefs(context).getInt("misses", 0)
-    return if (mode(context) == "location") {
+    val news = if (mode(context) == "location") {
       minOf(60_000L shl misses.coerceAtMost(3), 4 * 60_000L)
     } else {
       minOf(2 * 60_000L shl misses.coerceAtMost(3), 15 * 60_000L)
     }
+    return if (hasNews()) news else IPHONE_MS
   }
+
+  private const val IPHONE_MS = 5 * 60_000L
+
+  /** A burst is worth it: news to give, or an iPhone that may have some. */
+  private fun worthIt() = hasNews() || Nearby.hasIphone()
 
   @SuppressLint("MissingPermission")
   fun scheduleBurst(context: Context) {
     val manager = context.getSystemService(AlarmManager::class.java)
     val intent = broadcast(context, ACTION_BURST)
     manager.cancel(intent)
-    if (!searching(context) || !Nearby.hasPeers() || !hasNews()) return
+    if (!searching(context) || !Nearby.hasPeers() || !worthIt()) return
     val at = System.currentTimeMillis() + interval(context)
     if (canExact(context)) {
       manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, intent)
@@ -128,7 +138,7 @@ object Reminders {
   private fun onBurst(context: Context) {
     val prefs = Nearby.prefs(context)
     prefs.edit().putInt("misses", prefs.getInt("misses", 0) + 1).apply()
-    if (searching(context) && hasNews()) NearbyService.start(context, "burst", BURST_MS)
+    if (searching(context) && worthIt()) NearbyService.start(context, "burst", BURST_MS)
     scheduleBurst(context)
   }
 

@@ -10,18 +10,22 @@
 		2E4B3DB8F1916E1653B1EFFA /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ECFA0CE91C9B65FEE99993D3 /* QuartzCore.framework */; };
 		2F096C3F39BFB6F938469429 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C43A2F7A11F021AA9A50B0BE /* libapp.a */; };
 		498CEEF2A0CDC2874C684864 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5710F93E5C77C8D17E217E54 /* Assets.xcassets */; };
+		56174EE9B2ABC4DAC1089FA3 /* SyncIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09F92C63A51728A93398380B /* SyncIntent.swift */; };
 		69306520411877993D410829 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2B4744763D02704048CA493 /* Security.framework */; };
 		6C9D2AF73C7DD04748BA9677 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83026BA127E09BC1F8A1374C /* MetalKit.framework */; };
 		7E139E88A65CBF3EE58BDF9C /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 198FA349FE79B7E07C4D7650 /* UIKit.framework */; };
 		834ACB740500FF4A8DB2C603 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAF6D606345ED37154CE98FA /* Metal.framework */; };
 		8AED47094F07D8D65D046AA7 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6C55F2C0538615E347C9D1B0 /* LaunchScreen.storyboard */; };
 		8D760DCCC16CF9BE22AEA30A /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B7774E45514DB5013BB9F54 /* CoreGraphics.framework */; };
+		92FC8334F03BB946AC6187E2 /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = 076B52A2A3BCE10143BE8EE4 /* libapp.a */; };
 		95E566CED454BBDACBA23CE1 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = C5817277C72CB922577E52E6 /* main.mm */; };
 		B098E8A7D6D9C975123F90DB /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3B74D8DB256A06DA40F0A0B /* WebKit.framework */; };
 		D97A7E922B95E8E307228D73 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 549CDAACD33FC41F54A8AA59 /* assets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		076B52A2A3BCE10143BE8EE4 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		09F92C63A51728A93398380B /* SyncIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncIntent.swift; sourceTree = "<group>"; };
 		198FA349FE79B7E07C4D7650 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		1FD0028A3572F00F8999DDC6 /* store.rs */ = {isa = PBXFileReference; path = store.rs; sourceTree = "<group>"; };
 		3702357EB4AF0BB15A7089BD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -41,11 +45,13 @@
 		BAF6D606345ED37154CE98FA /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		BDB32D000BF905AEB03578DD /* ios.rs */ = {isa = PBXFileReference; path = ios.rs; sourceTree = "<group>"; };
 		BE1FC9F98273F5C34F1A5FFC /* tap.rs */ = {isa = PBXFileReference; path = tap.rs; sourceTree = "<group>"; };
+		BE2CBDAFC6BF0B1FE48B67FB /* ios_bridge.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = ios_bridge.js; sourceTree = "<group>"; };
 		C43A2F7A11F021AA9A50B0BE /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		C5817277C72CB922577E52E6 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
 		D3B74D8DB256A06DA40F0A0B /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		E46549CE02EA2909ACA832DC /* session.rs */ = {isa = PBXFileReference; path = session.rs; sourceTree = "<group>"; };
 		ECFA0CE91C9B65FEE99993D3 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		F28618CC126F39A8C54C50BF /* territories-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "territories-Bridging-Header.h"; sourceTree = "<group>"; };
 		F627597F6130FD2985B524DD /* qr.rs */ = {isa = PBXFileReference; path = qr.rs; sourceTree = "<group>"; };
 		F6DE8634E49B0B6D0D1585F7 /* territories_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = territories_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC2AFE0FF5A729FB78752F88 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
@@ -83,9 +89,19 @@
 			isa = PBXGroup;
 			children = (
 				C5817277C72CB922577E52E6 /* main.mm */,
+				09F92C63A51728A93398380B /* SyncIntent.swift */,
+				F28618CC126F39A8C54C50BF /* territories-Bridging-Header.h */,
 				5FC82228DB55DD63ADAE14A6 /* bindings */,
 			);
 			path = territories;
+			sourceTree = "<group>";
+		};
+		26F27A870AC1087D218F982D /* debug */ = {
+			isa = PBXGroup;
+			children = (
+				076B52A2A3BCE10143BE8EE4 /* libapp.a */,
+			);
+			path = debug;
 			sourceTree = "<group>";
 		};
 		50D0BC47156D0DC39A60AA3C = {
@@ -116,6 +132,7 @@
 			children = (
 				964A93BDC266D8865F8D0C92 /* android.rs */,
 				885EC51E508B8E99C55860D9 /* hlc.rs */,
+				BE2CBDAFC6BF0B1FE48B67FB /* ios_bridge.js */,
 				BDB32D000BF905AEB03578DD /* ios.rs */,
 				A7D82132DE6AEA3306E7D85C /* lib.rs */,
 				52A98E91B5A8FCDF4C74EF5C /* main.rs */,
@@ -153,9 +170,18 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		96ED8698F7E6E8348422125E /* arm64 */ = {
+			isa = PBXGroup;
+			children = (
+				26F27A870AC1087D218F982D /* debug */,
+			);
+			path = arm64;
+			sourceTree = "<group>";
+		};
 		AA9ED2C7CBD5AEB0897786F8 /* Externals */ = {
 			isa = PBXGroup;
 			children = (
+				96ED8698F7E6E8348422125E /* arm64 */,
 			);
 			path = Externals;
 			sourceTree = "<group>";
@@ -166,6 +192,13 @@
 				1B45E62001EC4FF3610B55AC /* territories */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		"TEMP_FB927F8E-B743-43F3-A735-FABB60C2680F" /* x86_64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = x86_64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -229,6 +262,7 @@
 				498CEEF2A0CDC2874C684864 /* Assets.xcassets in Resources */,
 				8AED47094F07D8D65D046AA7 /* LaunchScreen.storyboard in Resources */,
 				D97A7E922B95E8E307228D73 /* assets in Resources */,
+				92FC8334F03BB946AC6187E2 /* libapp.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -263,6 +297,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				56174EE9B2ABC4DAC1089FA3 /* SyncIntent.swift in Sources */,
 				95E566CED454BBDACBA23CE1 /* main.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -296,6 +331,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.sws2apps.territories;
 				PRODUCT_NAME = "Territories";
 				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/territories/territories-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
 			};
@@ -327,6 +364,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.sws2apps.territories;
 				PRODUCT_NAME = "Territories";
 				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/territories/territories-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
 			};

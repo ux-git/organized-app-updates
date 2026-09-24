@@ -38,10 +38,7 @@ class NearbyPlugin: Tauri.Plugin {
     controller.add(WeakHandler(self), name: "territoryNearby")
     controller.add(WeakHandler(self), name: "territoryHaptics")
 
-    Core.open()
-    Notices.shared.setUp()
     Nearby.shared.onChange = { [weak self] in self?.emitStatus() }
-    Nearby.shared.setUp()
     NotificationCenter.default.addObserver(
       self, selector: #selector(foreground), name: UIApplication.willEnterForegroundNotification,
       object: nil)
@@ -91,6 +88,8 @@ class NearbyPlugin: Tauri.Plugin {
     case "hallClear": Place.shared.clearHall()
     case "scanQr": scanQr()
     case "shareFile": share(name: args["name"] as? String ?? "territories", text: args["text"] as? String ?? "")
+    case "shortcuts":
+      if let url = URL(string: "shortcuts://") { UIApplication.shared.open(url) }
     case "bluetoothOn", "battery":
       if let url = URL(string: UIApplication.openSettingsURLString) {
         UIApplication.shared.open(url)
@@ -113,10 +112,14 @@ class NearbyPlugin: Tauri.Plugin {
     case "backgroundLocation":
       Place.shared.askAlways()
     case "all":
+      // one after the other: iOS shows one question at a time
       Nearby.shared.ensureLink()
       Notices.shared.ask {
         AVCaptureDevice.requestAccess(for: .video) { _ in
-          DispatchQueue.main.async { self.emitStatus() }
+          DispatchQueue.main.async {
+            Place.shared.askAlways()
+            self.emitStatus()
+          }
         }
       }
     default:
@@ -212,5 +215,7 @@ class NearbyPlugin: Tauri.Plugin {
 
 @_cdecl("init_plugin_nearby")
 func initPlugin() -> Tauri.Plugin {
-  NearbyPlugin()
+  // at launch, before any page: iOS may have started the app in the background
+  Launch.start()
+  return NearbyPlugin()
 }

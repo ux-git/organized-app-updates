@@ -42,7 +42,12 @@
   // An iPhone's WKWebView fills env(safe-area-inset-*) itself (the page asks
   // for viewport-fit=cover), so the same padding comes from there.
   if (!bridge) {
-    if (!/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+    // an iPad says it is a Mac, but a Mac has no touch screen
+    var ua = navigator.userAgent;
+    var apple =
+      /iPhone|iPad|iPod/.test(ua) ||
+      (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    if (!apple) return;
     var style = document.createElement('style');
     style.textContent =
       ':root{--organized-inset-top:env(safe-area-inset-top);' +

@@ -94,6 +94,10 @@ final class Nearby: NSObject, LinkListener {
   private var triedIphone: [String: Date] = [:]
   private var lastDone: [String: Any]?
   private var myId = ""
+  /// A Shortcut's run: when it started and the syncs since.
+  private var shortcutSince: Date?
+  private var shortcutDone: [[String: Any]] = []
+  private static let shortcutSeconds = 25.0
 
   /// Sends status to the page; set by the plugin.
   var onChange: (() -> Void)?
@@ -145,6 +149,7 @@ final class Nearby: NSObject, LinkListener {
   /// Starts what the mode needs and stops the rest.
   func apply() {
     if mode == "location" { Place.shared.watchHall() } else { Place.shared.unwatchHall() }
+    if mode != "manual" && hasPeers { Place.shared.watchPeers() } else { Place.shared.unwatchPeers() }
     if searching && hasPeers {
       start(reason: "always", seconds: 0)
     } else if Date() > until && !meet {
@@ -226,6 +231,33 @@ final class Nearby: NSObject, LinkListener {
     } else if searching && hasPeers {
       start(reason: "change", seconds: 20)
     }
+  }
+
+  // ---- a Shortcut ("Sync territories") ----
+
+  func startForShortcut() {
+    shortcutSince = Date()
+    shortcutDone = []
+    start(reason: "shortcut", seconds: Self.shortcutSeconds)
+  }
+
+  /// "off" without Bluetooth or paired phones, "running" while it looks,
+  /// then "done" with what came in, or "none" when no phone answered.
+  func shortcutState() -> [String: Any] {
+    guard CBManager.authorization == .allowedAlways, hasPeers else { return ["state": "off"] }
+    guard let since = shortcutSince else { return ["state": "none"] }
+    let busy = !exchanges.isEmpty
+    let over = Date().timeIntervalSince(since) > Self.shortcutSeconds
+    if !shortcutDone.isEmpty && (!busy || over) {
+      let names = shortcutDone.compactMap { $0["name"] as? String }.filter { !$0.isEmpty }
+      let numbers = shortcutDone.flatMap { ($0["territories"] as? [[String: Any]] ?? []) }
+        .compactMap { $0["number"] as? String }
+      return [
+        "state": "done", "names": Array(Set(names)).sorted(),
+        "territories": Array(Set(numbers)).sorted(by: Notices.byNumber),
+      ]
+    }
+    return over && !busy ? ["state": "none"] : ["state": "running"]
   }
 
   // ---- what the page asks for ----
@@ -388,7 +420,10 @@ final class Nearby: NSObject, LinkListener {
       var done = exchange.status
       done["at"] = Date().timeIntervalSince1970 * 1000
       lastDone = done
-      if exchange.mode == Core.modeSync { Notices.shared.done(exchange.status) }
+      if exchange.mode == Core.modeSync {
+        Notices.shared.done(exchange.status)
+        if shortcutSince != nil { shortcutDone.append(exchange.status) }
+      }
       Place.shared.synced()
       refresh()
       closeWhenSent(exchange)
