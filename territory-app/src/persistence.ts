@@ -15,7 +15,7 @@ import { parseDate } from '@features/territories/helpers';
 import { store } from '@states/index';
 import { invoke, listen, nearby } from './native';
 import { setCurrentPublisher, setMapCenter, setPeople } from './data';
-import { seedPeople } from './seed';
+import { seedBoundaries, seedPeople } from './seed';
 
 // The territory pages keep their data in Jotai atoms. This mirrors the atoms
 // into the phone's store, record by record, and reloads them when a sync
@@ -187,6 +187,7 @@ export const load = async () => {
       rows(SETTINGS),
     ]);
     await seedPeople((await rows(PEOPLE)).length > 0);
+    await seedBoundaries(territoryRows);
     await Promise.all([loadPeople(), loadIdentity()]);
 
     const territories = assemble(territoryRows, assignmentRows, doNotCallRows);
