@@ -1,13 +1,9 @@
 import { ReactNode } from 'react';
-import { Box, IconButton, Stack } from '@mui/material';
-import { useAtomValue } from 'jotai';
-import { IconAdd, IconDelete } from '@icons/index';
+import { useNavigate } from 'react-router';
+import { Box, Stack } from '@mui/material';
 import Badge from '@components/badge';
-import Button from '@components/button';
-import DaySelector from '@components/day_selector';
 import Radio from '@components/radio';
 import SwitchWithLabel from '@components/switch_with_label';
-import TimePicker from '@components/time_picker';
 import Typography from '@components/typography';
 import {
   CardSection,
@@ -15,25 +11,11 @@ import {
   CardSectionHeader,
   CardSubSectionHeader,
 } from '@features/congregation/settings/shared_styles';
-import { hour24FormatState } from '@states/settings';
 import { play } from '../../haptics';
 import { nearby } from '../../native';
 import { needsForAutomatic } from '../permissions';
-import { Meeting, NearbyStatus, SyncMode } from '../useNearby';
-
-const toDate = (time: string) => {
-  const [hours, minutes] = time.split(':').map(Number);
-  const date = new Date();
-  date.setHours(hours || 0, minutes || 0, 0, 0);
-  return date;
-};
-
-const toTime = (date: Date) =>
-  `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-
-// the day selector counts from Monday, the schedule from Sunday
-const toSelector = (day: number) => (day + 6) % 7;
-const fromSelector = (value: number) => (value + 1) % 7;
+import { NearbyStatus, SyncMode } from '../useNearby';
+import { Actions } from './parts';
 
 const Choice = ({
   checked,
@@ -41,12 +23,14 @@ const Choice = ({
   text,
   badge,
   onSelect,
+  children,
 }: {
   checked: boolean;
   title: string;
   text: string;
   badge?: string;
   onSelect: VoidFunction;
+  children?: ReactNode;
 }) => (
   <Box
     role="radio"
@@ -75,6 +59,7 @@ const Choice = ({
       <Typography className="body-small-regular" color="var(--grey-400)">
         {text}
       </Typography>
+      {checked && children}
     </Box>
   </Box>
 );
@@ -100,55 +85,94 @@ const NeedRow = ({
   </Box>
 );
 
-/** How and when this phone syncs by itself, on the Sync page. */
-const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
-  const hour24 = useAtomValue(hour24FormatState);
+const MODES: { mode: SyncMode; title: string; text: string; badge?: string }[] =
+  [
+    {
+      mode: 'always',
+      title: 'Always',
+      badge: 'Recommended',
+      text: 'Wherever your phones meet: at the Kingdom Hall, in field service or at home. Only a phone with news sends a short signal every few minutes, so it hardly uses battery.',
+    },
+    {
+      mode: 'location',
+      title: 'At the Kingdom Hall',
+      text: 'Your phone looks for paired phones only while you are at the Kingdom Hall, every minute or two.',
+    },
+    {
+      mode: 'manual',
+      title: 'Only when I tap Sync now',
+      text: 'Nothing runs in the background.',
+    },
+  ];
 
+/** How this phone syncs: always, at the Kingdom Hall, or by hand. */
+const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
+  const navigate = useNavigate();
   const schedule = status.schedule ?? {};
-  const enabled = schedule.enabled !== false;
-  const mode: SyncMode = schedule.mode ?? 'always';
-  const meetings = schedule.meetings ?? [];
+  const mode: SyncMode = status.mode ?? 'always';
   const missing = needsForAutomatic(status).filter((need) => !need.ok);
 
   const save = (next: NearbyStatus['schedule']) =>
-    nearby('schedule', {
-      enabled: true,
-      mode: 'always',
-      notify: true,
-      before: 45,
-      after: 150,
-      ...schedule,
-      ...next,
-    });
+    nearby('schedule', { notify: true, ...schedule, enabled: true, ...next });
 
-  const setMeeting = (index: number, change: Partial<Meeting>) =>
+  const choose = (next: SyncMode) => {
+    play(next === 'manual' ? 'remove' : 'start');
     save({
-      meetings: meetings.map((meeting, i) =>
-        i === index ? { ...meeting, ...change } : meeting
-      ),
+      mode: next,
+      auto: next === 'manual' ? (schedule.auto ?? 'always') : next,
     });
+  };
 
   return (
     <CardSection id="automatic">
       <CardSectionHeader
-        title="Automatic sync"
-        description="Your phone syncs with paired phones by itself, also with the screen off and the app closed."
+        title="How your phone syncs"
+        description="Everything stays between your phones. Nothing goes over the internet."
       />
       <CardSectionContent>
-        <SwitchWithLabel
-          label="Sync automatically"
-          checked={enabled}
-          onChange={(value) => {
-            play(value ? 'start' : 'remove');
-            save({ enabled: value });
-          }}
-        />
+        <Stack spacing="8px">
+          {MODES.map((item) => (
+            <Choice
+              key={item.mode}
+              checked={mode === item.mode}
+              title={item.title}
+              badge={item.badge}
+              text={item.text}
+              onSelect={() => choose(item.mode)}
+            >
+              {item.mode === 'location' && (
+                <Box sx={{ paddingTop: '8px' }}>
+                  <Typography className="body-small-semibold">
+                    {status.hall
+                      ? status.inside
+                        ? 'You are at the Kingdom Hall now.'
+                        : 'Kingdom Hall location saved.'
+                      : 'Choose where the Kingdom Hall is first.'}
+                  </Typography>
+                  <Box sx={{ paddingTop: '8px' }}>
+                    <Actions
+                      actions={[
+                        {
+                          label: status.hall
+                            ? 'Change location'
+                            : 'Choose location',
+                          kind: status.hall ? 'secondary' : 'main',
+                          onClick: () => navigate('/settings/hall'),
+                        },
+                      ]}
+                    />
+                  </Box>
+                </Box>
+              )}
+            </Choice>
+          ))}
+        </Stack>
 
-        {enabled && missing.length > 0 && (
+        {missing.length > 0 && (
           <Stack spacing="16px">
             <CardSubSectionHeader
               title="Android still has to allow"
-              description="Without these, the sync can’t run by itself."
+              description="Without these, your phone can’t sync by itself."
             />
             {missing.map((need) => (
               <NeedRow
@@ -156,101 +180,23 @@ const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
                 title={need.title}
                 text={need.text}
                 action={
-                  <Button
-                    variant="secondary"
-                    disableAutoStretch
-                    onClick={need.fix}
-                  >
-                    {need.label}
-                  </Button>
+                  <Actions
+                    actions={[
+                      { label: need.label, kind: 'main', onClick: need.fix },
+                    ]}
+                  />
                 }
               />
             ))}
           </Stack>
         )}
 
-        {enabled && (
-          <Stack spacing="8px">
-            <CardSubSectionHeader title="When" />
-            <Choice
-              checked={mode === 'always'}
-              title="All the time"
-              badge="Recommended"
-              text="Whenever your phones are close: at the Kingdom Hall, in field service or at home. Uses about as much battery as a smartwatch."
-              onSelect={() => save({ mode: 'always' })}
-            />
-            <Choice
-              checked={mode === 'meetings'}
-              title="Only around meetings"
-              text="From 45 minutes before each meeting until 2½ hours after it starts, and for a few minutes after you open the app or change something."
-              onSelect={() => save({ mode: 'meetings' })}
-            />
-          </Stack>
-        )}
-
         <SwitchWithLabel
-          label="Tell me when a sync is done"
-          helper="With whom, what came in, and when. When a paired phone is close but your phones haven’t synced, you get a Sync now button."
+          label="Tell me what a sync brought"
+          helper="Which territories changed and with whom. A sync that brings nothing new stays silent."
           checked={schedule.notify !== false}
           onChange={(notify) => save({ notify })}
         />
-
-        <Stack spacing="16px">
-          <CardSubSectionHeader
-            title="Meeting times"
-            description={
-              mode === 'meetings'
-                ? 'Your phone looks for paired phones around these times.'
-                : 'Before you leave a meeting, you get a reminder if your changes haven’t reached a paired phone yet.'
-            }
-          />
-          {meetings.map((meeting: Meeting, index: number) => (
-            <Box
-              key={index}
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) auto',
-                gap: '8px',
-                alignItems: 'center',
-              }}
-            >
-              <DaySelector
-                label="Day"
-                value={toSelector(meeting.day)}
-                onChange={(value) =>
-                  setMeeting(index, { day: fromSelector(value) })
-                }
-              />
-              <TimePicker
-                label="Start time"
-                ampm={!hour24}
-                value={toDate(meeting.time)}
-                onChange={(value) => setMeeting(index, { time: toTime(value) })}
-              />
-              <IconButton
-                aria-label="Remove meeting time"
-                onClick={() => {
-                  play('remove');
-                  save({ meetings: meetings.filter((_, i) => i !== index) });
-                }}
-              >
-                <IconDelete color="var(--red-main)" />
-              </IconButton>
-            </Box>
-          ))}
-          <Box>
-            <Button
-              variant="tertiary"
-              startIcon={<IconAdd />}
-              disableAutoStretch
-              onClick={() =>
-                save({ meetings: [...meetings, { day: 4, time: '19:00' }] })
-              }
-            >
-              Add meeting time
-            </Button>
-          </Box>
-        </Stack>
       </CardSectionContent>
     </CardSection>
   );

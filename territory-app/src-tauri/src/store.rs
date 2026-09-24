@@ -64,12 +64,23 @@ pub struct Member {
 }
 
 /// What a sync brought in: stored cells, the records they belong to per
-/// table, and how many fields had been changed on both sides.
+/// table, the territories they touched, and how many fields had been
+/// changed on both sides.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct Applied {
     pub cells: usize,
     pub items: BTreeMap<String, usize>,
+    pub territories: Vec<Touched>,
     pub conflicts: usize,
+}
+
+/// A territory a sync changed, by its number, and what changed in it:
+/// "details", "assignment" or "do-not-call".
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Touched {
+    pub id: String,
+    pub number: String,
+    pub what: Vec<String>,
 }
 
 pub struct Identity {
@@ -132,8 +143,9 @@ impl Store {
                sent INTEGER NOT NULL, received INTEGER NOT NULL, items TEXT NOT NULL);",
         )
         .map_err(err)?;
-        // added in 0.6; fails harmlessly once the column exists
+        // added later; each fails harmlessly once the column exists
         let _ = conn.execute("ALTER TABLE peers ADD COLUMN introduced_by TEXT", []);
+        let _ = conn.execute("ALTER TABLE log ADD COLUMN detail TEXT NOT NULL DEFAULT '{}'", []);
 
         let identity = load_identity(&conn)?;
         let last: Option<String> = conn
@@ -360,6 +372,7 @@ impl Store {
         let tx = self.conn.transaction().map_err(err)?;
         let mut applied = Applied::default();
         let mut records = std::collections::BTreeSet::new();
+        let mut kept = Vec::new();
         for cell in cells {
             let stored: Option<(String, String, String, i64)> = tx
                 .query_row(
@@ -417,6 +430,7 @@ impl Store {
             if records.insert((cell.t.clone(), cell.i.clone())) {
                 *applied.items.entry(cell.t.clone()).or_default() += 1;
             }
+            kept.push(cell.clone());
         }
         for (origin, seq) in sender {
             if origin == &self.identity.id {
@@ -430,7 +444,65 @@ impl Store {
             .map_err(err)?;
         }
         tx.commit().map_err(err)?;
+        applied.territories = self.touched(&kept)?;
         Ok(applied)
+    }
+
+    fn field(&self, table: &str, id: &str, field: &str) -> Result<Option<Value>> {
+        let text: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT value FROM cells WHERE tbl = ?1 AND id = ?2 AND field = ?3",
+                params![table, id, field],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(err)?;
+        Ok(text.and_then(|t| serde_json::from_str(&t).ok()))
+    }
+
+    /// The territories these cells belong to, in number order, with what
+    /// changed in each.
+    pub fn touched(&self, cells: &[Cell]) -> Result<Vec<Touched>> {
+        let mut found: BTreeMap<String, std::collections::BTreeSet<&str>> = BTreeMap::new();
+        for cell in cells {
+            if cell.f == "order" {
+                continue;
+            }
+            let (territory, what) = match cell.t.as_str() {
+                "territories" => (Some(cell.i.clone()), "details"),
+                "assignments" | "do_not_calls" => (
+                    self.field(&cell.t, &cell.i, "territory")?
+                        .and_then(|v| v.as_str().map(String::from)),
+                    if cell.t == "assignments" { "assignment" } else { "do-not-call" },
+                ),
+                _ => (None, ""),
+            };
+            if let Some(territory) = territory {
+                found.entry(territory).or_default().insert(what);
+            }
+        }
+        let mut list = Vec::new();
+        for (id, what) in found {
+            let number = match self.field("territories", &id, "number")? {
+                Some(Value::String(n)) => n,
+                Some(other) => other.to_string(),
+                None => continue,
+            };
+            list.push(Touched {
+                id,
+                number,
+                what: what.into_iter().map(String::from).collect(),
+            });
+        }
+        // "M9" before "M10": letters first, then the number as a number
+        let key = |n: &str| {
+            let prefix: String = n.chars().take_while(|c| !c.is_ascii_digit()).collect();
+            let digits: String = n[prefix.len()..].chars().take_while(|c| c.is_ascii_digit()).collect();
+            (prefix, digits.parse::<u64>().unwrap_or(u64::MAX), n.to_string())
+        };
+        list.sort_by_key(|t| key(&t.number));
+        Ok(list)
     }
 
     /// Fields changed on two phones at once, newest first, with the record
@@ -502,17 +574,30 @@ impl Store {
         Ok(())
     }
 
-    pub fn log_sync(&self, peer: &str, name: &str, sent: usize, applied: &Applied) -> Result<()> {
+    pub fn log_sync(
+        &self,
+        peer: &str,
+        name: &str,
+        sent: usize,
+        sent_territories: &[Touched],
+        applied: &Applied,
+    ) -> Result<()> {
+        let detail = serde_json::json!({
+            "received": applied.territories,
+            "sent": sent_territories,
+        });
         self.conn
             .execute(
-                "INSERT INTO log VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                "INSERT INTO log(at, peer, name, sent, received, items, detail)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     now_secs(),
                     peer,
                     name,
                     sent as i64,
                     applied.cells as i64,
-                    serde_json::to_string(&applied.items).map_err(err)?
+                    serde_json::to_string(&applied.items).map_err(err)?,
+                    detail.to_string()
                 ],
             )
             .map_err(err)?;
@@ -529,7 +614,10 @@ impl Store {
     pub fn log(&self) -> Result<Vec<Value>> {
         let mut stmt = self
             .conn
-            .prepare("SELECT at, peer, name, sent, received, items FROM log ORDER BY at DESC LIMIT 20")
+            .prepare(
+                "SELECT at, peer, name, sent, received, items, detail FROM log
+                 ORDER BY at DESC LIMIT 30",
+            )
             .map_err(err)?;
         let rows = stmt
             .query_map([], |r| {
@@ -540,6 +628,8 @@ impl Store {
                     "sent": r.get::<_, i64>(3)?,
                     "received": r.get::<_, i64>(4)?,
                     "items": serde_json::from_str::<Value>(&r.get::<_, String>(5)?)
+                        .unwrap_or(Value::Null),
+                    "detail": serde_json::from_str::<Value>(&r.get::<_, String>(6)?)
                         .unwrap_or(Value::Null),
                 }))
             })
@@ -978,6 +1068,33 @@ mod tests {
         s.remove("t", "1").unwrap();
         s.put("t", "1", &fields(json!({"name": "Ben"}))).unwrap();
         assert_eq!(s.list("t").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_sync_names_the_territories_it_changed() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t12", &fields(json!({"number": "12"}))).unwrap();
+        a.put("territories", "t3", &fields(json!({"number": "3"}))).unwrap();
+        sync(&mut a, &mut b);
+        a.put("assignments", "x", &fields(json!({"territory": "t12", "publisher": "Ben"})))
+            .unwrap();
+        a.put("do_not_calls", "d", &fields(json!({"territory": "t3", "address": "Main 1"})))
+            .unwrap();
+        a.put("territories", "t12", &fields(json!({"city": "Xanten"}))).unwrap();
+        let cells = a.changes_since(&b.versions().unwrap()).unwrap();
+        let applied = b.apply(&cells, &a.versions().unwrap()).unwrap();
+        assert_eq!(
+            applied.territories,
+            vec![
+                Touched { id: "t3".into(), number: "3".into(), what: vec!["do-not-call".into()] },
+                Touched {
+                    id: "t12".into(),
+                    number: "12".into(),
+                    what: vec!["assignment".into(), "details".into()]
+                },
+            ]
+        );
     }
 
     #[test]

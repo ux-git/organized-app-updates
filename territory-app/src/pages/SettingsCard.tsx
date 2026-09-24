@@ -26,7 +26,8 @@ const SettingsCard = () => {
   const pending = unsynced(peers);
   const lastSync = Math.max(0, ...peers.map((peer) => peer.last_sync ?? 0));
   const schedule = status.schedule ?? {};
-  const automatic = schedule.enabled !== false;
+  const mode = status.mode ?? 'always';
+  const automatic = mode !== 'manual';
   const missing = missingForAutomatic(status);
 
   const syncText = () => {
@@ -37,19 +38,26 @@ const SettingsCard = () => {
       : `${phones} · Not synced yet`;
   };
 
+  // off is Sync now only; on brings back the mode it had
   const toggle = (enabled: boolean) => {
     play(enabled ? 'start' : 'remove');
-    nearby('schedule', { ...schedule, enabled });
+    const auto = schedule.auto ?? (mode === 'manual' ? 'always' : mode);
+    nearby('schedule', {
+      ...schedule,
+      enabled: true,
+      auto,
+      mode: enabled ? auto : 'manual',
+    });
     // turning it on is the moment to allow what it needs
     if (enabled && missing.length) nearby('permissions', { which: 'all' });
   };
 
   const automaticText = () => {
-    if (!automatic) return 'Off. Sync only when you tap Sync now';
+    if (!automatic) return 'Off. Only when you tap Sync now';
     if (missing.length) return 'Tap to allow what it needs';
-    return schedule.mode === 'meetings'
-      ? 'Around meeting times'
-      : 'All the time, in the background';
+    return mode === 'location'
+      ? 'At the Kingdom Hall'
+      : 'Always, wherever your phones meet';
   };
 
   return (

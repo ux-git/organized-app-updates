@@ -1,7 +1,6 @@
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { useAtom } from 'jotai';
-import Button from '@components/button';
 import Typography from '@components/typography';
 import {
   CardSection,
@@ -11,6 +10,7 @@ import { territoriesState } from '@states/territories';
 import { Territory } from '@definition/territory';
 import { play } from '../../haptics';
 import { invoke, listen } from '../../native';
+import { Actions } from './parts';
 
 type Conflict = {
   table: string;
@@ -83,11 +83,9 @@ const Card = ({
         {text}
       </Typography>
     </Box>
-    <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{children}</Box>
+    {children}
   </Box>
 );
-
-const small = { minHeight: '36px', height: '36px', paddingInline: '16px' };
 
 /**
  * What a sync couldn't settle by itself: a territory given out on two phones
@@ -199,17 +197,12 @@ const Decisions = () => {
               title={`Territory ${territory.number} was assigned twice`}
               text={`To ${assignments.map((a) => a.publisher).join(' and ')}, probably on two phones at the same time. Who keeps it?`}
             >
-              {assignments.map((assignment) => (
-                <Button
-                  key={assignment.id}
-                  variant="secondary"
-                  disableAutoStretch
-                  sx={small}
-                  onClick={() => keepAssignment(territory, assignment.id)}
-                >
-                  {assignment.publisher}
-                </Button>
-              ))}
+              <Actions
+                actions={assignments.map((assignment) => ({
+                  label: assignment.publisher,
+                  onClick: () => keepAssignment(territory, assignment.id),
+                }))}
+              />
             </Card>
           );
         })}
@@ -223,22 +216,19 @@ const Decisions = () => {
               title={`${label(conflict)}: ${fieldName(conflict.field)}`}
               text={`Now “${show(conflict.kept)}”. On ${other} it was “${show(conflict.lost)}”.`}
             >
-              <Button
-                variant="secondary"
-                disableAutoStretch
-                sx={small}
-                onClick={() => resolve(conflict, false)}
-              >
-                Keep “{show(conflict.kept)}”
-              </Button>
-              <Button
-                variant="tertiary"
-                disableAutoStretch
-                sx={small}
-                onClick={() => resolve(conflict, true)}
-              >
-                Use “{show(conflict.lost)}”
-              </Button>
+              <Actions
+                actions={[
+                  {
+                    label: `Keep “${show(conflict.kept)}”`,
+                    kind: 'main',
+                    onClick: () => resolve(conflict, false),
+                  },
+                  {
+                    label: `Use “${show(conflict.lost)}”`,
+                    onClick: () => resolve(conflict, true),
+                  },
+                ]}
+              />
             </Card>
           );
         })}

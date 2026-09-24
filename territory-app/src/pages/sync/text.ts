@@ -49,29 +49,34 @@ export type SyncResult = {
   sent?: number;
   received?: number;
   items?: Record<string, number> | null;
+  territories?: { number: string }[];
   conflicts?: number;
   introduced?: string[];
 };
 
+const list = (parts: string[]) =>
+  parts.length < 2
+    ? (parts[0] ?? '')
+    : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
+
 /** What a sync brought, in a sentence or two, as the notification says it. */
 export const describeSync = (result: SyncResult) => {
-  const name = result.name || 'the other phone';
-  const items = describeItems(result.items);
-  const sent = result.sent ?? 0;
+  const numbers = (result.territories ?? []).map((item) => item.number);
+  const people = result.items?.people ?? 0;
   const lines: string[] = [];
-  if (items && sent)
-    lines.push(`You got ${items}, and your changes went over too.`);
-  else if (items) lines.push(`You got ${items}.`);
-  else if (sent)
+  if (numbers.length) {
     lines.push(
-      sent === 1
-        ? `Your change is now on ${name}’s phone too.`
-        : `Your ${sent} changes are now on ${name}’s phone too.`
+      `${numbers.length === 1 ? 'Territory' : 'Territories'} ${list(numbers)} changed.`
     );
-  else lines.push('Nothing new. You were already up to date.');
+  }
+  if (people) lines.push(`${count(people, 'name', 'names')} changed.`);
+  if (!lines.length && result.sent) {
+    lines.push('Your changes are on their phone now too.');
+  }
+  if (!lines.length) lines.push('Nothing new. You were already up to date.');
   if (result.introduced?.length) {
     lines.push(
-      `${result.introduced.join(', ')} joined through ${name}. You now sync with them too.`
+      `${list(result.introduced)} joined your phones. You now sync with them too.`
     );
   }
   if (result.conflicts) {

@@ -13,11 +13,8 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
-import java.text.DateFormat
-import java.util.Date
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -66,11 +63,12 @@ class Exchange(val pipe: Pipe, private val handle: Long, val mode: Int, private 
 }
 
 /**
- * Looks for paired phones and syncs with them, with the screen off and the
- * app closed: all the time (the default), or only during meeting times, for a
- * few minutes after the app was open, a change was made or a paired phone was
- * seen, and while Meet is open. Runs as a connectedDevice foreground service,
- * as Android requires for Bluetooth work in the background.
+ * Looks for paired phones and syncs with them, for a short while at a time:
+ * a burst when this phone has news (Reminders), a minute after a paired
+ * phone with news was seen, a couple of minutes after the app was opened,
+ * and while Meet is open. Then it stops, so nothing runs when there is
+ * nothing to do. Runs as a connectedDevice foreground service, as Android
+ * requires for Bluetooth work in the background.
  */
 class NearbyService : Service(), Link.Listener {
   companion object {
@@ -81,12 +79,12 @@ class NearbyService : Service(), Link.Listener {
     private const val TICK_MS = 5_000L
     private const val IDLE_MS = 25_000L
     private const val RESYNC_MS = 15_000L
-    private const val WAIT_FOR_OTHER_MS = 20_000L
+    private const val WAIT_FOR_OTHER_MS = 8_000L
+    /** A paired phone with news is close: stay at least this long. */
+    private const val PEER_STAY_MS = 30_000L
     /** How long a paired phone may be near with changes before we say so. */
     private const val FOUND_AFTER_MS = 60_000L
     private const val FOUND_AGAIN_MS = 30 * 60_000L
-    /** Android quietly slows down a scan that runs for half an hour. */
-    private const val RESCAN_MS = 10 * 60_000L
 
     var instance: NearbyService? = null
       private set
@@ -107,17 +105,14 @@ class NearbyService : Service(), Link.Listener {
       }.isSuccess
     }
 
-    /** Runs all the time when automatic sync is set to that. */
-    fun keepRunning(context: Context) {
-      if (Reminders.always(context) && Nearby.hasPeers()) start(context, "always", 0)
-    }
-
     /** Something was edited here: tell paired phones nearby right away. */
     fun changed(context: Context) {
+      Reminders.changed(context)
       val service = instance
       when {
         service != null -> service.localChange()
-        Nearby.hasPeers() -> start(context, "change", 2 * 60_000L)
+        Reminders.searching(context) && Nearby.hasPeers() ->
+          start(context, "change", Reminders.BURST_MS)
       }
     }
 
@@ -142,9 +137,6 @@ class NearbyService : Service(), Link.Listener {
   private val noticed = HashMap<String, Long>()
   private var lastDone: JSONObject? = null
   private var myId = ""
-  private var scanStarted = 0L
-
-  private val always get() = Reminders.always(this)
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -160,7 +152,7 @@ class NearbyService : Service(), Link.Listener {
       ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
     } else 0
     val started = runCatching {
-      ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(idleText()), type)
+      ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), type)
     }
     if (started.isFailure) {
       // Android didn't allow a start from the background this time
@@ -181,12 +173,8 @@ class NearbyService : Service(), Link.Listener {
     if (wantMeet && !meet) startMeet() else refresh()
     handler.removeCallbacks(tick)
     handler.post(tick)
-    // brought back by Android after it had to stop it
-    return if (always) START_STICKY else START_NOT_STICKY
+    return START_NOT_STICKY
   }
-
-  private fun idleText() =
-    getString(if (always) R.string.sync_background else R.string.sync_looking)
 
   override fun onDestroy() {
     handler.removeCallbacks(tick)
@@ -195,18 +183,18 @@ class NearbyService : Service(), Link.Listener {
     link.stop()
     instance = null
     Native.emit("nearby", status().put("running", false).toString())
+    Reminders.scheduleBurst(this)
     super.onDestroy()
   }
 
   private fun refresh() {
     link.advertise(if (meet) Nearby.meetPayload() else Nearby.beaconPayload())
-    val waiting = System.currentTimeMillis() < until && reason in listOf("open", "tap", "change")
-    link.scan(fast = meet || waiting, quiet = always && !waiting)
-    scanStarted = System.currentTimeMillis()
+    // the sessions are short, so the scan can be quick
+    link.scan(fast = true)
   }
 
   fun localChange() {
-    until = maxOf(until, System.currentTimeMillis() + 2 * 60_000L)
+    until = maxOf(until, System.currentTimeMillis() + Reminders.BURST_MS)
     if (!meet) link.advertise(Nearby.beaconPayload())
   }
 
@@ -221,9 +209,8 @@ class NearbyService : Service(), Link.Listener {
       }
       seenMeet.entries.removeAll { now - it.value.optLong("at") > 12_000 }
       noticeStuckPeers(now)
-      if (now - scanStarted > RESCAN_MS) refresh()
       emitStatus()
-      if (!meet && now > until && exchanges.isEmpty() && !always) {
+      if (!meet && now > until && exchanges.isEmpty()) {
         stopSelf()
         return
       }
@@ -320,6 +307,7 @@ class NearbyService : Service(), Link.Listener {
           needSince.remove(peer)
           return
         }
+        until = maxOf(until, now + PEER_STAY_MS)
         if (link.connected(device.address)) return
         if (exchanges.values.any { it.status.optString("peer") == peer }) return
         if (now - (lastSync[peer] ?: 0L) < RESYNC_MS) return
@@ -382,8 +370,6 @@ class NearbyService : Service(), Link.Listener {
         needSince.remove(peer)
         noticed.remove(peer)
         lastDone = JSONObject(status.toString()).put("at", System.currentTimeMillis())
-        val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())
-        updateNotification(getString(R.string.sync_done, status.optString("name"), time))
         if (exchange.mode == Native.MODE_SYNC) SyncNotices.done(this, status)
         Reminders.synced(this)
         // the beacon now carries the new data version
@@ -391,7 +377,6 @@ class NearbyService : Service(), Link.Listener {
         closeWhenSent(exchange)
       }
       "failed" -> closeWhenSent(exchange)
-      "exchanging" -> updateNotification(getString(R.string.sync_running))
     }
     emitStatus()
   }
@@ -408,11 +393,11 @@ class NearbyService : Service(), Link.Listener {
 
   // ---- notification ----
 
-  private fun notification(text: String) =
+  /** Android requires one while it runs; the channel keeps it out of sight. */
+  private fun notification() =
     NotificationCompat.Builder(this, CHANNEL)
       .setSmallIcon(R.drawable.ic_notification)
-      .setContentTitle(getString(R.string.sync_title))
-      .setContentText(text)
+      .setContentTitle(getString(R.string.sync_looking))
       .setColor(Notify.accentColor(this))
       .setOngoing(true)
       .setSilent(true)
@@ -420,10 +405,6 @@ class NearbyService : Service(), Link.Listener {
       .setContentIntent(openApp(this, "/sync"))
       .build()
 
-  private fun updateNotification(text: String) {
-    if (!Notify.mayNotify(this)) return
-    runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification(text)) }
-  }
 }
 
 fun ensureChannel(context: Context) {
@@ -455,15 +436,8 @@ fun ensureChannel(context: Context) {
       }
     )
   }
-  if (manager.getNotificationChannel("reminders") == null) {
-    manager.createNotificationChannel(
-      NotificationChannel(
-        "reminders",
-        context.getString(R.string.reminder_channel),
-        NotificationManager.IMPORTANCE_DEFAULT
-      )
-    )
-  }
+  // everything a person should see now goes through SyncNotices.CHANNEL
+  if (manager.getNotificationChannel("reminders") != null) manager.deleteNotificationChannel("reminders")
 }
 
 fun openApp(context: Context, route: String? = null): PendingIntent =

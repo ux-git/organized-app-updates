@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use snow::{Builder, HandshakeState, TransportState};
 
-use crate::store::{Applied, Cell, Member, Peer, Result, Store, Versions};
+use crate::store::{Applied, Cell, Member, Peer, Result, Store, Touched, Versions};
 
 const PARAMS: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
 const PROLOGUE: &[u8] = b"organized-territories-1";
@@ -61,6 +61,9 @@ pub enum Status {
         received: usize,
         /// Records received, per table.
         items: BTreeMap<String, usize>,
+        /// Territories that came in changed, and those sent.
+        territories: Vec<Touched>,
+        sent_territories: Vec<Touched>,
         /// Fields both phones had changed.
         conflicts: usize,
         /// Phones of the circle this one met through the other.
@@ -104,6 +107,7 @@ pub struct Session {
     remote_ok: Option<bool>,
     sent_versions: Option<Versions>,
     sent: usize,
+    sent_territories: Vec<Touched>,
     parts: Vec<u8>,
     received: Option<(Applied, Versions)>,
     introduced: Vec<String>,
@@ -175,6 +179,7 @@ impl Session {
             remote_ok: None,
             sent_versions: None,
             sent: 0,
+            sent_territories: Vec::new(),
             parts: Vec::new(),
             received: None,
             introduced: Vec::new(),
@@ -453,6 +458,8 @@ impl Session {
                 sent: 0,
                 received: 0,
                 items: BTreeMap::new(),
+                territories: Vec::new(),
+                sent_territories: Vec::new(),
                 conflicts: 0,
                 introduced: Vec::new(),
             };
@@ -473,6 +480,7 @@ impl Session {
         }
         self.send(out, DONE, &serde_json::to_vec(&mine).map_err(|e| e.to_string())?)?;
         self.sent = cells.len();
+        self.sent_territories = store.touched(&cells)?;
         self.sent_versions = Some(mine);
         Ok(())
     }
@@ -495,13 +503,15 @@ impl Session {
             store.rename_peer(&peer, &hello.name)?;
         }
         let name = store.peer(&peer)?.map(|p| p.name).unwrap_or_default();
-        store.log_sync(&peer, &name, self.sent, received)?;
+        store.log_sync(&peer, &name, self.sent, &self.sent_territories, received)?;
         self.status = Status::Done {
             name,
             peer,
             sent: self.sent,
             received: received.cells,
             items: received.items.clone(),
+            territories: received.territories.clone(),
+            sent_territories: self.sent_territories.clone(),
             conflicts: received.conflicts,
             introduced: self.introduced.clone(),
         };
@@ -662,6 +672,16 @@ mod tests {
                 sent: 1,
                 received: 1,
                 items: BTreeMap::from([("territories".into(), 1)]),
+                territories: vec![Touched {
+                    id: "t2".into(),
+                    number: "2".into(),
+                    what: vec!["details".into()]
+                }],
+                sent_territories: vec![Touched {
+                    id: "t1".into(),
+                    number: "1".into(),
+                    what: vec!["details".into()]
+                }],
                 conflicts: 0,
                 introduced: Vec::new(),
             }

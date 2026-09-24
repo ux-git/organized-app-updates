@@ -10,10 +10,11 @@ export type Need = {
   fix: VoidFunction;
 };
 
-/** What Android has to allow before the sync can run by itself. */
+/** What Android has to allow for the chosen sync mode. */
 export const needsForAutomatic = (status: NearbyStatus): Need[] => {
   const allowed = status.permissions;
-  if (!allowed) return [];
+  const mode = status.mode ?? 'always';
+  if (!allowed || mode === 'manual') return [];
   const needs: Need[] = [
     {
       key: 'bluetooth',
@@ -26,7 +27,7 @@ export const needsForAutomatic = (status: NearbyStatus): Need[] => {
     {
       key: 'notifications',
       title: 'Notifications',
-      text: 'Tells you when a sync is done, or when a paired phone is close but your phones haven’t synced.',
+      text: 'Tells you what a sync brought.',
       ok: allowed.notifications,
       label: 'Allow',
       fix: () => nearby('permissions'),
@@ -34,20 +35,23 @@ export const needsForAutomatic = (status: NearbyStatus): Need[] => {
     {
       key: 'battery',
       title: 'Run in the background',
-      text: 'Lets Android start the sync by itself, also after a restart, without you opening the app.',
+      text: 'Lets Android start the sync by itself, without you opening the app.',
       ok: !!allowed.battery,
       label: 'Allow',
       fix: () => nearby('battery'),
     },
   ];
-  if (status.schedule?.mode === 'meetings') {
+  if (mode === 'location') {
     needs.push({
-      key: 'alarms',
-      title: 'Alarms and reminders',
-      text: 'Starts looking right on time before each meeting.',
-      ok: allowed.exactAlarms,
+      key: 'location',
+      title: 'Location all the time',
+      text: 'Notices when you arrive at the Kingdom Hall, with the app closed.',
+      ok: allowed.location && allowed.backgroundLocation,
       label: 'Allow',
-      fix: () => nearby('exactAlarms'),
+      fix: () =>
+        nearby('permissions', {
+          which: allowed.location ? 'backgroundLocation' : 'location',
+        }),
     });
   }
   return needs;

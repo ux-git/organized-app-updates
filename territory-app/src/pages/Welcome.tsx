@@ -14,6 +14,7 @@ import { play } from '../haptics';
 import { invoke, nearby } from '../native';
 import { loadIdentity } from '../persistence';
 import logo from '../assets/logo.svg?url';
+import { Actions } from './sync/parts';
 import useNearby from './useNearby';
 
 const KEY = 'territories-welcomed';
@@ -158,26 +159,22 @@ const Welcome = () => {
             />
           )}
         </Stack>
-        <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {!all && (
-            <Button
-              variant="main"
-              disableAutoStretch
-              onClick={() => nearby('permissions', { which: 'all' })}
-            >
-              Allow all
-            </Button>
-          )}
-          {allowed?.nfc && !allowed.nfcOn && (
-            <Button
-              variant="secondary"
-              disableAutoStretch
-              onClick={() => nearby('nfcSettings')}
-            >
-              Turn on NFC
-            </Button>
-          )}
-        </Box>
+        <Actions
+          actions={[
+            ...(all
+              ? []
+              : [
+                  {
+                    label: 'Allow all',
+                    kind: 'main' as const,
+                    onClick: () => nearby('permissions', { which: 'all' }),
+                  },
+                ]),
+            ...(allowed?.nfc && !allowed.nfcOn
+              ? [{ label: 'Turn on NFC', onClick: () => nearby('nfcSettings') }]
+              : []),
+          ]}
+        />
       </CardSection>
 
       <Button variant={all ? 'main' : 'tertiary'} onClick={finish}>

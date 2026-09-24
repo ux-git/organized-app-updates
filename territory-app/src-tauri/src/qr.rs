@@ -111,6 +111,7 @@ pub struct Imported {
     pub name: String,
     pub received: usize,
     pub items: std::collections::BTreeMap<String, usize>,
+    pub territories: Vec<crate::store::Touched>,
 }
 
 pub fn import(store: &mut Store, text: &str) -> Result<Imported> {
@@ -132,11 +133,12 @@ pub fn import(store: &mut Store, text: &str) -> Result<Imported> {
         .map_err(|_| "the transfer did not open")?;
     let contents: Contents = unpack(&plain)?;
     let applied = store.apply(&contents.cells, &contents.versions)?;
-    store.log_sync(&peer.id, &peer.name, 0, &applied)?;
+    store.log_sync(&peer.id, &peer.name, 0, &[], &applied)?;
     Ok(Imported {
         name: peer.name,
         received: applied.cells,
         items: applied.items,
+        territories: applied.territories,
     })
 }
 

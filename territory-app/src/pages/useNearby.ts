@@ -21,15 +21,17 @@ export type SessionStatus = {
   sent?: number;
   received?: number;
   items?: Record<string, number>;
+  territories?: Touched[];
+  sent_territories?: Touched[];
   conflicts?: number;
   introduced?: string[];
   address?: string;
   mode?: number;
 };
 
-export type SyncMode = 'always' | 'meetings';
+export type SyncMode = 'always' | 'location' | 'manual';
 
-export type Meeting = { day: number; time: string };
+export type Touched = { id: string; number: string; what: string[] };
 
 export type NearbyStatus = {
   running: boolean;
@@ -52,13 +54,16 @@ export type NearbyStatus = {
     camera?: boolean;
     battery?: boolean;
   };
+  /** The mode in effect, as Android reads the settings. */
+  mode?: SyncMode;
+  /** At the Kingdom Hall, as far as the location alert knows. */
+  inside?: boolean;
   schedule?: {
     enabled?: boolean;
     mode?: SyncMode;
+    /** The mode the switch on the home card turns back on. */
+    auto?: 'always' | 'location';
     notify?: boolean;
-    meetings?: Meeting[];
-    before?: number;
-    after?: number;
   };
   hall?: { lat: number; lng: number; radius: number } | null;
 };

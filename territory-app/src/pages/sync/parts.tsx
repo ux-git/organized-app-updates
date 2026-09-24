@@ -129,6 +129,45 @@ export const PhoneRow = ({
   </Box>
 );
 
+export type Action = {
+  label: string;
+  onClick: VoidFunction;
+  /** main first, then secondary, tertiary; a removal always comes last, in red */
+  kind?: 'main' | 'secondary' | 'tertiary' | 'remove';
+  disabled?: boolean;
+};
+
+const ORDER = ['main', 'secondary', 'tertiary', 'remove'];
+
+/** The buttons of a card or section, the same everywhere. */
+export const Actions = ({ actions }: { actions: Action[] }) =>
+  actions.length ? (
+    <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+      {[...actions]
+        .sort(
+          (a, b) =>
+            ORDER.indexOf(a.kind ?? 'secondary') -
+            ORDER.indexOf(b.kind ?? 'secondary')
+        )
+        .map((action) => {
+          const kind = action.kind ?? 'secondary';
+          return (
+            <Button
+              key={action.label}
+              variant={kind === 'remove' ? 'tertiary' : kind}
+              color={kind === 'remove' ? 'red' : undefined}
+              disabled={action.disabled}
+              disableAutoStretch
+              onClick={action.onClick}
+              sx={{ minHeight: '36px', height: '36px', paddingInline: '16px' }}
+            >
+              {action.label}
+            </Button>
+          );
+        })}
+    </Box>
+  ) : null;
+
 export type MethodState = { text: string; color: BadgeColor };
 
 /** One way of pairing or sharing: what it is, whether it can be used now, and its buttons. */
@@ -205,20 +244,12 @@ export const Method = ({
       <Typography className="body-small-regular" color="var(--grey-400)">
         {description}
       </Typography>
-      <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        {actions.map((action) => (
-          <Button
-            key={action.label}
-            variant={action.main ? 'main' : 'secondary'}
-            disabled={action.disabled}
-            disableAutoStretch
-            onClick={action.onClick}
-            sx={{ minHeight: '36px', height: '36px', paddingInline: '16px' }}
-          >
-            {action.label}
-          </Button>
-        ))}
-      </Box>
+      <Actions
+        actions={actions.map((action) => ({
+          ...action,
+          kind: action.main ? 'main' : 'secondary',
+        }))}
+      />
     </Box>
   </Box>
 );

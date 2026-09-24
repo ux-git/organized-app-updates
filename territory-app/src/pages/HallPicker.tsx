@@ -186,23 +186,10 @@ const HallPicker = ({
       >
         Show where I am
       </Button>
-      <Box sx={{ display: 'flex', gap: '8px' }}>
-        {hall && (
-          <Button
-            variant="secondary"
-            onClick={() => {
-              nearby('hallClear');
-              onClose();
-            }}
-          >
-            Remove
-          </Button>
-        )}
-        <Button variant="main" disabled={!point} onClick={save}>
-          Save
-        </Button>
-      </Box>
-      <Button variant="tertiary" onClick={onClose}>
+      <Button variant="main" disabled={!point} onClick={save}>
+        Save
+      </Button>
+      <Button variant="secondary" onClick={onClose}>
         Cancel
       </Button>
     </Dialog>

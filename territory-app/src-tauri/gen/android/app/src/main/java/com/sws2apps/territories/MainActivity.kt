@@ -253,11 +253,11 @@ class MainActivity : TauriActivity() {
     }
     if (NearbyService.wantMeet) Tap.start(this)
     // opening the app is a good moment: look for paired phones for a while
-    if (Nearby.hasPeers()) {
+    // opening the app is a good moment, unless syncing is left to Sync now
+    if (Nearby.hasPeers() && Reminders.mode(this) != "manual") {
       NearbyService.start(this, "open", 2 * 60_000L)
-      Reminders.watchPeers(this)
     }
-    NearbyService.keepRunning(this)
+    Reminders.apply(this)
     webView?.evaluateJavascript(THEME_COLOR_SCRIPT) { result ->
       parseCssColor(result?.trim('"'))?.let(::applyBarColor)
     }
@@ -425,10 +425,7 @@ class MainActivity : TauriActivity() {
       "confirm" -> service?.confirm(args.optBoolean("accept"))
       "schedule" -> Reminders.saveSchedule(this, args.toString())
       "hallHere" -> hallHere(args.optDouble("radius", 150.0).toFloat())
-      "paired" -> {
-        Reminders.watchPeers(this)
-        Reminders.plan(this)
-      }
+      "paired" -> Reminders.apply(this)
       "scanQr" -> startActivity(Intent(this, ScanActivity::class.java))
       "bluetoothOn" -> runCatching {
         startActivity(Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))
@@ -478,6 +475,8 @@ class MainActivity : TauriActivity() {
     status.put("permissions", permissions)
       .put("schedule", Reminders.schedule(this))
       .put("hall", Reminders.hall(this) ?: JSONObject.NULL)
+      .put("mode", Reminders.mode(this))
+      .put("inside", Reminders.inside(this))
     Native.emit("nearby", status.toString())
   }
 
@@ -527,9 +526,7 @@ class MainActivity : TauriActivity() {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     if (requestCode != REQUEST_PERMISSIONS) return
     if (askBatteryAfter) askBattery()
-    Reminders.watchPeers(this)
-    Reminders.watchHall(this)
-    Reminders.plan(this)
+    Reminders.apply(this)
     emitNearby()
   }
 

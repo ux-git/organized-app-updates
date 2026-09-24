@@ -204,7 +204,7 @@ object Tap {
     val activity = activity ?: return
     if (state == "done") {
       Haptics.play(activity, "paired")
-      Reminders.watchPeers(activity)
+      Reminders.apply(activity)
       NearbyService.start(activity, "open", 2 * 60_000L)
     } else {
       Haptics.play(activity, "error")
