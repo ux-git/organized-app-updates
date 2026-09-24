@@ -47,7 +47,7 @@ const Row = ({
   </Box>
 );
 
-/** First start: the name, and everything Android has to allow, in one go. */
+/** First start: the name, and everything the phone has to allow, in one go. */
 const Welcome = () => {
   const navigate = useNavigate();
   const { status, name: saved } = useNearby();
@@ -142,11 +142,13 @@ const Welcome = () => {
             text="Scans a pairing QR code, when Bluetooth doesn’t work."
             ok={!!allowed?.camera}
           />
-          <Row
-            title="Run in the background"
-            text="Lets Android start the sync by itself, also after a restart."
-            ok={!!allowed?.battery}
-          />
+          {status.platform !== 'ios' && (
+            <Row
+              title="Run in the background"
+              text="Lets Android start the sync by itself, also after a restart."
+              ok={!!allowed?.battery}
+            />
+          )}
           {allowed?.nfc && (
             <Row
               title="NFC"

@@ -19,6 +19,9 @@ object Nearby {
   const val KIND_BEACON: Byte = 0
   const val KIND_MEET: Byte = 1
 
+  /** An iPhone in Meet puts this before its name (it can't send service data). */
+  const val IOS_MEET = "M:"
+
   /** The scan response holds 13 bytes of payload after our 128-bit service id. */
   const val PAYLOAD_MAX = 13
 

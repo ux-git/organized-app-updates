@@ -171,7 +171,7 @@ const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
         {missing.length > 0 && (
           <Stack spacing="16px">
             <CardSubSectionHeader
-              title="Android still has to allow"
+              title="Your phone still has to allow"
               description="Without these, your phone can’t sync by itself."
             />
             {missing.map((need) => (

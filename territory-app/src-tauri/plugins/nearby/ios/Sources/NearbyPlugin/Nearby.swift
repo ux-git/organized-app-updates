@@ -1,0 +1,412 @@
+import CoreBluetooth
+import Foundation
+
+/// One Rust session over one Bluetooth connection.
+final class Exchange {
+  let pipe: Pipe
+  let handle: Int64
+  let mode: Int32
+  private let onStatus: (Exchange) -> Void
+  private(set) var status: [String: Any] = ["state": "connecting"]
+  private(set) var lastActivity = Date()
+
+  init(pipe: Pipe, handle: Int64, mode: Int32, onStatus: @escaping (Exchange) -> Void) {
+    self.pipe = pipe
+    self.handle = handle
+    self.mode = mode
+    self.onStatus = onStatus
+  }
+
+  var state: String { status["state"] as? String ?? "" }
+  var finished: Bool { state == "done" || state == "failed" }
+  var peer: String { status["peer"] as? String ?? "" }
+
+  func start(preamble: Data?) {
+    pipe.send((preamble ?? Data()) + Core.start(handle))
+    report()
+  }
+
+  func receive(_ bytes: Data) {
+    lastActivity = Date()
+    send(Core.feed(handle, bytes))
+  }
+
+  func confirm(_ accept: Bool) { send(Core.confirm(handle, accept: accept)) }
+
+  private func send(_ out: Data) {
+    if !out.isEmpty { pipe.send(out) }
+    report()
+  }
+
+  func fail(_ reason: String) {
+    guard !finished else { return }
+    status = ["state": "failed", "reason": reason]
+    onStatus(self)
+  }
+
+  private func report() {
+    let next = Core.status(handle)
+    if !next.isEmpty { status = next }
+    onStatus(self)
+  }
+
+  func close() { Core.close(handle) }
+
+  func json() -> [String: Any] {
+    var out = status
+    out["address"] = pipe.address
+    out["mode"] = mode
+    return out
+  }
+}
+
+/// Looks for paired phones and syncs with them, as NearbyService does on
+/// Android. iOS has no foreground service: in "always" mode the scan for our
+/// service keeps running in the background (iOS allows that for one named
+/// service and wakes the app when a phone shows up); at the Kingdom Hall it
+/// runs while the location says so; otherwise only a while after the app was
+/// opened or Sync now was tapped.
+final class Nearby: NSObject, LinkListener {
+  static let shared = Nearby()
+
+  private static let tickSeconds = 5.0
+  private static let idleSeconds = 25.0
+  private static let resyncSeconds = 15.0
+  private static let waitForOtherSeconds = 8.0
+  private static let peerStaySeconds = 30.0
+  private static let foundAfterSeconds = 60.0
+  private static let foundAgainSeconds = 30.0 * 60
+  private static let iphoneNewsSeconds = 60.0
+  private static let iphoneQuietSeconds = 5.0 * 60
+
+  private var link: Link?
+  private var timer: Timer?
+  private(set) var meet = false
+  private var until = Date.distantPast
+  private var reason = ""
+  private var exchanges: [String: Exchange] = [:]
+  private var connecting: [String: Int32] = [:]
+  private var lastSync: [String: Date] = [:]
+  private var needSince: [String: Date] = [:]
+  private var seenPeers: [String: Date] = [:]
+  private var seenMeet: [String: [String: Any]] = [:]
+  private var noticed: [String: Date] = [:]
+  private var triedIphone: [String: Date] = [:]
+  private var lastDone: [String: Any]?
+  private var myId = ""
+
+  /// Sends status to the page; set by the plugin.
+  var onChange: (() -> Void)?
+
+  // ---- settings, as Reminders keeps them on Android ----
+
+  private let defaults = UserDefaults.standard
+
+  var schedule: [String: Any] {
+    get { defaults.dictionary(forKey: "schedule") ?? [:] }
+    set {
+      defaults.set(newValue, forKey: "schedule")
+      apply()
+    }
+  }
+
+  /// "always", "location" or "manual"
+  var mode: String {
+    if schedule["enabled"] as? Bool == false { return "manual" }
+    let mode = schedule["mode"] as? String ?? "always"
+    return mode == "location" || mode == "manual" ? mode : "always"
+  }
+
+  var searching: Bool {
+    switch mode {
+    case "always": return true
+    case "location": return Place.shared.inside
+    default: return false
+    }
+  }
+
+  var hasPeers: Bool { !Core.peers.isEmpty }
+
+  var unsynced: Int { Core.summary()["unsynced"] as? Int ?? 0 }
+
+  // ---- lifecycle ----
+
+  /// Creating Bluetooth shows the permission prompt, so it waits until the
+  /// person allowed it, or asks for it.
+  func ensureLink() {
+    if link == nil { link = Link(listener: self) }
+  }
+
+  func setUp() {
+    if CBManager.authorization == .allowedAlways { ensureLink() }
+    apply()
+  }
+
+  /// Starts what the mode needs and stops the rest.
+  func apply() {
+    if mode == "location" { Place.shared.watchHall() } else { Place.shared.unwatchHall() }
+    if searching && hasPeers {
+      start(reason: "always", seconds: 0)
+    } else if Date() > until && !meet {
+      stop()
+    }
+  }
+
+  func start(reason: String, seconds: TimeInterval) {
+    guard CBManager.authorization == .allowedAlways else { return }
+    ensureLink()
+    self.reason = reason
+    until = max(until, Date().addingTimeInterval(seconds))
+    myId = Core.summary()["id"] as? String ?? ""
+    refresh()
+    if timer == nil {
+      timer = Timer.scheduledTimer(withTimeInterval: Self.tickSeconds, repeats: true) {
+        [weak self] _ in self?.tick()
+      }
+    }
+    changed()
+  }
+
+  private func stop() {
+    timer?.invalidate()
+    timer = nil
+    link?.stop()
+    exchanges.values.forEach { $0.close() }
+    exchanges.removeAll()
+    changed()
+  }
+
+  private var running: Bool { timer != nil }
+
+  private func refresh() {
+    guard let link = link else { return }
+    link.advertise(meet: meet ? meetName : nil)
+    link.scan()
+  }
+
+  private var meetName: String {
+    let name = Core.summary()["name"] as? String ?? ""
+    return name.isEmpty ? "iPhone" : String(name.prefix(20))
+  }
+
+  private func tick() {
+    let now = Date()
+    for exchange in exchanges.values where now.timeIntervalSince(exchange.lastActivity) > Self.idleSeconds {
+      exchange.fail("The other phone stopped answering")
+      link?.close(exchange.pipe)
+    }
+    seenMeet = seenMeet.filter {
+      now.timeIntervalSince1970 - ($0.value["at"] as? Double ?? 0) < 12
+    }
+    noticeStuckPeers(now)
+    changed()
+    if !meet && now > until && exchanges.isEmpty && !searching {
+      stop()
+    }
+  }
+
+  /// A paired phone has been close for a minute with changes, and nothing synced.
+  private func noticeStuckPeers(_ now: Date) {
+    for (peer, since) in needSince {
+      guard now.timeIntervalSince(since) >= Self.foundAfterSeconds,
+        now.timeIntervalSince(seenPeers[peer] ?? .distantPast) < 30,
+        (lastSync[peer] ?? .distantPast) < since,
+        !exchanges.values.contains(where: { $0.peer == peer }),
+        now.timeIntervalSince(noticed[peer] ?? .distantPast) > Self.foundAgainSeconds
+      else { continue }
+      noticed[peer] = now
+      Notices.shared.found(peer: peer)
+    }
+  }
+
+  /// Something was edited here: tell paired phones nearby right away.
+  func localChange() {
+    if running {
+      until = max(until, Date().addingTimeInterval(20))
+    } else if searching && hasPeers {
+      start(reason: "change", seconds: 20)
+    }
+  }
+
+  // ---- what the page asks for ----
+
+  func startMeet() {
+    meet = true
+    start(reason: "meet", seconds: 60)
+  }
+
+  func stopMeet() {
+    meet = false
+    seenMeet.removeAll()
+    refresh()
+    changed()
+  }
+
+  func pair(_ address: String) {
+    connecting[address] = Core.modePairCode
+    link?.connect(address)
+  }
+
+  func confirm(_ accept: Bool) {
+    exchanges.values.first { $0.state == "confirm" }?.confirm(accept)
+  }
+
+  func status() -> [String: Any] {
+    [
+      "running": running,
+      "bluetooth": link?.available ?? false,
+      "meet": meet,
+      "reason": reason,
+      "until": until.timeIntervalSince1970 * 1000,
+      "seen": Array(seenMeet.values),
+      "exchanges": exchanges.values.map { $0.json() },
+      "peersSeen": Array(seenPeers.keys),
+      "lastDone": lastDone.map { $0 as Any } ?? NSNull(),
+    ]
+  }
+
+  private func changed() { onChange?() }
+
+  // ---- Bluetooth ----
+
+  func linkSaw(address: String, payload: Data, rssi: Int, name: String?) {
+    let now = Date()
+    guard let kind = payload.first else {
+      seenIphone(address: address, rssi: rssi, name: name, now: now)
+      return
+    }
+    let rest = payload.dropFirst()
+    switch kind {
+    case Ids.kindMeet:
+      guard meet else { return }
+      let fresh = seenMeet[address] == nil
+      seenMeet[address] = [
+        "address": address, "name": String(decoding: rest, as: UTF8.self), "rssi": rssi,
+        "at": now.timeIntervalSince1970,
+      ]
+      if fresh { changed() }
+    case Ids.kindBeacon:
+      guard let sighting = Core.recognise(Data(rest)), let peer = sighting["peer"] as? String else {
+        return
+      }
+      seenPeers[peer] = now
+      guard sighting["needsSync"] as? Bool == true else {
+        needSince[peer] = nil
+        return
+      }
+      until = max(until, now.addingTimeInterval(Self.peerStaySeconds))
+      guard let link = link, !link.connected(address),
+        !exchanges.values.contains(where: { $0.peer == peer }),
+        now.timeIntervalSince(lastSync[peer] ?? .distantPast) > Self.resyncSeconds
+      else { return }
+      // one side connects: the phone with the smaller id, or this one if the
+      // other hasn't for a while
+      let since = needSince[peer] ?? now
+      needSince[peer] = since
+      if myId < peer || now.timeIntervalSince(since) > Self.waitForOtherSeconds {
+        connecting[address] = Core.modeSync
+        link.connect(address)
+      }
+    default:
+      break
+    }
+  }
+
+  /// Another iPhone can't say who it is either: the session finds out.
+  private func seenIphone(address: String, rssi: Int, name: String?, now: Date) {
+    if let name = name, name.hasPrefix(Ids.meetPrefix) {
+      guard meet else { return }
+      let fresh = seenMeet[address] == nil
+      seenMeet[address] = [
+        "address": address, "name": String(name.dropFirst(Ids.meetPrefix.count)), "rssi": rssi,
+        "at": now.timeIntervalSince1970,
+      ]
+      if fresh { changed() }
+      return
+    }
+    guard !meet, let link = link, !link.connected(address), exchanges[address] == nil,
+      myId.isEmpty == false
+    else { return }
+    let wait = unsynced > 0 ? Self.iphoneNewsSeconds : Self.iphoneQuietSeconds
+    guard now.timeIntervalSince(triedIphone[address] ?? .distantPast) > wait else { return }
+    triedIphone[address] = now
+    until = max(until, now.addingTimeInterval(Self.peerStaySeconds))
+    connecting[address] = Core.modeSync
+    link.connect(address)
+  }
+
+  func linkConnected(_ pipe: Pipe) {
+    let mode = connecting.removeValue(forKey: pipe.address) ?? Core.modeSync
+    let handle = Core.sessionNew(mode: mode, initiator: true)
+    guard handle != 0 else {
+      link?.close(pipe)
+      return
+    }
+    let exchange = Exchange(pipe: pipe, handle: handle, mode: mode, onStatus: onStatus)
+    exchanges[pipe.address] = exchange
+    Background.begin(pipe.address)
+    // the first byte tells the other phone whether this is a sync or a pairing
+    exchange.start(preamble: Data([UInt8(mode)]))
+  }
+
+  func linkIncoming(_ pipe: Pipe, first: Data) {
+    guard let modeByte = first.first else { return }
+    let mode = Int32(modeByte)
+    let allowed = mode == Core.modeSync || (mode == Core.modePairCode && meet)
+    let handle = allowed ? Core.sessionNew(mode: mode, initiator: false) : 0
+    guard handle != 0 else {
+      link?.close(pipe)
+      return
+    }
+    let exchange = Exchange(pipe: pipe, handle: handle, mode: mode, onStatus: onStatus)
+    exchanges[pipe.address] = exchange
+    Background.begin(pipe.address)
+    exchange.start(preamble: nil)
+    if first.count > 1 { exchange.receive(first.dropFirst()) }
+  }
+
+  func linkBytes(_ pipe: Pipe, _ bytes: Data) {
+    exchanges[pipe.address]?.receive(bytes)
+  }
+
+  func linkClosed(_ pipe: Pipe) {
+    connecting[pipe.address] = nil
+    Background.end(pipe.address)
+    guard let exchange = exchanges.removeValue(forKey: pipe.address) else { return }
+    exchange.fail("The connection was lost")
+    exchange.close()
+    changed()
+  }
+
+  private func onStatus(_ exchange: Exchange) {
+    switch exchange.state {
+    case "done":
+      let peer = exchange.peer
+      lastSync[peer] = Date()
+      needSince[peer] = nil
+      noticed[peer] = nil
+      var done = exchange.status
+      done["at"] = Date().timeIntervalSince1970 * 1000
+      lastDone = done
+      if exchange.mode == Core.modeSync { Notices.shared.done(exchange.status) }
+      Place.shared.synced()
+      refresh()
+      closeWhenSent(exchange)
+    case "failed":
+      closeWhenSent(exchange)
+    default:
+      break
+    }
+    changed()
+  }
+
+  private func closeWhenSent(_ exchange: Exchange, waited: Double = 0) {
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+      if exchange.pipe.idle || waited > 5 {
+        self?.link?.close(exchange.pipe)
+      } else {
+        self?.closeWhenSent(exchange, waited: waited + 0.5)
+      }
+    }
+  }
+}

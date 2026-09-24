@@ -15,7 +15,6 @@
 //   page's own loader instead of to an empty screen.
 (function () {
   var bridge = window.OrganizedShell;
-  if (!bridge) return;
 
   var CSS =
     'html{box-sizing:border-box;' +
@@ -39,6 +38,70 @@
     'margin-bottom:var(--organized-inset-bottom,0px)}' +
     '.mui-fixed:has(+ .mui-fixed > nav){' +
     'height:calc(120px + var(--organized-inset-bottom,0px)) !important}';
+
+  // An iPhone's WKWebView fills env(safe-area-inset-*) itself (the page asks
+  // for viewport-fit=cover), so the same padding comes from there.
+  if (!bridge) {
+    if (!/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+    var style = document.createElement('style');
+    style.textContent =
+      ':root{--organized-inset-top:env(safe-area-inset-top);' +
+      '--organized-inset-right:env(safe-area-inset-right);' +
+      '--organized-inset-bottom:env(safe-area-inset-bottom);' +
+      '--organized-inset-left:env(safe-area-inset-left)}' +
+      // no grey flash on a tap and no link menu on a long press, as in an app
+      'html{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}' +
+      CSS;
+    (document.head || document.documentElement).appendChild(style);
+    edgeSwipeBack();
+    return;
+  }
+
+  // An iPhone app goes back with a swipe from the left edge; the page
+  // follows the finger and goes back when let go far enough.
+  function edgeSwipeBack() {
+    var start = null;
+    var root = document.documentElement;
+    function reset(animate) {
+      root.style.transition = animate ? 'transform 0.2s ease-out' : '';
+      root.style.transform = '';
+      start = null;
+    }
+    document.addEventListener(
+      'touchstart',
+      function (event) {
+        var touch = event.touches[0];
+        var home = (location.hash.replace(/^#/, '') || '/').split('?')[0] === '/';
+        start =
+          event.touches.length === 1 && touch.clientX < 24 && !home
+            ? { x: touch.clientX, y: touch.clientY, moved: 0 }
+            : null;
+      },
+      { passive: true }
+    );
+    document.addEventListener(
+      'touchmove',
+      function (event) {
+        if (!start) return;
+        var touch = event.touches[0];
+        var dx = touch.clientX - start.x;
+        if (Math.abs(touch.clientY - start.y) > 60 && dx < 40) return reset(true);
+        start.moved = Math.max(0, dx);
+        root.style.transition = '';
+        root.style.transform = 'translateX(' + start.moved * 0.5 + 'px)';
+      },
+      { passive: true }
+    );
+    document.addEventListener('touchend', function () {
+      if (!start) return;
+      var back = start.moved > window.innerWidth * 0.3;
+      reset(true);
+      if (back) {
+        if (window.OrganizedHaptics) window.OrganizedHaptics.perform('tap');
+        history.back();
+      }
+    });
+  }
 
   // The page saves files by clicking an <a download> with a blob URL, which a
   // web view drops on the floor. Every such click is caught here and the file

@@ -259,6 +259,12 @@ object Reminders {
       BluetoothLeScanner.EXTRA_LIST_SCAN_RESULT,
       ScanResult::class.java
     ) ?: return
+    // an iPhone sends no beacon; worth a look when there is news to give
+    val iphone = results.any { it.scanRecord?.getServiceData(ParcelUuid(Nearby.SERVICE)) == null }
+    if (iphone && Nearby.unsynced() > 0) {
+      NearbyService.start(context, "peer", 60_000L)
+      return
+    }
     val peer = results.firstNotNullOfOrNull { result ->
       val payload = result.scanRecord?.getServiceData(ParcelUuid(Nearby.SERVICE)) ?: return@firstNotNullOfOrNull null
       if (payload.isEmpty() || payload[0] != Nearby.KIND_BEACON) return@firstNotNullOfOrNull null

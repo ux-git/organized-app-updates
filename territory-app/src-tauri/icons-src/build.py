@@ -62,3 +62,11 @@ shutil.copy(SHELL / 'android-background.png', HERE / 'android-background.png')
 
 for name, size in [('app-icon', 1024), ('android-foreground', 1024), ('android-monochrome', 1024), ('logo', 384)]:
     subprocess.run(['rsvg-convert', '-w', str(size), '-h', str(size), f'{name}.svg', '-o', f'{name}.png'], cwd=HERE, check=True)
+
+# iOS rounds the corners itself and rejects transparency: the foreground on
+# white, full bleed. `tauri icon` then fills gen/apple's AppIcon set from it.
+from PIL import Image
+
+ios = Image.new('RGBA', (1024, 1024), (255, 255, 255, 255))
+ios.alpha_composite(Image.open(HERE / 'android-foreground.png').convert('RGBA').resize((1024, 1024)))
+ios.convert('RGB').save(HERE / 'ios-icon.png')

@@ -54,7 +54,9 @@ export type NearbyStatus = {
     camera?: boolean;
     battery?: boolean;
   };
-  /** The mode in effect, as Android reads the settings. */
+  /** Only the iPhone plugin says so; Android leaves it out. */
+  platform?: 'ios';
+  /** The mode in effect, as the phone reads the settings. */
   mode?: SyncMode;
   /** At the Kingdom Hall, as far as the location alert knows. */
   inside?: boolean;
@@ -99,7 +101,8 @@ const useNearby = () => {
       }),
       listen('store-changed', refreshPeers),
     ];
-    nearby('status');
+    // asked once listening, or the answer can come before the listener
+    Promise.all(stops).then(() => nearby('status'));
     return () => {
       stops.forEach((stop) => stop.then((unlisten) => unlisten()));
     };

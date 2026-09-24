@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- the words iOS shows when it asks; the sync never uses the internet -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Finds your paired phones nearby and syncs territories with them, directly between the phones.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Saves where the Kingdom Hall is. The location stays on this phone.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Notices when you arrive at the Kingdom Hall, so your phone syncs there by itself. The location stays on this phone.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Scans the pairing and transfer QR codes of another phone.</string>
+	<!-- Bluetooth keeps working with the app in the background; iOS wakes it
+	     when a paired phone shows up -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+		<string>bluetooth-peripheral</string>
+	</array>
+	<!-- transfer files from a paired phone open in the app -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Territory transfer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.sws2apps.territories.transfer</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.sws2apps.territories.transfer</string>
+			<key>UTTypeDescription</key>
+			<string>Territory transfer</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>territories</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<!-- iOS 27 requires the scene lifecycle; with this key tao (Tauri's
+	     window layer) adopts it. An iPhone still shows one window. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+	</dict>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
+</dict>
+</plist>

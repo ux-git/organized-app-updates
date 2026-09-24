@@ -1,0 +1,13 @@
+[package]
+name = "tauri-plugin-nearby"
+version = "0.1.0"
+edition = "2021"
+description = "The iPhone side of the territory sync: Bluetooth, notifications, the Kingdom Hall, haptics"
+publish = false
+links = "tauri-plugin-nearby"
+
+[dependencies]
+tauri = { version = "2.11.3", features = [] }
+
+[build-dependencies]
+tauri-plugin = { version = "2.6.3", features = ["build"] }

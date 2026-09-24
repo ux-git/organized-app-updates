@@ -82,6 +82,9 @@ class NearbyService : Service(), Link.Listener {
     private const val WAIT_FOR_OTHER_MS = 8_000L
     /** A paired phone with news is close: stay at least this long. */
     private const val PEER_STAY_MS = 30_000L
+    /** How often an iPhone nearby is tried, with and without news here. */
+    private const val IPHONE_NEWS_MS = 60_000L
+    private const val IPHONE_QUIET_MS = 5 * 60_000L
     /** How long a paired phone may be near with changes before we say so. */
     private const val FOUND_AFTER_MS = 60_000L
     private const val FOUND_AGAIN_MS = 30 * 60_000L
@@ -283,9 +286,12 @@ class NearbyService : Service(), Link.Listener {
 
   // ---- Bluetooth ----
 
-  override fun onSeen(device: BluetoothDevice, payload: ByteArray, rssi: Int) {
-    if (payload.isEmpty()) return
+  override fun onSeen(device: BluetoothDevice, payload: ByteArray, rssi: Int, name: String?) {
     val now = System.currentTimeMillis()
+    if (payload.isEmpty()) {
+      seenIphone(device, rssi, name, now)
+      return
+    }
     when (payload[0]) {
       Nearby.KIND_MEET -> if (meet) {
         val name = String(payload, 1, payload.size - 1, Charsets.UTF_8)
@@ -320,6 +326,35 @@ class NearbyService : Service(), Link.Listener {
         }
       }
     }
+  }
+
+  private val triedIphone = HashMap<String, Long>()
+
+  /**
+   * An iPhone can't say in its advertisement who it is or whether it has
+   * news, so a paired one is only found by trying: a sync session with an
+   * unknown phone ends at the handshake. Tried again after a while, sooner
+   * when this phone has changes to give.
+   */
+  private fun seenIphone(device: BluetoothDevice, rssi: Int, name: String?, now: Long) {
+    if (name?.startsWith(Nearby.IOS_MEET) == true) {
+      if (!meet) return
+      val fresh = !seenMeet.containsKey(device.address)
+      seenMeet[device.address] = JSONObject()
+        .put("address", device.address)
+        .put("name", name.removePrefix(Nearby.IOS_MEET))
+        .put("rssi", rssi)
+        .put("at", now)
+      if (fresh) emitStatus()
+      return
+    }
+    if (meet || link.connected(device.address) || exchanges.containsKey(device.address)) return
+    val wait = if (Nearby.unsynced() > 0) IPHONE_NEWS_MS else IPHONE_QUIET_MS
+    if (now - (triedIphone[device.address] ?: 0L) < wait) return
+    triedIphone[device.address] = now
+    until = maxOf(until, now + PEER_STAY_MS)
+    connecting[device.address] = Native.MODE_SYNC
+    link.connect(device)
   }
 
   override fun onConnected(pipe: Pipe) {

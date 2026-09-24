@@ -64,7 +64,7 @@ const KingdomHall = () => {
                   className="body-small-regular"
                   color="var(--grey-400)"
                 >
-                  To notice your arrival with the app closed, Android needs
+                  To notice your arrival with the app closed, your phone needs
                   location access all the time.
                 </Typography>
                 <Actions

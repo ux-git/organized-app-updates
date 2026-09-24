@@ -90,8 +90,12 @@ abstract class Pipe(val address: String) {
 @SuppressLint("MissingPermission")
 class Link(private val context: Context, private val listener: Listener) {
   interface Listener {
-    /** An advertisement of this app: a sync beacon or a phone in Meet. */
-    fun onSeen(device: BluetoothDevice, payload: ByteArray, rssi: Int)
+    /**
+     * An advertisement of this app: a sync beacon or a phone in Meet. An
+     * iPhone can't send service data, so there `payload` is empty and
+     * `name` says the rest (Nearby.IOS_MEET).
+     */
+    fun onSeen(device: BluetoothDevice, payload: ByteArray, rssi: Int, name: String?)
 
     /** A phone connected to this one and sent its first bytes. */
     fun onIncoming(pipe: Pipe, first: ByteArray)
@@ -171,8 +175,10 @@ class Link(private val context: Context, private val listener: Listener) {
 
   private val scanCallback = object : ScanCallback() {
     override fun onScanResult(callbackType: Int, result: ScanResult) {
-      val payload = result.scanRecord?.getServiceData(ParcelUuid(Nearby.SERVICE)) ?: return
-      handler.post { listener.onSeen(result.device, payload, result.rssi) }
+      val record = result.scanRecord ?: return
+      val payload = record.getServiceData(ParcelUuid(Nearby.SERVICE)) ?: ByteArray(0)
+      val name = record.deviceName
+      handler.post { listener.onSeen(result.device, payload, result.rssi, name) }
     }
 
     override fun onBatchScanResults(results: MutableList<ScanResult>) {

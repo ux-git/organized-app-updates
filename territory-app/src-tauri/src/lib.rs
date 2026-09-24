@@ -4,8 +4,14 @@ mod session;
 mod store;
 mod tap;
 
+#[cfg(any(target_os = "android", target_os = "ios", test))]
+mod native;
+
 #[cfg(target_os = "android")]
 mod android;
+
+#[cfg(any(target_os = "ios", test))]
+mod ios;
 
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -149,9 +155,32 @@ fn import_bundle(text: String) -> Result<qr::Imported> {
     Ok(imported)
 }
 
+/// Shows the sync page and hands it the transfer, as MainActivity does for a
+/// file opened on Android.
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+fn open_files(app: &AppHandle, urls: Vec<tauri::Url>) {
+    for url in urls {
+        let Ok(path) = url.to_file_path() else { continue };
+        let Ok(text) = std::fs::read_to_string(path) else { continue };
+        let text = text.trim().to_string();
+        if !text.starts_with("OTB1:") && !text.starts_with("OTC1:") {
+            continue;
+        }
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.eval("location.hash='#/sync'");
+        }
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(800));
+            let _ = app.emit("file", serde_json::json!({ "text": text }));
+        });
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_nearby::init())
         .setup(|app| {
             // Android opens the store from Kotlin first, in the app's files
             // directory, so a background sync finds the same one
@@ -162,9 +191,11 @@ pub fn run() {
             // Built here rather than from the config, for the script that
             // takes the Android shell's bar sizes and colours
             let config = app.config().app.windows[0].clone();
-            WebviewWindowBuilder::from_config(app.handle(), &config)?
-                .initialization_script(include_str!("system_bars.js"))
-                .build()?;
+            let builder = WebviewWindowBuilder::from_config(app.handle(), &config)?
+                .initialization_script(include_str!("system_bars.js"));
+            #[cfg(target_os = "ios")]
+            let builder = builder.initialization_script(include_str!("ios_bridge.js"));
+            builder.build()?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -182,6 +213,13 @@ pub fn run() {
             export_bundle,
             import_bundle,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|_app, _event| {
+            // a transfer file opened from Files, AirDrop or Mail (iOS)
+            #[cfg(any(target_os = "ios", target_os = "macos"))]
+            if let tauri::RunEvent::Opened { urls } = _event {
+                open_files(_app, urls);
+            }
+        });
 }
