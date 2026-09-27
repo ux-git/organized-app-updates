@@ -38,10 +38,11 @@
     "removePicture": "Bild entfernen",
     "pictureFailed": "Dieses Bild lässt sich nicht verwenden. Versuch ein anderes.",
     "linked": "Verknüpfter Verkündiger",
-    "linkedText": "Damit weiß die App, welcher Verkündiger du bist – für „Meine Gebiete“ und deine Anfragen. Andere Geräte sehen das auch.",
+    "linkedText": "Damit weiß die App, welcher Verkündiger du bist – für „Meine Gebiete“ und die „Nicht besuchen“-Adressen, die du hinzufügst. Andere Geräte sehen das auch.",
     "publisher": "Verkündiger",
     "noPublishers": "Noch keine Verkündiger. Füge sie unter „Verkündiger und Gruppen“ hinzu.",
     "linkMissing": "Der verknüpfte Verkündiger ist nicht mehr in der Liste. Wähle dich neu aus.",
+    "linkGroup": "Der verknüpfte Verkündiger ist jetzt eine Predigtdienstgruppe. Wähle dich neu aus.",
     "suggest": "Bist du {{name}}?",
     "link": "Verknüpfen",
     "unlink": "Verknüpfung entfernen"
@@ -106,7 +107,6 @@
     "nameMissing": "Gib deinen Namen ein, damit gekoppelte Geräte wissen, dass du es bist",
     "sync": "Synchronisieren",
     "noPhones": "Noch keine Geräte gekoppelt",
-    "lastSynced": "{{devices}} · Zuletzt synchronisiert {{when}}",
     "notSynced": "{{devices}} · Noch nicht synchronisiert",
     "automatic": "Automatisch synchronisieren",
     "publishers": "Verkündiger und Gruppen",
@@ -122,7 +122,7 @@
     "lastContact": "{{devices}} · Zuletzt mit {{name}} synchronisiert, {{when}}"
   },
   "nameDialog": {
-    "description": "Andere Geräte sehen diesen Namen. Er wird auch bei „Nicht besuchen“-Adressen gespeichert, die du hinzufügst."
+    "description": "Andere Geräte sehen diesen Namen. „Nicht besuchen“-Adressen, die du hinzufügst, werden damit gespeichert – oder mit dem Namen deines verknüpften Verkündigers, wenn du einen verknüpfst."
   },
   "welcome": {
     "title": "Willkommen",
@@ -369,6 +369,8 @@
     "groupText": "Für eine Predigtdienstgruppe, die ein Gebiet gemeinsam bearbeitet, statt eines einzelnen Verkündigers.",
     "removeTitle": "{{name}} entfernen?",
     "removeText": "Der Zuteilungsverlauf bleibt.",
+    "linkedDevices": "Verknüpft auf {{devices}}. Dort muss der Verkündiger neu ausgewählt werden.",
+    "duplicate": "Dieser Name steht schon in der Liste.",
     "removeLabel": "{{name}} entfernen",
     "addButton": "Hinzufügen",
     "none": "Noch keine Namen",
@@ -423,6 +425,9 @@
     "restored": "Sicherung wiederhergestellt",
     "restoredText": "{{items}} wiederhergestellt.",
     "restoredNothing": "Dieses Gerät hatte schon alles aus der Sicherung.",
+    "adoptTitle": "Profil des alten Geräts übernehmen?",
+    "adoptText": "Die Sicherung stammt von {{name}}. Dieses Gerät kann den verknüpften Verkündiger und das Bild davon übernehmen.",
+    "adopt": "Übernehmen",
     "notBackup": "Keine Sicherung",
     "notBackupText": "Wähle eine .territories-Sicherungsdatei, die mit dieser App erstellt wurde.",
     "cardOff": "Automatische Sicherung ist aus",

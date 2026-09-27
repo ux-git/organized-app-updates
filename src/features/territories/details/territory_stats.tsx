@@ -4,13 +4,8 @@ import { daysLabel } from '../helpers';
 import StatTile from '../components/stat_tile';
 import { Territory } from '@definition/territory';
 
-const TerritoryStats = ({
-  territory,
-  showDoNotCalls = true,
-}: {
-  territory: Territory;
-  showDoNotCalls?: boolean;
-}) => {
+// the do-not-call count is the header badge's
+const TerritoryStats = ({ territory }: { territory: Territory }) => {
   const months = territory.assignments.map((assignment) => assignment.months);
 
   const average = months.length
@@ -33,21 +28,7 @@ const TerritoryStats = ({
       label: tx('Usual duration'),
       value: tx('{{n}} mo', { n: average }),
     },
-    showDoNotCalls &&
-      territory.doNotCalls.length > 0 && {
-        id: 'dnc',
-        label: tx('Do not call'),
-        value: String(territory.doNotCalls.length),
-      },
   ].filter(Boolean) as { id: string; label: string; value: string }[];
-
-  if (showDoNotCalls && stats.length < 3) {
-    stats.push({
-      id: 'dnc',
-      label: tx('Do not call'),
-      value: String(territory.doNotCalls.length),
-    });
-  }
 
   return (
     <Box

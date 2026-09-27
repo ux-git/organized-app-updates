@@ -65,6 +65,13 @@ export const captureTerritoryMap = (territory: Territory, ratio = 1.74) =>
       applyBasemapOptions(map, DEFAULT_PROVIDER, DEFAULT_BASEMAP);
       addOutsideVeil(map, boundary, '#FFFFFF');
       addTerritoryLayers(map, territory, 0);
+      // the picture is always this size and printed smaller, so its dashes
+      // are long enough not to read as dots at any zoom
+      map.setPaintProperty(
+        'territory-lines-dashed-selected',
+        'line-dasharray',
+        [4, 3]
+      );
     });
 
     map.once('idle', () => {

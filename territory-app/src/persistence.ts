@@ -145,14 +145,16 @@ const centerOf = (points: [number, number][]) => {
   setMapCenter([lng, lat]);
 };
 
-const sameName = (name: string) =>
+export const sameName = (name: string) =>
   name.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 
 let deviceName = '';
 
 // "me" on the territory pages: the linked publisher, else this device's name
 const applyMe = () => {
-  const { person } = store.get(myLinkState);
+  const person =
+    store.get(myLinkState).person ??
+    suggestedLink(deviceName, store.get(peopleState));
   setCurrentPublisher(person?.name ?? deviceName);
   const uid = person?.id ?? '';
   store.set(settingsState, (settings) =>
@@ -180,16 +182,34 @@ export const loadPeople = async () => {
   // synced) is kept once; every phone keeps the same one
   const kept = new Map<string, Person>();
   const doubles: Person[] = [];
+  const keyOf = (person: Person) =>
+    `${person.group ? 'g' : 'p'}:${sameName(person.name)}`;
   for (const person of [...people].sort((a, b) => a.id.localeCompare(b.id))) {
-    const key = `${person.group ? 'g' : 'p'}:${sameName(person.name)}`;
-    if (kept.has(key)) doubles.push(person);
-    else kept.set(key, person);
+    if (kept.has(keyOf(person))) doubles.push(person);
+    else kept.set(keyOf(person), person);
   }
   if (doubles.length) {
-    await writeRows(
-      doubles.map((person) => ({ table: PEOPLE, id: person.id, deleted: true }))
+    // devices linked to a removed double move to the one kept
+    const moved = new Map(
+      doubles.map((person) => [person.id, kept.get(keyOf(person))!.id])
     );
+    const links = (await rows(PROFILES)).filter(
+      (row) => typeof row.person === 'string' && moved.has(row.person)
+    );
+    await writeRows([
+      ...doubles.map((person) => ({
+        table: PEOPLE,
+        id: person.id,
+        deleted: true,
+      })),
+      ...links.map((row) => ({
+        table: PROFILES,
+        id: row.id,
+        fields: { person: moved.get(row.person as string) },
+      })),
+    ]);
     people = [...kept.values()];
+    if (links.length) await loadProfiles();
   }
 
   const names = (group: boolean) =>
@@ -242,6 +262,29 @@ export const setAvatar = async (avatar: string | null) => {
 export const setLink = async (person: string | null) => {
   await writeRows([
     { table: PROFILES, id: store.get(myIdState), fields: { person } },
+  ]);
+  await loadProfiles();
+};
+
+/**
+ * On a new device, the profile of the device a restored backup came from,
+ * to take over its publisher and picture.
+ */
+export const profileToAdopt = async (device: string) => {
+  const me = store.get(myIdState);
+  const profiles = await rows(PROFILES);
+  if (device === me || profiles.some((row) => row.id === me)) return;
+  const old = profiles.find((row) => row.id === device);
+  return old?.person || old?.avatar ? old : undefined;
+};
+
+export const adoptProfile = async (old: Row) => {
+  await writeRows([
+    {
+      table: PROFILES,
+      id: store.get(myIdState),
+      fields: { person: old.person ?? null, avatar: old.avatar ?? null },
+    },
   ]);
   await loadProfiles();
 };
@@ -340,40 +383,33 @@ const removedChildren = (before: Territory, after?: Territory): Write[] => {
   ];
 };
 
-const slug = (name: string) =>
-  name
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-
 /**
- * With no list yet, the names on assignments start one; groups are the names
- * the imported data calls groups.
+ * Territories keep names, not ids, so a renamed publisher or group is
+ * renamed on them too; persist() writes and syncs the change.
  */
-const addPeople = async (territories: Territory[]) => {
-  const names = new Set<string>();
-  for (const territory of territories) {
-    for (const assignment of territory.assignments) {
-      if (assignment.publisher) names.add(assignment.publisher);
-    }
-    if (territory.holder) names.add(territory.holder);
-  }
-  const people = (await rows(PEOPLE)) as unknown as Person[];
-  // only to start a list, e.g. from a Service Territory import; once there is
-  // one (typed or imported), people who moved away don't come back from history
-  if (people.length) return;
-  const known = new Set(people.map((person) => person.name));
-  const writes = [...names]
-    .filter((name) => !known.has(name))
-    .map((name) => ({
-      table: PEOPLE,
-      id: slug(name) || name,
-      fields: { name, group: /^group\b|^gruppe\b/i.test(name) },
-    }));
-  if (!writes.length) return;
-  await writeRows(writes);
-  await loadPeople();
+export const renameOnTerritories = (renames: Map<string, string>) => {
+  if (!renames.size) return;
+  const to = (name?: string) => (name && renames.get(name)) || name;
+  store.set(territoriesState, (territories) =>
+    territories.map((territory) => {
+      const next = {
+        ...territory,
+        holder: to(territory.holder),
+        requestedBy: to(territory.requestedBy),
+        assignments: territory.assignments.map((assignment) => ({
+          ...assignment,
+          publisher: to(assignment.publisher)!,
+        })),
+        doNotCalls: territory.doNotCalls.map((entry) => ({
+          ...entry,
+          addedBy: to(entry.addedBy)!,
+        })),
+      };
+      return JSON.stringify(next) === JSON.stringify(territory)
+        ? territory
+        : next;
+    })
+  );
 };
 
 /** Writes every change made on the pages to the store. */
@@ -398,10 +434,7 @@ export const persist = () => {
       writes.push(...removedChildren(old));
     }
     save(writes);
-    addPeople(next).catch(() => {});
   });
-
-  addPeople(store.get(territoriesState)).catch(() => {});
 
   store.sub(territoryCategoriesState, () => {
     if (loading) return;

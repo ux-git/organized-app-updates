@@ -23,6 +23,8 @@ struct Contents {
 #[derive(Debug, Serialize)]
 pub struct Restored {
     pub name: String,
+    /// the device the backup was made on, to take over its profile
+    pub device: String,
     pub at: i64,
     pub received: usize,
     pub items: std::collections::BTreeMap<String, usize>,
@@ -45,6 +47,7 @@ pub fn restore(store: &mut Store, text: &str) -> Result<Restored> {
     let applied = store.apply(&contents.cells, &contents.versions)?;
     Ok(Restored {
         name: contents.name,
+        device: contents.device,
         at: contents.at,
         received: applied.cells,
         items: applied.items,
@@ -157,6 +160,7 @@ mod tests {
         let mut b = Store::in_memory().unwrap();
         let restored = restore(&mut b, &text).unwrap();
         assert_eq!(restored.name, "Anna");
+        assert_eq!(restored.device, a.identity.id);
         assert!(restored.received > 0);
         for table in TABLES {
             assert_eq!(b.list(table).unwrap(), a.list(table).unwrap(), "{table}");

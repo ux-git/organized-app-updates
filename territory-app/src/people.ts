@@ -1,4 +1,12 @@
-import { loadPeople, PEOPLE, Person, writeRows } from './persistence';
+import { store } from '@states/index';
+import {
+  loadPeople,
+  PEOPLE,
+  Person,
+  renameOnTerritories,
+  writeRows,
+} from './persistence';
+import { peopleState } from './profiles';
 import { t } from './i18n';
 
 // An Organized backup (Congregation settings, Import and export; or one
@@ -135,6 +143,7 @@ export const planImport = (
 };
 
 export const applyImport = async (plan: ImportPlan, removeMissing: boolean) => {
+  const before = store.get(peopleState);
   await writeRows([
     ...[...plan.add, ...plan.update].map(({ id, name, group }) => ({
       table: PEOPLE,
@@ -147,5 +156,13 @@ export const applyImport = async (plan: ImportPlan, removeMissing: boolean) => {
       deleted: true,
     })),
   ]);
+  renameOnTerritories(
+    new Map(
+      plan.update.flatMap(({ id, name }) => {
+        const old = before.find((person) => person.id === id)?.name;
+        return old && old !== name ? [[old, name] as const] : [];
+      })
+    )
+  );
   return loadPeople();
 };

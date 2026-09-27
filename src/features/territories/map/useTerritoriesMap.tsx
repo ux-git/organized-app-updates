@@ -480,11 +480,12 @@ const useTerritoriesMap = () => {
 
     for (const layer of [
       'drawing-shapes-line',
-      'drawing-lines-solid',
+      'drawing-lines-solid-selected',
       'drawing-lines-dashed-selected',
     ]) {
       set(layer, 'line-opacity', fade);
     }
+    set('drawing-lines-solid', 'line-opacity', labelOpacity(fade));
     set('drawing-lines-dashed', 'line-opacity', labelOpacity(fade));
 
     set(LABEL_LAYER, 'text-opacity', labelOpacity(fade));

@@ -96,7 +96,9 @@ export const DoNotCallBadge = ({
       {/* the tooltip needs a DOM child to anchor to */}
       <Box
         aria-label={label}
-        {...(onClick && { component: 'button', type: 'button', onClick })}
+        {...(onClick
+          ? { component: 'button', type: 'button', onClick }
+          : { role: 'img' })}
         sx={{
           width: 'fit-content',
           flexShrink: 0,

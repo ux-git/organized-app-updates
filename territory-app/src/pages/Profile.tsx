@@ -175,7 +175,13 @@ const Profile = () => {
             </Box>
           )}
         />
-        {link.missing && <InfoNote message={t('account.linkMissing')} />}
+        {link.missing && (
+          <InfoNote
+            message={t(
+              link.group ? 'account.linkGroup' : 'account.linkMissing'
+            )}
+          />
+        )}
         {(link.person || link.missing) && (
           <Button
             variant="small"

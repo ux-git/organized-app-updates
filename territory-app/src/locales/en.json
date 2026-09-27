@@ -38,10 +38,11 @@
     "removePicture": "Remove picture",
     "pictureFailed": "This picture can’t be used. Try another one.",
     "linked": "Linked publisher",
-    "linkedText": "Tells the app which publisher you are, for My territories and your requests. Other devices see it too.",
+    "linkedText": "Tells the app which publisher you are, for My territories and the do-not-call addresses you add. Other devices see it too.",
     "publisher": "Publisher",
     "noPublishers": "No publishers yet. Add them under Publishers and groups.",
     "linkMissing": "The linked publisher is no longer in the list. Choose yours again.",
+    "linkGroup": "The linked publisher is now a field service group. Choose yours again.",
     "suggest": "Are you {{name}}?",
     "link": "Link",
     "unlink": "Remove link"
@@ -106,7 +107,6 @@
     "nameMissing": "Add your name, so paired devices know it’s you",
     "sync": "Sync",
     "noPhones": "No devices paired yet",
-    "lastSynced": "{{devices}} · Last synced {{when}}",
     "notSynced": "{{devices}} · Not synced yet",
     "automatic": "Automatic sync",
     "publishers": "Publishers and groups",
@@ -122,7 +122,7 @@
     "lastContact": "{{devices}} · Last synced with {{name}} {{when}}"
   },
   "nameDialog": {
-    "description": "Other devices see this name. It’s also saved with the do-not-call addresses you add."
+    "description": "Other devices see this name. Do-not-call addresses you add are saved with it, or with your linked publisher’s name if you link one."
   },
   "welcome": {
     "title": "Welcome",
@@ -365,10 +365,12 @@
     "edit": "Edit name",
     "add": "Add name",
     "name": "Name",
-    "group": "Service group",
+    "group": "Field service group",
     "groupText": "For a field service group that works a territory together, not a single publisher.",
     "removeTitle": "Remove {{name}}?",
     "removeText": "Their assignment history stays.",
+    "linkedDevices": "Linked on {{devices}}. They’ll need to choose their publisher again.",
+    "duplicate": "This name is already in the list.",
     "removeLabel": "Remove {{name}}",
     "addButton": "Add",
     "none": "No names yet",
@@ -423,6 +425,9 @@
     "restored": "Backup restored",
     "restoredText": "Restored {{items}}.",
     "restoredNothing": "This device already had everything in the backup.",
+    "adoptTitle": "Take over the old device’s profile?",
+    "adoptText": "The backup comes from {{name}}. This device can take over its linked publisher and picture.",
+    "adopt": "Take over",
     "notBackup": "Not a backup",
     "notBackupText": "Choose a .territories backup file made by this app.",
     "cardOff": "Automatic backup is off",

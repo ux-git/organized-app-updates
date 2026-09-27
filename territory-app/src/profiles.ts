@@ -15,7 +15,8 @@ export const myIdState = atom('');
 
 export const myAvatarState = atom((get) => get(avatarsState)[get(myIdState)]);
 
-export type Link = { person?: Person; missing?: boolean };
+/** `group`: the linked publisher was turned into a group. */
+export type Link = { person?: Person; missing?: boolean; group?: boolean };
 
 export const linkOf = (
   id: string,
@@ -24,9 +25,14 @@ export const linkOf = (
 ): Link => {
   const linked = links[id];
   if (!linked) return {};
-  const person = people.find((row) => row.id === linked && !row.group);
-  return person ? { person } : { missing: true };
+  const person = people.find((row) => row.id === linked);
+  if (!person) return { missing: true };
+  return person.group ? { missing: true, group: true } : { person };
 };
+
+/** How many devices are linked to this publisher. */
+export const linkedDevices = (id: string, links: Record<string, string>) =>
+  Object.values(links).filter((person) => person === id).length;
 
 export const myLinkState = atom((get) =>
   linkOf(get(myIdState), get(linksState), get(peopleState))

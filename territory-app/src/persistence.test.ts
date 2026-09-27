@@ -3,6 +3,7 @@ import { Territory } from '@definition/territory';
 import { store } from '@states/index';
 import { appLocalsState } from '@states/app_locals';
 import { settingsState } from '@states/settings';
+import { territoriesState } from '@states/territories';
 import { CURRENT_PUBLISHER } from './data';
 import { invoke } from './native';
 import {
@@ -10,6 +11,8 @@ import {
   loadIdentity,
   loadPeople,
   loadProfiles,
+  persist,
+  renameOnTerritories,
   setAvatar,
   setLink,
   split,
@@ -18,6 +21,7 @@ import {
 import {
   avatarsState,
   linkOf,
+  peopleState,
   linksState,
   myAvatarState,
   myIdState,
@@ -267,8 +271,45 @@ describe('linked publisher', () => {
     expect(uid()).toBe('');
   });
 
-  test('a group is never a link', () => {
-    expect(linkOf('me', { me: 'g1' }, people)).toEqual({ missing: true });
+  test('a group is never a link, and says so', () => {
+    expect(linkOf('me', { me: 'g1' }, people)).toEqual({
+      missing: true,
+      group: true,
+    });
+  });
+
+  test('unlinked, a publisher named like the device is "me"', async () => {
+    fake([], [...people, { id: 'p3', name: 'tom’s  PHONE', group: false }]);
+    await loadPeople();
+    await loadIdentity();
+    await loadProfiles();
+
+    expect(CURRENT_PUBLISHER).toBe('tom’s  PHONE');
+    expect(uid()).toBe('p3');
+  });
+
+  test('a double is removed and the devices linked to it move', async () => {
+    fake(
+      [
+        { id: 'me', person: 'p9' },
+        { id: 'anna', person: 'p1' },
+      ],
+      [...people, { id: 'p9', name: 'ben  beispiel', group: false }]
+    );
+    store.set(myIdState, 'me');
+    await loadPeople();
+
+    expect(invoke).toHaveBeenCalledWith('store_write', {
+      writes: [
+        { table: 'people', id: 'p9', deleted: true },
+        { table: 'profiles', id: 'me', fields: { person: 'p2' } },
+      ],
+    });
+    expect(store.get(peopleState).map((person) => person.id)).toEqual([
+      'g1',
+      'p1',
+      'p2',
+    ]);
   });
 
   test('linking and unlinking write this device’s record', async () => {
@@ -288,5 +329,43 @@ describe('linked publisher', () => {
     expect(suggestedLink('  anna  muster ', people)).toBe(people[0]);
     expect(suggestedLink('Group 1', people)).toBeUndefined();
     expect(suggestedLink('', people)).toBeUndefined();
+  });
+});
+
+describe('renaming', () => {
+  test('a new name reaches the territories and is written', async () => {
+    vi.mocked(invoke).mockResolvedValue(1);
+    store.set(territoriesState, [
+      territory({
+        id: 't1',
+        number: '1',
+        holder: 'Ben',
+        assignments: [{ id: 'a1', publisher: 'Ben' }],
+        doNotCalls: [{ id: 'd1', addedBy: 'Ben' }],
+      }),
+      territory({ id: 't2', number: '2', requestedBy: 'Ben' }),
+      territory({ id: 't3', number: '3', holder: 'Anna' }),
+    ]);
+    persist();
+    vi.mocked(invoke).mockClear();
+
+    renameOnTerritories(new Map([['Ben', 'Ben Beispiel']]));
+
+    const [t1, t2, t3] = store.get(territoriesState);
+    expect(t1.holder).toBe('Ben Beispiel');
+    expect(t1.assignments[0].publisher).toBe('Ben Beispiel');
+    expect(t1.doNotCalls[0].addedBy).toBe('Ben Beispiel');
+    expect(t2.requestedBy).toBe('Ben Beispiel');
+    expect(t3.holder).toBe('Anna');
+
+    const { writes } = vi.mocked(invoke).mock.calls[0][1] as {
+      writes: { table: string; id: string }[];
+    };
+    expect(writes.map((write) => `${write.table}/${write.id}`)).toEqual([
+      'territories/t1',
+      'assignments/a1',
+      'do_not_calls/d1',
+      'territories/t2',
+    ]);
   });
 });

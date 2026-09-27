@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { invoke, listen, nearby } from '../native';
+import { adoptProfile, profileToAdopt } from '../persistence';
 import { play } from '../haptics';
 import { t } from '../i18n';
 import { confirm } from './confirm';
@@ -48,6 +49,8 @@ export const restoreBackup = async (text: string) => {
   if (!ok) return false;
   try {
     const restored = await invoke<{
+      name: string;
+      device: string;
       received: number;
       items: Record<string, number>;
     }>('backup_restore', { text });
@@ -58,6 +61,17 @@ export const restoreBackup = async (text: string) => {
         ? t('backup.restoredText', { items: describeItems(restored.items) })
         : t('backup.restoredNothing')
     );
+    const old = await profileToAdopt(restored.device);
+    if (
+      old &&
+      (await confirm({
+        title: t('backup.adoptTitle'),
+        description: t('backup.adoptText', { name: restored.name }),
+        action: t('backup.adopt'),
+      }))
+    ) {
+      await adoptProfile(old);
+    }
     return true;
   } catch (error) {
     play('error');

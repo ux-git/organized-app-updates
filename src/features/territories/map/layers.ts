@@ -76,17 +76,25 @@ export const addDrawingLayers = (
     paint: { 'line-color': ['get', 'border'], 'line-width': 2.5 },
   });
 
-  map.addLayer({
-    id: `${prefix}-lines-solid`,
-    type: 'line',
-    source: `${prefix}-lines`,
-    filter: ['==', ['get', 'style'], 'solid'],
-    paint: { 'line-color': MAP_COLORS.blue, 'line-width': 3 },
-  });
-
   // a width that depends on the feature stretches the dashes several times,
   // so each border width gets its own layer with a fixed one
   for (const selected of [false, true]) {
+    map.addLayer({
+      id: `${prefix}-lines-solid${selected ? '-selected' : ''}`,
+      type: 'line',
+      source: `${prefix}-lines`,
+      filter: [
+        'all',
+        ['==', ['get', 'style'], 'solid'],
+        ['==', ['boolean', ['get', 'selected'], false], selected],
+      ],
+      paint: {
+        'line-color': MAP_COLORS.blue,
+        'line-width': selected ? 3 : 1.5,
+        ...(!selected && { 'line-opacity': labelOpacity(1) }),
+      },
+    });
+
     map.addLayer({
       id: `${prefix}-lines-dashed${selected ? '-selected' : ''}`,
       type: 'line',

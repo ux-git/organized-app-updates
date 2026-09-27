@@ -1,4 +1,5 @@
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
 import { IconAdd, IconDelete, IconImportExport } from '@icons/index';
 import Button from '@components/button';
@@ -7,6 +8,7 @@ import { NavBarOptionsType } from '@definition/app';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import IconButton from '@components/icon_button';
+import InfoNote from '@components/info_note';
 import NavBarButton from '@components/nav_bar_button';
 import NavBarButtonGroup from '@components/nav_bar_button_group';
 import PageTitle from '@components/page_title';
@@ -25,7 +27,15 @@ import {
   readBackup,
   readList,
 } from '../people';
-import { loadPeople, PEOPLE, Person, writeRows } from '../persistence';
+import {
+  loadPeople,
+  PEOPLE,
+  Person,
+  renameOnTerritories,
+  sameName,
+  writeRows,
+} from '../persistence';
+import { linkedDevices, linksState } from '../profiles';
 import { play } from '../haptics';
 import { confirm } from './confirm';
 import { t } from '../i18n';
@@ -190,12 +200,15 @@ const ImportDialog = ({
 
 const NameDialog = ({
   person,
+  people,
   onClose,
 }: {
   person: Person | 'new' | null;
+  people: Person[];
   onClose: VoidFunction;
 }) => {
   const existing = person && person !== 'new' ? person : null;
+  const links = useAtomValue(linksState);
   const [name, setName] = useState('');
   const [group, setGroup] = useState(false);
   const [shown, setShown] = useState<typeof person>(null);
@@ -207,9 +220,19 @@ const NameDialog = ({
     setGroup(existing?.group ?? false);
   }
 
+  // territories keep names, so two people can't share one
+  const duplicate = people.some(
+    (other) =>
+      other.id !== existing?.id && sameName(other.name) === sameName(name)
+  );
+  const linked =
+    existing && !existing.group && group
+      ? linkedDevices(existing.id, links)
+      : 0;
+
   const save = async () => {
     const trimmed = name.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || duplicate || busy) return;
     setBusy(true);
     try {
       await writeRows([
@@ -219,6 +242,9 @@ const NameDialog = ({
           fields: { name: trimmed, group },
         },
       ]);
+      if (existing && existing.name !== trimmed) {
+        renameOnTerritories(new Map([[existing.name, trimmed]]));
+      }
       await loadPeople();
       onClose();
     } catch (error) {
@@ -238,6 +264,8 @@ const NameDialog = ({
         label={t('publishers.name')}
         value={name}
         autoFocus
+        error={duplicate}
+        helperText={duplicate ? t('publishers.duplicate') : undefined}
         onChange={(event) => setName(event.target.value)}
         onKeyDown={(event) => event.key === 'Enter' && save()}
       />
@@ -246,12 +274,24 @@ const NameDialog = ({
         helper={t('publishers.groupText')}
         checked={group}
         onChange={setGroup}
+        inputProps={{ 'aria-label': t('publishers.group') }}
       />
+      {linked > 0 && (
+        <InfoNote
+          message={t('publishers.linkedDevices', {
+            devices: count(linked, 'phones'),
+          })}
+        />
+      )}
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
           {t('common.cancel')}
         </Button>
-        <Button variant="main" disabled={!name.trim() || busy} onClick={save}>
+        <Button
+          variant="main"
+          disabled={!name.trim() || duplicate || busy}
+          onClick={save}
+        >
           {t('common.save')}
         </Button>
       </DialogActions>
@@ -262,6 +302,7 @@ const NameDialog = ({
 // the settings page names it; it adds its own Import and Add buttons
 const Publishers = ({ title }: { title: NavBarOptionsType }) => {
   const people = usePeople();
+  const links = useAtomValue(linksState);
   const [search, setSearch] = useState('');
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Person | 'new' | null>(null);
@@ -280,9 +321,16 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
   }, [people, search]);
 
   const remove = async (person: Person) => {
+    const linked = person.group ? 0 : linkedDevices(person.id, links);
     const ok = await confirm({
       title: t('publishers.removeTitle', { name: person.name }),
-      description: t('publishers.removeText'),
+      description: [
+        t('publishers.removeText'),
+        linked > 0 &&
+          t('publishers.linkedDevices', { devices: count(linked, 'phones') }),
+      ]
+        .filter(Boolean)
+        .join(' '),
       action: t('common.remove'),
     });
     if (!ok) return;
@@ -401,7 +449,11 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
         people={people}
         onClose={() => setImportOpen(false)}
       />
-      <NameDialog person={editing} onClose={() => setEditing(null)} />
+      <NameDialog
+        person={editing}
+        people={people}
+        onClose={() => setEditing(null)}
+      />
     </>
   );
 };

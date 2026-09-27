@@ -133,7 +133,7 @@ export const lineCollection = (
         // the dashes show together with the territory's number
         labelZoom:
           (territory.boundary?.length ?? 0) > 2
-            ? labelZoom(territory.boundary!, String(territory.number ?? ''))
+            ? labelZoom(territory.boundary!, String(territory.number ?? ''), 0)
             : 0,
       },
       geometry: { type: 'LineString' as const, coordinates: line.path },
@@ -174,7 +174,8 @@ const EARTH_METRES = 40_075_016.686;
 
 // maplibre can't measure a polygon on screen, so each label carries the zoom
 // from which its territory is big enough to hold the number badge
-const labelZoom = (ring: GeoJSON.Position[], number: string) => {
+// `unknown`: the zoom for a border too thin to measure
+const labelZoom = (ring: GeoJSON.Position[], number: string, unknown = 24) => {
   const [west, south, east, north] = boundaryBounds(ring as TerritoryBoundary);
   const scale = Math.cos((((south + north) / 2) * Math.PI) / 180);
   const perDegree = EARTH_METRES / 360;
@@ -205,7 +206,7 @@ const labelZoom = (ring: GeoJSON.Position[], number: string) => {
     zoomFor(18, height * fill)
   );
 
-  return Number.isFinite(zoom) ? Math.min(zoom, 24) : 24;
+  return Number.isFinite(zoom) ? Math.min(zoom, 24) : unknown;
 };
 
 // a label on the polygon itself repeats on every tile the area crosses

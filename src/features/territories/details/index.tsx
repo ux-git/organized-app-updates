@@ -71,7 +71,7 @@ const TerritoryDetails = ({
         }
       />
 
-      <TerritoryStats territory={territory} showDoNotCalls={showPrivate} />
+      <TerritoryStats territory={territory} />
     </>
   );
 
