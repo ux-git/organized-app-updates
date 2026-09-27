@@ -15,7 +15,7 @@
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>Territory transfer</string>
+			<string>Territories file</string>
 			<key>LSHandlerRank</key>
 			<string>Owner</string>
 			<key>LSItemContentTypes</key>
@@ -93,7 +93,7 @@
 			<key>UTTypeIdentifier</key>
 			<string>com.sws2apps.territories.transfer</string>
 			<key>UTTypeDescription</key>
-			<string>Territory transfer</string>
+			<string>Territories file</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>

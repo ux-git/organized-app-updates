@@ -103,6 +103,18 @@ pub extern "C" fn territory_summary() -> *mut c_char {
     give_text(native::summary())
 }
 
+/// Whether a transfer file waits for the sync page.
+#[no_mangle]
+pub extern "C" fn territory_has_file() -> bool {
+    crate::opened_file(false).is_some()
+}
+
+/// The waiting transfer file, once; "" when there is none.
+#[no_mangle]
+pub extern "C" fn territory_take_file() -> *mut c_char {
+    give_text(crate::opened_file(true).unwrap_or_default())
+}
+
 #[no_mangle]
 pub extern "C" fn territory_emit(event: *const c_char, payload: *const c_char) {
     native::emit(text(event), text(payload));

@@ -4,3 +4,4 @@
 "NSLocationWhenInUseUsageDescription" = "Saves where the Kingdom Hall is. The location stays on this device.";
 "NSLocationAlwaysAndWhenInUseUsageDescription" = "Notices when you arrive at the Kingdom Hall or a paired device is near, so your device syncs by itself. The location stays on this device.";
 "NSCameraUsageDescription" = "Scans the pairing and transfer QR codes of another device.";
+"Territories file" = "Territories file";

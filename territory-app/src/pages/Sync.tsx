@@ -67,7 +67,8 @@ const Sync = () => {
         receive(text).then(refreshPeers)
       ),
     ];
-    nearby('takeFile');
+    // asked once listening, or the file can come before the listener
+    Promise.all(stops).then(() => nearby('takeFile'));
     return () => stops.forEach((stop) => stop.then((unlisten) => unlisten()));
   }, [refreshPeers]);
 

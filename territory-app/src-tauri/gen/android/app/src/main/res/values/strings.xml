@@ -7,7 +7,6 @@
     <string name="file_share">Share</string>
     <string name="file_print">Print</string>
     <string name="sync_channel">Sync with paired devices</string>
-    <string name="sync_title">Territories: Organized</string>
     <string name="sync_looking">Checking for paired devices nearby</string>
     <string name="results_channel">Sync results</string>
     <string name="done_title">Synced with %1$s</string>

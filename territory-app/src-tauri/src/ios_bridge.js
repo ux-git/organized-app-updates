@@ -30,4 +30,14 @@
       return true;
     },
   };
+  // a notification's page or an opened file waits for this
+  function ready() {
+    window.TerritoryNearby.command('pageReady', '{}');
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ready);
+  } else ready();
+  addEventListener('pagehide', function () {
+    window.TerritoryNearby.command('pageGone', '{}');
+  });
 })();

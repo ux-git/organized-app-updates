@@ -7,7 +7,6 @@
     <string name="file_share">Teilen</string>
     <string name="file_print">Drucken</string>
     <string name="sync_channel">Mit gekoppelten Geräten synchronisieren</string>
-    <string name="sync_title">Gebiete: Organized</string>
     <string name="sync_looking">Sucht nach gekoppelten Geräten in der Nähe</string>
     <string name="results_channel">Ergebnisse der Synchronisierung</string>
     <string name="done_title">Synchronisiert mit %1$s</string>

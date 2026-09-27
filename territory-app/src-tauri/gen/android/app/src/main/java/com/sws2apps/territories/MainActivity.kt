@@ -60,6 +60,7 @@ class MainActivity : TauriActivity() {
     )
     super.onCreate(savedInstanceState)
     current = this
+    handleFileIntent(intent)
     handleOpenedFile(intent)
 
     prefs().getString(PREF_ACCENT, null)?.let { ACCENTS[it] }?.let { theme.applyStyle(it, true) }
@@ -140,11 +141,24 @@ class MainActivity : TauriActivity() {
     handleOpenedFile(intent)
   }
 
-  /** A transfer file from a paired phone, opened or shared into the app. */
+  /** A transfer file from a paired phone, opened or shared into the app, until the sync page takes it. */
   private var openedFile: String? = null
+
+  /** Where a notification or shortcut leads, until the page can go there. */
+  private var pendingRoute: String? = null
+
+  private var pageReady = false
 
   private fun handleOpenedFile(intent: Intent?) {
     if (intent == null) return
+    // a transfer shared as text rather than as a file
+    val shared = if (intent.action == Intent.ACTION_SEND) intent.getStringExtra(Intent.EXTRA_TEXT)?.trim() else null
+    if (shared != null && isTransfer(shared)) {
+      intent.removeExtra(Intent.EXTRA_TEXT)
+      openedFile = shared
+      showFile()
+      return
+    }
     val uri = when (intent.action) {
       Intent.ACTION_VIEW -> intent.data
       Intent.ACTION_SEND ->
@@ -153,9 +167,13 @@ class MainActivity : TauriActivity() {
     } ?: return
     intent.data = null
     intent.removeExtra(Intent.EXTRA_STREAM)
-    val text = runCatching { readTransfer(uri) }.getOrNull() ?: return
-    openedFile = text
-    deliverFile()
+    Thread {
+      val text = runCatching { readTransfer(uri) }.getOrNull() ?: return@Thread
+      handler.post {
+        openedFile = text
+        showFile()
+      }
+    }.start()
   }
 
   /** Any app can hand over any file, so only up to a size a transfer can have. */
@@ -170,27 +188,44 @@ class MainActivity : TauriActivity() {
       }
       if (bytes.size() > FILE_MAX) null else bytes.toString("UTF-8").trim()
     } ?: return null
-    return text.takeIf { listOf("OTB1:", "OTC1:", "OTA1:").any(it::startsWith) }
+    return text.takeIf(::isTransfer)
+  }
+
+  private fun isTransfer(text: String) = listOf("OTB1:", "OTC1:", "OTA1:").any(text::startsWith)
+
+  /** The sync page shows what came in; it asks for the file (takeFile) once it listens. */
+  private fun showFile() {
+    if (openedFile == null) return
+    val view = webView
+    if (!pageReady || view == null) {
+      pendingRoute = "/sync"
+      return
+    }
+    view.evaluateJavascript("location.hash") { result ->
+      val route = result?.trim('"')?.removePrefix("#")?.substringBefore('?')
+      if (route == "/sync") deliverFile() else openRoute("/sync")
+    }
   }
 
   private fun deliverFile() {
     val text = openedFile ?: return
     openedFile = null
-    // the sync page shows what came in
-    handleRoute(Intent().putExtra(EXTRA_ROUTE, "/sync"))
-    handler.postDelayed({
-      Native.emit("file", JSONObject().put("text", text).toString())
-    }, 800)
+    Native.emit("file", JSONObject().put("text", text).toString())
   }
 
   /** A reminder opens the page it is about, e.g. the sync page. */
   private fun handleRoute(intent: Intent?) {
     val route = intent?.getStringExtra(EXTRA_ROUTE) ?: return
     intent.removeExtra(EXTRA_ROUTE)
-    val quoted = JSONObject.quote("#$route")
-    handler.postDelayed({
-      webView?.evaluateJavascript("location.hash=$quoted", null)
-    }, 300)
+    openRoute(route)
+  }
+
+  private fun openRoute(route: String) {
+    pendingRoute = route
+    val view = webView ?: return
+    if (!pageReady) return
+    pendingRoute = null
+    view.evaluateJavascript("location.hash=${JSONObject.quote("#$route")}", null)
   }
 
   /** Open, Share or Print pressed on a saved file's notification. */
@@ -276,7 +311,6 @@ class MainActivity : TauriActivity() {
       Native.emit("qr", JSONObject().put("text", text).toString())
     }
     if (NearbyService.wantMeet) Tap.start(this)
-    // opening the app is a good moment: look for paired phones for a while
     // opening the app is a good moment, unless syncing is left to Sync now
     if (Nearby.hasPeers() && Reminders.mode(this) != "manual") {
       NearbyService.start(this, "open", 2 * 60_000L)
@@ -363,6 +397,8 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun ready() {
       handler.post {
+        pageReady = true
+        pendingRoute?.let(::openRoute)
         val view = webView
         if (view == null) {
           pageShown = true

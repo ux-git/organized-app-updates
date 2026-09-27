@@ -276,8 +276,9 @@ final class Notices: NSObject, UNUserNotificationCenterDelegate {
     return parts.dropLast().joined(separator: ", ") + tr(" and ", " und ") + parts.last!
   }
 
-  /// German when the phone is set to German, as Android picks values-de.
+  /// German when the app is set to German (the phone's language or the app's
+  /// own in Settings), as Android picks values-de.
   static func tr(_ english: String, _ german: String) -> String {
-    Locale.preferredLanguages.first?.hasPrefix("de") == true ? german : english
+    Bundle.main.preferredLocalizations.first?.hasPrefix("de") == true ? german : english
   }
 }

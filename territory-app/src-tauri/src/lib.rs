@@ -159,26 +159,81 @@ fn import_bundle(text: String) -> Result<qr::Imported> {
     Ok(imported)
 }
 
-/// Shows the sync page and hands it the transfer, as MainActivity does for a
-/// file opened on Android.
+/// A transfer opened from Files, AirDrop or Mail, until the sync page takes it
+/// (`territory_take_file`), as MainActivity keeps one on Android.
+#[cfg(any(target_os = "ios", target_os = "macos", test))]
+static OPENED_FILE: Mutex<Option<String>> = Mutex::new(None);
+
+#[cfg(any(target_os = "ios", target_os = "macos", test))]
+pub fn opened_file(take: bool) -> Option<String> {
+    let mut file = OPENED_FILE.lock().ok()?;
+    if take {
+        file.take()
+    } else {
+        file.clone()
+    }
+}
+
+/// Reads a transfer into the waiting slot. iOS hands over a copy in
+/// Documents/Inbox, which iCloud would back up, so that copy goes.
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+fn read_opened(path: &Path) -> bool {
+    let text = std::fs::read_to_string(path);
+    if path.parent().is_some_and(|dir| dir.ends_with("Documents/Inbox")) {
+        let _ = std::fs::remove_file(path);
+    }
+    let Ok(text) = text else { return false };
+    let text = text.trim().to_string();
+    if !["OTB1:", "OTC1:", backup::BACKUP].iter().any(|p| text.starts_with(p)) {
+        return false;
+    }
+    if let Ok(mut file) = OPENED_FILE.lock() {
+        *file = Some(text);
+    }
+    true
+}
+
+/// tao doesn't pass on a file that launched the app (only one opened while it
+/// runs), so what is left in Documents/Inbox is taken at start, newest last.
+#[cfg(target_os = "ios")]
+fn read_inbox(documents: &Path) {
+    let Ok(entries) = std::fs::read_dir(documents.join("Inbox")) else { return };
+    let mut files: Vec<_> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "territories"))
+        .map(|path| (std::fs::metadata(&path).and_then(|m| m.modified()).ok(), path))
+        .collect();
+    files.sort();
+    for (_, path) in files {
+        read_opened(&path);
+    }
+}
+
 #[cfg(any(target_os = "ios", target_os = "macos"))]
 fn open_files(app: &AppHandle, urls: Vec<tauri::Url>) {
-    for url in urls {
-        let Ok(path) = url.to_file_path() else { continue };
-        let Ok(text) = std::fs::read_to_string(path) else { continue };
-        let text = text.trim().to_string();
-        if !["OTB1:", "OTC1:", backup::BACKUP].iter().any(|p| text.starts_with(p)) {
-            continue;
+    let app = app.clone();
+    std::thread::spawn(move || {
+        for url in urls {
+            let Ok(path) = url.to_file_path() else { continue };
+            if !read_opened(&path) {
+                continue;
+            }
+            let Some(window) = app.get_webview_window("main") else { continue };
+            // the plugin shows the sync page, or hands the file over there; before
+            // the page has loaded, it does so once the page reports in
+            #[cfg(target_os = "ios")]
+            let _ = window.eval("window.TerritoryNearby&&TerritoryNearby.command('showFile','{}')");
+            #[cfg(not(target_os = "ios"))]
+            {
+                let _ = window.eval("location.hash='#/sync'");
+                std::thread::sleep(std::time::Duration::from_millis(800));
+                if let Some(text) = opened_file(true) {
+                    let _ = app.emit("file", serde_json::json!({ "text": text }));
+                }
+            }
         }
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.eval("location.hash='#/sync'");
-        }
-        let app = app.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(800));
-            let _ = app.emit("file", serde_json::json!({ "text": text }));
-        });
-    }
+    });
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -191,6 +246,10 @@ pub fn run() {
             let dir = app.path().app_data_dir()?;
             open_store(&dir)?;
             let _ = APP.set(app.handle().clone());
+            #[cfg(target_os = "ios")]
+            if let Ok(documents) = app.path().document_dir() {
+                read_inbox(&documents);
+            }
 
             // Built here rather than from the config, for the script that
             // takes the Android shell's bar sizes and colours

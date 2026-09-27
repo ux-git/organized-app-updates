@@ -104,6 +104,15 @@ enum Core {
     take(territory_backup())
   }
 
+  /// A transfer file opened from Files, AirDrop or Mail waits for the sync page.
+  static var hasFile: Bool { territory_has_file() }
+
+  /// The waiting transfer file, once; nil when there is none.
+  static func takeFile() -> String? {
+    let text = take(territory_take_file())
+    return text.isEmpty ? nil : text
+  }
+
   /// Passes progress to the page, as `Native.emit` does on Android.
   static func emit(_ event: String, _ payload: Any) {
     guard let data = try? JSONSerialization.data(withJSONObject: payload),

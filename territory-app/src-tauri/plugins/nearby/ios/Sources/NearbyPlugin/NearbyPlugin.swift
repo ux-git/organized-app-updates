@@ -17,13 +17,28 @@ private final class WeakHandler: NSObject, WKScriptMessageHandler {
 
 enum Page {
   fileprivate static weak var webview: WKWebView?
+  /// Set once the page's script has run (ios_bridge.js sends "pageReady").
+  fileprivate static var ready = false
+  private static var pendingRoute: String?
 
-  /// A notification opens the page it is about.
+  /// A notification opens the page it is about, once the page is there.
   static func open(route: String) {
+    guard ready, let webview = webview else {
+      pendingRoute = route
+      return
+    }
     guard let data = try? JSONSerialization.data(withJSONObject: ["#" + route]),
       let quoted = String(data: data, encoding: .utf8)
     else { return }
-    webview?.evaluateJavaScript("location.hash=\(quoted)[0]")
+    webview.evaluateJavaScript("location.hash=\(quoted)[0]")
+  }
+
+  fileprivate static func loaded() {
+    ready = true
+    if let route = pendingRoute {
+      pendingRoute = nil
+      open(route: route)
+    }
   }
 }
 
@@ -33,6 +48,12 @@ class NearbyPlugin: Tauri.Plugin {
   public override func load(webview: WKWebView) {
     self.webview = webview
     Page.webview = webview
+    // the launch screen's colour until the page paints, not a white frame
+    if let color = UIColor(named: "LaunchBackground") {
+      webview.isOpaque = false
+      webview.backgroundColor = color
+      webview.scrollView.backgroundColor = color
+    }
     // the page's objects come from src-tauri/src/ios_bridge.js
     let controller = webview.configuration.userContentController
     controller.add(WeakHandler(self), name: "territoryNearby")
@@ -87,6 +108,13 @@ class NearbyPlugin: Tauri.Plugin {
       if !Place.shared.allowed { Place.shared.askWhenInUse() }
     case "hallClear": Place.shared.clearHall()
     case "scanQr": scanQr()
+    case "pageReady":
+      Page.loaded()
+      // the sync page pulls the file itself (takeFile) once it listens
+      if Core.hasFile { Page.open(route: "/sync") }
+    case "pageGone": Page.ready = false
+    case "showFile": showFile()
+    case "takeFile": deliverFile()
     case "backupStatus": Backups.emit()
     case "backupSchedule":
       Backups.setSchedule(args)
@@ -111,10 +139,27 @@ class NearbyPlugin: Tauri.Plugin {
       if #available(iOS 26.0, *) { webview?.scrollView.topEdgeEffect.isHidden = true }
       return
     default:
-      // status; and what only Android has (NFC, alarms, taking a file)
+      // status; and what only Android has (NFC, alarms)
       break
     }
     emitStatus()
+  }
+
+  // ---- a transfer file opened into the app (src-tauri/src/lib.rs) ----
+
+  /// The sync page takes it once it listens (takeFile); when it is open
+  /// already, it gets the file now.
+  private func showFile() {
+    guard Core.hasFile else { return }
+    guard Page.ready, let webview = webview else { return }
+    webview.evaluateJavaScript("location.hash") { result, _ in
+      let hash = (result as? String ?? "").split(separator: "?").first.map(String.init)
+      if hash == "#/sync" { self.deliverFile() } else { Page.open(route: "/sync") }
+    }
+  }
+
+  private func deliverFile() {
+    if let text = Core.takeFile() { Core.emit("file", ["text": text]) }
   }
 
   // ---- permissions, asked one after the other ----

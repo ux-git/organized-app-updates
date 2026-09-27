@@ -18,5 +18,7 @@ void territory_session_close(int64_t handle);
 uint8_t *territory_beacon(size_t *len);
 char *territory_recognise(const uint8_t *beacon, size_t beacon_len);
 char *territory_summary(void);
+bool territory_has_file(void);
+char *territory_take_file(void);
 void territory_emit(const char *event, const char *payload);
 char *territory_backup(void);
