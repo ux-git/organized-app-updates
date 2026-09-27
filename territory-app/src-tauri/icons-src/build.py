@@ -1,6 +1,7 @@
 """The Organized Territories icons, from AppIcon.icon (open it in Icon Composer
 to change the design). iOS 26+ renders that file as Liquid Glass; this script
-flattens its layers for everything else. Run from this folder, then
+flattens its layers for everything else. Its grid layer is drawn 1.5 times larger, as the
+Android launcher crops it, so iOS shows the same circle. Run from this folder, then
 `npm run tauri -- icon src-tauri/app-icon.json` makes every size from the PNGs."""
 import subprocess
 from io import BytesIO
@@ -61,9 +62,6 @@ def stack(names, size):
     return out
 
 
-# iOS before 26 and every other square use: the flat icon, opaque, full bleed
-stack(BACK_TO_FRONT, 1024).convert('RGB').save(HERE / 'ios-icon.png')
-stack(BACK_TO_FRONT, 1024).save(HERE / 'app-icon.png')
 
 # Android's adaptive icon: the light background behind, the cards in front. Launchers show the
 # middle 72 of 108 units; the stack reaches about 85% of the round mask.
@@ -74,11 +72,23 @@ front = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
 front.alpha_composite(stack(BACK_TO_FRONT[1:], safe), (pad, pad))
 front.save(HERE / 'android-foreground.png')
 
+# iOS before 26 and every other square use: what the Android launcher shows, so the circle on
+# the grid is seen everywhere; opaque, full bleed
+cut = round(1024 * 18 / 108)
+flat = background(1024)
+flat.alpha_composite(front)
+flat = flat.crop((cut, cut, 1024 - cut, 1024 - cut)).resize((1024, 1024), Image.LANCZOS)
+flat.convert('RGB').save(HERE / 'ios-icon.png')
+flat.save(HERE / 'app-icon.png')
+
 # the themed icon is one ink: each card a step stronger, the front one full ink
 mono = Image.new('L', (safe, safe), 0)
+gap = round(safe * 0.035) | 1
 for name, ink in [('violet', 70), ('yellow', 120), ('green', 175), ('blue', 255)]:
     # the card only, not the soft glow around it
     alpha = layer(name, safe).getchannel('A').point(lambda a: 255 if a > 250 else 0)
+    # a clear gap around each card keeps the stack readable in one ink, as in the notification icon
+    mono.paste(0, mask=alpha.filter(ImageFilter.MaxFilter(gap)))
     mono.paste(Image.new('L', (safe, safe), ink), mask=alpha)
 # the star on the front card stays a cut-out
 star = layer('blue', safe).convert('L').point(lambda v: 255 if v > 245 else 0)
