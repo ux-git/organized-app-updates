@@ -78,6 +78,13 @@ cut = round(1024 * 18 / 108)
 flat = background(1024)
 flat.alpha_composite(front)
 flat = flat.crop((cut, cut, 1024 - cut, 1024 - cut)).resize((1024, 1024), Image.LANCZOS)
+# a light edge in the strong grid line's white, along the iOS shape; Android's launcher picks its
+# own shape and iOS 26 draws its own edge, so neither gets it
+edge = Image.new('L', (4096, 4096), 0)
+ImageDraw.Draw(edge).rounded_rectangle((0, 0, 4095, 4095), radius=round(4096 * 0.2237), outline=102, width=27)
+light = Image.new('RGBA', (1024, 1024), (255, 255, 255, 0))
+light.putalpha(edge.resize((1024, 1024), Image.LANCZOS))
+flat.alpha_composite(light)
 flat.convert('RGB').save(HERE / 'ios-icon.png')
 flat.save(HERE / 'app-icon.png')
 
