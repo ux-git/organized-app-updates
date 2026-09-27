@@ -18,12 +18,15 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use snow::{Builder, HandshakeState, TransportState};
 
-use crate::store::{Applied, Cell, Member, Peer, Result, Store, Touched, Versions};
+use crate::store::{is_id, Applied, Cell, Member, Peer, Result, Standing, Store, Touched, Versions};
 
 const PARAMS: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
 const PROLOGUE: &[u8] = b"organized-territories-1";
 /// Plaintext per message, under Noise's 65535-byte limit with room for the tag.
 const CHUNK: usize = 60_000;
+/// The most a sync or transfer may carry, packed or unpacked, so a broken
+/// or hostile peer can't make the phone run out of memory.
+const LIMIT: usize = 64 << 20;
 
 const HELLO: u8 = 1;
 const COMMIT: u8 = 2;
@@ -35,6 +38,12 @@ const DONE: u8 = 7;
 const ACK: u8 = 8;
 const FAIL: u8 = 9;
 const CIRCLE: u8 = 10;
+/// Sent instead of a hello to a phone removed from the group, with the stamp
+/// of its removal. Older versions take it as an unexpected message.
+const REMOVED: u8 = 11;
+
+/// Why a sync with a phone removed from the group stops, on both phones.
+pub const REMOVED_REASON: &str = "removed from the group";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Mode {
@@ -68,6 +77,8 @@ pub enum Status {
         conflicts: usize,
         /// Phones of the circle this one met through the other.
         introduced: Vec<String>,
+        /// Paired phones this one heard were removed from the group.
+        removed: Vec<String>,
     },
     Failed {
         reason: String,
@@ -88,6 +99,8 @@ struct Hello {
 enum Noise {
     Handshake(Box<HandshakeState>),
     Transport(Box<TransportState>),
+    /// Only while the handshake turns into transport mode, or when that failed.
+    Closed,
 }
 
 pub struct Session {
@@ -111,6 +124,7 @@ pub struct Session {
     parts: Vec<u8>,
     received: Option<(Applied, Versions)>,
     introduced: Vec<String>,
+    removed: Vec<String>,
     acked: bool,
 }
 
@@ -136,8 +150,12 @@ fn deflate(bytes: &[u8]) -> Vec<u8> {
 fn inflate(bytes: &[u8]) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     flate2::read::DeflateDecoder::new(bytes)
+        .take(LIMIT as u64 + 1)
         .read_to_end(&mut out)
         .map_err(|e| e.to_string())?;
+    if out.len() > LIMIT {
+        return Err("too much data".into());
+    }
     Ok(out)
 }
 
@@ -183,6 +201,7 @@ impl Session {
             parts: Vec::new(),
             received: None,
             introduced: Vec::new(),
+            removed: Vec::new(),
             acked: false,
         })
     }
@@ -289,14 +308,11 @@ impl Session {
                 if hs.is_handshake_finished() {
                     self.remote_key = hs.get_remote_static().unwrap_or_default().to_vec();
                     self.handshake_hash = hs.get_handshake_hash().to_vec();
-                    let Noise::Handshake(hs) =
-                        std::mem::replace(&mut self.noise, Noise::Transport(Box::new(placeholder())))
-                    else {
-                        unreachable!()
-                    };
-                    self.noise = Noise::Transport(Box::new(
-                        hs.into_transport_mode().map_err(|e| e.to_string())?,
-                    ));
+                    if let Noise::Handshake(hs) = std::mem::replace(&mut self.noise, Noise::Closed) {
+                        self.noise = Noise::Transport(Box::new(
+                            hs.into_transport_mode().map_err(|e| e.to_string())?,
+                        ));
+                    }
                     self.opened(store, out)?;
                 }
                 Ok(())
@@ -309,14 +325,20 @@ impl Session {
                 let body = body.to_vec();
                 self.handle(store, *kind, &body, out)
             }
+            Noise::Closed => Err("not connected".into()),
         }
     }
 
     fn opened(&mut self, store: &Store, out: &mut Vec<u8>) -> Result<()> {
         if self.mode == Mode::Sync {
-            let peer = store
-                .peer_by_key(&self.remote_key)?
-                .ok_or("this phone is not paired")?;
+            let Some(peer) = store.peer_by_key(&self.remote_key)? else {
+                // it learns why, so it stops trying
+                if let Some(stamp) = store.removed_by_key(&self.remote_key)? {
+                    self.send(out, REMOVED, stamp.as_bytes())?;
+                    return Err(REMOVED_REASON.into());
+                }
+                return Err("this phone is not paired".into());
+            };
             self.peer = Some(peer.id);
         }
         let hello = Hello {
@@ -331,8 +353,13 @@ impl Session {
     }
 
     fn handle(&mut self, store: &mut Store, kind: u8, body: &[u8], out: &mut Vec<u8>) -> Result<()> {
+        // each step of the code check comes once and in order; a second
+        // nonce or commit would let someone in the middle steer the code
+        let code = self.mode == Mode::Pair { code: true } && self.status == Status::Connecting;
+        // data only from a phone that is trusted: paired, or a peer already
+        let trusted = self.peer.is_some();
         match kind {
-            HELLO => {
+            HELLO if self.hello.is_none() => {
                 let hello: Hello = serde_json::from_slice(body).map_err(|e| e.to_string())?;
                 if let Some(peer) = &self.peer {
                     if peer != &hello.id {
@@ -354,17 +381,18 @@ impl Session {
                     Mode::Pair { code: true } => {}
                 }
             }
-            COMMIT if !self.initiator => {
+            COMMIT if code && !self.initiator && self.their_commit.is_none() => {
                 self.their_commit = Some(body.try_into().map_err(|_| "bad commit")?);
                 let nonce = self.nonce;
                 self.send(out, NONCE, &nonce)?;
             }
-            NONCE if self.initiator => {
+            // the initiator committed when the hello came
+            NONCE if code && self.initiator && self.hello.is_some() => {
                 let nonce = self.nonce;
                 self.send(out, REVEAL, &nonce)?;
                 self.show_code(&nonce, body)?;
             }
-            REVEAL if !self.initiator => {
+            REVEAL if code && !self.initiator => {
                 if Some(sha256(&[body])) != self.their_commit {
                     return Err("the code check failed".into());
                 }
@@ -382,14 +410,35 @@ impl Session {
                 }
                 self.paired(store, out)?;
             }
-            // only once the other phone is trusted: paired, or a peer already
-            CIRCLE if self.peer.is_some() => {
+            CIRCLE if trusted => {
                 let members: Vec<Member> = unpack(body)?;
                 let by = self.peer.clone().unwrap_or_default();
-                self.introduced = store.introduce(&members, &by)?;
+                (self.introduced, self.removed) = store.introduce(&members, &by)?;
+                if store.is_removed()? {
+                    return Err(REMOVED_REASON.into());
+                }
+                if store.peer(&by)?.is_none() {
+                    return Err("the other phone was removed from the group".into());
+                }
             }
-            PART => self.parts.extend_from_slice(body),
-            DONE => {
+            REMOVED if trusted => {
+                let stamp = String::from_utf8_lossy(body).into_owned();
+                let (id, name) = (store.identity.id.clone(), store.identity.name.clone());
+                let standing = Standing { stamp, removed: true };
+                store.take_standing(&id, &standing, &name)?;
+                // a removal older than a pairing since is news the other phone lacks
+                if !store.is_removed()? {
+                    return Err("this phone is not paired on the other phone".into());
+                }
+                return Err(REMOVED_REASON.into());
+            }
+            PART if trusted => {
+                if self.parts.len() + body.len() > LIMIT {
+                    return Err("too much data".into());
+                }
+                self.parts.extend_from_slice(body);
+            }
+            DONE if trusted && self.received.is_none() => {
                 let cells: Vec<Cell> = unpack(&std::mem::take(&mut self.parts))?;
                 let theirs: Versions = serde_json::from_slice(body).map_err(|e| e.to_string())?;
                 let applied = store.apply(&cells, &theirs)?;
@@ -397,7 +446,7 @@ impl Session {
                 self.send(out, ACK, &[])?;
                 self.finish(store)?;
             }
-            ACK => {
+            ACK if self.sent_versions.is_some() => {
                 self.acked = true;
                 self.finish(store)?;
             }
@@ -437,6 +486,9 @@ impl Session {
         let adv = STANDARD
             .decode(hello.adv.as_deref().unwrap_or_default())
             .map_err(|e| e.to_string())?;
+        if !is_id(&hello.id) || adv.len() != 16 {
+            return Err("the other phone sent a bad id".into());
+        }
         store.add_peer(&Peer {
             id: hello.id.clone(),
             name: hello.name.clone(),
@@ -462,17 +514,25 @@ impl Session {
                 sent_territories: Vec::new(),
                 conflicts: 0,
                 introduced: Vec::new(),
+                removed: Vec::new(),
             };
             return Ok(());
         }
         self.exchange(store, out)
     }
 
-    fn exchange(&mut self, store: &Store, out: &mut Vec<u8>) -> Result<()> {
-        let theirs = self.hello.as_ref().ok_or("no hello")?.versions.clone();
+    fn exchange(&mut self, store: &mut Store, out: &mut Vec<u8>) -> Result<()> {
+        let mut theirs = self.hello.as_ref().ok_or("no hello")?.versions.clone();
+        let peer = self.peer.clone().unwrap_or_default();
+        // either phone may have been restored from a backup: this one moves
+        // its own changes past what the peer knows of them, and a peer that
+        // knows less of its own changes than this phone gets them all back
+        store.catch_up(&theirs)?;
+        if theirs.get(&peer) < store.versions()?.get(&peer) {
+            theirs.remove(&peer);
+        }
         let cells = store.changes_since(&theirs)?;
         let mine = store.versions()?;
-        let peer = self.peer.clone().unwrap_or_default();
         self.status = Status::Exchanging { peer: peer.clone() };
         self.send(out, CIRCLE, &pack(&store.circle(&peer)?)?)?;
         for chunk in pack(&cells)?.chunks(CHUNK) {
@@ -480,7 +540,9 @@ impl Session {
         }
         self.send(out, DONE, &serde_json::to_vec(&mine).map_err(|e| e.to_string())?)?;
         self.sent = cells.len();
-        self.sent_territories = store.touched(&cells)?;
+        // records whose every cell goes out are new to the peer
+        let new = store.unseen(&cells)?;
+        self.sent_territories = store.touched(&cells, &new)?;
         self.sent_versions = Some(mine);
         Ok(())
     }
@@ -503,7 +565,7 @@ impl Session {
             store.rename_peer(&peer, &hello.name)?;
         }
         let name = store.peer(&peer)?.map(|p| p.name).unwrap_or_default();
-        store.log_sync(&peer, &name, self.sent, &self.sent_territories, received)?;
+        store.log_sync(&peer, &name, self.sent, &self.sent_territories, received, &self.removed)?;
         self.status = Status::Done {
             name,
             peer,
@@ -514,31 +576,10 @@ impl Session {
             sent_territories: self.sent_territories.clone(),
             conflicts: received.conflicts,
             introduced: self.introduced.clone(),
+            removed: self.removed.clone(),
         };
         Ok(())
     }
-}
-
-/// Only stands in for a moment while the handshake turns into transport mode.
-fn placeholder() -> TransportState {
-    let keys = Builder::new(PARAMS.parse().unwrap()).generate_keypair().unwrap();
-    let mut i = Builder::new(PARAMS.parse().unwrap())
-        .local_private_key(&keys.private)
-        .build_initiator()
-        .unwrap();
-    let mut r = Builder::new(PARAMS.parse().unwrap())
-        .local_private_key(&keys.private)
-        .build_responder()
-        .unwrap();
-    let mut a = [0u8; 256];
-    let mut b = [0u8; 256];
-    let n = i.write_message(&[], &mut a).unwrap();
-    r.read_message(&a[..n], &mut b).unwrap();
-    let n = r.write_message(&[], &mut a).unwrap();
-    i.read_message(&a[..n], &mut b).unwrap();
-    let n = i.write_message(&[], &mut a).unwrap();
-    r.read_message(&a[..n], &mut b).unwrap();
-    i.into_transport_mode().unwrap()
 }
 
 /// What the phone puts in its Bluetooth advertisement: 8 bytes only its
@@ -675,15 +716,16 @@ mod tests {
                 territories: vec![Touched {
                     id: "t2".into(),
                     number: "2".into(),
-                    what: vec!["details".into()]
+                    what: vec!["created".into()]
                 }],
                 sent_territories: vec![Touched {
                     id: "t1".into(),
                     number: "1".into(),
-                    what: vec!["details".into()]
+                    what: vec!["created".into()]
                 }],
                 conflicts: 0,
                 introduced: Vec::new(),
+                removed: Vec::new(),
             }
         );
         assert_eq!(sa.list("territories").unwrap().len(), 2);
@@ -819,5 +861,210 @@ mod tests {
         assert_eq!(sa.unsynced().unwrap(), 1);
         sync(&mut sa, &mut sb);
         assert_eq!(sa.unsynced().unwrap(), 0);
+    }
+
+    /// Pairs with a code up to the point where both people see it.
+    fn codes_shown(sa: &mut Store, sb: &mut Store) -> (Session, Session) {
+        let mut a = Session::new(sa, Mode::Pair { code: true }, true, "android").unwrap();
+        let mut b = Session::new(sb, Mode::Pair { code: true }, false, "ios").unwrap();
+        run(&mut a, sa, &mut b, sb);
+        assert!(matches!(a.status(), Status::Confirm { .. }), "{:?}", a.status());
+        assert!(matches!(b.status(), Status::Confirm { .. }), "{:?}", b.status());
+        (a, b)
+    }
+
+    #[test]
+    fn no_data_is_taken_before_the_code_is_confirmed() {
+        let mut sa = store("Anna");
+        let mut sb = store("Ben");
+        let (mut a, mut b) = codes_shown(&mut sa, &mut sb);
+        put(&mut sb, "t1", json!({"number": "1"}));
+        let cells = sb.changes_since(&Versions::new()).unwrap();
+        let mut out = Vec::new();
+        b.send(&mut out, PART, &pack(&cells).unwrap()).unwrap();
+        b.send(&mut out, DONE, b"{}").unwrap();
+        a.feed(&mut sa, &out);
+        assert!(matches!(a.status(), Status::Failed { .. }), "{:?}", a.status());
+        assert!(sa.list("territories").unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_second_nonce_cannot_change_the_code() {
+        let mut sa = store("Anna");
+        let mut sb = store("Ben");
+        let (mut a, mut b) = codes_shown(&mut sa, &mut sb);
+        let mut out = Vec::new();
+        b.send(&mut out, NONCE, &[7u8; 32]).unwrap();
+        a.feed(&mut sa, &out);
+        assert!(matches!(a.status(), Status::Failed { .. }), "{:?}", a.status());
+    }
+
+    #[test]
+    fn a_second_commit_is_refused() {
+        let mut sa = store("Anna");
+        let mut sb = store("Ben");
+        let (mut a, mut b) = codes_shown(&mut sa, &mut sb);
+        let mut out = Vec::new();
+        a.send(&mut out, COMMIT, &sha256(&[&[7u8; 32]])).unwrap();
+        b.feed(&mut sb, &out);
+        assert!(matches!(b.status(), Status::Failed { .. }), "{:?}", b.status());
+    }
+
+    #[test]
+    fn a_phone_with_a_malformed_id_does_not_pair() {
+        let mut sa = store("Anna");
+        let mut sb = store("Ben");
+        sb.identity.id = "Ben's phone 1234".into();
+        let mut a = Session::new(&sa, Mode::Pair { code: false }, true, "android").unwrap();
+        let mut b = Session::new(&sb, Mode::Pair { code: false }, false, "ios").unwrap();
+        run(&mut a, &mut sa, &mut b, &mut sb);
+        assert!(matches!(a.status(), Status::Failed { .. }), "{:?}", a.status());
+        assert!(sa.peers().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_small_payload_that_unpacks_to_too_much_is_refused() {
+        let mut encoder = flate2::write::DeflateEncoder::new(Vec::new(), flate2::Compression::fast());
+        let zeros = vec![0u8; 1 << 20];
+        for _ in 0..=(LIMIT >> 20) {
+            encoder.write_all(&zeros).unwrap();
+        }
+        let bomb = encoder.finish().unwrap();
+        assert!(bomb.len() < LIMIT / 100);
+        assert_eq!(unpack::<Vec<Cell>>(&bomb).err().as_deref(), Some("too much data"));
+    }
+
+    #[test]
+    fn a_phone_restored_from_a_backup_catches_up_with_its_circle() {
+        let dir = std::env::temp_dir().join(format!("territories-restore-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (path, backup) = (dir.join("a.db"), dir.join("backup.db"));
+        let open = || {
+            let mut s = Store::open(&path).unwrap();
+            s.set_name("Anna").unwrap();
+            s
+        };
+        let mut sa = open();
+        let mut sb = store("Ben");
+        let mut sc = store("Carl");
+        pair(&mut sa, &mut sb);
+        pair(&mut sb, &mut sc);
+        drop(sa);
+        std::fs::copy(&path, &backup).unwrap();
+
+        let mut sa = open();
+        put(&mut sa, "t1", json!({"number": "1"}));
+        put(&mut sa, "t3", json!({"number": "3"}));
+        sync(&mut sa, &mut sb);
+        sync(&mut sb, &mut sc);
+        drop(sa);
+
+        // the edits above are gone from this phone, and it makes a new one
+        std::fs::copy(&backup, &path).unwrap();
+        let mut sa = open();
+        put(&mut sa, "t2", json!({"number": "2"}));
+        sync(&mut sa, &mut sb);
+        sync(&mut sb, &mut sc);
+        for s in [&sa, &sb, &sc] {
+            assert_eq!(s.list("territories").unwrap().len(), 3);
+        }
+        // and what it writes next is new to everyone
+        put(&mut sa, "t4", json!({"number": "4"}));
+        sync(&mut sa, &mut sb);
+        sync(&mut sb, &mut sc);
+        assert_eq!(sc.list("territories").unwrap().len(), 4);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Anna, Ben, Carl and Xena, each paired with all the others.
+    fn circle_of_four() -> [Store; 4] {
+        let [mut sa, mut sb, mut sc, mut sx] = ["Anna", "Ben", "Carl", "Xena"].map(store);
+        pair(&mut sa, &mut sb);
+        pair(&mut sb, &mut sc);
+        pair(&mut sb, &mut sx);
+        sync(&mut sa, &mut sb);
+        sync(&mut sc, &mut sb);
+        for s in [&sa, &sb, &sc, &sx] {
+            assert_eq!(s.peers().unwrap().len(), 3);
+        }
+        [sa, sb, sc, sx]
+    }
+
+    fn knows(s: &Store, other: &Store) -> bool {
+        s.peer(&other.identity.id).unwrap().is_some()
+    }
+
+    fn removed(status: &Status) -> Vec<String> {
+        match status {
+            Status::Done { removed, .. } => removed.clone(),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_removal_spreads_over_the_group_and_the_removed_phone_stops() {
+        let [mut sa, mut sb, mut sc, mut sx] = circle_of_four();
+        sa.remove_peer(&sx.identity.id).unwrap();
+
+        assert_eq!(removed(&sync(&mut sb, &mut sa)), vec!["Xena".to_string()]);
+        assert!(sb.log().unwrap().iter().any(|e| e["detail"]["removed"] == json!(["Xena"])));
+        assert!(!knows(&sb, &sx));
+        // Carl hasn't heard yet and still syncs with Xena
+        put(&mut sx, "t1", json!({"number": "1"}));
+        assert!(matches!(sync(&mut sx, &mut sc), Status::Done { .. }));
+        // Ben's news reaches Carl; Carl's stale list doesn't bring Xena back to Ben
+        assert_eq!(removed(&sync(&mut sc, &mut sb)), vec!["Xena".to_string()]);
+        assert!(!knows(&sc, &sx) && !knows(&sb, &sx));
+
+        // Xena learns it the next time she meets one of them, and stops
+        let status = sync(&mut sx, &mut sc);
+        assert_eq!(status, Status::Failed { reason: REMOVED_REASON.into() });
+        assert!(sx.is_removed().unwrap());
+        assert!(sx.peers().unwrap().is_empty());
+        // she keeps her data, but is no longer part of any sync
+        assert_eq!(sx.list("territories").unwrap().len(), 1);
+        assert!(!sa.is_removed().unwrap());
+    }
+
+    #[test]
+    fn a_removed_phone_cannot_sync_back() {
+        let [mut sa, mut sb, _sc, mut sx] = circle_of_four();
+        sa.remove_peer(&sx.identity.id).unwrap();
+        put(&mut sa, "t1", json!({"number": "1"}));
+        put(&mut sx, "t2", json!({"number": "2"}));
+        for status in [sync(&mut sx, &mut sa), sync(&mut sa, &mut sx)] {
+            assert!(matches!(status, Status::Failed { .. }), "{status:?}");
+        }
+        assert_eq!(sa.list("territories").unwrap().len(), 1);
+        assert_eq!(sx.list("territories").unwrap().len(), 1);
+        // a phone that hasn't heard yet takes nothing from Xena on to the others
+        sync(&mut sb, &mut sa);
+        assert!(!knows(&sa, &sx) && !knows(&sb, &sx));
+        assert!(matches!(sync(&mut sx, &mut sb), Status::Failed { .. }));
+        assert_eq!(sb.list("territories").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn pairing_again_after_a_removal_rejoins_the_group() {
+        let [mut sa, mut sb, mut sc, mut sx] = circle_of_four();
+        sa.remove_peer(&sx.identity.id).unwrap();
+        sync(&mut sb, &mut sa);
+        sync(&mut sc, &mut sb);
+        sync(&mut sx, &mut sb);
+        assert!(sx.is_removed().unwrap());
+
+        // Ben pairs with Xena in person again
+        pair(&mut sb, &mut sx);
+        assert!(!sx.is_removed().unwrap());
+        assert_eq!(sx.peers().unwrap().len(), 3);
+        sync(&mut sa, &mut sb);
+        assert!(knows(&sa, &sx));
+        put(&mut sx, "t1", json!({"number": "1"}));
+        assert!(matches!(sync(&mut sx, &mut sa), Status::Done { sent: 1, .. }));
+        // Carl heard only of the removal until now
+        assert!(!knows(&sc, &sx));
+        sync(&mut sc, &mut sa);
+        assert!(knows(&sc, &sx));
+        assert!(matches!(sync(&mut sx, &mut sc), Status::Done { .. }));
     }
 }

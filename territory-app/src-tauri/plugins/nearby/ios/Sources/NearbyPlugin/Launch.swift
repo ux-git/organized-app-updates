@@ -14,8 +14,11 @@ enum Launch {
     Core.open()
     Notices.shared.setUp()
     Refresh.register()
+    Backups.register()
     Nearby.shared.setUp()
     Refresh.schedule()
+    Backups.schedule()
+    Backups.catchUp()
   }
 }
 
@@ -32,11 +35,16 @@ enum Refresh {
         task.setTaskCompleted(success: true)
         return
       }
-      nearby.start(reason: "refresh", seconds: 20)
-      DispatchQueue.main.asyncAfter(deadline: .now() + 22) {
-        task.setTaskCompleted(success: true)
+      // completed once: by the timer or by iOS taking the time back
+      var finished = false
+      let finish = { (success: Bool) in
+        guard !finished else { return }
+        finished = true
+        task.setTaskCompleted(success: success)
       }
-      task.expirationHandler = { task.setTaskCompleted(success: false) }
+      task.expirationHandler = { DispatchQueue.main.async { finish(false) } }
+      nearby.start(reason: "refresh", seconds: 20)
+      DispatchQueue.main.asyncAfter(deadline: .now() + 22) { finish(true) }
     }
   }
 

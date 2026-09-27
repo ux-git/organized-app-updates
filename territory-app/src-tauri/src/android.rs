@@ -217,6 +217,8 @@ pub extern "system" fn Java_com_sws2apps_territories_Native_tapReaderNew(
     let Ok(reader) = crate::tap::Reader::new(&store, PLATFORM) else {
         return 0;
     };
+    // tapReaderResponse takes READERS before the store; never the other way
+    drop(store);
     let handle = native::next_handle();
     if let Ok(mut readers) = READERS.lock() {
         readers.get_or_insert_with(HashMap::new).insert(handle, reader);

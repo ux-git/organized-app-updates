@@ -232,10 +232,13 @@ object Reminders {
       .setAutoCancel(true)
       .setContentIntent(openApp(context, "/sync?now=1"))
       .build()
-    runCatching { NotificationManagerCompat.from(context).notify(LEAVE_ID, notification) }
+    Notify.post(context, LEAVE_ID, notification)
   }
 
   // ---- waking up when a paired phone with news is near ----
+
+  /** Android ignores an app that starts a scan more than 5 times in 30 seconds. */
+  private var watchedAt = 0L
 
   /**
    * The Bluetooth chip keeps scanning for this app's beacon and wakes the
@@ -245,17 +248,20 @@ object Reminders {
   fun watchPeers(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
     if (!searching(context) || !Nearby.hasBluetooth(context) || !Nearby.hasPeers()) return
+    if (System.currentTimeMillis() - watchedAt < 30_000L) return
     val scanner = context.getSystemService(BluetoothManager::class.java)?.adapter?.bluetoothLeScanner ?: return
     val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(Nearby.SERVICE)).build()
     val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_POWER).build()
-    runCatching {
+    val started = runCatching {
       scanner.stopScan(broadcast(context, ACTION_PEER))
       scanner.startScan(listOf(filter), settings, broadcast(context, ACTION_PEER))
-    }
+    }.getOrNull() == 0
+    if (started) watchedAt = System.currentTimeMillis()
   }
 
   @SuppressLint("MissingPermission")
   private fun stopWatchingPeers(context: Context) {
+    watchedAt = 0L
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !Nearby.hasBluetooth(context)) return
     val scanner = context.getSystemService(BluetoothManager::class.java)?.adapter?.bluetoothLeScanner ?: return
     runCatching { scanner.stopScan(broadcast(context, ACTION_PEER)) }
@@ -282,8 +288,11 @@ object Reminders {
       if (sighting.isEmpty()) return@firstNotNullOfOrNull null
       JSONObject(sighting).takeIf { it.optBoolean("needsSync") }?.optString("peer")
     } ?: return
-    // without the battery exception Android may refuse; then one tap does it
-    if (!NearbyService.start(context, "peer", 60_000L)) SyncNotices.found(context, peer)
+    // without the battery exception Android may refuse; after three refusals one tap does it
+    if (!NearbyService.start(context, "peer", 60_000L)) {
+      SyncNotices.attemptFailed(context, peer)
+      SyncNotices.found(context, peer)
+    }
   }
 
   fun onReceive(context: Context, intent: Intent) {
@@ -305,7 +314,9 @@ class ReminderReceiver : BroadcastReceiver() {
 /** Alarms, scans and the hall alert don't survive a restart; set them again. */
 class BootReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
+    if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
     Native.open(context.filesDir.absolutePath)
     Reminders.apply(context)
+    Backups.schedule(context)
   }
 }

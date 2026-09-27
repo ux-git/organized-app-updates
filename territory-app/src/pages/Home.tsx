@@ -1,40 +1,42 @@
 import { Box } from '@mui/material';
+import { useAtomValue } from 'jotai';
 import { Navigate, useNavigate } from 'react-router';
 import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import Markup from '@components/text_markup';
 import PageTitle from '@components/page_title';
 import Typography from '@components/typography';
 import TerritoriesCard from './TerritoriesCard';
-import SettingsCard from './SettingsCard';
+import AppCard from './AppCard';
 import useNearby, { unsynced } from './useNearby';
 import { welcomed } from './Welcome';
 import { hasNearby } from '../native';
+import { suggestedLink } from '../persistence';
+import { myLinkState, peopleState } from '../profiles';
+import { t as tr } from '../i18n';
 
-const escape = (text: string) =>
-  text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-
-// The main app's dashboard, with only the territories card and this app's
-// settings.
+// The main app's dashboard, with only the territories card and the App card.
 const Home = () => {
   const { t } = useAppTranslation();
   const { tablet688Up } = useBreakpoints();
   const navigate = useNavigate();
   const { peers, name } = useNearby();
+  const link = useAtomValue(myLinkState);
+  const people = useAtomValue(peopleState);
+  // unlinked, "My territories" goes by this device's name
+  const unlinked =
+    !link.person &&
+    people.some((person) => !person.group) &&
+    !suggestedLink(name, people);
 
   const firstName = name.trim().split(/\s+/)[0];
   const pending = unsynced(peers);
-  const names = escape(
-    peers.map((peer) => peer.name || 'a paired phone').join(', ')
-  );
-
   const summary = () => {
     if (peers.length === 0) {
-      return "<p>Territories stay on this phone. <a href='#'>Pair a phone</a> to share them.</p>";
+      return tr('home.alone');
     }
-    if (pending > 0) {
-      return `<p><a href='#'>${pending} ${pending === 1 ? 'change' : 'changes'}</a> waiting for ${names}</p>`;
-    }
-    return `<p>All synced with <a href='#'>${names}</a></p>`;
+    // the status only: names don't scale to a large group
+    if (pending > 0) return tr('home.pending', { count: pending });
+    return tr('home.synced');
   };
 
   // first start: name and permissions before anything else
@@ -47,12 +49,15 @@ const Home = () => {
         sx={{
           display: 'flex',
           alignItems: tablet688Up ? 'center' : 'flex-start',
+          justifyContent: 'space-between',
+          gap: '16px',
           flexDirection: tablet688Up ? 'row' : 'column',
         }}
       >
         <Box>
           <Typography className="h1">
-            {firstName ? t('tr_greeting', { firstName }) : 'Hello'} &#128075;
+            {firstName ? t('tr_greeting', { firstName }) : tr('home.hello')}{' '}
+            &#128075;
           </Typography>
           <Markup
             content={summary()}
@@ -61,9 +66,24 @@ const Home = () => {
             anchorColor="var(--accent-main)"
             anchorClick={(event) => {
               event.preventDefault();
-              navigate(peers.length ? '/sync' : '/sync?pair=nearby');
+              navigate(
+                peers.length ? '/settings/sync' : '/settings/sync?pair=nearby'
+              );
             }}
           />
+          {unlinked && (
+            <Markup
+              content={tr('home.link')}
+              className="body-small-regular"
+              anchorClassName="body-small-semibold"
+              color="var(--grey-400)"
+              anchorColor="var(--accent-main)"
+              anchorClick={(event) => {
+                event.preventDefault();
+                navigate('/settings/profile');
+              }}
+            />
+          )}
         </Box>
       </Box>
 
@@ -75,7 +95,7 @@ const Home = () => {
         }}
       >
         <TerritoriesCard />
-        <SettingsCard />
+        <AppCard />
       </Box>
     </Box>
   );

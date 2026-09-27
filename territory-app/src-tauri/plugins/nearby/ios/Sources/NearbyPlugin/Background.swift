@@ -14,7 +14,8 @@ enum Background {
   static func begin(_ key: String) {
     #if canImport(UIKit)
       guard tasks[key] == nil else { return }
-      tasks[key] = UIApplication.shared.beginBackgroundTask(withName: "sync") { end(key) }
+      let task = UIApplication.shared.beginBackgroundTask(withName: "sync") { end(key) }
+      if task != .invalid { tasks[key] = task }
     #endif
   }
 

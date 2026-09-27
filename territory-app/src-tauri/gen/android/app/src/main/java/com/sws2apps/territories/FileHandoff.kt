@@ -14,7 +14,6 @@ import android.print.PrintAttributes
 import android.print.PrintManager
 import android.provider.MediaStore
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.FileProvider
 import java.io.File
 
@@ -33,12 +32,17 @@ object FileHandoff {
   const val SHARE = "share"
   const val PRINT = "print"
 
-  /** Written where FileProvider serves them from (res/xml/file_paths.xml). */
+  /** Where FileProvider serves them from (res/xml/file_paths.xml). */
+  private fun folder(context: Context) = File(context.cacheDir, "shared")
+
   private fun cache(context: Context, name: String): File {
-    val folder = File(context.cacheDir, "shared").apply { mkdirs() }
+    val folder = folder(context).apply { mkdirs() }
     // one copy per name, so the folder doesn't grow with every export
     return File(folder, name.substringAfterLast('/')).apply { delete() }
   }
+
+  /** A file made here to open or share, not anything else the app keeps. */
+  fun isShared(context: Context, file: File) = file.parentFile == folder(context).canonicalFile
 
   fun uri(context: Context, file: File): Uri =
     FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -149,7 +153,7 @@ object FileHandoff {
     }
     if (saved == null) builder.setContentText(context.getString(R.string.file_ready))
 
-    NotificationManagerCompat.from(context).notify(file.path.hashCode(), builder.build())
+    Notify.post(context, file.path.hashCode(), builder.build())
   }
 
   /** Opening, sharing and printing all run through the activity, which has a window. */
@@ -168,7 +172,7 @@ object FileHandoff {
   private fun ensureChannel(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
     val manager = context.getSystemService(NotificationManager::class.java)
-    if (manager.getNotificationChannel(CHANNEL) != null) return
+    // renames an existing one after a language change
     manager.createNotificationChannel(
       NotificationChannel(CHANNEL, context.getString(R.string.file_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
     )

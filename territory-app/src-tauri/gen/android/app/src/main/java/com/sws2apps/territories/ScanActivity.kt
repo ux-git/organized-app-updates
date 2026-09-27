@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Bundle
 import android.view.HapticFeedbackConstants
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import com.google.zxing.BarcodeFormat
 import com.journeyapps.barcodescanner.BarcodeCallback
 import com.journeyapps.barcodescanner.DecoratedBarcodeView
@@ -20,6 +21,11 @@ class ScanActivity : ComponentActivity() {
   private var total = 0
   private var done = false
 
+  // refused: back to the page, which asks again or points to the settings
+  private val askCamera = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+    if (!granted) finish()
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     view = DecoratedBarcodeView(this)
@@ -28,7 +34,7 @@ class ScanActivity : ComponentActivity() {
     setContentView(view)
     view.decodeContinuous(BarcodeCallback { result -> onCode(result.text ?: return@BarcodeCallback) })
     if (!Nearby.granted(this, Manifest.permission.CAMERA)) {
-      requestPermissions(arrayOf(Manifest.permission.CAMERA), 1)
+      askCamera.launch(Manifest.permission.CAMERA)
     }
   }
 
@@ -40,8 +46,13 @@ class ScanActivity : ComponentActivity() {
       return
     }
     val (index, count, data) = match.destructured
-    total = count.toInt()
-    if (parts.put(index.toInt(), data) == null) {
+    // any code can be in front of the camera
+    val part = index.toIntOrNull() ?: return
+    val of = count.toIntOrNull()?.takeIf { part in 1..it } ?: return
+    // another transfer's loop: start over
+    if (of != total) parts.clear()
+    total = of
+    if (parts.put(part, data) == null) {
       view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
     }
     view.setStatusText(getString(R.string.scan_progress, parts.size, total))

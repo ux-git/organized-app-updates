@@ -30,6 +30,8 @@ targets:
     sources:
       - path: Sources
       - path: Assets.xcassets
+      - path: AppIcon.icon
+        buildPhase: resources
       - path: Externals
       - path: territories_iOS
       - path: assets
@@ -51,8 +53,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 0.7.1
-        CFBundleVersion: "0.7.1"
+        CFBundleShortVersionString: 0.8.0
+        CFBundleVersion: "0.8.0"
     entitlements:
       path: territories_iOS/territories_iOS.entitlements
     scheme:

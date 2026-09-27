@@ -32,6 +32,10 @@ const replacements: [RegExp, string][] = [
     /wrapper\/feature_flags\/useFeatureFlags\.tsx$/,
     resolve(__dirname, 'src/offline/useFeatureFlags.ts'),
   ],
+  [
+    /features\/theme_switcher\/useThemeSwitcher\.tsx$/,
+    resolve(__dirname, 'src/shell/useThemeSwitcher.ts'),
+  ],
 ];
 
 const replace = (): Plugin => ({

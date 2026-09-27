@@ -113,7 +113,7 @@ pub fn recognise(beacon: &[u8]) -> String {
         .unwrap_or_default()
 }
 
-/// `{"id", "name", "peers": [...], "unsynced"}` for notifications and the service.
+/// `{"id", "name", "peers": [...], "unsynced", "removed"}` for notifications and the service.
 pub fn summary() -> String {
     store()
         .and_then(|s| {
@@ -122,6 +122,7 @@ pub fn summary() -> String {
                 "name": s.identity.name,
                 "peers": s.peers()?,
                 "unsynced": s.unsynced()?,
+                "removed": s.is_removed()?,
             })
             .to_string())
         })

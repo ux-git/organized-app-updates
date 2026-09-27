@@ -1,4 +1,5 @@
 import { loadPeople, PEOPLE, Person, writeRows } from './persistence';
+import { t } from './i18n';
 
 // An Organized backup (Congregation settings, Import and export; or one
 // converted from NW Scheduler) holds much more than names: addresses, phone
@@ -56,7 +57,7 @@ export const readBackup = (text: string) => {
   const backup = JSON.parse(text);
   const data = backup?.data;
   if (!data || !Array.isArray(data.persons)) {
-    throw new Error('This file is not an Organized backup.');
+    throw new Error(t('publishers.notBackup'));
   }
 
   let skipped = 0;

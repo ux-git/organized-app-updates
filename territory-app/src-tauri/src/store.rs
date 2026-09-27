@@ -7,7 +7,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::hlc::Clock;
+use crate::hlc::{self, Clock};
 
 pub type Result<T> = std::result::Result<T, String>;
 
@@ -61,6 +61,18 @@ pub struct Member {
     pub adv: String,
     #[serde(default)]
     pub held: Versions,
+    /// Older versions ignore it. A removed phone goes out with no key, so
+    /// they can't add it back either.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub standing: Option<Standing>,
+}
+
+/// Whether a phone was last removed from the group or paired again, and
+/// when. The later stamp wins on every phone.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Standing {
+    pub stamp: String,
+    pub removed: bool,
 }
 
 /// What a sync brought in: stored cells, the records they belong to per
@@ -74,8 +86,9 @@ pub struct Applied {
     pub conflicts: usize,
 }
 
-/// A territory a sync changed, by its number, and what changed in it:
-/// "details", "assignment" or "do-not-call".
+/// A territory a sync changed, by its number, and what changed in it, as
+/// kinds from `KINDS`. Older log entries hold "details", "assignment" or
+/// "do-not-call".
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Touched {
     pub id: String,
@@ -92,6 +105,20 @@ pub struct Identity {
 }
 
 const DELETED: &str = "_deleted";
+/// What a sync can do to a territory, in the order it is told.
+const KINDS: [&str; 10] = [
+    "created",
+    "deleted",
+    "assigned",
+    "returned",
+    "assignment-removed",
+    "border",
+    "details",
+    "dnc-added",
+    "dnc-changed",
+    "dnc-removed",
+];
+const BORDER: [&str; 5] = ["boundary", "boundaryStyle", "mapShapes", "mapLines", "mapMarkers"];
 /// Fields whose clashes nobody needs to hear about.
 const QUIET: [&str; 2] = ["order", DELETED];
 
@@ -99,6 +126,11 @@ pub struct Store {
     conn: Connection,
     pub identity: Identity,
     clock: Clock,
+}
+
+/// A phone's id as `load_identity` makes it: 16 lowercase hex digits.
+pub fn is_id(id: &str) -> bool {
+    id.len() == 16 && id.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 pub fn now_secs() -> i64 {
@@ -144,8 +176,21 @@ impl Store {
         )
         .map_err(err)?;
         // added later; each fails harmlessly once the column exists
-        let _ = conn.execute("ALTER TABLE peers ADD COLUMN introduced_by TEXT", []);
-        let _ = conn.execute("ALTER TABLE log ADD COLUMN detail TEXT NOT NULL DEFAULT '{}'", []);
+        for column in [
+            "ALTER TABLE peers ADD COLUMN introduced_by TEXT",
+            "ALTER TABLE log ADD COLUMN detail TEXT NOT NULL DEFAULT '{}'",
+            // an unpairing from before these has no stamp and stays on this phone
+            "ALTER TABLE removed ADD COLUMN stamp TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE removed ADD COLUMN gone INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE removed ADD COLUMN name TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE removed ADD COLUMN public_key BLOB",
+        ] {
+            if let Err(e) = conn.execute(column, []) {
+                if !e.to_string().contains("duplicate column") {
+                    return Err(err(e));
+                }
+            }
+        }
 
         let identity = load_identity(&conn)?;
         let last: Option<String> = conn
@@ -198,7 +243,10 @@ impl Store {
                     record.deleted = Some(stamp);
                 }
             } else {
-                record.newest = record.newest.clone().max(stamp);
+                // reordering a list elsewhere doesn't bring a deleted record back
+                if field != "order" {
+                    record.newest = record.newest.clone().max(stamp);
+                }
                 record.fields.insert(field, value);
             }
         }
@@ -251,7 +299,8 @@ impl Store {
         if deleted.as_deref() == Some("true") && !fields.contains_key(DELETED) {
             fields.insert(DELETED.into(), Value::Bool(false));
         }
-        let tx = self.conn.transaction().map_err(err)?;
+        // a savepoint, so it also runs inside `batch`
+        let tx = self.conn.savepoint().map_err(err)?;
         let mut seq: i64 = tx
             .query_row(
                 "SELECT seq FROM versions WHERE origin = ?1",
@@ -292,7 +341,13 @@ impl Store {
                 params![table, id, field],
             )
             .map_err(err)?;
+            if field == DELETED && *value == true {
+                settle_record(&tx, table, id)?;
+            }
             written += 1;
+        }
+        if written == 0 {
+            return Ok(0);
         }
         tx.execute(
             "INSERT OR REPLACE INTO versions VALUES (?1, ?2)",
@@ -301,6 +356,18 @@ impl Store {
         .map_err(err)?;
         tx.commit().map_err(err)?;
         Ok(written)
+    }
+
+    /// Runs several writes as one transaction: all of them land, or none.
+    pub fn batch<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T>) -> Result<T> {
+        self.conn.execute_batch("BEGIN IMMEDIATE").map_err(err)?;
+        let result = f(self);
+        let end = if result.is_ok() { "COMMIT" } else { "ROLLBACK" };
+        if let Err(e) = self.conn.execute_batch(end) {
+            let _ = self.conn.execute_batch("ROLLBACK");
+            return Err(err(e));
+        }
+        result
     }
 
     /// A deletion is a field like any other, so it syncs and can lose to a
@@ -323,41 +390,93 @@ impl Store {
         rows.collect::<std::result::Result<_, _>>().map_err(err)
     }
 
+    /// The phones the stored cells were written on.
+    fn origins(&self) -> Result<Vec<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT DISTINCT origin FROM cells ORDER BY origin")
+            .map_err(err)?;
+        let rows = stmt.query_map([], |r| r.get(0)).map_err(err)?;
+        rows.collect::<std::result::Result<_, _>>().map_err(err)
+    }
+
     /// Every stored cell a phone with these versions hasn't seen.
     pub fn changes_since(&self, seen: &Versions) -> Result<Vec<Cell>> {
         let mut stmt = self
             .conn
-            .prepare("SELECT tbl, id, field, value, stamp, origin, seq FROM cells ORDER BY origin, seq")
-            .map_err(err)?;
-        let rows = stmt
-            .query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, String>(2)?,
-                    r.get::<_, String>(3)?,
-                    r.get::<_, String>(4)?,
-                    r.get::<_, String>(5)?,
-                    r.get::<_, i64>(6)?,
-                ))
-            })
+            .prepare(
+                "SELECT tbl, id, field, value, stamp, seq FROM cells
+                 WHERE origin = ?1 AND seq > ?2 ORDER BY seq",
+            )
             .map_err(err)?;
         let mut cells = Vec::new();
-        for row in rows {
-            let (t, i, f, v, s, o, q) = row.map_err(err)?;
-            if q > seen.get(&o).copied().unwrap_or(0) {
+        for origin in self.origins()? {
+            let since = seen.get(&origin).copied().unwrap_or(0);
+            let rows = stmt
+                .query_map(params![origin, since], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, String>(3)?,
+                        r.get::<_, String>(4)?,
+                        r.get::<_, i64>(5)?,
+                    ))
+                })
+                .map_err(err)?;
+            for row in rows {
+                let (t, i, f, v, s, q) = row.map_err(err)?;
                 cells.push(Cell {
                     t,
                     i,
                     f,
                     v: serde_json::from_str(&v).map_err(err)?,
                     s,
-                    o,
+                    o: origin.clone(),
                     q,
                 });
             }
         }
         Ok(cells)
+    }
+
+    /// How many cells `changes_since` would return, without reading them.
+    fn pending(&self, seen: &Versions) -> Result<i64> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT COUNT(*) FROM cells WHERE origin = ?1 AND seq > ?2")
+            .map_err(err)?;
+        let mut count = 0;
+        for origin in self.origins()? {
+            let since = seen.get(&origin).copied().unwrap_or(0);
+            count += stmt
+                .query_row(params![origin, since], |r| r.get::<_, i64>(0))
+                .map_err(err)?;
+        }
+        Ok(count)
+    }
+
+    /// Paired phones hold more of this phone's changes than it does: it was
+    /// restored from a backup. Its own cells move above their numbers, or the
+    /// edits made since would reuse numbers they have and never reach them.
+    pub fn catch_up(&mut self, theirs: &Versions) -> Result<()> {
+        let id = self.identity.id.clone();
+        let known = theirs.get(&id).copied().unwrap_or(0);
+        let mine = self.versions()?.get(&id).copied().unwrap_or(0);
+        // a number no phone reaches is a broken peer, not a backup
+        if known <= mine || known > i64::MAX / 4 {
+            return Ok(());
+        }
+        let next = mine + known;
+        let tx = self.conn.transaction().map_err(err)?;
+        tx.execute(
+            "UPDATE cells SET seq = seq + ?2 WHERE origin = ?1",
+            params![id, known],
+        )
+        .map_err(err)?;
+        tx.execute("INSERT OR REPLACE INTO versions VALUES (?1, ?2)", params![id, next])
+            .map_err(err)?;
+        tx.commit().map_err(err)
     }
 
     /// Keeps each incoming cell that is newer than the stored one, then takes
@@ -368,12 +487,33 @@ impl Store {
     /// every phone ends up the same, but the other value is kept in
     /// `conflicts` for someone to look at.
     pub fn apply(&mut self, cells: &[Cell], sender: &Versions) -> Result<Applied> {
+        self.catch_up(sender)?;
         let mine = self.versions()?;
         let tx = self.conn.transaction().map_err(err)?;
         let mut applied = Applied::default();
         let mut records = std::collections::BTreeSet::new();
         let mut kept = Vec::new();
+        let mut looked = std::collections::BTreeSet::new();
+        let mut new = std::collections::BTreeSet::new();
         for cell in cells {
+            // any other stamp would win or lose by its spelling, not its time
+            if !hlc::valid(&cell.s) {
+                continue;
+            }
+            let record = (cell.t.clone(), cell.i.clone());
+            if looked.insert(record.clone()) {
+                let stored: Option<i64> = tx
+                    .query_row(
+                        "SELECT 1 FROM cells WHERE tbl = ?1 AND id = ?2 LIMIT 1",
+                        params![cell.t, cell.i],
+                        |r| r.get(0),
+                    )
+                    .optional()
+                    .map_err(err)?;
+                if stored.is_none() {
+                    new.insert(record);
+                }
+            }
             let stored: Option<(String, String, String, i64)> = tx
                 .query_row(
                     "SELECT stamp, value, origin, seq FROM cells
@@ -385,15 +525,20 @@ impl Store {
                 .map_err(err)?;
             let incoming = cell.v.to_string();
             let clashes = applied.conflicts;
-            let wins = stored.as_ref().is_none_or(|(stamp, ..)| stamp < &cell.s);
+            // the value breaks a tie, so both phones keep the same one
+            let wins = stored
+                .as_ref()
+                .is_none_or(|(stamp, value, ..)| (stamp, value) < (&cell.s, &incoming));
 
             if let Some((_, value, origin, seq)) = &stored {
                 let they_missed_ours = sender.get(origin).copied().unwrap_or(0) < *seq;
                 let we_missed_theirs = mine.get(&cell.o).copied().unwrap_or(0) < cell.q;
+                // by value, so key order or spacing is no clash
+                let differs = serde_json::from_str::<Value>(value).map_or(true, |v| v != cell.v);
                 if they_missed_ours
                     && we_missed_theirs
                     && origin != &cell.o
-                    && value != &incoming
+                    && differs
                     && !QUIET.contains(&cell.f.as_str())
                 {
                     let (kept, lost, lost_by) = if wins {
@@ -425,6 +570,9 @@ impl Store {
                 params![cell.t, cell.i, cell.f, incoming, cell.s, cell.o, cell.q],
             )
             .map_err(err)?;
+            if cell.f == DELETED && cell.v == true {
+                settle_record(&tx, &cell.t, &cell.i)?;
+            }
             self.clock.observe(&cell.s);
             applied.cells += 1;
             if records.insert((cell.t.clone(), cell.i.clone())) {
@@ -444,7 +592,7 @@ impl Store {
             .map_err(err)?;
         }
         tx.commit().map_err(err)?;
-        applied.territories = self.touched(&kept)?;
+        applied.territories = self.touched(&kept, &new)?;
         Ok(applied)
     }
 
@@ -461,22 +609,69 @@ impl Store {
         Ok(text.and_then(|t| serde_json::from_str(&t).ok()))
     }
 
+    /// The records among these cells the other phone has none of: every
+    /// stored cell of theirs is in the batch.
+    pub fn unseen(&self, cells: &[Cell]) -> Result<std::collections::BTreeSet<(String, String)>> {
+        let mut counts: BTreeMap<(String, String), i64> = BTreeMap::new();
+        for cell in cells {
+            *counts.entry((cell.t.clone(), cell.i.clone())).or_default() += 1;
+        }
+        let mut unseen = std::collections::BTreeSet::new();
+        for (record, count) in counts {
+            let stored: i64 = self
+                .conn
+                .query_row(
+                    "SELECT COUNT(*) FROM cells WHERE tbl = ?1 AND id = ?2",
+                    params![record.0, record.1],
+                    |r| r.get(0),
+                )
+                .map_err(err)?;
+            if stored == count {
+                unseen.insert(record);
+            }
+        }
+        Ok(unseen)
+    }
+
     /// The territories these cells belong to, in number order, with what
-    /// changed in each.
-    pub fn touched(&self, cells: &[Cell]) -> Result<Vec<Touched>> {
+    /// changed in each. `new` are the records the receiving phone didn't have.
+    pub fn touched(
+        &self,
+        cells: &[Cell],
+        new: &std::collections::BTreeSet<(String, String)>,
+    ) -> Result<Vec<Touched>> {
         let mut found: BTreeMap<String, std::collections::BTreeSet<&str>> = BTreeMap::new();
         for cell in cells {
             if cell.f == "order" {
                 continue;
             }
-            let (territory, what) = match cell.t.as_str() {
-                "territories" => (Some(cell.i.clone()), "details"),
-                "assignments" | "do_not_calls" => (
-                    self.field(&cell.t, &cell.i, "territory")?
-                        .and_then(|v| v.as_str().map(String::from)),
-                    if cell.t == "assignments" { "assignment" } else { "do-not-call" },
-                ),
-                _ => (None, ""),
+            let is_new = new.contains(&(cell.t.clone(), cell.i.clone()));
+            let deleted = cell.f == DELETED && cell.v == true;
+            // a record written to after its deletion is back
+            let revived = cell.f == DELETED && !deleted;
+            let what = match cell.t.as_str() {
+                "territories" if deleted => "deleted",
+                "territories" if is_new || revived => "created",
+                "territories" if BORDER.contains(&cell.f.as_str()) => "border",
+                "territories" => "details",
+                "assignments" if deleted => "assignment-removed",
+                "assignments" if is_new || revived => "assigned",
+                "assignments" => match cell.f.as_str() {
+                    "publisher" | "assignedOn" => "assigned",
+                    "returnedOn" if cell.v.as_str().is_some_and(|s| !s.is_empty()) => "returned",
+                    "returnedOn" => "assigned",
+                    _ => continue,
+                },
+                "do_not_calls" if deleted => "dnc-removed",
+                "do_not_calls" if is_new || revived => "dnc-added",
+                "do_not_calls" => "dnc-changed",
+                _ => continue,
+            };
+            let territory = if cell.t == "territories" {
+                Some(cell.i.clone())
+            } else {
+                self.field(&cell.t, &cell.i, "territory")?
+                    .and_then(|v| v.as_str().map(String::from))
             };
             if let Some(territory) = territory {
                 found.entry(territory).or_default().insert(what);
@@ -489,6 +684,13 @@ impl Store {
                 Some(other) => other.to_string(),
                 None => continue,
             };
+            // a territory added or deleted needs no more words
+            let alone = ["deleted", "created"].into_iter().find(|k| what.contains(k));
+            let mut what: Vec<&str> = match alone {
+                Some(alone) => vec![alone],
+                None => what.into_iter().collect(),
+            };
+            what.sort_by_key(|k| KINDS.iter().position(|x| x == k));
             list.push(Touched {
                 id,
                 number,
@@ -581,10 +783,12 @@ impl Store {
         sent: usize,
         sent_territories: &[Touched],
         applied: &Applied,
+        removed: &[String],
     ) -> Result<()> {
         let detail = serde_json::json!({
             "received": applied.territories,
             "sent": sent_territories,
+            "removed": removed,
         });
         self.conn
             .execute(
@@ -668,7 +872,7 @@ impl Store {
         for row in rows {
             let (mut peer, versions) = row.map_err(err)?;
             let seen: Versions = serde_json::from_str(&versions).unwrap_or_default();
-            peer.pending = self.changes_since(&seen)?.len() as i64;
+            peer.pending = self.pending(&seen)?;
             peers.push(peer);
         }
         Ok(peers)
@@ -693,7 +897,9 @@ impl Store {
             .unwrap_or_default())
     }
 
-    pub fn add_peer(&self, peer: &Peer) -> Result<()> {
+    /// Pairing in person clears a removal from the group, here and, as the
+    /// newer stamp, on every other phone.
+    pub fn add_peer(&mut self, peer: &Peer) -> Result<()> {
         if peer.id == self.identity.id {
             return Err("that is this phone".into());
         }
@@ -714,25 +920,101 @@ impl Store {
                 ],
             )
             .map_err(err)?;
-        // pairing in person again undoes an earlier unpairing
         self.conn
             .execute("UPDATE peers SET introduced_by = NULL WHERE id = ?1", [&peer.id])
             .map_err(err)?;
+        let stamp = self.clock.tick(&self.identity.id);
+        let standing = Standing { stamp, removed: false };
+        self.set_standing(&peer.id, &standing, &peer.name, Some(&peer.public_key))?;
+        if self.is_removed()? {
+            let stamp = self.clock.tick(&self.identity.id);
+            let (id, name) = (self.identity.id.clone(), self.identity.name.clone());
+            self.set_standing(&id, &Standing { stamp, removed: false }, &name, None)?;
+        }
+        Ok(())
+    }
+
+    /// Removes the phone from the whole group: every phone that hears of it
+    /// drops it, and none adds it back until someone pairs with it again.
+    pub fn remove_peer(&mut self, id: &str) -> Result<()> {
+        if id == self.identity.id {
+            return Err("that is this phone".into());
+        }
+        let peer = self.peer(id)?;
+        let stamp = self.clock.tick(&self.identity.id);
+        let name = peer.as_ref().map(|p| p.name.as_str()).unwrap_or_default();
+        let key = peer.as_ref().map(|p| p.public_key.as_slice());
+        self.set_standing(id, &Standing { stamp, removed: true }, name, key)?;
         self.conn
-            .execute("DELETE FROM removed WHERE id = ?1", [&peer.id])
+            .execute("DELETE FROM peers WHERE id = ?1", [id])
             .map_err(err)?;
         Ok(())
     }
 
-    /// Unpairs; the rest of the circle can't bring the phone back.
-    pub fn remove_peer(&self, id: &str) -> Result<()> {
+    fn standing(&self, id: &str) -> Result<Option<Standing>> {
+        self.conn
+            .query_row("SELECT stamp, gone FROM removed WHERE id = ?1", [id], |r| {
+                Ok(Standing { stamp: r.get(0)?, removed: r.get(1)? })
+            })
+            .optional()
+            .map_err(err)
+    }
+
+    fn set_standing(&self, id: &str, standing: &Standing, name: &str, key: Option<&[u8]>) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO removed(id, stamp, gone, name, public_key) VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT(id) DO UPDATE SET stamp = excluded.stamp, gone = excluded.gone,
+                   name = CASE WHEN excluded.name = '' THEN name ELSE excluded.name END,
+                   public_key = coalesce(excluded.public_key, public_key)",
+                params![id, standing.stamp, standing.removed, name, key],
+            )
+            .map_err(err)?;
+        Ok(())
+    }
+
+    /// Whether this phone was removed from its group and not paired since.
+    pub fn is_removed(&self) -> Result<bool> {
+        Ok(self.standing(&self.identity.id)?.is_some_and(|s| s.removed))
+    }
+
+    /// When the phone with this key was removed from the group, if it was.
+    pub fn removed_by_key(&self, key: &[u8]) -> Result<Option<String>> {
+        self.conn
+            .query_row(
+                "SELECT stamp FROM removed WHERE public_key = ?1 AND gone = 1 AND stamp <> ''",
+                [key],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(err)
+    }
+
+    /// Takes a phone's standing when it is newer than the one known here.
+    /// A removal drops the phone; this phone's own removal drops them all.
+    /// Returns the name of a paired phone it dropped.
+    pub fn take_standing(&mut self, id: &str, standing: &Standing, name: &str) -> Result<Option<String>> {
+        if !is_id(id) || !hlc::valid(&standing.stamp) {
+            return Ok(None);
+        }
+        if self.standing(id)?.is_some_and(|known| known.stamp >= standing.stamp) {
+            return Ok(None);
+        }
+        self.clock.observe(&standing.stamp);
+        let peer = self.peer(id)?;
+        let key = peer.as_ref().map(|p| p.public_key.as_slice());
+        self.set_standing(id, standing, name, key)?;
+        if !standing.removed {
+            return Ok(None);
+        }
+        if id == self.identity.id {
+            self.conn.execute("DELETE FROM peers", []).map_err(err)?;
+            return Ok(None);
+        }
         self.conn
             .execute("DELETE FROM peers WHERE id = ?1", [id])
             .map_err(err)?;
-        self.conn
-            .execute("INSERT OR IGNORE INTO removed VALUES (?1)", [id])
-            .map_err(err)?;
-        Ok(())
+        Ok(peer.map(|p| p.name))
     }
 
     /// A phone keeps the name it gives itself.
@@ -748,7 +1030,30 @@ impl Store {
 
     /// The paired phones to pass on to `to`, so pairing with one phone of
     /// the circle is enough to sync with all of them.
+    /// Removals and pairings again go along, the removed phones with no key.
     pub fn circle(&self, to: &str) -> Result<Vec<Member>> {
+        let mut standings: BTreeMap<String, (String, Standing)> = BTreeMap::new();
+        {
+            let mut stmt = self
+                .conn
+                .prepare("SELECT id, name, stamp, gone FROM removed")
+                .map_err(err)?;
+            let rows = stmt
+                .query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        Standing { stamp: r.get(2)?, removed: r.get(3)? },
+                    ))
+                })
+                .map_err(err)?;
+            for row in rows {
+                let (id, name, standing) = row.map_err(err)?;
+                if hlc::valid(&standing.stamp) {
+                    standings.insert(id, (name, standing));
+                }
+            }
+        }
         let mut members = Vec::new();
         for peer in self.peers()? {
             if peer.id == to {
@@ -756,6 +1061,7 @@ impl Store {
             }
             members.push(Member {
                 held: self.peer_versions(&peer.id)?,
+                standing: standings.remove(&peer.id).map(|(_, s)| s),
                 id: peer.id,
                 name: peer.name,
                 platform: peer.platform,
@@ -763,22 +1069,39 @@ impl Store {
                 adv: STANDARD.encode(&peer.adv_secret),
             });
         }
+        for (id, (name, standing)) in standings {
+            members.push(Member {
+                id,
+                name,
+                platform: String::new(),
+                key: String::new(),
+                adv: String::new(),
+                held: Versions::new(),
+                standing: Some(standing),
+            });
+        }
         Ok(members)
     }
 
-    /// Adds the phones a paired phone passed on. Returns the new ones' names.
-    pub fn introduce(&self, members: &[Member], by: &str) -> Result<Vec<String>> {
+    /// Takes the standings a paired phone passed on, then adds the phones it
+    /// is paired with. Returns the names of the phones added and dropped.
+    pub fn introduce(&mut self, members: &[Member], by: &str) -> Result<(Vec<String>, Vec<String>)> {
+        let mut dropped = Vec::new();
+        for member in members {
+            if let Some(standing) = &member.standing {
+                dropped.extend(self.take_standing(&member.id, standing, &member.name)?);
+            }
+        }
+        if self.is_removed()? {
+            return Ok((Vec::new(), dropped));
+        }
         let mut added = Vec::new();
         for member in members {
-            if member.id == self.identity.id {
+            if member.id == self.identity.id || !is_id(&member.id) {
                 continue;
             }
-            let removed: Option<String> = self
-                .conn
-                .query_row("SELECT id FROM removed WHERE id = ?1", [&member.id], |r| r.get(0))
-                .optional()
-                .map_err(err)?;
-            if removed.is_some() {
+            // a peer list from a phone that hasn't heard yet brings no one back
+            if self.standing(&member.id)?.is_some_and(|s| s.removed) {
                 continue;
             }
             let mut held = self.peer_versions(&member.id)?;
@@ -797,9 +1120,21 @@ impl Store {
                     .map_err(err)?;
                 continue;
             }
-            let key = STANDARD.decode(&member.key).map_err(err)?;
-            let adv = STANDARD.decode(&member.adv).map_err(err)?;
-            if key.len() != 32 {
+            // one bad entry spoils neither the others nor the sync
+            let (Ok(key), Ok(adv)) = (STANDARD.decode(&member.key), STANDARD.decode(&member.adv))
+            else {
+                continue;
+            };
+            if key.len() != 32 || adv.len() != 16 || key == self.identity.public_key {
+                continue;
+            }
+            // a paired key under another id would lock that phone out
+            let taken: Option<i64> = self
+                .conn
+                .query_row("SELECT 1 FROM peers WHERE public_key = ?1", [&key], |r| r.get(0))
+                .optional()
+                .map_err(err)?;
+            if taken.is_some() {
                 continue;
             }
             self.conn
@@ -821,7 +1156,7 @@ impl Store {
                 .map_err(err)?;
             added.push(member.name.clone());
         }
-        Ok(added)
+        Ok((added, dropped))
     }
 
     /// Remembers what the peer holds after a sync, for the pending count and
@@ -841,6 +1176,13 @@ impl Store {
     pub fn unsynced(&self) -> Result<i64> {
         Ok(self.peers()?.iter().map(|p| p.pending).min().unwrap_or(0))
     }
+}
+
+/// A deleted record's clashes are nobody's concern any more.
+fn settle_record(conn: &Connection, table: &str, id: &str) -> Result<()> {
+    conn.execute("DELETE FROM conflicts WHERE tbl = ?1 AND id = ?2", params![table, id])
+        .map_err(err)?;
+    Ok(())
 }
 
 fn get_meta(conn: &Connection, key: &str) -> Result<Option<Vec<u8>>> {
@@ -1087,14 +1429,97 @@ mod tests {
         assert_eq!(
             applied.territories,
             vec![
-                Touched { id: "t3".into(), number: "3".into(), what: vec!["do-not-call".into()] },
+                Touched { id: "t3".into(), number: "3".into(), what: vec!["dnc-added".into()] },
                 Touched {
                     id: "t12".into(),
                     number: "12".into(),
-                    what: vec!["assignment".into(), "details".into()]
+                    what: vec!["assigned".into(), "details".into()]
                 },
             ]
         );
+    }
+
+    fn received(a: &Store, b: &mut Store) -> Vec<(String, Vec<String>)> {
+        let cells = a.changes_since(&b.versions().unwrap()).unwrap();
+        let applied = b.apply(&cells, &a.versions().unwrap()).unwrap();
+        applied.territories.into_iter().map(|t| (t.number, t.what)).collect()
+    }
+
+    fn told(number: &str, what: &[&str]) -> (String, Vec<String>) {
+        (number.into(), what.iter().map(|w| w.to_string()).collect())
+    }
+
+    #[test]
+    fn a_new_territory_is_only_added() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t5", &fields(json!({"number": "5", "boundary": [[1, 2]]})))
+            .unwrap();
+        a.put("assignments", "x", &fields(json!({"territory": "t5", "publisher": "Ben"})))
+            .unwrap();
+        assert_eq!(received(&a, &mut b), vec![told("5", &["created"])]);
+    }
+
+    #[test]
+    fn a_deleted_territory_is_only_deleted() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t5", &fields(json!({"number": "5"}))).unwrap();
+        sync(&mut a, &mut b);
+        a.put("territories", "t5", &fields(json!({"city": "Graz"}))).unwrap();
+        a.remove("territories", "t5").unwrap();
+        assert_eq!(received(&a, &mut b), vec![told("5", &["deleted"])]);
+    }
+
+    #[test]
+    fn a_sync_tells_each_change_in_order() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "1"}))).unwrap();
+        a.put("territories", "t2", &fields(json!({"number": "2"}))).unwrap();
+        a.put("assignments", "x", &fields(json!({"territory": "t1", "publisher": "Ben"})))
+            .unwrap();
+        a.put("assignments", "y", &fields(json!({"territory": "t2", "publisher": "Ann"})))
+            .unwrap();
+        a.put("do_not_calls", "d", &fields(json!({"territory": "t2", "address": "Main 1"})))
+            .unwrap();
+        a.put("do_not_calls", "e", &fields(json!({"territory": "t2", "address": "Main 2"})))
+            .unwrap();
+        sync(&mut a, &mut b);
+
+        a.put("territories", "t1", &fields(json!({"mapLines": [], "order": 3}))).unwrap();
+        a.put("assignments", "x", &fields(json!({"returnedOn": "2026-09-01", "months": 2})))
+            .unwrap();
+        a.remove("assignments", "y").unwrap();
+        a.put("do_not_calls", "d", &fields(json!({"address": "Main 3"}))).unwrap();
+        a.remove("do_not_calls", "e").unwrap();
+        a.put("do_not_calls", "f", &fields(json!({"territory": "t2", "address": "Main 4"})))
+            .unwrap();
+        a.put("territories", "t2", &fields(json!({"name": "Park"}))).unwrap();
+        assert_eq!(
+            received(&a, &mut b),
+            vec![
+                told("1", &["returned", "border"]),
+                told("2", &["assignment-removed", "details", "dnc-added", "dnc-changed", "dnc-removed"]),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_sender_tells_new_records_but_not_new_territories() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "1"}))).unwrap();
+        sync(&mut a, &mut b);
+        a.put("territories", "t2", &fields(json!({"number": "2", "boundary": []}))).unwrap();
+        a.put("do_not_calls", "d", &fields(json!({"territory": "t1", "address": "Main 1"})))
+            .unwrap();
+        let cells = a.changes_since(&b.versions().unwrap()).unwrap();
+        let mut new = a.unseen(&cells).unwrap();
+        new.retain(|(table, _)| table != "territories");
+        let sent: Vec<_> =
+            a.touched(&cells, &new).unwrap().into_iter().map(|t| (t.number, t.what)).collect();
+        assert_eq!(sent, vec![told("1", &["dnc-added"]), told("2", &["border", "details"])]);
     }
 
     #[test]
@@ -1110,5 +1535,401 @@ mod tests {
             applied.items,
             BTreeMap::from([("assignments".into(), 1), ("territories".into(), 1)])
         );
+    }
+
+    #[test]
+    fn a_reorder_elsewhere_does_not_bring_a_deleted_record_back() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("t", "1", &fields(json!({"n": 1, "order": 0}))).unwrap();
+        a.put("t", "2", &fields(json!({"n": 2, "order": 1}))).unwrap();
+        sync(&mut a, &mut b);
+        a.remove("t", "1").unwrap();
+        later();
+        b.put("t", "1", &fields(json!({"order": 1}))).unwrap();
+        b.put("t", "2", &fields(json!({"order": 0}))).unwrap();
+        sync(&mut a, &mut b);
+        assert_eq!(a.list("t").unwrap(), vec![json!({"id": "2", "n": 2, "order": 0})]);
+        assert_eq!(b.list("t").unwrap(), a.list("t").unwrap());
+    }
+
+    fn cell(value: &str, stamp: &str) -> Cell {
+        Cell {
+            t: "t".into(),
+            i: "1".into(),
+            f: "n".into(),
+            v: json!(value),
+            s: stamp.into(),
+            o: "00000000000000aa".into(),
+            q: 1,
+        }
+    }
+
+    #[test]
+    fn a_stamp_tie_ends_the_same_on_both_phones() {
+        let stamp = hlc::encode(1, 0, "00000000000000aa");
+        let (x, y) = (cell("x", &stamp), cell("y", &stamp));
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.apply(std::slice::from_ref(&x), &Versions::new()).unwrap();
+        a.apply(std::slice::from_ref(&y), &Versions::new()).unwrap();
+        b.apply(&[y], &Versions::new()).unwrap();
+        b.apply(&[x], &Versions::new()).unwrap();
+        assert_eq!(a.list("t").unwrap(), vec![json!({"id": "1", "n": "y"})]);
+        assert_eq!(b.list("t").unwrap(), a.list("t").unwrap());
+    }
+
+    #[test]
+    fn a_cell_with_a_malformed_stamp_is_ignored() {
+        let mut s = Store::in_memory().unwrap();
+        s.put("t", "1", &fields(json!({"n": "mine"}))).unwrap();
+        // "z" sorts after every real stamp and would win for ever
+        let applied = s.apply(&[cell("theirs", "zzz")], &Versions::new()).unwrap();
+        assert_eq!(applied.cells, 0);
+        assert_eq!(s.list("t").unwrap(), vec![json!({"id": "1", "n": "mine"})]);
+    }
+
+    #[test]
+    fn a_deleted_record_takes_its_clashes_with_it() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("t", "1", &fields(json!({"holder": "Anna"}))).unwrap();
+        sync(&mut a, &mut b);
+        a.put("t", "1", &fields(json!({"holder": "Carl"}))).unwrap();
+        later();
+        b.put("t", "1", &fields(json!({"holder": "Dora"}))).unwrap();
+        sync(&mut a, &mut b);
+        assert_eq!((a.conflicts().unwrap().len(), b.conflicts().unwrap().len()), (1, 1));
+        later();
+        a.remove("t", "1").unwrap();
+        assert!(a.conflicts().unwrap().is_empty());
+        sync(&mut a, &mut b);
+        assert!(b.conflicts().unwrap().is_empty());
+    }
+
+    fn peer_of(s: &Store) -> Peer {
+        Peer {
+            id: s.identity.id.clone(),
+            name: s.identity.name.clone(),
+            platform: "ios".into(),
+            public_key: s.identity.public_key.to_vec(),
+            adv_secret: s.identity.adv_secret.to_vec(),
+            paired_at: 0,
+            last_sync: None,
+            pending: 0,
+            introduced_by: None,
+        }
+    }
+
+    fn member(s: &Store, name: &str) -> Member {
+        Member {
+            id: s.identity.id.clone(),
+            name: name.into(),
+            platform: "ios".into(),
+            key: STANDARD.encode(s.identity.public_key),
+            adv: STANDARD.encode(s.identity.adv_secret),
+            held: Versions::new(),
+            standing: None,
+        }
+    }
+
+    #[test]
+    fn a_circle_list_with_bad_entries_adds_only_the_good_ones() {
+        let mut a = Store::in_memory().unwrap();
+        let b = Store::in_memory().unwrap();
+        let c = Store::in_memory().unwrap();
+        a.add_peer(&peer_of(&b)).unwrap();
+        let members = [
+            Member { id: "00000000000000aa".into(), key: "not base64!".into(), ..member(&c, "X") },
+            // Ben's key under another id would lock Ben out
+            Member { id: "00000000000000bb".into(), ..member(&b, "Fake Ben") },
+            Member { id: "../../x".into(), ..member(&c, "Y") },
+            Member { adv: STANDARD.encode([1u8; 3]), ..member(&c, "Z") },
+            member(&a, "Me"),
+            member(&c, "Carl"),
+        ];
+        assert_eq!(a.introduce(&members, &b.identity.id).unwrap().0, vec!["Carl".to_string()]);
+        assert_eq!(a.peer_by_key(&b.identity.public_key).unwrap().unwrap().id, b.identity.id);
+        assert_eq!(a.peers().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn an_unchanged_put_writes_nothing() {
+        let mut s = Store::in_memory().unwrap();
+        s.put("t", "1", &fields(json!({"n": 1}))).unwrap();
+        let before = s.conn.total_changes();
+        assert_eq!(s.put("t", "1", &fields(json!({"n": 1}))).unwrap(), 0);
+        assert_eq!(s.conn.total_changes(), before);
+    }
+
+    #[test]
+    fn a_batch_lands_whole_or_not_at_all() {
+        let mut s = Store::in_memory().unwrap();
+        let failed: Result<()> = s.batch(|s| {
+            s.put("t", "1", &fields(json!({"n": 1})))?;
+            Err("the page sent a bad write".into())
+        });
+        assert!(failed.is_err());
+        assert!(s.list("t").unwrap().is_empty());
+        assert!(s.versions().unwrap().is_empty());
+        s.batch(|s| {
+            s.put("t", "1", &fields(json!({"n": 1})))?;
+            s.remove("t", "1")?;
+            s.put("t", "2", &fields(json!({"n": 2})))
+        })
+        .unwrap();
+        assert_eq!(s.list("t").unwrap(), vec![json!({"id": "2", "n": 2})]);
+    }
+
+    #[test]
+    fn changes_since_and_pending_follow_each_phone_separately() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("t", "1", &fields(json!({"n": 1, "m": 2}))).unwrap();
+        b.put("t", "2", &fields(json!({"n": 3}))).unwrap();
+        sync(&mut a, &mut b);
+        let seen = Versions::from([(a.identity.id.clone(), 1)]);
+        let cells = a.changes_since(&seen).unwrap();
+        let mut sent: Vec<_> = cells.iter().map(|c| (c.o.clone(), c.q)).collect();
+        sent.sort();
+        let mut expected = vec![(a.identity.id.clone(), 2), (b.identity.id.clone(), 1)];
+        expected.sort();
+        assert_eq!(sent, expected);
+        a.add_peer(&peer_of(&b)).unwrap();
+        a.record_sync(&b.identity.id, &seen).unwrap();
+        assert_eq!(a.peers().unwrap()[0].pending, 2);
+    }
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("territories-{name}-{}", hex(&random::<4>())));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn databases_from_older_versions_open_and_upgrade() {
+        // 0.5 had no removed, conflicts or log; 0.6 had a log without detail
+        let v05 = "CREATE TABLE meta(key TEXT PRIMARY KEY, value BLOB NOT NULL);
+            CREATE TABLE cells(tbl TEXT NOT NULL, id TEXT NOT NULL, field TEXT NOT NULL,
+              value TEXT NOT NULL, stamp TEXT NOT NULL, origin TEXT NOT NULL, seq INTEGER NOT NULL,
+              PRIMARY KEY(tbl, id, field));
+            CREATE INDEX cells_origin ON cells(origin, seq);
+            CREATE TABLE versions(origin TEXT PRIMARY KEY, seq INTEGER NOT NULL);
+            CREATE TABLE peers(id TEXT PRIMARY KEY, name TEXT NOT NULL, platform TEXT NOT NULL,
+              public_key BLOB NOT NULL, adv_secret BLOB NOT NULL, paired_at INTEGER NOT NULL,
+              last_sync INTEGER, versions TEXT NOT NULL DEFAULT '{}');
+            INSERT INTO peers(id, name, platform, public_key, adv_secret, paired_at)
+              VALUES ('00000000000000aa', 'Ben', 'ios', zeroblob(32), zeroblob(16), 1);";
+        let v06 = format!(
+            "{v05} CREATE TABLE log(at INTEGER NOT NULL, peer TEXT NOT NULL, name TEXT NOT NULL,
+              sent INTEGER NOT NULL, received INTEGER NOT NULL, items TEXT NOT NULL);
+            INSERT INTO log VALUES (1, '00000000000000aa', 'Ben', 2, 3, '{{}}');"
+        );
+        for schema in [v05.to_string(), v06] {
+            let dir = scratch("upgrade");
+            let path = dir.join("store.db");
+            Connection::open(&path).unwrap().execute_batch(&schema).unwrap();
+            for _ in 0..2 {
+                let mut s = Store::open(&path).unwrap();
+                assert_eq!(s.peers().unwrap()[0].introduced_by, None);
+                s.put("t", "1", &fields(json!({"n": 1}))).unwrap();
+                s.log_sync("00000000000000aa", "Ben", 1, &[], &Applied::default(), &[]).unwrap();
+                assert!(s.log().unwrap().iter().all(|entry| entry["detail"].is_object()));
+            }
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+    }
+
+    /// Phones that are all paired with each other.
+    fn group(names: &[&str]) -> Vec<Store> {
+        let mut stores: Vec<Store> = names
+            .iter()
+            .map(|name| {
+                let mut s = Store::in_memory().unwrap();
+                s.set_name(name).unwrap();
+                s
+            })
+            .collect();
+        for i in 0..stores.len() {
+            for j in 0..stores.len() {
+                if i != j {
+                    let peer = peer_of(&stores[j]);
+                    stores[i].add_peer(&peer).unwrap();
+                }
+            }
+        }
+        stores
+    }
+
+    /// Two phones pass each other their circle lists. Returns what each dropped.
+    fn meet(g: &mut [Store], i: usize, j: usize) -> (Vec<String>, Vec<String>) {
+        let [a, b] = g.get_disjoint_mut([i, j]).unwrap();
+        let (to_a, to_b) = (b.circle(&a.identity.id).unwrap(), a.circle(&b.identity.id).unwrap());
+        let (ia, ib) = (a.identity.id.clone(), b.identity.id.clone());
+        (a.introduce(&to_a, &ib).unwrap().1, b.introduce(&to_b, &ia).unwrap().1)
+    }
+
+    fn knows(s: &Store, other: &Store) -> bool {
+        s.peer(&other.identity.id).unwrap().is_some()
+    }
+
+    #[test]
+    fn a_removal_spreads_to_every_phone_of_the_group() {
+        let mut g = group(&["Anna", "Ben", "Carl", "Dora", "Xena"]);
+        let x = g[4].identity.id.clone();
+        g[0].remove_peer(&x).unwrap();
+        assert!(!knows(&g[0], &g[4]));
+        assert_eq!(meet(&mut g, 0, 1), (vec![], vec!["Xena".to_string()]));
+        meet(&mut g, 1, 2);
+        // Dora hears it from Carl, never having met Anna
+        assert_eq!(meet(&mut g, 2, 3), (vec![], vec!["Xena".to_string()]));
+        for s in &g[..4] {
+            assert!(!knows(s, &g[4]));
+            assert_eq!(s.peers().unwrap().len(), 3);
+        }
+        // news heard twice is no news
+        assert_eq!(meet(&mut g, 3, 0), (vec![], vec![]));
+        let me = g[0].identity.id.clone();
+        assert!(g[0].remove_peer(&me).is_err());
+    }
+
+    #[test]
+    fn a_stale_peer_list_does_not_bring_a_removed_phone_back() {
+        let mut g = group(&["Anna", "Ben", "Carl", "Xena"]);
+        let (x, c) = (g[3].identity.id.clone(), g[2].identity.id.clone());
+        g[0].remove_peer(&x).unwrap();
+        // Carl hasn't heard: he passes Xena on, cleared when he paired with her
+        let stale = g[2].circle(&g[0].identity.id).unwrap();
+        assert!(stale.iter().any(|m| m.id == x && m.standing.as_ref().is_some_and(|s| !s.removed)));
+        assert!(g[0].introduce(&stale, &c).unwrap().0.is_empty());
+        // and as an older version sends it, with no standings at all
+        let old: Vec<Member> = stale.into_iter().map(|m| Member { standing: None, ..m }).collect();
+        assert!(g[0].introduce(&old, &c).unwrap().0.is_empty());
+        assert!(!knows(&g[0], &g[3]));
+        meet(&mut g, 0, 2);
+        assert!(!knows(&g[2], &g[3]));
+    }
+
+    #[test]
+    fn older_versions_find_no_key_to_add_a_removed_phone_with() {
+        let mut g = group(&["Anna", "Ben", "Xena"]);
+        let x = g[2].identity.id.clone();
+        g[0].remove_peer(&x).unwrap();
+        let list = serde_json::to_string(&g[0].circle(&g[1].identity.id).unwrap()).unwrap();
+        // what a version without standings reads of it
+        #[derive(Deserialize)]
+        struct Old {
+            id: String,
+            key: String,
+        }
+        let old: Vec<Old> = serde_json::from_str(&list).unwrap();
+        let xena = old.iter().find(|m| m.id == x).unwrap();
+        assert_eq!(STANDARD.decode(&xena.key).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn pairing_again_after_a_removal_clears_it_everywhere() {
+        let mut g = group(&["Anna", "Ben", "Carl", "Xena"]);
+        let (a, x) = (g[0].identity.id.clone(), g[3].identity.id.clone());
+        g[0].remove_peer(&x).unwrap();
+        let old_news = g[0].circle(&g[1].identity.id).unwrap();
+        meet(&mut g, 0, 2);
+        later();
+        // Ben never heard of the removal and pairs with Xena in person
+        let xena = peer_of(&g[3]);
+        g[1].add_peer(&xena).unwrap();
+        // Carl learned of the removal, then of the pairing, which is newer
+        meet(&mut g, 1, 2);
+        assert!(knows(&g[2], &g[3]));
+        meet(&mut g, 2, 0);
+        assert!(knows(&g[0], &g[3]));
+        assert_eq!(g[0].peer(&x).unwrap().unwrap().introduced_by, Some(g[2].identity.id.clone()));
+        // the old removal, passed on late, doesn't undo it
+        assert!(g[1].introduce(&old_news, &a).unwrap().1.is_empty());
+        assert!(knows(&g[1], &g[3]));
+    }
+
+    fn outline(points: usize, shift: f64) -> Value {
+        let ring: Vec<Value> = (0..points)
+            .map(|i| json!([16.0 + i as f64 * 1e-4 + shift, 48.0 + (i % 7) as f64 * 1e-4]))
+            .collect();
+        json!([{"type": "Polygon", "coordinates": [ring], "style": {"color": "#e53", "weight": 3}}])
+    }
+
+    #[test]
+    fn a_border_edited_on_two_phones_at_once_is_a_conflict() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "1", "boundary": outline(10, 0.0)})))
+            .unwrap();
+        sync(&mut a, &mut b);
+
+        let (mine, theirs) = (outline(3000, 0.001), outline(2500, 0.002));
+        a.put("territories", "t1", &fields(json!({"boundary": mine, "mapLines": [[1, 2], [3, 4]]})))
+            .unwrap();
+        later();
+        b.put("territories", "t1", &fields(json!({"boundary": theirs, "mapLines": [[5, 6]]})))
+            .unwrap();
+        sync(&mut a, &mut b);
+
+        let clashes = a.conflicts().unwrap();
+        let mut clashed: Vec<_> = clashes.iter().map(|c| c["field"].as_str().unwrap()).collect();
+        clashed.sort();
+        assert_eq!(clashed, ["boundary", "mapLines"]);
+        assert_eq!(b.conflicts().unwrap().len(), 2);
+        // both whole borders, to show side by side
+        let boundary = clashes.iter().find(|c| c["field"] == "boundary").unwrap();
+        assert_eq!(boundary["kept"], theirs);
+        assert_eq!(boundary["lost"], mine);
+        assert_eq!(boundary["mine"], json!(true));
+        assert_eq!(boundary["record"]["boundary"], theirs);
+
+        later();
+        a.resolve("territories", "t1", "boundary", true).unwrap();
+        a.resolve("territories", "t1", "mapLines", false).unwrap();
+        sync(&mut a, &mut b);
+        for s in [&a, &b] {
+            let t = &s.list("territories").unwrap()[0];
+            assert_eq!(t["boundary"], mine);
+            assert_eq!(t["mapLines"], json!([[5, 6]]));
+        }
+        assert!(a.conflicts().unwrap().is_empty());
+        // keeping the value that won writes nothing, so Ben is still asked
+        let left = b.conflicts().unwrap();
+        assert_eq!((left.len(), &left[0]["field"]), (1, &json!("mapLines")));
+        b.resolve("territories", "t1", "mapLines", false).unwrap();
+        assert!(b.conflicts().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_border_edited_one_after_the_other_is_no_conflict() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "1", "boundary": outline(10, 0.0)})))
+            .unwrap();
+        sync(&mut a, &mut b);
+        a.put("territories", "t1", &fields(json!({"boundary": outline(2000, 0.001)}))).unwrap();
+        sync(&mut a, &mut b);
+        later();
+        b.put("territories", "t1", &fields(json!({"boundary": outline(2000, 0.002)}))).unwrap();
+        sync(&mut a, &mut b);
+        assert!(a.conflicts().unwrap().is_empty());
+        assert!(b.conflicts().unwrap().is_empty());
+        assert_eq!(a.list("territories").unwrap()[0]["boundary"], outline(2000, 0.002));
+
+        // the same shapes drawn on both phones at once, stored with other
+        // spacing and key order, are no clash either
+        let shapes = json!([{"id": "s1", "kind": "circle", "center": [16.1, 48.2], "radius": 40}]);
+        a.put("territories", "t1", &fields(json!({"mapShapes": shapes}))).unwrap();
+        b.put("territories", "t1", &fields(json!({"mapShapes": shapes}))).unwrap();
+        a.conn
+            .execute(
+                "UPDATE cells SET value = ?1 WHERE field = 'mapShapes'",
+                [r#"[ { "radius": 40, "center": [16.1, 48.2], "kind": "circle", "id": "s1" } ]"#],
+            )
+            .unwrap();
+        sync(&mut a, &mut b);
+        assert!(a.conflicts().unwrap().is_empty());
+        assert!(b.conflicts().unwrap().is_empty());
     }
 }

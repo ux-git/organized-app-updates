@@ -1,11 +1,13 @@
 package com.sws2apps.territories
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import androidx.annotation.RequiresApi
 import android.os.VibrationEffect.Composition.PRIMITIVE_CLICK as CLICK
 import android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_FALL as FALL
 import android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_RISE as RISE
@@ -125,6 +127,7 @@ object Haptics {
 
   fun play(context: Context, name: String): Boolean {
     val pattern = PATTERNS[name] ?: return false
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
     val vibrator = vibrator(context)?.takeIf { it.hasVibrator() } ?: return false
     runCatching {
       val effect = effect(vibrator, pattern) ?: return false
@@ -137,6 +140,8 @@ object Haptics {
     return true
   }
 
+  @SuppressLint("WrongConstant") // the steps hold only Composition primitives
+  @RequiresApi(Build.VERSION_CODES.O)
   private fun effect(vibrator: Vibrator, pattern: Pattern): VibrationEffect? {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
       val primitives = pattern.steps.map { it.primitive }.distinct().toIntArray()
@@ -146,7 +151,6 @@ object Haptics {
         return composition.compose()
       }
     }
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null
     return if (vibrator.hasAmplitudeControl()) {
       VibrationEffect.createWaveform(pattern.timings, pattern.amplitudes, -1)
     } else {

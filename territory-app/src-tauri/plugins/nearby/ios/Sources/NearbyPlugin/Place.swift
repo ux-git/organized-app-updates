@@ -139,7 +139,17 @@ final class Place: NSObject, CLLocationManagerDelegate {
     pendingHere = nil
   }
 
-  func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+  /// Asks at once: a hall set while standing in it gets no entry event.
+  func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
+    if region.identifier == Self.region { manager.requestState(for: region) }
+  }
+
+  /// Entering, the answer to requestState, and (for the beacon) waking the
+  /// screen near one.
+  func locationManager(
+    _ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion
+  ) {
+    guard state == .inside else { return }
     if region.identifier == Self.peers {
       if Nearby.shared.mode != "manual" { Nearby.shared.start(reason: "beacon", seconds: 60) }
       return

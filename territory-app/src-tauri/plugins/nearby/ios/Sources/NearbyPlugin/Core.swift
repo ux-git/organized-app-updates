@@ -33,7 +33,12 @@ enum Core {
   @discardableResult
   static func open() -> Bool {
     let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-    let dir = base.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.sws2apps.territories")
+    var dir = base.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.sws2apps.territories")
+    // a restored backup would bring back an old identity and old sequence numbers
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    var values = URLResourceValues()
+    values.isExcludedFromBackup = true
+    try? dir.setResourceValues(values)
     return dir.path.withCString { territory_open($0) }
   }
 
@@ -92,6 +97,11 @@ enum Core {
 
   static func peerName(_ id: String) -> String {
     peers.first { $0["id"] as? String == id }?["name"] as? String ?? ""
+  }
+
+  /// A full backup (src-tauri/src/backup.rs); "" when it fails.
+  static func backup() -> String {
+    take(territory_backup())
   }
 
   /// Passes progress to the page, as `Native.emit` does on Android.

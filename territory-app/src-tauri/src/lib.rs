@@ -1,3 +1,4 @@
+mod backup;
 mod hlc;
 mod qr;
 mod session;
@@ -77,17 +78,19 @@ fn store_list(table: String) -> Result<Vec<Value>> {
 
 #[tauri::command]
 fn store_write(writes: Vec<Write>) -> Result<usize> {
-    let mut store = store()?;
-    let mut written = 0;
-    for write in writes {
-        if write.deleted {
-            store.remove(&write.table, &write.id)?;
-            written += 1;
-        } else {
-            written += store.put(&write.table, &write.id, &write.fields)?;
+    // one commit for the lot: the page sends every record at once
+    store()?.batch(|store| {
+        let mut written = 0;
+        for write in writes {
+            if write.deleted {
+                store.remove(&write.table, &write.id)?;
+                written += 1;
+            } else {
+                written += store.put(&write.table, &write.id, &write.fields)?;
+            }
         }
-    }
-    Ok(written)
+        Ok(written)
+    })
 }
 
 #[tauri::command]
@@ -98,6 +101,7 @@ fn identity() -> Result<Value> {
         "name": store.identity.name,
         "platform": PLATFORM,
         "unsynced": store.unsynced()?,
+        "removed": store.is_removed()?,
     }))
 }
 
@@ -140,7 +144,7 @@ fn pairing_card() -> Result<String> {
 
 #[tauri::command]
 fn add_pairing_card(text: String) -> Result<Peer> {
-    qr::add_card(&*store()?, &text)
+    qr::add_card(&mut *store()?, &text)
 }
 
 #[tauri::command]
@@ -163,7 +167,7 @@ fn open_files(app: &AppHandle, urls: Vec<tauri::Url>) {
         let Ok(path) = url.to_file_path() else { continue };
         let Ok(text) = std::fs::read_to_string(path) else { continue };
         let text = text.trim().to_string();
-        if !text.starts_with("OTB1:") && !text.starts_with("OTC1:") {
+        if !["OTB1:", "OTC1:", backup::BACKUP].iter().any(|p| text.starts_with(p)) {
             continue;
         }
         if let Some(window) = app.get_webview_window("main") {
@@ -212,6 +216,8 @@ pub fn run() {
             add_pairing_card,
             export_bundle,
             import_bundle,
+            backup::backup_export,
+            backup::backup_restore,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

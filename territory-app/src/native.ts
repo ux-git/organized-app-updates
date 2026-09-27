@@ -52,3 +52,14 @@ export const nearby = (name: string, args: Record<string, unknown> = {}) => {
 };
 
 export const hasNearby = () => !!window.TerritoryNearby;
+
+// links to websites open in the device's browser, not inside the app
+if (hasNearby()) {
+  const open = window.open.bind(window);
+  window.open = (url?: string | URL, ...rest) => {
+    const text = String(url ?? '');
+    if (!text.startsWith('https://')) return open(url, ...rest);
+    nearby('openUrl', { url: text });
+    return null;
+  };
+}

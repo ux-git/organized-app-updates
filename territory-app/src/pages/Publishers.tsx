@@ -1,14 +1,18 @@
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
-import { Box, IconButton, Stack } from '@mui/material';
+import { Box, Stack } from '@mui/material';
 import { IconAdd, IconDelete, IconImportExport } from '@icons/index';
 import Button from '@components/button';
 import Checkbox from '@components/checkbox';
+import { NavBarOptionsType } from '@definition/app';
 import Dialog from '@components/dialog';
+import DialogActions from '@components/dialog_actions';
+import IconButton from '@components/icon_button';
 import NavBarButton from '@components/nav_bar_button';
 import NavBarButtonGroup from '@components/nav_bar_button_group';
 import PageTitle from '@components/page_title';
 import SearchBar from '@components/search_bar';
 import TextField from '@components/textfield';
+import SwitchWithLabel from '@components/switch_with_label';
 import Typography from '@components/typography';
 import {
   CardSection,
@@ -24,12 +28,10 @@ import {
 import { loadPeople, PEOPLE, Person, writeRows } from '../persistence';
 import { play } from '../haptics';
 import { confirm } from './confirm';
-import { notify } from './sync/text';
-import { Avatar } from './sync/parts';
+import { t } from '../i18n';
+import { count, notify } from './sync/text';
+import { Actions, Avatar } from './sync/parts';
 import usePeople from './usePeople';
-
-const count = (n: number, one: string, many: string) =>
-  `${n} ${n === 1 ? one : many}`;
 
 const ImportDialog = ({
   open,
@@ -45,6 +47,7 @@ const ImportDialog = ({
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [removeMissing, setRemoveMissing] = useState(false);
   const [source, setSource] = useState<'backup' | 'list'>('backup');
+  const [busy, setBusy] = useState(false);
 
   const close = () => {
     setPlan(null);
@@ -62,31 +65,46 @@ const ImportDialog = ({
       setSource('backup');
       setPlan(planImport(people, incoming, skipped));
     } catch (error) {
-      notify('Something went wrong', (error as Error).message, 'error');
+      notify(t('common.somethingWrong'), (error as Error).message, 'error');
     }
   };
 
   const confirm = async () => {
-    if (!plan) return;
-    await applyImport(plan, removeMissing);
-    notify(
-      'Publishers imported',
-      `${count(plan.add.length, 'name', 'names')} added, ${count(plan.update.length, 'name', 'names')} updated.`
-    );
-    close();
+    if (!plan || busy) return;
+    setBusy(true);
+    try {
+      await applyImport(plan, removeMissing);
+      notify(
+        t('publishers.imported'),
+        t('publishers.importedText', {
+          added: count(plan.add.length, 'names'),
+          updated: count(plan.update.length, 'names'),
+        })
+      );
+      close();
+    } catch (error) {
+      notify(t('common.somethingWrong'), String(error), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const planList = () => {
+    setSource('list');
+    setPlan(planImport(people, readList(list)));
   };
 
   if (plan) {
     const rows = [
-      ['New', plan.add.length],
-      ['Updated', plan.update.length],
-      ['Already here', plan.unchanged],
+      [t('publishers.new'), plan.add.length],
+      [t('publishers.updated'), plan.update.length],
+      [t('publishers.unchanged'), plan.unchanged],
       ...(source === 'backup'
-        ? ([['Archived, not imported', plan.skipped]] as const)
+        ? ([[t('publishers.skipped'), plan.skipped]] as const)
         : []),
     ] as const;
     return (
-      <Dialog open={open} onClose={close} title="Import publishers">
+      <Dialog open={open} onClose={close} title={t('publishers.import')}>
         <Stack spacing="8px" sx={{ width: '100%' }}>
           {rows.map(([label, value]) => (
             <Box
@@ -104,16 +122,23 @@ const ImportDialog = ({
           <Checkbox
             checked={removeMissing}
             onChange={(_, checked) => setRemoveMissing(checked)}
-            label={`Remove ${count(plan.missing.length, 'name', 'names')} that aren’t in the ${source}`}
-            labelDescription="For example, people who moved away. Their assignment history stays."
+            label={t(
+              source === 'backup'
+                ? 'publishers.removeMissingBackup'
+                : 'publishers.removeMissingList',
+              { names: count(plan.missing.length, 'names') }
+            )}
+            labelDescription={t('publishers.removeMissingText')}
           />
         )}
-        <Button variant="main" onClick={confirm}>
-          Import
-        </Button>
-        <Button variant="secondary" onClick={close}>
-          Cancel
-        </Button>
+        <DialogActions>
+          <Button variant="secondary" onClick={close}>
+            {t('common.cancel')}
+          </Button>
+          <Button variant="main" disabled={busy} onClick={confirm}>
+            {t('publishers.importButton')}
+          </Button>
+        </DialogActions>
       </Dialog>
     );
   }
@@ -122,17 +147,16 @@ const ImportDialog = ({
     <Dialog
       open={open}
       onClose={close}
-      title="Import publishers"
-      description="Only names and field service groups are taken. Addresses, phone numbers and reports in the backup stay out of this app."
+      title={t('publishers.import')}
+      description={t('publishers.importText')}
     >
       <Stack spacing="8px" sx={{ width: '100%' }}>
-        <Typography className="h4">From an Organized backup</Typography>
+        <Typography className="h4">{t('publishers.fromBackup')}</Typography>
         <Typography className="body-small-regular" color="var(--grey-400)">
-          In Organized, open Congregation settings and export a backup. A backup
-          converted from NW Scheduler works too.
+          {t('publishers.fromBackupText')}
         </Typography>
-        <Button variant="main" onClick={() => fileInput.current?.click()}>
-          Choose backup file
+        <Button variant="tertiary" onClick={() => fileInput.current?.click()}>
+          {t('publishers.chooseBackup')}
         </Button>
         <input
           ref={fileInput}
@@ -143,28 +167,23 @@ const ImportDialog = ({
         />
       </Stack>
       <Stack spacing="8px" sx={{ width: '100%' }}>
-        <Typography className="h4">Paste a list</Typography>
+        <Typography className="h4">{t('publishers.paste')}</Typography>
         <TextField
-          label="One name per line"
+          label={t('publishers.onePerLine')}
           multiline
           minRows={3}
           value={list}
           onChange={(event) => setList(event.target.value)}
         />
-        <Button
-          variant="secondary"
-          disabled={!list.trim()}
-          onClick={() => {
-            setSource('list');
-            setPlan(planImport(people, readList(list)));
-          }}
-        >
-          Continue
-        </Button>
       </Stack>
-      <Button variant="tertiary" onClick={close}>
-        Cancel
-      </Button>
+      <DialogActions>
+        <Button variant="secondary" onClick={close}>
+          {t('common.cancel')}
+        </Button>
+        <Button variant="main" disabled={!list.trim()} onClick={planList}>
+          {t('common.continue')}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 };
@@ -180,6 +199,7 @@ const NameDialog = ({
   const [name, setName] = useState('');
   const [group, setGroup] = useState(false);
   const [shown, setShown] = useState<typeof person>(null);
+  const [busy, setBusy] = useState(false);
 
   if (person !== shown) {
     setShown(person);
@@ -189,47 +209,58 @@ const NameDialog = ({
 
   const save = async () => {
     const trimmed = name.trim();
-    if (!trimmed) return;
-    await writeRows([
-      {
-        table: PEOPLE,
-        id: existing?.id ?? crypto.randomUUID(),
-        fields: { name: trimmed, group },
-      },
-    ]);
-    await loadPeople();
-    onClose();
+    if (!trimmed || busy) return;
+    setBusy(true);
+    try {
+      await writeRows([
+        {
+          table: PEOPLE,
+          id: existing?.id ?? crypto.randomUUID(),
+          fields: { name: trimmed, group },
+        },
+      ]);
+      await loadPeople();
+      onClose();
+    } catch (error) {
+      notify(t('common.somethingWrong'), String(error), 'error');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <Dialog
       open={!!person}
       onClose={onClose}
-      title={existing ? 'Edit name' : 'Add name'}
+      title={existing ? t('publishers.edit') : t('publishers.add')}
     >
       <TextField
-        label="Name"
+        label={t('publishers.name')}
         value={name}
+        autoFocus
         onChange={(event) => setName(event.target.value)}
         onKeyDown={(event) => event.key === 'Enter' && save()}
       />
-      <Checkbox
+      <SwitchWithLabel
+        label={t('publishers.group')}
+        helper={t('publishers.groupText')}
         checked={group}
-        onChange={(_, checked) => setGroup(checked)}
-        label="Field service group"
-        labelDescription="A whole group can work a territory together."
+        onChange={setGroup}
       />
-      <Button variant="main" disabled={!name.trim()} onClick={save}>
-        Save
-      </Button>
-      <Button variant="secondary" onClick={onClose}>
-        Cancel
-      </Button>
+      <DialogActions>
+        <Button variant="secondary" onClick={onClose}>
+          {t('common.cancel')}
+        </Button>
+        <Button variant="main" disabled={!name.trim() || busy} onClick={save}>
+          {t('common.save')}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 };
 
-const Publishers = () => {
+// the settings page names it; it adds its own Import and Add buttons
+const Publishers = ({ title }: { title: NavBarOptionsType }) => {
   const people = usePeople();
   const [search, setSearch] = useState('');
   const [importOpen, setImportOpen] = useState(false);
@@ -250,14 +281,18 @@ const Publishers = () => {
 
   const remove = async (person: Person) => {
     const ok = await confirm({
-      title: `Remove ${person.name}?`,
-      description: 'Their assignment history stays.',
-      action: 'Remove',
+      title: t('publishers.removeTitle', { name: person.name }),
+      description: t('publishers.removeText'),
+      action: t('common.remove'),
     });
     if (!ok) return;
     play('remove');
-    await writeRows([{ table: PEOPLE, id: person.id, deleted: true }]);
-    await loadPeople();
+    try {
+      await writeRows([{ table: PEOPLE, id: person.id, deleted: true }]);
+      await loadPeople();
+    } catch (error) {
+      notify(t('common.somethingWrong'), String(error), 'error');
+    }
   };
 
   const section = (title: string, list: Person[]) =>
@@ -291,7 +326,9 @@ const Publishers = () => {
                 {person.name}
               </Typography>
               <IconButton
-                aria-label={`Remove ${person.name}`}
+                color="error"
+                edge="end"
+                aria-label={t('publishers.removeLabel', { name: person.name })}
                 onClick={(event) => {
                   event.stopPropagation();
                   remove(person);
@@ -306,18 +343,18 @@ const Publishers = () => {
     );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <>
       <PageTitle
-        title="Publishers and groups"
+        {...title}
         buttons={
           <NavBarButtonGroup>
             <NavBarButton
-              text="Import"
+              text={t('publishers.importButton')}
               icon={<IconImportExport />}
               onClick={() => setImportOpen(true)}
             />
             <NavBarButton
-              text="Add"
+              text={t('publishers.addButton')}
               icon={<IconAdd />}
               main
               onClick={() => setEditing('new')}
@@ -329,27 +366,31 @@ const Publishers = () => {
       {people.length === 0 ? (
         <CardSection>
           <CardSectionHeader
-            title="No names yet"
-            description="Territories are assigned to these names. Import them from an Organized backup, paste a list, or add them one by one. They are shared with your paired phones only."
+            title={t('publishers.none')}
+            description={t('publishers.noneText')}
           />
-          <Box>
-            <Button variant="main" onClick={() => setImportOpen(true)}>
-              Import publishers
-            </Button>
-          </Box>
+          <Actions
+            actions={[
+              {
+                label: t('publishers.import'),
+                kind: 'main',
+                onClick: () => setImportOpen(true),
+              },
+            ]}
+          />
         </CardSection>
       ) : (
         <>
           <SearchBar
-            placeholder="Search names"
+            placeholder={t('publishers.search')}
             value={search}
             onSearch={setSearch}
           />
-          {section('Field service groups', groups)}
-          {section('Publishers', publishers)}
+          {section(t('publishers.groups'), groups)}
+          {section(t('publishers.publishers'), publishers)}
           {groups.length + publishers.length === 0 && (
             <Typography className="body-regular" color="var(--grey-400)">
-              No names match your search
+              {t('publishers.noMatch')}
             </Typography>
           )}
         </>
@@ -361,7 +402,7 @@ const Publishers = () => {
         onClose={() => setImportOpen(false)}
       />
       <NameDialog person={editing} onClose={() => setEditing(null)} />
-    </Box>
+    </>
   );
 };
 

@@ -1,0 +1,66 @@
+import { Navigate, useNavigate, useParams } from 'react-router';
+import { Box } from '@mui/material';
+import PageTitle from '@components/page_title';
+import { useBreakpoints } from '@hooks/index';
+import { t } from '../i18n';
+import AutomaticSection from './sync/AutomaticSection';
+import Backup from './Backup';
+import KingdomHall from './KingdomHall';
+import Profile from './Profile';
+import Publishers from './Publishers';
+import Sync from './Sync';
+import useNearby from './useNearby';
+
+// Each setting is its own page, opened from the account menu or the App card
+const Settings = () => {
+  const { tab } = useParams();
+  const navigate = useNavigate();
+  const { tablet688Up } = useBreakpoints();
+  const { status, android } = useNearby();
+
+  const titles: Record<string, string> = {
+    profile: t('account.profile'),
+    sync: t('settings.syncTab'),
+    publishers: t('settings.publishers'),
+    ...(android
+      ? { automatic: t('settings.automatic'), backup: t('backup.title') }
+      : {}),
+  };
+
+  if (!tab || !titles[tab]) return <Navigate to="/" replace />;
+
+  const title = { title: titles[tab], onBack: () => navigate('/') };
+
+  if (tab === 'publishers') {
+    return (
+      // the page buttons float over the bottom of a phone screen
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          paddingBottom: tablet688Up ? 0 : '120px',
+        }}
+      >
+        <Publishers title={title} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <PageTitle {...title} />
+      {tab === 'profile' && <Profile />}
+      {tab === 'sync' && <Sync />}
+      {tab === 'backup' && <Backup />}
+      {tab === 'automatic' && (
+        <>
+          <AutomaticSection status={status} />
+          <KingdomHall status={status} />
+        </>
+      )}
+    </Box>
+  );
+};
+
+export default Settings;

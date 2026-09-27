@@ -1,4 +1,4 @@
-import { ReactElement, ReactNode, useEffect, useState } from 'react';
+import { ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Box, Stack } from '@mui/material';
 import {
@@ -7,15 +7,17 @@ import {
   IconNotifications,
   IconSync,
 } from '@icons/index';
-import Button from '@components/button';
 import TextField from '@components/textfield';
 import Typography from '@components/typography';
+import { CardSection } from '@features/congregation/settings/shared_styles';
 import { play } from '../haptics';
 import { invoke, nearby } from '../native';
 import { loadIdentity } from '../persistence';
+import { t } from '../i18n';
 import { IconBluetooth, IconQr, IconTap } from './sync/icons';
 import { Actions } from './sync/parts';
 import useNearby from './useNearby';
+import { notify } from './sync/text';
 
 const KEY = 'territories-welcomed';
 
@@ -26,16 +28,6 @@ export const welcomed = () => {
     return true;
   }
 };
-
-const card = {
-  borderRadius: 'var(--radius-xl)',
-  border: '1px solid var(--accent-200)',
-  backgroundColor: 'var(--white)',
-  padding: '20px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '16px',
-} as const;
 
 /** A small round tile with an icon, as on the Sync page. */
 const Tile = ({ icon, done }: { icon: ReactElement; done?: boolean }) => (
@@ -73,7 +65,7 @@ const Step = ({
   done: boolean;
   children: ReactNode;
 }) => (
-  <Box sx={card}>
+  <CardSection sx={{ gap: '16px' }}>
     <Box sx={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
       <Box
         sx={{
@@ -105,7 +97,7 @@ const Step = ({
       </Box>
     </Box>
     {children}
-  </Box>
+  </CardSection>
 );
 
 const Access = ({
@@ -132,9 +124,9 @@ const Access = ({
 );
 
 const PROMISES = [
-  { icon: <IconSync />, text: 'Syncs by itself when your phones meet' },
-  { icon: <IconBluetooth />, text: 'Phone to phone, never over the internet' },
-  { icon: <IconLocation />, text: 'Everything stays on your phones' },
+  { icon: <IconSync />, text: 'welcome.promiseSync' },
+  { icon: <IconBluetooth />, text: 'welcome.promiseDirect' },
+  { icon: <IconLocation />, text: 'welcome.promiseLocal' },
 ];
 
 /** First start: what the app is, your name, and what it needs, in one go. */
@@ -142,6 +134,8 @@ const Welcome = () => {
   const navigate = useNavigate();
   const { status, name: saved } = useNearby();
   const [name, setName] = useState('');
+  // leaving the field and then Get started would save the same name twice
+  const sent = useRef('');
   const allowed = status.permissions;
   const ios = status.platform === 'ios';
 
@@ -162,9 +156,15 @@ const Welcome = () => {
 
   const saveName = async () => {
     const trimmed = name.trim();
-    if (!trimmed || trimmed === saved) return;
-    await invoke('set_name', { name: trimmed });
-    await loadIdentity();
+    if (!trimmed || trimmed === saved || trimmed === sent.current) return;
+    sent.current = trimmed;
+    try {
+      await invoke('set_name', { name: trimmed });
+      await loadIdentity();
+    } catch (error) {
+      sent.current = '';
+      notify(t('common.somethingWrong'), String(error), 'error');
+    }
   };
 
   const finish = async () => {
@@ -178,19 +178,12 @@ const Welcome = () => {
   };
 
   return (
-    <Stack spacing="16px" sx={{ paddingTop: '8px', paddingBottom: '24px' }}>
-      <Box
-        sx={{
-          ...card,
-          padding: '24px 20px',
-          gap: '20px',
-        }}
-      >
+    <Stack spacing="16px">
+      <CardSection sx={{ gap: '16px' }}>
         <Box>
-          <Typography className="h1">Welcome</Typography>
+          <Typography className="h1">{t('welcome.title')}</Typography>
           <Typography className="body-regular" color="var(--grey-400)">
-            Your congregation’s territories, on your phone and ready for the
-            ministry.
+            {t('welcome.intro')}
           </Typography>
         </Box>
         <Stack spacing="12px">
@@ -200,75 +193,74 @@ const Welcome = () => {
               sx={{ display: 'flex', gap: '12px', alignItems: 'center' }}
             >
               <Tile icon={promise.icon} />
-              <Typography className="body-regular">{promise.text}</Typography>
+              <Typography className="body-regular">
+                {t(promise.text)}
+              </Typography>
             </Box>
           ))}
         </Stack>
-      </Box>
+      </CardSection>
 
       <Step
         number={1}
-        title="Your name"
-        text="Paired phones show it, so the other brothers know it’s you."
+        title={t('common.yourName')}
+        text={t('welcome.nameText')}
         done={!!saved}
       >
         <TextField
-          label="First and last name"
+          label={t('common.fullName')}
           value={name}
           onChange={(event) => setName(event.target.value)}
           onBlur={saveName}
+          onKeyDown={(event) => event.key === 'Enter' && saveName()}
         />
       </Step>
 
       <Step
         number={2}
-        title="Allow access once"
-        text="Then your phone syncs by itself from now on, also with the app closed."
+        title={t('welcome.accessTitle')}
+        text={t('welcome.accessText')}
         done={all}
       >
         <Stack spacing="14px">
           <Access
             icon={<IconBluetooth />}
-            title="Bluetooth"
-            text="Finds paired phones nearby and syncs with them."
+            title={t('common.bluetooth')}
+            text={t('common.bluetoothText')}
             ok={!!allowed?.bluetooth}
           />
           <Access
             icon={<IconNotifications />}
-            title="Notifications"
-            text="Tells you what a sync brought."
+            title={t('common.notifications')}
+            text={t('common.notificationsText')}
             ok={!!allowed?.notifications}
           />
           <Access
             icon={<IconQr />}
-            title="Camera"
-            text="Scans a pairing QR code, when Bluetooth doesn’t work."
+            title={t('welcome.camera')}
+            text={t('welcome.cameraText')}
             ok={!!allowed?.camera}
           />
           {ios ? (
             <Access
               icon={<IconLocation />}
-              title="Location, always"
-              text="Wakes the app when a paired Android phone or the Kingdom Hall is near. It stays on this phone."
+              title={t('welcome.location')}
+              text={t('welcome.locationText')}
               ok={!!allowed?.backgroundLocation}
             />
           ) : (
             <Access
               icon={<IconSync />}
-              title="Run in the background"
-              text="Lets Android start the sync by itself, also after a restart."
+              title={t('common.background')}
+              text={t('welcome.backgroundText')}
               ok={!!allowed?.battery}
             />
           )}
           {allowed?.nfc && (
             <Access
               icon={<IconTap />}
-              title="NFC"
-              text={
-                allowed.nfcOn
-                  ? 'Pairs two Android phones by holding them together.'
-                  : 'Optional: turn it on to pair by holding two phones together.'
-              }
+              title={t('welcome.nfc')}
+              text={allowed.nfcOn ? t('welcome.nfcOn') : t('welcome.nfcOff')}
               ok={!!allowed.nfcOn}
             />
           )}
@@ -279,13 +271,18 @@ const Welcome = () => {
               ? []
               : [
                   {
-                    label: 'Allow all',
+                    label: t('welcome.allowAll'),
                     kind: 'main' as const,
                     onClick: () => nearby('permissions', { which: 'all' }),
                   },
                 ]),
             ...(allowed?.nfc && !allowed.nfcOn
-              ? [{ label: 'Turn on NFC', onClick: () => nearby('nfcSettings') }]
+              ? [
+                  {
+                    label: t('welcome.turnOnNfc'),
+                    onClick: () => nearby('nfcSettings'),
+                  },
+                ]
               : []),
           ]}
         />
@@ -297,14 +294,19 @@ const Welcome = () => {
           color="var(--grey-400)"
           sx={{ paddingInline: '4px' }}
         >
-          Keep Territories in the app switcher. If you swipe it away there, iOS
-          stops waking it for a sync until you open it again.
+          {t('welcome.iosHint')}
         </Typography>
       )}
 
-      <Button variant={all ? 'main' : 'secondary'} onClick={finish}>
-        {all ? 'Get started' : 'Skip for now'}
-      </Button>
+      <Actions
+        actions={[
+          {
+            label: all ? t('welcome.start') : t('welcome.skip'),
+            kind: all ? 'main' : 'secondary',
+            onClick: finish,
+          },
+        ]}
+      />
     </Stack>
   );
 };

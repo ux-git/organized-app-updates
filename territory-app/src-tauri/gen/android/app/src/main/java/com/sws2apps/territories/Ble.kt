@@ -114,19 +114,26 @@ class Link(private val context: Context, private val listener: Listener) {
   private var server: BluetoothGattServer? = null
   private var tx: BluetoothGattCharacteristic? = null
   private val incoming = HashMap<String, ServerPipe>()
+  /** A long write, in parts until the peer executes it. */
+  private val prepared = HashMap<String, ByteArray>()
   private val outgoing = HashMap<String, ClientPipe>()
   private var advertising: ByteArray? = null
   private var scanning = false
+  /** Off after stop(): callbacks already posted are dropped. */
+  private var running = false
 
   val available get() = adapter?.isEnabled == true
 
   fun start(): Boolean {
     if (!available) return false
     if (server == null) openServer()
-    return server != null
+    running = server != null
+    return running
   }
 
   fun stop() {
+    running = false
+    prepared.clear()
     stopScan()
     stopAdvertising()
     outgoing.values.toList().forEach { it.close() }
@@ -147,7 +154,9 @@ class Link(private val context: Context, private val listener: Listener) {
   fun advertise(payload: ByteArray) {
     if (advertising?.contentEquals(payload) == true) return
     val advertiser = adapter?.bluetoothLeAdvertiser ?: return
-    stopAdvertising()
+    // only this set: the iBeacon next to it keeps going
+    runCatching { advertiser.stopAdvertising(advertiseCallback) }
+    advertising = null
     val settings = AdvertiseSettings.Builder()
       .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
       .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
@@ -166,7 +175,7 @@ class Link(private val context: Context, private val listener: Listener) {
       .onSuccess { advertising = payload }
   }
 
-  fun stopAdvertising() {
+  private fun stopAdvertising() {
     runCatching { adapter?.bluetoothLeAdvertiser?.stopAdvertising(advertiseCallback) }
     advertising = null
     stopIbeacon()
@@ -216,25 +225,24 @@ class Link(private val context: Context, private val listener: Listener) {
       val record = result.scanRecord ?: return
       val payload = record.getServiceData(ParcelUuid(Nearby.SERVICE)) ?: ByteArray(0)
       val name = record.deviceName
-      handler.post { listener.onSeen(result.device, payload, result.rssi, name) }
+      handler.post { if (running) listener.onSeen(result.device, payload, result.rssi, name) }
     }
 
     override fun onBatchScanResults(results: MutableList<ScanResult>) {
       results.forEach { onScanResult(0, it) }
     }
+
+    override fun onScanFailed(errorCode: Int) {
+      scanning = false
+    }
   }
 
-  /** `fast` while someone waits for it; `quiet` when it runs all day. */
-  fun scan(fast: Boolean, quiet: Boolean = false) {
+  /** A running scan is left alone: Android ignores an app that starts 5 in 30 seconds. */
+  fun scan() {
+    if (!running || scanning) return
     val scanner = adapter?.bluetoothLeScanner ?: return
-    stopScan()
     val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(Nearby.SERVICE)).build()
-    val mode = when {
-      fast -> ScanSettings.SCAN_MODE_LOW_LATENCY
-      quiet -> ScanSettings.SCAN_MODE_LOW_POWER
-      else -> ScanSettings.SCAN_MODE_BALANCED
-    }
-    val settings = ScanSettings.Builder().setScanMode(mode).build()
+    val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
     runCatching { scanner.startScan(listOf(filter), settings, scanCallback) }
       .onSuccess { scanning = true }
   }
@@ -277,12 +285,15 @@ class Link(private val context: Context, private val listener: Listener) {
     val callback = object : BluetoothGattServerCallback() {
       override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
         if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-          handler.post { incoming[device.address]?.close() }
+          handler.post {
+            prepared.remove(device.address)
+            incoming[device.address]?.close()
+          }
         }
       }
 
       override fun onMtuChanged(device: BluetoothDevice, mtu: Int) {
-        handler.post { pipeFor(device).chunk = mtu - 3 }
+        handler.post { if (running) pipeFor(device).chunk = mtu - 3 }
       }
 
       override fun onCharacteristicWriteRequest(
@@ -294,19 +305,31 @@ class Link(private val context: Context, private val listener: Listener) {
         offset: Int,
         value: ByteArray?,
       ) {
+        val fits = !preparedWrite || offset + (value?.size ?: 0) <= 512
         if (responseNeeded) {
-          server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
+          // a part of a long write is answered with itself, so the peer can check it
+          val status = if (fits) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_INVALID_ATTRIBUTE_LENGTH
+          server?.sendResponse(device, requestId, status, offset, value)
         }
-        if (characteristic.uuid != Nearby.RX || value == null) return
+        if (characteristic.uuid != Nearby.RX || value == null || !fits) return
         val bytes = value.copyOf()
         handler.post {
-          val pipe = pipeFor(device)
-          if (!pipe.started) {
-            pipe.started = true
-            listener.onIncoming(pipe, bytes)
+          if (!running) return@post
+          if (preparedWrite) {
+            val held = prepared[device.address] ?: ByteArray(0)
+            prepared[device.address] = held.copyOf(maxOf(held.size, offset + bytes.size))
+              .also { bytes.copyInto(it, offset) }
           } else {
-            listener.onBytes(pipe, bytes)
+            received(device, bytes)
           }
+        }
+      }
+
+      override fun onExecuteWrite(device: BluetoothDevice, requestId: Int, execute: Boolean) {
+        server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
+        handler.post {
+          val bytes = prepared.remove(device.address) ?: return@post
+          if (execute && running) received(device, bytes)
         }
       }
 
@@ -356,11 +379,23 @@ class Link(private val context: Context, private val listener: Listener) {
   private fun pipeFor(device: BluetoothDevice) =
     incoming.getOrPut(device.address) { ServerPipe(device) }
 
+  private fun received(device: BluetoothDevice, bytes: ByteArray) {
+    if (bytes.isEmpty()) return
+    val pipe = pipeFor(device)
+    if (!pipe.started) {
+      pipe.started = true
+      listener.onIncoming(pipe, bytes)
+    } else {
+      listener.onBytes(pipe, bytes)
+    }
+  }
+
   // ---- this phone connecting to another ----
 
   private inner class ClientPipe(val device: BluetoothDevice) : Pipe(device.address) {
     var gatt: BluetoothGatt? = null
     var rx: BluetoothGattCharacteristic? = null
+    var ready = false
 
     override fun write(part: ByteArray): Boolean {
       val gatt = gatt ?: return false
@@ -395,13 +430,14 @@ class Link(private val context: Context, private val listener: Listener) {
   fun connected(address: String) = outgoing.containsKey(address) || incoming.containsKey(address)
 
   fun connect(device: BluetoothDevice) {
-    if (connected(device.address)) return
+    if (!running || connected(device.address)) return
     val pipe = ClientPipe(device)
     outgoing[device.address] = pipe
 
     val callback = object : BluetoothGattCallback() {
       override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
         handler.post {
+          if (pipe.closed) return@post
           when (newState) {
             BluetoothProfile.STATE_CONNECTED -> {
               if (!gatt.requestMtu(517)) gatt.discoverServices()
@@ -413,6 +449,7 @@ class Link(private val context: Context, private val listener: Listener) {
 
       override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
         handler.post {
+          if (pipe.closed) return@post
           if (status == BluetoothGatt.GATT_SUCCESS) pipe.chunk = mtu - 3
           gatt.discoverServices()
         }
@@ -420,6 +457,7 @@ class Link(private val context: Context, private val listener: Listener) {
 
       override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
         handler.post {
+          if (pipe.closed) return@post
           val service = gatt.getService(Nearby.SERVICE)
           val rx = service?.getCharacteristic(Nearby.RX)
           val tx = service?.getCharacteristic(Nearby.TX)
@@ -444,7 +482,13 @@ class Link(private val context: Context, private val listener: Listener) {
 
       override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
         handler.post {
-          if (status == BluetoothGatt.GATT_SUCCESS) listener.onConnected(pipe) else pipe.close()
+          if (pipe.closed) return@post
+          if (status != BluetoothGatt.GATT_SUCCESS) {
+            pipe.close()
+            return@post
+          }
+          pipe.ready = true
+          listener.onConnected(pipe)
         }
       }
 
@@ -454,6 +498,7 @@ class Link(private val context: Context, private val listener: Listener) {
         status: Int,
       ) {
         handler.post {
+          if (pipe.closed) return@post
           if (status == BluetoothGatt.GATT_SUCCESS) pipe.written() else pipe.close()
         }
       }
@@ -464,7 +509,7 @@ class Link(private val context: Context, private val listener: Listener) {
         value: ByteArray,
       ) {
         val bytes = value.copyOf()
-        handler.post { listener.onBytes(pipe, bytes) }
+        handler.post { if (!pipe.closed) listener.onBytes(pipe, bytes) }
       }
 
       @Deprecated("Deprecated in Java")
@@ -472,16 +517,25 @@ class Link(private val context: Context, private val listener: Listener) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return
         @Suppress("DEPRECATION")
         val bytes = characteristic.value?.copyOf() ?: return
-        handler.post { listener.onBytes(pipe, bytes) }
+        handler.post { if (!pipe.closed) listener.onBytes(pipe, bytes) }
       }
     }
 
     pipe.gatt = runCatching {
       device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
     }.getOrNull()
-    if (pipe.gatt == null) pipe.close()
+    if (pipe.gatt == null) {
+      pipe.close()
+      return
+    }
+    // Android times out the connecting, not a peer that connects and then never answers
+    handler.postDelayed({ if (!pipe.ready) pipe.close() }, CONNECT_MS)
   }
 
   fun device(address: String): BluetoothDevice? =
     runCatching { adapter?.getRemoteDevice(address) }.getOrNull()
+
+  private companion object {
+    const val CONNECT_MS = 20_000L
+  }
 }

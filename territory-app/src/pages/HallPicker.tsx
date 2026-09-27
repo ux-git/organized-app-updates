@@ -1,18 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
-import { Box, MenuItem, Select } from '@mui/material';
+import { Box } from '@mui/material';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import Button from '@components/button';
 import Dialog from '@components/dialog';
+import DialogActions from '@components/dialog_actions';
+import MenuItem from '@components/menuitem';
+import Select from '@components/select';
 import Typography from '@components/typography';
+import { IconMyLocation } from '@icons/index';
 import { isDarkThemeState } from '@states/app';
+import { getCSSPropertyValue } from '@utils/common';
+import {
+  congregationBoundaryState,
+  territoriesState,
+} from '@states/territories';
 import {
   DEFAULT_CENTER,
   DEFAULT_PROVIDER,
   styleUrl,
 } from '@features/territories/map/constants';
+import MapIsland, { MapAction } from '@features/territories/map/map_island';
+import { congregationBounds } from '@features/territories/map/helpers';
 import { nearby } from '../native';
+import { t } from '../i18n';
 
 type Hall = { lat: number; lng: number; radius: number };
 
@@ -46,6 +58,8 @@ const HallPicker = ({
   onClose: VoidFunction;
 }) => {
   const isDark = useAtomValue(isDarkThemeState);
+  const territories = useAtomValue(territoriesState);
+  const congregationBoundary = useAtomValue(congregationBoundaryState);
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const marker = useRef<maplibregl.Marker | null>(null);
@@ -65,14 +79,23 @@ const HallPicker = ({
   const attach = (element: HTMLDivElement | null) => {
     container.current = element;
     if (!element || map.current) return;
+    // without a hall yet, the congregation's area is where to look
+    const area = hall
+      ? undefined
+      : congregationBounds(territories, congregationBoundary);
     const created = new maplibregl.Map({
       container: element,
       style: styleUrl(DEFAULT_PROVIDER, isDark),
-      center: hall ? [hall.lng, hall.lat] : [...DEFAULT_CENTER],
-      zoom: hall ? 16 : 13,
+      ...(area
+        ? { bounds: area, fitBoundsOptions: { padding: 24 } }
+        : {
+            center: hall ? [hall.lng, hall.lat] : [...DEFAULT_CENTER],
+            zoom: hall ? 16 : 13,
+          }),
       attributionControl: { compact: true },
     });
     created.on('load', () => {
+      const accent = getCSSPropertyValue('--accent-main');
       created.addSource(AREA, {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
@@ -81,13 +104,13 @@ const HallPicker = ({
         id: AREA,
         type: 'fill',
         source: AREA,
-        paint: { 'fill-color': '#5065D0', 'fill-opacity': 0.2 },
+        paint: { 'fill-color': accent, 'fill-opacity': 0.2 },
       });
       created.addLayer({
         id: `${AREA}-line`,
         type: 'line',
         source: AREA,
-        paint: { 'line-color': '#5065D0', 'line-width': 2 },
+        paint: { 'line-color': accent, 'line-width': 2 },
       });
       setReady(true);
     });
@@ -122,13 +145,26 @@ const HallPicker = ({
     });
     if (!point) return;
     if (!marker.current) {
-      marker.current = new maplibregl.Marker({ color: '#5065D0' })
+      marker.current = new maplibregl.Marker({
+        color: getCSSPropertyValue('--accent-main'),
+      })
         .setLngLat(point)
         .addTo(current);
     } else {
       marker.current.setLngLat(point);
     }
   }, [point, radius, ready]);
+
+  const locate = () =>
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) =>
+        map.current?.flyTo({
+          center: [coords.longitude, coords.latitude],
+          zoom: 16,
+        }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 10_000 }
+    );
 
   const save = () => {
     if (!point) return;
@@ -140,58 +176,55 @@ const HallPicker = ({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Kingdom Hall on the map"
-      description="Tap the Kingdom Hall. Arriving inside the circle starts a search for paired phones."
+      title={t('hall.mapTitle')}
+      description={t('hall.mapText')}
     >
-      <Box
-        ref={attach}
-        sx={{
-          width: '100%',
-          height: '50vh',
-          minHeight: 280,
-          borderRadius: 'var(--radius-l)',
-          overflow: 'hidden',
-          border: '1px solid var(--accent-300)',
-        }}
-      />
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Typography className="body-small-regular" sx={{ flex: 1 }}>
-          Arrival area
-        </Typography>
-        <Select
-          size="small"
-          value={radius}
-          onChange={(event) => setRadius(Number(event.target.value))}
-        >
-          {RADII.map((meters) => (
-            <MenuItem key={meters} value={meters}>
-              {meters} m around it
-            </MenuItem>
-          ))}
-        </Select>
+      <Box sx={{ position: 'relative', width: '100%' }}>
+        <Box
+          ref={attach}
+          sx={{
+            width: '100%',
+            height: '50vh',
+            minHeight: 280,
+            borderRadius: 'var(--radius-l)',
+            overflow: 'hidden',
+            border: '1px solid var(--accent-300)',
+          }}
+        />
+        {/* the coverage map's own button, in the same corner */}
+        <Box sx={{ position: 'absolute', right: '12px', bottom: '12px' }}>
+          <MapIsland corner="static">
+            <MapAction
+              title={t('hall.whereAmI')}
+              placement="top"
+              onClick={locate}
+            >
+              <IconMyLocation color="var(--accent-main)" />
+            </MapAction>
+          </MapIsland>
+        </Box>
       </Box>
-      <Button
-        variant="tertiary"
-        onClick={() =>
-          navigator.geolocation.getCurrentPosition(
-            ({ coords }) =>
-              map.current?.flyTo({
-                center: [coords.longitude, coords.latitude],
-                zoom: 16,
-              }),
-            () => {},
-            { enableHighAccuracy: true, timeout: 10_000 }
-          )
-        }
+      <Select
+        label={t('hall.area')}
+        value={radius}
+        onChange={(event) => setRadius(Number(event.target.value))}
       >
-        Show where I am
-      </Button>
-      <Button variant="main" disabled={!point} onClick={save}>
-        Save
-      </Button>
-      <Button variant="secondary" onClick={onClose}>
-        Cancel
-      </Button>
+        {RADII.map((meters) => (
+          <MenuItem key={meters} value={meters}>
+            <Typography className="body-regular" color="var(--black)">
+              {t('hall.radius', { meters })}
+            </Typography>
+          </MenuItem>
+        ))}
+      </Select>
+      <DialogActions>
+        <Button variant="secondary" onClick={onClose}>
+          {t('common.cancel')}
+        </Button>
+        <Button variant="main" disabled={!point} onClick={save}>
+          {t('common.save')}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 };

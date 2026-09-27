@@ -6,8 +6,11 @@ import UIKit
 /// from iOS 16 on, the iPhone 8 included (VisionKit's needs a newer chip).
 final class Scanner: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
   private let session = AVCaptureSession()
+  /// startRunning and stopRunning block, and must not overlap.
+  private let sessionQueue = DispatchQueue(label: "territories.scanner")
   private let onCode: (String) -> Void
   private let hint = UILabel()
+  private lazy var preview = AVCaptureVideoPreviewLayer(session: session)
 
   init(onCode: @escaping (String) -> Void) {
     self.onCode = onCode
@@ -20,28 +23,18 @@ final class Scanner: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
   override func viewDidLoad() {
     super.viewDidLoad()
     view.backgroundColor = .black
-    guard let camera = AVCaptureDevice.default(for: .video),
-      let input = try? AVCaptureDeviceInput(device: camera), session.canAddInput(input)
-    else { return }
-    session.addInput(input)
-    let output = AVCaptureMetadataOutput()
-    guard session.canAddOutput(output) else { return }
-    session.addOutput(output)
-    output.setMetadataObjectsDelegate(self, queue: .main)
-    output.metadataObjectTypes = [.qr]
-
-    let preview = AVCaptureVideoPreviewLayer(session: session)
     preview.videoGravity = .resizeAspectFill
-    preview.frame = view.bounds
     view.layer.addSublayer(preview)
 
-    hint.text = "Point the camera at the other phone’s code"
+    // the controls first: a camera that won't start mustn't trap anyone here
+    hint.text = Notices.tr(
+      "Point the camera at the other device’s code", "Richte die Kamera auf den Code des anderen Geräts")
     hint.textColor = .white
     hint.textAlignment = .center
     hint.numberOfLines = 0
     hint.font = .preferredFont(forTextStyle: .headline)
     let close = UIButton(type: .system)
-    close.setTitle("Close", for: .normal)
+    close.setTitle(Notices.tr("Close", "Schließen"), for: .normal)
     close.titleLabel?.font = .preferredFont(forTextStyle: .headline)
     close.tintColor = .white
     close.addTarget(self, action: #selector(done), for: .touchUpInside)
@@ -56,21 +49,57 @@ final class Scanner: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
       close.centerXAnchor.constraint(equalTo: view.centerXAnchor),
       close.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24),
     ])
+
+    guard let camera = AVCaptureDevice.default(for: .video),
+      let input = try? AVCaptureDeviceInput(device: camera), session.canAddInput(input)
+    else { return }
+    session.addInput(input)
+    let output = AVCaptureMetadataOutput()
+    guard session.canAddOutput(output) else { return }
+    session.addOutput(output)
+    output.setMetadataObjectsDelegate(self, queue: .main)
+    output.metadataObjectTypes = [.qr]
+  }
+
+  override func viewDidLayoutSubviews() {
+    super.viewDidLayoutSubviews()
+    preview.frame = view.bounds
+    rotatePreview()
+  }
+
+  /// iPads scan in landscape too; the camera's picture stays upright.
+  private func rotatePreview() {
+    guard let connection = preview.connection,
+      let orientation = view.window?.windowScene?.interfaceOrientation
+    else { return }
+    if #available(iOS 17, *) {
+      let angles: [UIInterfaceOrientation: CGFloat] = [
+        .landscapeRight: 0, .portrait: 90, .landscapeLeft: 180, .portraitUpsideDown: 270,
+      ]
+      let angle = angles[orientation] ?? 90
+      if connection.isVideoRotationAngleSupported(angle) { connection.videoRotationAngle = angle }
+    } else if connection.isVideoOrientationSupported,
+      let video = AVCaptureVideoOrientation(rawValue: orientation.rawValue)
+    {
+      connection.videoOrientation = video
+    }
   }
 
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
-    DispatchQueue.global(qos: .userInitiated).async { self.session.startRunning() }
+    sessionQueue.async { self.session.startRunning() }
   }
 
   override func viewWillDisappear(_ animated: Bool) {
     super.viewWillDisappear(animated)
-    DispatchQueue.global(qos: .userInitiated).async { self.session.stopRunning() }
+    sessionQueue.async { self.session.stopRunning() }
   }
 
   /// "3 of 7 codes read. Keep the camera on the screen."
   func progress(_ read: Int, of total: Int) {
-    hint.text = "\(read) of \(total) codes read. Keep the camera on the screen."
+    hint.text = Notices.tr(
+      "\(read) of \(total) codes read. Keep the camera on the screen.",
+      "\(read) von \(total) Codes gelesen. Halte die Kamera weiter auf den Bildschirm.")
   }
 
   @objc private func done() { dismiss(animated: true) }

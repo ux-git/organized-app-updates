@@ -19,3 +19,4 @@ uint8_t *territory_beacon(size_t *len);
 char *territory_recognise(const uint8_t *beacon, size_t beacon_len);
 char *territory_summary(void);
 void territory_emit(const char *event, const char *payload);
+char *territory_backup(void);

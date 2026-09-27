@@ -85,11 +85,17 @@ const useNearby = () => {
     bluetooth: false,
   });
   const [name, setName] = useState('');
+  const [removed, setRemoved] = useState(false);
 
   const refreshPeers = useCallback(async () => {
     setPeers(await invoke<Peer[]>('peers').catch(() => []));
-    const me = await invoke<{ name: string }>('identity').catch(() => null);
-    if (me) setName(me.name);
+    const me = await invoke<{ name: string; removed?: boolean }>(
+      'identity'
+    ).catch(() => null);
+    if (me) {
+      setName(me.name);
+      setRemoved(!!me.removed);
+    }
   }, []);
 
   useEffect(() => {
@@ -101,9 +107,11 @@ const useNearby = () => {
       }),
       listen('store-changed', refreshPeers),
     ];
+    window.addEventListener('identity-changed', refreshPeers);
     // asked once listening, or the answer can come before the listener
     Promise.all(stops).then(() => nearby('status'));
     return () => {
+      window.removeEventListener('identity-changed', refreshPeers);
       stops.forEach((stop) => stop.then((unlisten) => unlisten()));
     };
   }, [refreshPeers]);
@@ -113,6 +121,8 @@ const useNearby = () => {
     status,
     name,
     setName,
+    /** This device was removed from its group and not paired since. */
+    removed,
     refreshPeers,
     android: hasNearby(),
   };

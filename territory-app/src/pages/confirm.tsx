@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import Button from '@components/button';
 import Dialog from '@components/dialog';
+import DialogActions from '@components/dialog_actions';
+import { t } from '../i18n';
 
 type Ask = {
   title: string;
@@ -23,9 +25,14 @@ export const confirm = (question: Omit<Ask, 'resolve'>) =>
 
 export const ConfirmHost = () => {
   const [ask, setAsk] = useState<Ask | null>(null);
+  // the question stays while the dialog fades out
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    show = setAsk;
+    show = (next) => {
+      setAsk(next);
+      setOpen(true);
+    };
     return () => {
       show = undefined;
     };
@@ -33,22 +40,24 @@ export const ConfirmHost = () => {
 
   const answer = (ok: boolean) => {
     ask?.resolve(ok);
-    setAsk(null);
+    setOpen(false);
   };
 
   return (
     <Dialog
-      open={!!ask}
+      open={open}
       onClose={() => answer(false)}
       title={ask?.title}
       description={ask?.description}
     >
-      <Button variant="main" color="red" onClick={() => answer(true)}>
-        {ask?.action}
-      </Button>
-      <Button variant="secondary" onClick={() => answer(false)}>
-        Cancel
-      </Button>
+      <DialogActions>
+        <Button variant="secondary" onClick={() => answer(false)}>
+          {t('common.cancel')}
+        </Button>
+        <Button variant="main" color="red" onClick={() => answer(true)}>
+          {ask?.action}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 };

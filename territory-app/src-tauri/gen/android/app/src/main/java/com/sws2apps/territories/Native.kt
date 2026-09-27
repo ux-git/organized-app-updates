@@ -35,6 +35,9 @@ object Native {
 
   external fun emit(event: String, payload: String)
 
+  /** A full backup (src-tauri/src/backup.rs); "" when it fails. */
+  external fun backup(): String
+
   // NFC tap pairing (src-tauri/src/tap.rs)
   external fun tapCardApdu(apdu: ByteArray, listening: Boolean): ByteArray
 

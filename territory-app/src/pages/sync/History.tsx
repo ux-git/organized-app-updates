@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
+import Button from '@components/button';
 import Typography from '@components/typography';
+import { territoriesState } from '@states/territories';
+import { assignmentIssues } from '@features/territories/helpers';
 import {
   CardSection,
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
 import { invoke, listen } from '../../native';
 import { Touched } from '../useNearby';
-import { Actions, Avatar } from './parts';
+import { Avatar } from './parts';
+import { list, t } from '../../i18n';
 import { count, when } from './text';
 
 type Entry = {
@@ -18,29 +23,46 @@ type Entry = {
   sent: number;
   received: number;
   items: Record<string, number> | null;
-  detail: { received?: Touched[]; sent?: Touched[] } | null;
+  detail: { received?: Touched[]; sent?: Touched[]; removed?: string[] } | null;
 };
 
 const KINDS: Record<string, string> = {
-  details: 'details',
-  assignment: 'assignment',
-  'do-not-call': 'do not call',
+  created: 'history.created',
+  deleted: 'history.deleted',
+  assigned: 'history.assigned',
+  returned: 'history.returned',
+  'assignment-removed': 'history.assignmentRemoved',
+  border: 'history.border',
+  details: 'history.details',
+  'dnc-added': 'history.dncAdded',
+  'dnc-changed': 'history.dncChanged',
+  'dnc-removed': 'history.dncRemoved',
+  // older syncs were logged with these
+  assignment: 'history.assignment',
+  'do-not-call': 'history.doNotCall',
 };
 
 const summary = (entry: Entry) => {
   const people = entry.items?.people ?? 0;
   const got = entry.detail?.received?.length ?? 0;
   const parts = [
-    got > 0 && `got ${count(got, 'territory', 'territories')}`,
-    people > 0 && `${count(people, 'name', 'names')}`,
-    entry.sent > 0 && `sent ${count(entry.sent, 'change', 'changes')}`,
+    got > 0 && t('history.got', { territories: count(got, 'territories') }),
+    people > 0 && count(people, 'names'),
+    entry.sent > 0 &&
+      t('history.sent', { changes: count(entry.sent, 'changes') }),
+    !!entry.detail?.removed?.length &&
+      t('history.removed', { names: list(entry.detail.removed) }),
   ].filter(Boolean);
-  return parts.length ? parts.join(', ') : 'nothing new';
+  return parts.length ? parts.join(', ') : t('history.nothing');
 };
 
 /** One territory a sync changed: its number and what, linking to it. */
 const TerritoryLink = ({ item }: { item: Touched }) => {
   const navigate = useNavigate();
+  // dates that can't be right, e.g. from the other device, show in red
+  const warn = !!useAtomValue(territoriesState)
+    .find((territory) => territory.id === item.id)
+    ?.assignments.some((assignment) => assignmentIssues(assignment).length);
   return (
     <Box
       role="link"
@@ -55,34 +77,102 @@ const TerritoryLink = ({ item }: { item: Touched }) => {
         alignItems: 'baseline',
         padding: '4px 10px',
         borderRadius: 'var(--radius-m)',
-        backgroundColor: 'var(--accent-150)',
+        backgroundColor: warn ? 'var(--red-secondary)' : 'var(--accent-150)',
         cursor: 'pointer',
-        '&:hover': { backgroundColor: 'var(--accent-200)' },
+        '&:hover': {
+          backgroundColor: warn ? 'var(--red-secondary)' : 'var(--accent-200)',
+        },
       }}
     >
-      <Typography className="body-small-semibold" color="var(--accent-main)">
-        {item.number}
+      <Typography
+        className="body-small-semibold"
+        color={warn ? 'var(--red-dark)' : 'var(--accent-main)'}
+        sx={{ whiteSpace: 'nowrap' }}
+      >
+        {t('history.number', { number: item.number })}
       </Typography>
-      <Typography className="label-small-regular" color="var(--accent-400)">
-        {item.what.map((what) => KINDS[what] ?? what).join(', ')}
+      <Typography
+        className="label-small-regular"
+        color={warn ? 'var(--red-main)' : 'var(--accent-400)'}
+      >
+        {[
+          ...item.what.map((what) => (KINDS[what] ? t(KINDS[what]) : what)),
+          warn && t('history.dates'),
+        ]
+          .filter(Boolean)
+          .join(', ')}
       </Typography>
     </Box>
   );
 };
 
-const Territories = ({ label, list }: { label: string; list?: Touched[] }) =>
-  list?.length ? (
+const MoreToggle = ({
+  open,
+  total,
+  onClick,
+}: {
+  open: boolean;
+  total: number;
+  onClick: VoidFunction;
+}) => (
+  <Button
+    variant="small"
+    disableAutoStretch
+    onClick={onClick}
+    sx={{ alignSelf: 'flex-start', marginLeft: '-8px' }}
+  >
+    {open ? t('history.showLess') : t('history.showAll', { count: total })}
+  </Button>
+);
+
+const SHOWN = 8;
+// three rows of 24px chips: long descriptions take a row each on a phone
+const ROWS = 'calc(3 * 24px + 2 * 6px)';
+
+const Territories = ({ label, list }: { label: string; list?: Touched[] }) => {
+  const total = useAtomValue(territoriesState).length;
+  const [open, setOpen] = useState(false);
+  if (!list?.length) return null;
+
+  const long = list.length > SHOWN;
+  // a first sync brings every territory: one line says it
+  const everything = long && total > 0 && list.length >= total;
+  const shown = open ? list : everything ? [] : list.slice(0, SHOWN);
+
+  return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
       <Typography className="label-small-regular" color="var(--grey-400)">
         {label}
       </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-        {list.map((item) => (
-          <TerritoryLink key={item.id} item={item} />
-        ))}
-      </Box>
+      {everything && !open && (
+        <Typography className="body-small-semibold" color="var(--accent-main)">
+          {t('history.allTerritories', { count: list.length })}
+        </Typography>
+      )}
+      {shown.length > 0 && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '6px',
+            ...(long && !open && { maxHeight: ROWS, overflow: 'hidden' }),
+          }}
+        >
+          {shown.map((item) => (
+            <TerritoryLink key={item.id} item={item} />
+          ))}
+        </Box>
+      )}
+      {long && (
+        <MoreToggle
+          open={open}
+          total={list.length}
+          onClick={() => setOpen(!open)}
+        />
+      )}
     </Box>
-  ) : null;
+  );
+};
 
 /** The latest syncs: with whom, when, and which territories changed. */
 const History = () => {
@@ -107,8 +197,8 @@ const History = () => {
   return (
     <CardSection>
       <CardSectionHeader
-        title="Sync history"
-        description="Tap a territory number to open it."
+        title={t('history.title')}
+        description={t('history.text')}
       />
       <Stack spacing="16px">
         {shown.map((entry) => (
@@ -116,7 +206,7 @@ const History = () => {
             key={`${entry.at}-${entry.peer}`}
             sx={{ display: 'flex', gap: '12px' }}
           >
-            <Avatar name={entry.name || '?'} />
+            <Avatar name={entry.name || '?'} id={entry.peer} />
             <Box
               sx={{
                 flex: 1,
@@ -128,7 +218,7 @@ const History = () => {
             >
               <Box>
                 <Typography className="body-regular">
-                  {entry.name || 'Unnamed phone'}
+                  {entry.name || t('common.unnamedPhone')}
                 </Typography>
                 <Typography
                   className="label-small-regular"
@@ -137,21 +227,23 @@ const History = () => {
                   {when(entry.at)} · {summary(entry)}
                 </Typography>
               </Box>
-              <Territories label="Came in" list={entry.detail?.received} />
-              <Territories label="You sent" list={entry.detail?.sent} />
+              <Territories
+                label={t('history.cameIn')}
+                list={entry.detail?.received}
+              />
+              <Territories
+                label={t('history.youSent')}
+                list={entry.detail?.sent}
+              />
             </Box>
           </Box>
         ))}
       </Stack>
       {entries.length > 5 && (
-        <Actions
-          actions={[
-            {
-              label: all ? 'Show less' : `Show all ${entries.length}`,
-              kind: 'tertiary',
-              onClick: () => setAll(!all),
-            },
-          ]}
+        <MoreToggle
+          open={all}
+          total={entries.length}
+          onClick={() => setAll(!all)}
         />
       )}
     </CardSection>

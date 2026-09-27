@@ -1,5 +1,6 @@
 import CoreBluetooth
 import Foundation
+import UIKit
 
 /// One Rust session over one Bluetooth connection.
 final class Exchange {
@@ -9,6 +10,8 @@ final class Exchange {
   private let onStatus: (Exchange) -> Void
   private(set) var status: [String: Any] = ["state": "connecting"]
   private(set) var lastActivity = Date()
+  /// Known from the beacon or the handshake, and kept when the session fails.
+  var knownPeer = ""
 
   init(pipe: Pipe, handle: Int64, mode: Int32, onStatus: @escaping (Exchange) -> Void) {
     self.pipe = pipe
@@ -19,7 +22,7 @@ final class Exchange {
 
   var state: String { status["state"] as? String ?? "" }
   var finished: Bool { state == "done" || state == "failed" }
-  var peer: String { status["peer"] as? String ?? "" }
+  var peer: String { status["peer"] as? String ?? knownPeer }
 
   func start(preamble: Data?) {
     pipe.send((preamble ?? Data()) + Core.start(handle))
@@ -47,6 +50,7 @@ final class Exchange {
   private func report() {
     let next = Core.status(handle)
     if !next.isEmpty { status = next }
+    if let peer = status["peer"] as? String, !peer.isEmpty { knownPeer = peer }
     onStatus(self)
   }
 
@@ -74,8 +78,9 @@ final class Nearby: NSObject, LinkListener {
   private static let resyncSeconds = 15.0
   private static let waitForOtherSeconds = 8.0
   private static let peerStaySeconds = 30.0
-  private static let foundAfterSeconds = 60.0
+  private static let foundAfterFails = 3
   private static let foundAgainSeconds = 30.0 * 60
+  private static let attemptGapSeconds = 10.0
   private static let iphoneNewsSeconds = 60.0
   private static let iphoneQuietSeconds = 5.0 * 60
 
@@ -89,6 +94,10 @@ final class Nearby: NSObject, LinkListener {
   private var lastSync: [String: Date] = [:]
   private var needSince: [String: Date] = [:]
   private var seenPeers: [String: Date] = [:]
+  private var beacons: [String: Data] = [:]
+  private var trying: [String: String] = [:]
+  private var fails: [String: Int] = [:]
+  private var failedAt: [String: Date] = [:]
   private var seenMeet: [String: [String: Any]] = [:]
   private var noticed: [String: Date] = [:]
   private var triedIphone: [String: Date] = [:]
@@ -109,8 +118,18 @@ final class Nearby: NSObject, LinkListener {
   var schedule: [String: Any] {
     get { defaults.dictionary(forKey: "schedule") ?? [:] }
     set {
-      defaults.set(newValue, forKey: "schedule")
+      defaults.set(Self.withoutNulls(newValue), forKey: "schedule")
       apply()
+    }
+  }
+
+  /// UserDefaults throws on JSON's null.
+  private static func withoutNulls(_ value: Any) -> Any? {
+    switch value {
+    case is NSNull: return nil
+    case let object as [String: Any]: return object.compactMapValues(withoutNulls)
+    case let list as [Any]: return list.compactMap(withoutNulls)
+    default: return value
     }
   }
 
@@ -176,7 +195,10 @@ final class Nearby: NSObject, LinkListener {
     timer?.invalidate()
     timer = nil
     link?.stop()
-    exchanges.values.forEach { $0.close() }
+    for exchange in exchanges.values {
+      exchange.close()
+      Background.end(exchange.pipe.key)
+    }
     exchanges.removeAll()
     changed()
   }
@@ -191,13 +213,13 @@ final class Nearby: NSObject, LinkListener {
 
   private var meetName: String {
     let name = Core.summary()["name"] as? String ?? ""
-    return name.isEmpty ? "iPhone" : String(name.prefix(20))
+    return name.isEmpty ? UIDevice.current.model : String(name.prefix(20))
   }
 
   private func tick() {
     let now = Date()
     for exchange in exchanges.values where now.timeIntervalSince(exchange.lastActivity) > Self.idleSeconds {
-      exchange.fail("The other phone stopped answering")
+      exchange.fail(Notices.tr("The other device stopped answering", "Das andere Gerät antwortet nicht mehr"))
       link?.close(exchange.pipe)
     }
     seenMeet = seenMeet.filter {
@@ -210,18 +232,28 @@ final class Nearby: NSObject, LinkListener {
     }
   }
 
-  /// A paired phone has been close for a minute with changes, and nothing synced.
+  /// A paired phone is close, three syncs with it failed, and it still has news.
   private func noticeStuckPeers(_ now: Date) {
-    for (peer, since) in needSince {
-      guard now.timeIntervalSince(since) >= Self.foundAfterSeconds,
+    for (peer, beacon) in beacons {
+      guard (fails[peer] ?? 0) >= Self.foundAfterFails,
         now.timeIntervalSince(seenPeers[peer] ?? .distantPast) < 30,
-        (lastSync[peer] ?? .distantPast) < since,
         !exchanges.values.contains(where: { $0.peer == peer }),
-        now.timeIntervalSince(noticed[peer] ?? .distantPast) > Self.foundAgainSeconds
+        now.timeIntervalSince(noticed[peer] ?? .distantPast) > Self.foundAgainSeconds,
+        // asked again: this phone's data may have changed since the beacon came
+        Core.recognise(beacon)?["needsSync"] as? Bool == true
       else { continue }
       noticed[peer] = now
       Notices.shared.found(peer: peer)
     }
+  }
+
+  /// A sync with this phone failed, timed out or lost its connection.
+  private func attemptFailed(_ peer: String) {
+    let now = Date()
+    // retries seconds apart are one attempt
+    guard now.timeIntervalSince(failedAt[peer] ?? .distantPast) >= Self.attemptGapSeconds else { return }
+    failedAt[peer] = now
+    fails[peer, default: 0] += 1
   }
 
   /// Something was edited here: tell paired phones nearby right away.
@@ -241,10 +273,12 @@ final class Nearby: NSObject, LinkListener {
     start(reason: "shortcut", seconds: Self.shortcutSeconds)
   }
 
-  /// "off" without Bluetooth or paired phones, "running" while it looks,
-  /// then "done" with what came in, or "none" when no phone answered.
+  /// "off" without Bluetooth or paired phones, "bluetoothOff", "running"
+  /// while it looks, then "done" with what came in, or "none" when no phone
+  /// answered.
   func shortcutState() -> [String: Any] {
     guard CBManager.authorization == .allowedAlways, hasPeers else { return ["state": "off"] }
+    if link?.poweredOff == true { return ["state": "bluetoothOff"] }
     guard let since = shortcutSince else { return ["state": "none"] }
     let busy = !exchanges.isEmpty
     let over = Date().timeIntervalSince(since) > Self.shortcutSeconds
@@ -310,20 +344,16 @@ final class Nearby: NSObject, LinkListener {
     let rest = payload.dropFirst()
     switch kind {
     case Ids.kindMeet:
-      guard meet else { return }
-      let fresh = seenMeet[address] == nil
-      seenMeet[address] = [
-        "address": address, "name": String(decoding: rest, as: UTF8.self), "rssi": rssi,
-        "at": now.timeIntervalSince1970,
-      ]
-      if fresh { changed() }
+      sawMeet(address: address, name: String(decoding: rest, as: UTF8.self), rssi: rssi, now: now)
     case Ids.kindBeacon:
       guard let sighting = Core.recognise(Data(rest)), let peer = sighting["peer"] as? String else {
         return
       }
       seenPeers[peer] = now
+      beacons[peer] = Data(rest)
       guard sighting["needsSync"] as? Bool == true else {
         needSince[peer] = nil
+        Notices.shared.settled(peer: peer)
         return
       }
       until = max(until, now.addingTimeInterval(Self.peerStaySeconds))
@@ -337,6 +367,7 @@ final class Nearby: NSObject, LinkListener {
       needSince[peer] = since
       if myId < peer || now.timeIntervalSince(since) > Self.waitForOtherSeconds {
         connecting[address] = Core.modeSync
+        trying[address] = peer
         link.connect(address)
       }
     default:
@@ -344,23 +375,29 @@ final class Nearby: NSObject, LinkListener {
     }
   }
 
+  private func sawMeet(address: String, name: String, rssi: Int, now: Date) {
+    guard meet else { return }
+    let fresh = seenMeet[address] == nil
+    seenMeet[address] = [
+      "address": address, "name": name, "rssi": rssi, "at": now.timeIntervalSince1970,
+    ]
+    if fresh { changed() }
+  }
+
   /// Another iPhone can't say who it is either: the session finds out.
   private func seenIphone(address: String, rssi: Int, name: String?, now: Date) {
     if let name = name, name.hasPrefix(Ids.meetPrefix) {
-      guard meet else { return }
-      let fresh = seenMeet[address] == nil
-      seenMeet[address] = [
-        "address": address, "name": String(name.dropFirst(Ids.meetPrefix.count)), "rssi": rssi,
-        "at": now.timeIntervalSince1970,
-      ]
-      if fresh { changed() }
+      sawMeet(address: address, name: String(name.dropFirst(Ids.meetPrefix.count)), rssi: rssi, now: now)
       return
     }
     guard !meet, let link = link, !link.connected(address), exchanges[address] == nil,
       myId.isEmpty == false
     else { return }
+    // cheap check first: this runs for every advertisement
+    let last = triedIphone[address] ?? .distantPast
+    guard now.timeIntervalSince(last) > Self.iphoneNewsSeconds else { return }
     let wait = unsynced > 0 ? Self.iphoneNewsSeconds : Self.iphoneQuietSeconds
-    guard now.timeIntervalSince(triedIphone[address] ?? .distantPast) > wait else { return }
+    guard now.timeIntervalSince(last) > wait else { return }
     triedIphone[address] = now
     until = max(until, now.addingTimeInterval(Self.peerStaySeconds))
     connecting[address] = Core.modeSync
@@ -375,8 +412,9 @@ final class Nearby: NSObject, LinkListener {
       return
     }
     let exchange = Exchange(pipe: pipe, handle: handle, mode: mode, onStatus: onStatus)
-    exchanges[pipe.address] = exchange
-    Background.begin(pipe.address)
+    exchange.knownPeer = trying.removeValue(forKey: pipe.address) ?? ""
+    exchanges[pipe.key] = exchange
+    Background.begin(pipe.key)
     // the first byte tells the other phone whether this is a sync or a pairing
     exchange.start(preamble: Data([UInt8(mode)]))
   }
@@ -391,22 +429,31 @@ final class Nearby: NSObject, LinkListener {
       return
     }
     let exchange = Exchange(pipe: pipe, handle: handle, mode: mode, onStatus: onStatus)
-    exchanges[pipe.address] = exchange
-    Background.begin(pipe.address)
+    exchanges[pipe.key] = exchange
+    Background.begin(pipe.key)
     exchange.start(preamble: nil)
     if first.count > 1 { exchange.receive(first.dropFirst()) }
   }
 
   func linkBytes(_ pipe: Pipe, _ bytes: Data) {
-    exchanges[pipe.address]?.receive(bytes)
+    exchanges[pipe.key]?.receive(bytes)
   }
 
   func linkClosed(_ pipe: Pipe) {
-    connecting[pipe.address] = nil
-    Background.end(pipe.address)
-    guard let exchange = exchanges.removeValue(forKey: pipe.address) else { return }
-    exchange.fail("The connection was lost")
+    // keyed like outgoing pipes: a closed incoming one leaves them alone
+    connecting[pipe.key] = nil
+    // the connection never came up
+    if let peer = trying.removeValue(forKey: pipe.key) { attemptFailed(peer) }
+    Background.end(pipe.key)
+    guard let exchange = exchanges.removeValue(forKey: pipe.key) else { return }
+    exchange.fail(Notices.tr("The connection was lost", "Die Verbindung ist abgebrochen"))
     exchange.close()
+    changed()
+  }
+
+  func linkStateChanged() {
+    // e.g. Bluetooth was just allowed: start what the mode wants
+    if !running { apply() }
     changed()
   }
 
@@ -417,6 +464,9 @@ final class Nearby: NSObject, LinkListener {
       lastSync[peer] = Date()
       needSince[peer] = nil
       noticed[peer] = nil
+      fails[peer] = nil
+      failedAt[peer] = nil
+      Notices.shared.synced(peer: peer, nothingLeft: unsynced == 0)
       var done = exchange.status
       done["at"] = Date().timeIntervalSince1970 * 1000
       lastDone = done
@@ -428,6 +478,7 @@ final class Nearby: NSObject, LinkListener {
       refresh()
       closeWhenSent(exchange)
     case "failed":
+      if exchange.mode == Core.modeSync && !exchange.peer.isEmpty { attemptFailed(exchange.peer) }
       closeWhenSent(exchange)
     default:
       break

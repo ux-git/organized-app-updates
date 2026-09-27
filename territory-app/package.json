@@ -6,9 +6,11 @@
     "dev": "vite",
     "build": "vite build",
     "tauri": "tauri",
-    "android": "./scripts/android.sh"
+    "android": "./scripts/android.sh",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.11.4"
+    "@tauri-apps/cli": "^2.11.4",
+    "vitest": "^5.0.2"
   }
 }

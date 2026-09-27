@@ -30,6 +30,9 @@ class Pipe {
     self.address = address
   }
 
+  /// Unique per direction: the same device can connect here and be connected to.
+  var key: String { address }
+
   var idle: Bool { queue.isEmpty && !busy }
 
   func send(_ bytes: Data) {
@@ -73,12 +76,16 @@ protocol LinkListener: AnyObject {
   func linkBytes(_ pipe: Pipe, _ bytes: Data)
   func linkConnected(_ pipe: Pipe)
   func linkClosed(_ pipe: Pipe)
+  /// Bluetooth was turned on or off, or allowed.
+  func linkStateChanged()
 }
 
 /// This phone's connection to another: writes to its RX, hears its TX.
 final class ClientPipe: Pipe {
   let peripheral: CBPeripheral
   var rx: CBCharacteristic?
+  /// Subscribed and handed to the listener.
+  var ready = false
 
   init(_ peripheral: CBPeripheral) {
     self.peripheral = peripheral
@@ -106,6 +113,8 @@ final class ServerPipe: Pipe {
     chunk = central.maximumUpdateValueLength
   }
 
+  override var key: String { "in:" + address }
+
   override func write(_ part: Data) -> Bool {
     guard let manager = manager else { return false }
     // false: the queue is full; peripheralManagerIsReady says when to go on
@@ -131,6 +140,12 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
   private var incoming: [String: ServerPipe] = [:]
   private var outgoing: [String: ClientPipe] = [:]
   private var seen: [String: CBPeripheral] = [:]
+  /// Connections iOS kept while the app was closed; their sessions are gone.
+  private var restored: [CBPeripheral] = []
+  private static let connectSeconds = 15.0
+  /// Timed-out attempts whose late disconnect may still come; no new attempt
+  /// to the address until it did, so it can't close the retry.
+  private var abandoned: Set<String> = []
 
   init(listener: LinkListener) {
     self.listener = listener
@@ -148,7 +163,7 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
 
   var available: Bool { central.state == .poweredOn }
 
-  static var authorized: Bool { CBManager.authorization == .allowedAlways }
+  var poweredOff: Bool { central.state == .poweredOff }
 
   // ---- advertising ----
 
@@ -158,17 +173,24 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
     let local = name.map { Ids.meetPrefix + $0 } ?? "T"
     guard local != advertisedName || !peripheral.isAdvertising else { return }
     advertisedName = local
-    guard peripheral.state == .poweredOn, serviceAdded else { return }
-    if peripheral.isAdvertising { peripheral.stopAdvertising() }
-    peripheral.startAdvertising([
-      CBAdvertisementDataServiceUUIDsKey: [Ids.service],
-      CBAdvertisementDataLocalNameKey: local,
-    ])
+    readvertise()
   }
 
   func stopAdvertising() {
     advertisedName = nil
-    if peripheral.state == .poweredOn { peripheral.stopAdvertising() }
+    readvertise()
+  }
+
+  /// Also after Bluetooth comes on, and after a restored launch, where iOS
+  /// may still send the advertisement of before.
+  private func readvertise() {
+    guard peripheral.state == .poweredOn, serviceAdded else { return }
+    if peripheral.isAdvertising { peripheral.stopAdvertising() }
+    guard let local = advertisedName else { return }
+    peripheral.startAdvertising([
+      CBAdvertisementDataServiceUUIDsKey: [Ids.service],
+      CBAdvertisementDataLocalNameKey: local,
+    ])
   }
 
   private func openServer() {
@@ -200,15 +222,28 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
   }
 
   func connected(_ address: String) -> Bool {
-    outgoing[address] != nil || incoming[address] != nil
+    outgoing[address] != nil || incoming[address] != nil || abandoned.contains(address)
   }
 
   func connect(_ address: String) {
-    guard let target = seen[address], outgoing[address] == nil else { return }
+    guard let target = seen[address], outgoing[address] == nil, !abandoned.contains(address) else {
+      return
+    }
     let pipe = ClientPipe(target)
     outgoing[address] = pipe
     target.delegate = self
     central.connect(target)
+    // iOS never gives up on a connection by itself
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.connectSeconds) { [weak self] in
+      guard let self = self, self.outgoing[address] === pipe, !pipe.ready else { return }
+      self.central.cancelPeripheralConnection(target)
+      self.closeOutgoing(target)
+      self.abandoned.insert(address)
+      // a pending connect may end without any callback
+      DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+        self?.abandoned.remove(address)
+      }
+    }
   }
 
   func stop() {
@@ -220,11 +255,22 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
   // ---- central: the phones this one finds and connects to ----
 
   func centralManagerDidUpdateState(_ central: CBCentralManager) {
-    if central.state == .poweredOn, wantScan { scan() }
+    if central.state == .poweredOn {
+      restored.forEach { central.cancelPeripheralConnection($0) }
+      restored = []
+      // a restored scan runs on until it is stopped
+      if wantScan { scan() } else { central.stopScan() }
+    } else {
+      // iOS drops every connection without telling each one
+      abandoned.removeAll()
+      outgoing.values.forEach { closeOutgoing($0.peripheral) }
+      seen.removeAll()
+    }
+    listener?.linkStateChanged()
   }
 
   func centralManager(_ central: CBCentralManager, willRestoreState dict: [String: Any]) {
-    wantScan = true
+    restored = dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] ?? []
   }
 
   func centralManager(
@@ -256,6 +302,8 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
   }
 
   private func closeOutgoing(_ peripheral: CBPeripheral) {
+    // the late answer to a timed-out attempt, already closed
+    if abandoned.remove(peripheral.identifier.uuidString) != nil { return }
     guard let pipe = outgoing.removeValue(forKey: peripheral.identifier.uuidString) else { return }
     pipe.close()
     listener?.linkClosed(pipe)
@@ -279,7 +327,6 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
       return
     }
     pipe.rx = rx
-    pipe.chunk = peripheral.maximumWriteValueLength(for: .withResponse)
     peripheral.setNotifyValue(true, for: tx)
   }
 
@@ -291,6 +338,10 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
       central.cancelPeripheralConnection(peripheral)
       return
     }
+    // one ATT packet per part: a longer write becomes a prepared write,
+    // which the Android side doesn't take
+    pipe.chunk = peripheral.maximumWriteValueLength(for: .withoutResponse)
+    pipe.ready = true
     listener?.linkConnected(pipe)
   }
 
@@ -317,11 +368,14 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
   // ---- peripheral: this phone as the server others connect to ----
 
   func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
-    guard peripheral.state == .poweredOn else {
+    if peripheral.state == .poweredOn {
+      openServer()
+      readvertise()
+    } else {
       serviceAdded = false
-      return
+      incoming.values.forEach { close($0) }
     }
-    openServer()
+    listener?.linkStateChanged()
   }
 
   func peripheralManager(_ peripheral: CBPeripheralManager, willRestoreState dict: [String: Any]) {
@@ -336,15 +390,16 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
     _ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?
   ) {
     serviceAdded = error == nil
-    if let name = advertisedName {
-      advertisedName = nil
-      advertise(meet: name == "T" ? nil : String(name.dropFirst(Ids.meetPrefix.count)))
-    }
+    readvertise()
   }
 
   func peripheralManager(
     _ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]
   ) {
+    // one answer for all of them, or the other device waits for it
+    defer {
+      if let first = requests.first { peripheral.respond(to: first, withResult: tx == nil ? .unlikelyError : .success) }
+    }
     guard let tx = tx else { return }
     for request in requests where request.characteristic.uuid == Ids.rx {
       guard let value = request.value, !value.isEmpty else { continue }
@@ -357,7 +412,6 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
         listener?.linkIncoming(pipe, first: value)
       }
     }
-    if let first = requests.first { peripheral.respond(to: first, withResult: .success) }
   }
 
   func peripheralManager(

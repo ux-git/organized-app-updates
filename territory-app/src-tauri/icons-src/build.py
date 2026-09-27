@@ -1,78 +1,88 @@
-"""The Territories icons: the Organized logo (organized-tauri-shell/src-tauri/
-icons-src and public/favicon.svg) with a location pin in its white middle.
-Run from this folder; `npm run tauri -- icon src-tauri/app-icon.json` then
-makes every size from the PNGs."""
-import re
-import shutil
+"""The Organized Territories icons, from AppIcon.icon (open it in Icon Composer
+to change the design). iOS 26+ renders that file as Liquid Glass; this script
+flattens its layers for everything else. Run from this folder, then
+`npm run tauri -- icon src-tauri/app-icon.json` makes every size from the PNGs."""
 import subprocess
+from io import BytesIO
 from pathlib import Path
 
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
+
 HERE = Path(__file__).parent
-SHELL = HERE / '../../../../organized-tauri-shell/src-tauri/icons-src'
-FAVICON = HERE / '../../../public/favicon.svg'
-
-PIN_GRADIENT = (
-    '<linearGradient id="territoryPin" x1="0" y1="0" x2="0" y2="1">'
-    '<stop offset="0" stop-color="#6A7EE6"/><stop offset="1" stop-color="#3E52BE"/>'
-    '</linearGradient>'
-)
+LAYERS = HERE / 'AppIcon.icon' / 'Assets'
+BACK_TO_FRONT = ['bg', 'violet', 'yellow', 'green', 'blue']
 
 
-def pin_path(cx, cy, r):
-    tip = cy + 2.067 * r
-    return (
-        f'M{cx} {tip} C{cx - 0.378 * r} {tip - 0.622 * r} {cx - r} {cy + 0.867 * r} {cx - r} {cy} '
-        f'A{r} {r} 0 1 1 {cx + r} {cy} C{cx + r} {cy + 0.867 * r} {cx + 0.378 * r} {tip - 0.622 * r} {cx} {tip} Z'
-    )
+def layer(name, size):
+    png = subprocess.run(['rsvg-convert', '-w', str(size), '-h', str(size), str(LAYERS / f'{name}.svg')],
+                         check=True, capture_output=True).stdout
+    return Image.open(BytesIO(png)).convert('RGBA')
 
 
-def pin(cx, cy, r, mono=False):
-    """The pin centred on the logo's middle; its white ring keeps it apart from the petals."""
-    path = pin_path(cx, cy, r)
-    if mono:
-        return (
-            f'<mask id="pinDot"><rect x="-1000" y="-1000" width="3000" height="3000" fill="#fff"/>'
-            f'<circle cx="{cx}" cy="{cy}" r="{r * 0.36}" fill="#000"/></mask>'
-            f'<path d="{path}" fill="#000" mask="url(#pinDot)"/>'
-        )
-    return (
-        f'<defs>{PIN_GRADIENT}</defs>'
-        f'<path d="{path}" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="{r * 0.5}" stroke-linejoin="round"/>'
-        f'<path d="{path}" fill="url(#territoryPin)"/>'
-        f'<circle cx="{cx}" cy="{cy}" r="{r * 0.36}" fill="#FFFFFF"/>'
-    )
+def glass(art, size):
+    """What iOS 26 draws for us, for everywhere else: a soft shadow below,
+    a sheen over the top and a bright rim of light."""
+    alpha = art.getchannel('A')
+    k = size / 1024
+    shadow = Image.new('RGBA', art.size, (20, 30, 70, 0))
+    shadow.putalpha(alpha.point(lambda a: a * 0.28).filter(ImageFilter.GaussianBlur(18 * k)))
+    out = Image.new('RGBA', art.size, (0, 0, 0, 0))
+    out.alpha_composite(shadow, (0, round(14 * k)))
+    out.alpha_composite(art)
+    fade = Image.linear_gradient('L').resize(art.size).point(lambda v: int((255 - v) * 0.18))
+    sheen = Image.new('RGBA', art.size, (255, 255, 255, 0))
+    sheen.putalpha(ImageChops.multiply(fade, alpha))
+    out.alpha_composite(sheen)
+    inner = alpha.filter(ImageFilter.MinFilter(max(3, round(7 * k)) | 1))
+    rim = ImageChops.subtract(alpha, inner).filter(ImageFilter.GaussianBlur(1.2 * k))
+    light = Image.new('RGBA', art.size, (255, 255, 255, 0))
+    light.putalpha(ImageChops.multiply(rim, fade.point(lambda v: min(160, 40 + v))))
+    out.alpha_composite(light)
+    return out
 
 
-def with_pin(source: Path, target: str, cx, cy, r, mono=False):
-    svg = source.read_text()
-    if mono:
-        # the themed icon's middle is empty; the pin fills it in the same ink
-        svg = re.sub(r'fill="#(?!fff|FFF)[0-9A-Fa-f]{6}"', 'fill="#000"', svg)
-    svg = svg.replace('</svg>', pin(cx, cy, r, mono) + '</svg>')
-    (HERE / target).write_text(svg)
+def background(size):
+    out = layer('bg', size)
+    glow = Image.new('RGBA', (size, size), (255, 255, 255, 0))
+    mask = Image.new('L', (size, size), 0)
+    ImageDraw.Draw(mask).ellipse((-size * 0.3, -size * 0.45, size * 0.9, size * 0.55), fill=14)
+    glow.putalpha(mask.filter(ImageFilter.GaussianBlur(size * 0.12)))
+    out.alpha_composite(glow)
+    return out
 
 
-# the logo sits on a 32-unit grid; its white middle spans about 11 to 21
-with_pin(SHELL / 'app-icon.svg', 'app-icon.svg', 16, 14.1, 2.9)
-with_pin(SHELL / 'android-foreground.svg', 'android-foreground.svg', 16, 14.1, 2.9)
-with_pin(FAVICON, 'logo.svg', 16, 14.1, 2.9)
-# the themed icon is drawn at 70/32 of that size around 54,54
-with_pin(SHELL / 'android-adaptive-themed-108.svg', 'android-monochrome.svg', 54, 49.6, 6.35, mono=True)
-shutil.copy(SHELL / 'android-background.png', HERE / 'android-background.png')
+def stack(names, size):
+    out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    for name in names:
+        if name == 'bg':
+            out.alpha_composite(background(size))
+        else:
+            out.alpha_composite(glass(layer(name, size), size))
+    return out
 
-for name, size in [('app-icon', 1024), ('android-foreground', 1024), ('android-monochrome', 1024), ('logo', 384)]:
-    subprocess.run(['rsvg-convert', '-w', str(size), '-h', str(size), f'{name}.svg', '-o', f'{name}.png'], cwd=HERE, check=True)
 
-# iOS rounds the corners itself and rejects transparency: the static app icon,
-# a little larger so none of its own rounded corners shows inside iOS's, on
-# white. The adaptive icon's layers are Android's and look blurred here.
-from PIL import Image
+# iOS before 26 and every other square use: the flat icon, opaque, full bleed
+stack(BACK_TO_FRONT, 1024).convert('RGB').save(HERE / 'ios-icon.png')
+stack(BACK_TO_FRONT, 1024).save(HERE / 'app-icon.png')
 
-icon = Image.open(HERE / 'app-icon.png').convert('RGBA')
-grow = int(1024 * 1.03)
-icon = icon.resize((grow, grow), Image.LANCZOS)
-offset = (grow - 1024) // 2
-icon = icon.crop((offset, offset, offset + 1024, offset + 1024))
-ios = Image.new('RGBA', (1024, 1024), (255, 255, 255, 255))
-ios.alpha_composite(icon)
-ios.convert('RGB').save(HERE / 'ios-icon.png')
+# Android's adaptive icon: the light background behind, the cards in front. Launchers show the
+# middle 72 of 108 units; the stack reaches about 85% of the round mask.
+safe = round(1024 * 74 / 108)
+pad = (1024 - safe) // 2
+background(1024).convert('RGB').save(HERE / 'android-background.png')
+front = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
+front.alpha_composite(stack(BACK_TO_FRONT[1:], safe), (pad, pad))
+front.save(HERE / 'android-foreground.png')
+
+# the themed icon is one ink: each card a step stronger, the front one full ink
+mono = Image.new('L', (safe, safe), 0)
+for name, ink in [('violet', 70), ('yellow', 120), ('green', 175), ('blue', 255)]:
+    # the card only, not the soft glow around it
+    alpha = layer(name, safe).getchannel('A').point(lambda a: 255 if a > 250 else 0)
+    mono.paste(Image.new('L', (safe, safe), ink), mask=alpha)
+# the star on the front card stays a cut-out
+star = layer('blue', safe).convert('L').point(lambda v: 255 if v > 245 else 0)
+mono.paste(0, mask=star)
+out = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
+out.paste(Image.new('RGBA', (safe, safe), (0, 0, 0, 255)), (pad, pad), mask=mono)
+out.save(HERE / 'android-monochrome.png')

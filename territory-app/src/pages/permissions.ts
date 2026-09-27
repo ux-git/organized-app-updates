@@ -1,4 +1,5 @@
 import { nearby } from '../native';
+import { t } from '../i18n';
 import { NearbyStatus } from './useNearby';
 
 export type Need = {
@@ -18,18 +19,18 @@ export const needsForAutomatic = (status: NearbyStatus): Need[] => {
   const needs: Need[] = [
     {
       key: 'bluetooth',
-      title: 'Bluetooth',
-      text: 'Finds paired phones nearby and syncs with them.',
+      title: t('common.bluetooth'),
+      text: t('common.bluetoothText'),
       ok: allowed.bluetooth && allowed.bluetoothOn !== false,
-      label: allowed.bluetooth ? 'Turn on' : 'Allow',
+      label: allowed.bluetooth ? t('common.turnOn') : t('common.allow'),
       fix: () => nearby(allowed.bluetooth ? 'bluetoothOn' : 'permissions'),
     },
     {
       key: 'notifications',
-      title: 'Notifications',
-      text: 'Tells you what a sync brought.',
+      title: t('common.notifications'),
+      text: t('common.notificationsText'),
       ok: allowed.notifications,
-      label: 'Allow',
+      label: t('common.allow'),
       fix: () => nearby('permissions'),
     },
   ];
@@ -37,30 +38,30 @@ export const needsForAutomatic = (status: NearbyStatus): Need[] => {
   if (!ios) {
     needs.push({
       key: 'battery',
-      title: 'Run in the background',
-      text: 'Lets Android start the sync by itself, without you opening the app.',
+      title: t('common.background'),
+      text: t('permissions.backgroundText'),
       ok: !!allowed.battery,
-      label: 'Allow',
+      label: t('common.allow'),
       fix: () => nearby('battery'),
     });
   }
   if (ios && mode === 'always') {
     needs.push({
       key: 'location',
-      title: 'Location all the time',
-      text: 'Wakes the app when a paired Android phone is near, also when it was closed.',
+      title: t('common.locationAlways'),
+      text: t('permissions.locationIos'),
       ok: allowed.location && allowed.backgroundLocation,
-      label: 'Allow',
+      label: t('common.allow'),
       fix: () => nearby('permissions', { which: 'backgroundLocation' }),
     });
   }
   if (mode === 'location') {
     needs.push({
       key: 'location',
-      title: 'Location all the time',
-      text: 'Notices when you arrive at the Kingdom Hall, with the app closed.',
+      title: t('common.locationAlways'),
+      text: t('permissions.locationHall'),
       ok: allowed.location && allowed.backgroundLocation,
-      label: 'Allow',
+      label: t('common.allow'),
       fix: () =>
         nearby('permissions', {
           which: allowed.location ? 'backgroundLocation' : 'location',

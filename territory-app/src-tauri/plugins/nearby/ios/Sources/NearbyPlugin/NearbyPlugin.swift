@@ -87,13 +87,29 @@ class NearbyPlugin: Tauri.Plugin {
       if !Place.shared.allowed { Place.shared.askWhenInUse() }
     case "hallClear": Place.shared.clearHall()
     case "scanQr": scanQr()
+    case "backupStatus": Backups.emit()
+    case "backupSchedule":
+      Backups.setSchedule(args)
+      Backups.emit()
+    case "backupFolder": pickBackupFolder(thenBackUp: false)
+    case "backupNow":
+      if Backups.folderOk { Backups.runNow() } else { pickBackupFolder(thenBackUp: true) }
     case "shareFile": share(name: args["name"] as? String ?? "territories", text: args["text"] as? String ?? "")
+    case "openUrl":
+      if let text = args["url"] as? String, text.hasPrefix("https://"), let url = URL(string: text) {
+        UIApplication.shared.open(url)
+      }
     case "shortcuts":
       if let url = URL(string: "shortcuts://") { UIApplication.shared.open(url) }
     case "bluetoothOn", "battery":
       if let url = URL(string: UIApplication.openSettingsURLString) {
         UIApplication.shared.open(url)
       }
+    case "appearance":
+      // status bar icons follow the app's theme; iOS 26's top blur would pick them from the page
+      webview?.window?.overrideUserInterfaceStyle = args["dark"] as? Bool == true ? .dark : .light
+      if #available(iOS 26.0, *) { webview?.scrollView.topEdgeEffect.isHidden = true }
+      return
     default:
       // status; and what only Android has (NFC, alarms, taking a file)
       break
@@ -176,7 +192,7 @@ class NearbyPlugin: Tauri.Plugin {
     if text.hasPrefix("OTQ:") {
       let fields = text.split(separator: ":", maxSplits: 2).map(String.init)
       let counts = fields.count == 3 ? fields[1].split(separator: "/").compactMap { Int($0) } : []
-      guard counts.count == 2 else { return }
+      guard counts.count == 2, (1...max(counts[1], 1)).contains(counts[0]) else { return }
       if frames[counts[0]] == nil {
         frames[counts[0]] = fields[2]
         _ = Haptics.perform("tick")
@@ -196,13 +212,32 @@ class NearbyPlugin: Tauri.Plugin {
     Core.emit("qr", ["text": text])
   }
 
+  // ---- the backup folder ----
+
+  private var folderPicker: BackupFolderPicker?
+
+  private func pickBackupFolder(thenBackUp: Bool) {
+    let picker = BackupFolderPicker { [weak self] url in
+      self?.folderPicker = nil
+      if let url = url { Backups.setFolder(url) }
+      if url != nil && thenBackUp { Backups.runNow() } else { Backups.emit() }
+    }
+    folderPicker = picker
+    top()?.present(picker.controller(), animated: true)
+  }
+
   // ---- sending a transfer as a file ----
 
   private func share(name: String, text: String) {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
     guard (try? Data(text.utf8).write(to: url)) != nil else { return }
     let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-    sheet.popoverPresentationController?.sourceView = webview
+    // an iPad shows it as a popover, which needs a point to come from
+    if let webview = webview, let popover = sheet.popoverPresentationController {
+      popover.sourceView = webview
+      popover.sourceRect = CGRect(x: webview.bounds.midX, y: webview.bounds.midY, width: 0, height: 0)
+      popover.permittedArrowDirections = []
+    }
     top()?.present(sheet, animated: true)
   }
 

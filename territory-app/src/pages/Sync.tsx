@@ -1,9 +1,10 @@
-import { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Box, IconButton, Stack } from '@mui/material';
-import { IconDelete, IconSync } from '@icons/index';
-import Button from '@components/button';
-import PageTitle from '@components/page_title';
+import { Box } from '@mui/material';
+import { useAtomValue } from 'jotai';
+import { IconDelete, IconInfo, IconSync } from '@icons/index';
+import IconButton from '@components/icon_button';
+import InfoTip from '@components/info_tip';
 import Typography from '@components/typography';
 import {
   CardSection,
@@ -11,6 +12,8 @@ import {
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
 import { invoke, listen, nearby } from '../native';
+import { t } from '../i18n';
+import { linkOf, linksState, peopleState } from '../profiles';
 import useNearby, { Peer, unsynced } from './useNearby';
 import { play } from '../haptics';
 import {
@@ -21,22 +24,32 @@ import {
   receive,
 } from './sync/dialogs';
 import { confirm } from './confirm';
-import AutomaticSection from './sync/AutomaticSection';
 import Decisions from './sync/Decisions';
 import History from './sync/History';
-import { ago, time } from './sync/text';
-import { IconBluetooth, IconFile, IconQr, IconTap } from './sync/icons';
-import { Method, MethodState, PhoneRow, Pulse } from './sync/parts';
-
-const READY: MethodState = { text: 'Ready', color: 'green' };
+import { ago, notify, time } from './sync/text';
+import { IconBluetooth, IconQr, IconTap } from './sync/icons';
+import {
+  Actions,
+  MethodState,
+  PairOptions,
+  PhoneRow,
+  Pulse,
+} from './sync/parts';
 
 const Sync = () => {
+  const READY: MethodState = { text: t('sync.ready'), color: 'green' };
   const [params, setParams] = useSearchParams();
-  const { peers, status, name, refreshPeers, android } = useNearby();
+  const { peers, status, name, removed, refreshPeers, android } = useNearby();
   const [pairing, setPairing] = useState<PairMethod | null>(null);
   const [qrPairOpen, setQrPairOpen] = useState(false);
   const [sendTo, setSendTo] = useState<Peer | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
+  const links = useAtomValue(linksState);
+  const people = useAtomValue(peopleState);
+  // only when the device goes by another name than the publisher
+  const publisherOf = (peer: Peer) => {
+    const person = linkOf(peer.id, links, people).person;
+    return person && person.name !== peer.name ? person.name : undefined;
+  };
 
   const permissions = status.permissions;
   const pending = unsynced(peers);
@@ -60,88 +73,75 @@ const Sync = () => {
 
   // links from notifications, the launcher shortcuts and the settings card
   useEffect(() => {
-    if (params.get('section') === 'automatic') {
-      requestAnimationFrame(() =>
-        document
-          .getElementById('automatic')
-          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      );
-    }
     if (params.get('now')) nearby('syncNow');
     const pair = params.get('pair');
     if (pair === 'nearby' || pair === 'tap') setPairing(pair);
     if (params.size) setParams({}, { replace: true });
   }, [params, setParams]);
 
-  const bluetooth: MethodState = !android
-    ? { text: 'Phone app only', color: 'grey' }
+  const bluetooth: MethodState | undefined = !android
+    ? undefined
     : !permissions?.bluetooth
-      ? { text: 'Needs permission', color: 'orange' }
+      ? { text: t('sync.needsPermission'), color: 'orange' }
       : permissions.bluetoothOn === false
-        ? { text: 'Bluetooth is off', color: 'orange' }
+        ? { text: t('sync.bluetoothOff'), color: 'orange' }
         : READY;
   const bluetoothReady = bluetooth === READY;
-
-  const nfc: MethodState = !permissions?.nfc
-    ? { text: 'Not on this phone', color: 'grey' }
-    : permissions.nfcOn
-      ? READY
-      : { text: 'NFC is off', color: 'orange' };
 
   const camera: MethodState =
     !android || permissions?.camera
       ? READY
-      : { text: 'Needs camera', color: 'orange' };
+      : { text: t('sync.needsCamera'), color: 'orange' };
 
   const fixBluetooth = () =>
     nearby(permissions?.bluetooth ? 'bluetoothOn' : 'permissions');
+  const fixBluetoothLabel = permissions?.bluetooth
+    ? t('common.turnOnBluetooth')
+    : t('common.allowBluetooth');
 
   const hero = () => {
     if (peers.length === 0) {
       return {
-        title: 'No phones paired yet',
-        text: 'Pair the other territory servant’s phone once. After that, your phones sync by themselves.',
+        title: t('settings.noPhones'),
+        text: t('sync.heroNone'),
       };
     }
     if (syncing) {
       return {
-        title: 'Syncing...',
-        text: 'Keep the phones close for a moment.',
+        title: t('sync.syncing'),
+        text: t('sync.syncingText'),
       };
     }
-    const last = lastSync ? ago(lastSync) : 'Never synced';
+    const last = lastSync ? ago(lastSync) : t('time.neverSynced');
     if (pending > 0) {
       return {
-        title: `${pending} ${pending === 1 ? 'change' : 'changes'} to send`,
-        text: `${last}. They go out the next time a paired phone is close.`,
+        title: t('sync.toSend', { count: pending }),
+        text: t('sync.pendingText', { last }),
       };
     }
-    return { title: 'All synced', text: last };
-  };
-
-  const openFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (file) await receive((await file.text()).trim());
-    refreshPeers();
-  };
-
-  const sendFile = async (peer: Peer) => {
-    const text = await invoke<string>('export_bundle', { peer: peer.id });
-    const slug = (peer.name || 'phone').replace(/\W+/g, '-').toLowerCase();
-    nearby('shareFile', { name: `territories-for-${slug}.territories`, text });
+    return { title: t('sync.allSynced'), text: last };
   };
 
   const removePeer = async (peer: Peer) => {
+    const name = peer.name;
     const ok = await confirm({
-      title: `Unpair ${peer.name || 'this phone'}?`,
-      description:
-        'Your phones stop syncing with each other. What it already sent stays on this phone.',
-      action: 'Unpair',
+      title: name
+        ? t('sync.removeTitle', { name })
+        : t('sync.removeTitleUnnamed'),
+      description: t('sync.removeText'),
+      action: t('sync.remove'),
     });
     if (!ok) return;
-    play('remove');
-    await invoke('remove_peer', { id: peer.id });
+    try {
+      await invoke('remove_peer', { id: peer.id });
+      play('remove');
+      notify(
+        t('sync.removed'),
+        name ? t('sync.removedText', { name }) : t('sync.removedTextUnnamed')
+      );
+    } catch (error) {
+      notify(t('common.somethingWrong'), String(error), 'error');
+    }
     refreshPeers();
   };
 
@@ -151,101 +151,101 @@ const Sync = () => {
   };
 
   const nameOf = (id?: string | null) =>
-    peers.find((peer) => peer.id === id)?.name || 'a paired phone';
+    peers.find((peer) => peer.id === id)?.name || t('common.aPairedPhone');
 
-  // one paired phone is the usual case; with more, the first is offered
-  const target = peers[0];
   const { title, text } = hero();
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <PageTitle title="Sync" />
-
-      <Box
-        sx={{
-          borderRadius: 'var(--radius-xl)',
-          border: '1px solid var(--accent-300)',
-          background:
-            'linear-gradient(135deg, var(--accent-150) 0%, var(--white) 70%)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}
-      >
+    <>
+      {removed && (
+        <InfoTip
+          isBig={false}
+          color="blue"
+          icon={<IconInfo />}
+          text={t('sync.removedBanner')}
+        />
+      )}
+      <CardSection>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <Pulse
             icon={<IconSync color="var(--accent-main)" />}
             active={status.running || !!syncing}
-            size={64}
+            size={56}
           />
-          <Box sx={{ minWidth: 0 }}>
-            <Typography className="h2">{title}</Typography>
-            <Typography className="body-small-regular" color="var(--grey-400)">
-              {text}
-            </Typography>
-          </Box>
+          <CardSectionHeader title={title} description={text} />
         </Box>
-        {android && (
-          <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {peers.length === 0 ? (
-              <Button
-                variant="main"
-                disableAutoStretch
-                onClick={() =>
-                  bluetoothReady ? setPairing('nearby') : fixBluetooth()
-                }
-              >
-                {bluetoothReady ? 'Pair a phone' : 'Allow Bluetooth'}
-              </Button>
-            ) : (
-              <Button
-                variant="main"
-                disableAutoStretch
-                disabled={!!syncing}
-                onClick={() => (bluetoothReady ? syncNow() : fixBluetooth())}
-              >
-                {bluetoothReady ? 'Sync now' : 'Allow Bluetooth'}
-              </Button>
-            )}
-          </Box>
-        )}
         {status.running && status.until && !syncing && (
           <Typography className="label-small-regular" color="var(--grey-400)">
-            Looking for paired phones nearby until{' '}
-            {time(new Date(status.until))}
+            {t('sync.looking', { time: time(new Date(status.until)) })}
           </Typography>
         )}
-      </Box>
+        {/* without a paired device, the pairing card below has the action */}
+        {android && peers.length > 0 && (
+          <Actions
+            actions={[
+              {
+                label: bluetoothReady ? t('common.syncNow') : fixBluetoothLabel,
+                kind: 'main',
+                disabled: bluetoothReady && !!syncing,
+                onClick: () => (bluetoothReady ? syncNow() : fixBluetooth()),
+              },
+              // without Bluetooth, changes also come in as a loop of QR codes
+              {
+                label: t('sync.scan'),
+                onClick: () => nearby('scanQr'),
+              },
+            ]}
+          />
+        )}
+      </CardSection>
 
       {peers.length > 0 && (
         <CardSection>
           <CardSectionHeader
-            title="Paired phones"
-            description="Territories only go to these phones: the ones you paired in person, and the ones they paired with. All of them sync with each other."
+            title={t('sync.paired')}
+            description={t('sync.pairedText')}
           />
           <CardSectionContent spacing="4px" divider={undefined}>
             {peers.map((peer) => (
               <PhoneRow
                 key={peer.id}
-                name={peer.name || 'Unnamed phone'}
+                id={peer.id}
+                name={peer.name || t('common.unnamedPhone')}
                 detail={[
+                  publisherOf(peer) &&
+                    t('sync.publisher', { name: publisherOf(peer) }),
                   peer.introduced_by &&
-                    `Joined through ${nameOf(peer.introduced_by)}`,
+                    t('sync.joinedThrough', {
+                      name: nameOf(peer.introduced_by),
+                    }),
                   ago(peer.last_sync),
                   peer.last_sync &&
                     peer.pending > 0 &&
-                    `${peer.pending} ${peer.pending === 1 ? 'change' : 'changes'} to send`,
+                    t('sync.toSend', { count: peer.pending }),
                 ]
                   .filter(Boolean)
                   .join(' · ')}
                 trailing={
-                  <IconButton
-                    aria-label={`Unpair ${peer.name}`}
-                    onClick={() => removePeer(peer)}
-                  >
-                    <IconDelete color="var(--red-main)" />
-                  </IconButton>
+                  <>
+                    <IconButton
+                      aria-label={t('sync.sendQr', {
+                        name: peer.name || t('common.unnamedPhone'),
+                      })}
+                      onClick={() => setSendTo(peer)}
+                    >
+                      <IconQr color="var(--accent-main)" />
+                    </IconButton>
+                    <IconButton
+                      color="error"
+                      edge="end"
+                      aria-label={t('sync.removeLabel', {
+                        name: peer.name || t('common.unnamedPhone'),
+                      })}
+                      onClick={() => removePeer(peer)}
+                    >
+                      <IconDelete color="var(--red-main)" />
+                    </IconButton>
+                  </>
                 }
               />
             ))}
@@ -255,108 +255,54 @@ const Sync = () => {
 
       <Decisions />
 
-      {android && <AutomaticSection status={status} />}
-
       <CardSection>
         <CardSectionHeader
-          title="Pair a phone"
-          description="Pair once, with the other brother next to you. Pick the first way that works for both phones."
+          title={t('common.pairPhone')}
+          description={t('sync.pairText')}
         />
-        <Stack spacing="12px">
-          <Method
-            recommended
+        <CardSectionContent>
+          <PairOptions
             icon={<IconBluetooth />}
-            title="Nearby"
-            description="Works anywhere in the same room. You both check that the phones show the same 6-digit number."
-            state={bluetooth}
-            actions={[
+            title={t('sync.nearby')}
+            description={t('sync.nearbyText')}
+            state={bluetoothReady ? undefined : bluetooth}
+            action={
               bluetoothReady
                 ? {
-                    label: 'Pair',
-                    main: true,
+                    label: t('common.pair'),
                     onClick: () => setPairing('nearby'),
                   }
                 : {
-                    label: permissions?.bluetooth ? 'Turn on' : 'Allow',
-                    main: true,
+                    label: fixBluetoothLabel,
                     disabled: !android,
                     onClick: fixBluetooth,
-                  },
-            ]}
-          />
-          <Method
-            icon={<IconTap />}
-            title="Tap phones"
-            description="Hold the backs of both Android phones together. No number to check. NFC needs no permission, it only has to be on."
-            state={nfc}
-            actions={
-              permissions?.nfc
-                ? [
-                    permissions.nfcOn
-                      ? { label: 'Pair', onClick: () => setPairing('tap') }
-                      : {
-                          label: 'Turn on',
-                          onClick: () => nearby('nfcSettings'),
-                        },
-                  ]
-                : []
+                  }
             }
-          />
-          <Method
-            icon={<IconQr />}
-            title="QR code"
-            description="Each phone scans the other’s code. Works on every phone, also without Bluetooth."
-            state={camera}
-            actions={[
-              camera === READY
-                ? { label: 'Show my code', onClick: () => setQrPairOpen(true) }
-                : {
-                    label: 'Allow camera',
-                    onClick: () => nearby('permissions', { which: 'camera' }),
-                  },
+            othersText={t('sync.otherWays')}
+            others={[
+              ...(permissions?.nfc
+                ? [
+                    {
+                      icon: <IconTap />,
+                      label: t('sync.tap'),
+                      onClick: () =>
+                        permissions.nfcOn
+                          ? setPairing('tap')
+                          : nearby('nfcSettings'),
+                    },
+                  ]
+                : []),
+              {
+                icon: <IconQr />,
+                label: t('sync.qr'),
+                onClick: () =>
+                  camera === READY
+                    ? setQrPairOpen(true)
+                    : nearby('permissions', { which: 'camera' }),
+              },
             ]}
           />
-        </Stack>
-      </CardSection>
-
-      <CardSection>
-        <CardSectionHeader
-          title="Share without Bluetooth"
-          description="If Bluetooth doesn’t work, move your changes to a paired phone another way. It only works between paired phones."
-        />
-        <Stack spacing="12px">
-          <Method
-            icon={<IconQr />}
-            title="QR codes"
-            description="Your changes play as a loop of QR codes. The other phone films them until they’re all read."
-            actions={[
-              ...(target
-                ? [{ label: 'Send', onClick: () => setSendTo(target) }]
-                : []),
-              ...(android
-                ? [{ label: 'Scan', onClick: () => nearby('scanQr') }]
-                : []),
-            ]}
-          />
-          <Method
-            icon={<IconFile />}
-            title="File"
-            description="Send a file with Quick Share, AirDrop or any other app, then open it on the other phone."
-            actions={[
-              ...(target && android
-                ? [{ label: 'Send', onClick: () => sendFile(target) }]
-                : []),
-              { label: 'Open file', onClick: () => fileInput.current?.click() },
-            ]}
-          />
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".territories"
-            hidden
-            onChange={openFile}
-          />
-        </Stack>
+        </CardSectionContent>
       </CardSection>
 
       <History />
@@ -375,7 +321,7 @@ const Sync = () => {
         android={android}
       />
       <QrSendDialog peer={sendTo} onClose={() => setSendTo(null)} />
-    </Box>
+    </>
   );
 };
 

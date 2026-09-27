@@ -13,9 +13,22 @@ import {
 } from '@states/territories';
 import { parseDate } from '@features/territories/helpers';
 import { store } from '@states/index';
+import { appLocalsState } from '@states/app_locals';
+import { settingsState } from '@states/settings';
 import { invoke, listen, nearby } from './native';
 import { setCurrentPublisher, setMapCenter, setPeople } from './data';
-import { seedBoundaries, seedPeople } from './seed';
+import { seedBoundaries, seedDoNotCalls, seedPeople } from './seed';
+import {
+  avatarsFrom,
+  avatarsState,
+  bufferOf,
+  linksFrom,
+  linksState,
+  myIdState,
+  myLinkState,
+  peopleState,
+  PROFILES,
+} from './profiles';
 
 // The territory pages keep their data in Jotai atoms. This mirrors the atoms
 // into the phone's store, record by record, and reloads them when a sync
@@ -54,7 +67,7 @@ const byDate = (field: string) => (a: Row, b: Row) =>
   (parseDate(String(a[field] ?? ''))?.getTime() ?? 0) -
   (parseDate(String(b[field] ?? ''))?.getTime() ?? 0);
 
-const split = (territory: Territory) => {
+export const split = (territory: Territory) => {
   const { assignments, doNotCalls, ...fields } = territory;
   const records: Write[] = [{ table: TERRITORIES, id: territory.id, fields }];
   for (const [index, assignment] of assignments.entries()) {
@@ -97,7 +110,7 @@ const changed = (writes: Write[]) =>
       saved.get(key(write.table, write.id)) !== JSON.stringify(write.fields)
   );
 
-const assemble = (
+export const assemble = (
   territoryRows: Row[],
   assignmentRows: Row[],
   doNotCallRows: Row[]
@@ -135,6 +148,31 @@ const centerOf = (points: [number, number][]) => {
 const sameName = (name: string) =>
   name.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 
+let deviceName = '';
+
+// "me" on the territory pages: the linked publisher, else this device's name
+const applyMe = () => {
+  const { person } = store.get(myLinkState);
+  setCurrentPublisher(person?.name ?? deviceName);
+  const uid = person?.id ?? '';
+  store.set(settingsState, (settings) =>
+    settings.user_settings.user_local_uid === uid
+      ? settings
+      : {
+          ...settings,
+          user_settings: { ...settings.user_settings, user_local_uid: uid },
+        }
+  );
+};
+
+/** A publisher named like this device, to offer linking to. */
+export const suggestedLink = (name: string, people: Person[]) =>
+  name.trim()
+    ? people.find(
+        (person) => !person.group && sameName(person.name) === sameName(name)
+      )
+    : undefined;
+
 export const loadPeople = async () => {
   let people = (await rows(PEOPLE)) as unknown as Person[];
 
@@ -160,14 +198,52 @@ export const loadPeople = async () => {
       .map((person) => person.name)
       .sort((a, b) => a.localeCompare(b));
   setPeople(names(true), names(false));
+  store.set(peopleState, people);
+  applyMe();
   window.dispatchEvent(new CustomEvent('people-changed', { detail: people }));
   return people;
 };
 
 export const loadIdentity = async () => {
-  const identity = await invoke<{ name: string; unsynced: number }>('identity');
-  setCurrentPublisher(identity.name);
+  const identity = await invoke<{ id: string; name: string; unsynced: number }>(
+    'identity'
+  );
+  deviceName = identity.name;
+  store.set(myIdState, identity.id);
+  applyMe();
+  window.dispatchEvent(new CustomEvent('identity-changed'));
   return identity;
+};
+
+let shownAvatar: string | undefined;
+
+export const loadProfiles = async () => {
+  const profiles = await rows(PROFILES);
+  const avatars = avatarsFrom(profiles);
+  store.set(avatarsState, avatars);
+  store.set(linksState, linksFrom(profiles));
+  applyMe();
+  // the main app's account button shows the account photo from app locals
+  const mine = avatars[store.get(myIdState)];
+  if (mine === shownAvatar) return;
+  shownAvatar = mine;
+  store.set(appLocalsState, mine ? [{ id: 1, avatar: bufferOf(mine) }] : []);
+};
+
+/** This device's picture for every paired device, or none with null. */
+export const setAvatar = async (avatar: string | null) => {
+  await writeRows([
+    { table: PROFILES, id: store.get(myIdState), fields: { avatar } },
+  ]);
+  await loadProfiles();
+};
+
+/** Who uses this device, as a publisher's id, for every paired device. */
+export const setLink = async (person: string | null) => {
+  await writeRows([
+    { table: PROFILES, id: store.get(myIdState), fields: { person } },
+  ]);
+  await loadProfiles();
 };
 
 export const load = async () => {
@@ -188,7 +264,9 @@ export const load = async () => {
     ]);
     await seedPeople((await rows(PEOPLE)).length > 0);
     await seedBoundaries(territoryRows);
+    doNotCallRows.push(...(await seedDoNotCalls(territoryRows, doNotCallRows)));
     await Promise.all([loadPeople(), loadIdentity()]);
+    await loadProfiles();
 
     const territories = assemble(territoryRows, assignmentRows, doNotCallRows);
     const categories = categoryRows

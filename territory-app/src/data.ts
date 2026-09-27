@@ -9,11 +9,22 @@ export const PUBLISHERS_ONLY: string[] = [];
 
 export const PUBLISHERS: string[] = [];
 
-export const MAP_CENTER: [number, number] = [13.4105, 52.5005];
+// Xanten-Lüttingen until the congregation's own borders are known
+export const MAP_CENTER: [number, number] = [6.47, 51.67];
 
 export const CONGREGATION_BOUNDARY: TerritoryBoundary | undefined = undefined;
 
 export const TERRITORIES: Territory[] = [];
+
+// street name -> territory numbers, built from OpenStreetMap by
+// scripts/streets.py into seed/streets.json for a private build
+export const STREET_INDEX: Record<string, string[]> =
+  Object.values(
+    import.meta.glob<Record<string, string[]>>('../seed/streets.json', {
+      import: 'default',
+      eager: true,
+    })
+  )[0] ?? {};
 
 export let CURRENT_PUBLISHER = '';
 

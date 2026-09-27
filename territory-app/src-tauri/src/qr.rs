@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
 use crate::session::{pack, unpack};
-use crate::store::{Cell, Peer, Result, Store, Versions};
+use crate::store::{is_id, Cell, Peer, Result, Store, Versions};
 
 const CARD: &str = "OTC1:";
 const BUNDLE: &str = "OTB1:";
@@ -47,7 +47,7 @@ pub fn card(store: &Store, platform: &str) -> Result<String> {
 
 /// Pairs with the phone whose card was scanned. The other phone scans this
 /// one's card too, so both know each other.
-pub fn add_card(store: &Store, text: &str) -> Result<Peer> {
+pub fn add_card(store: &mut Store, text: &str) -> Result<Peer> {
     let body = text.trim().strip_prefix(CARD).ok_or("not a pairing code")?;
     let card: Card = unpack(&B64.decode(body).map_err(|e| e.to_string())?)?;
     let peer = Peer {
@@ -61,7 +61,7 @@ pub fn add_card(store: &Store, text: &str) -> Result<Peer> {
         pending: 0,
         introduced_by: None,
     };
-    if peer.public_key.len() != 32 || peer.id.len() != ID_LEN {
+    if peer.public_key.len() != 32 || peer.adv_secret.len() != 16 || !is_id(&peer.id) {
         return Err("not a pairing code".into());
     }
     store.add_peer(&peer)?;
@@ -122,9 +122,10 @@ pub fn import(store: &mut Store, text: &str) -> Result<Imported> {
     }
     let (header, rest) = bytes.split_at(2 * ID_LEN);
     let (nonce, sealed) = rest.split_at(12);
-    let header_text = std::str::from_utf8(header).map_err(|e| e.to_string())?;
-    let (sender, recipient) = header_text.split_at(ID_LEN);
-    if recipient != store.identity.id {
+    // split as bytes: a text split inside a character would panic
+    let (sender, recipient) = header.split_at(ID_LEN);
+    let sender = std::str::from_utf8(sender).map_err(|e| e.to_string())?;
+    if recipient != store.identity.id.as_bytes() {
         return Err("this transfer is for another phone".into());
     }
     let peer = store.peer(sender)?.ok_or("the sending phone is not paired")?;
@@ -133,7 +134,7 @@ pub fn import(store: &mut Store, text: &str) -> Result<Imported> {
         .map_err(|_| "the transfer did not open")?;
     let contents: Contents = unpack(&plain)?;
     let applied = store.apply(&contents.cells, &contents.versions)?;
-    store.log_sync(&peer.id, &peer.name, 0, &[], &applied)?;
+    store.log_sync(&peer.id, &peer.name, 0, &[], &applied, &[])?;
     Ok(Imported {
         name: peer.name,
         received: applied.cells,
@@ -152,8 +153,8 @@ mod tests {
         let mut a = Store::in_memory().unwrap();
         let mut b = Store::in_memory().unwrap();
         a.set_name("Anna").unwrap();
-        add_card(&b, &card(&a, "android").unwrap()).unwrap();
-        add_card(&a, &card(&b, "ios").unwrap()).unwrap();
+        add_card(&mut b, &card(&a, "android").unwrap()).unwrap();
+        add_card(&mut a, &card(&b, "ios").unwrap()).unwrap();
 
         a.put("territories", "t1", json!({"number": "1"}).as_object().unwrap())
             .unwrap();
@@ -166,12 +167,43 @@ mod tests {
 
     #[test]
     fn only_the_intended_phone_opens_a_bundle() {
-        let a = Store::in_memory().unwrap();
+        let mut a = Store::in_memory().unwrap();
         let b = Store::in_memory().unwrap();
         let mut c = Store::in_memory().unwrap();
-        add_card(&a, &card(&b, "ios").unwrap()).unwrap();
-        add_card(&c, &card(&a, "android").unwrap()).unwrap();
+        add_card(&mut a, &card(&b, "ios").unwrap()).unwrap();
+        add_card(&mut c, &card(&a, "android").unwrap()).unwrap();
         let bundle = export(&a, &b.identity.id).unwrap();
         assert!(import(&mut c, &bundle).is_err());
+    }
+
+    #[test]
+    fn a_bundle_with_a_broken_header_is_refused_without_a_crash() {
+        let mut b = Store::in_memory().unwrap();
+        // a two-byte character across the middle of the header
+        let mut bytes = format!("{}é{}", "a".repeat(15), "b".repeat(15)).into_bytes();
+        bytes.extend_from_slice(&[0u8; 40]);
+        assert!(import(&mut b, &format!("{BUNDLE}{}", B64.encode(bytes))).is_err());
+    }
+
+    #[test]
+    fn a_pairing_code_with_a_bad_id_or_secret_is_refused() {
+        let mut a = Store::in_memory().unwrap();
+        let b = Store::in_memory().unwrap();
+        let good = |s: &Store| Card {
+            id: s.identity.id.clone(),
+            name: "Ben".into(),
+            platform: "ios".into(),
+            key: B64.encode(s.identity.public_key),
+            adv: B64.encode(s.identity.adv_secret),
+        };
+        let bad = [
+            Card { id: "éééééééé".into(), ..good(&b) },
+            Card { adv: B64.encode([1u8; 2]), ..good(&b) },
+        ];
+        for card in bad {
+            let text = format!("{CARD}{}", B64.encode(pack(&card).unwrap()));
+            assert!(add_card(&mut a, &text).is_err());
+        }
+        assert!(a.peers().unwrap().is_empty());
     }
 }

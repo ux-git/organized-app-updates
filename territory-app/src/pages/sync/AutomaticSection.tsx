@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
-import { useNavigate } from 'react-router';
 import { Box, Stack } from '@mui/material';
 import Badge from '@components/badge';
+import Button from '@components/button';
 import Radio from '@components/radio';
 import SwitchWithLabel from '@components/switch_with_label';
 import Typography from '@components/typography';
@@ -13,6 +13,7 @@ import {
 } from '@features/congregation/settings/shared_styles';
 import { play } from '../../haptics';
 import { nearby } from '../../native';
+import { t } from '../../i18n';
 import { needsForAutomatic } from '../permissions';
 import { NearbyStatus, SyncMode } from '../useNearby';
 import { Actions } from './parts';
@@ -37,7 +38,11 @@ const Choice = ({
     aria-checked={checked}
     tabIndex={0}
     onClick={onSelect}
-    onKeyDown={(event) => event.key === 'Enter' && onSelect()}
+    onKeyDown={(event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      onSelect();
+    }}
     sx={{
       display: 'flex',
       gap: '8px',
@@ -51,7 +56,15 @@ const Choice = ({
     }}
   >
     <Radio checked={checked} tabIndex={-1} />
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px',
+        flex: 1,
+        minWidth: 0,
+      }}
+    >
       <Box sx={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
         <Typography className="h4">{title}</Typography>
         {badge && <Badge text={badge} color="accent" size="small" filled />}
@@ -85,31 +98,13 @@ const NeedRow = ({
   </Box>
 );
 
-const MODES: { mode: SyncMode; title: string; text: string; badge?: string }[] =
-  [
-    {
-      mode: 'always',
-      title: 'Always',
-      badge: 'Recommended',
-      text: 'Wherever your phones meet: at the Kingdom Hall, in field service or at home. Only a phone with news sends a short signal every few minutes, so it hardly uses battery.',
-    },
-    {
-      mode: 'location',
-      title: 'At the Kingdom Hall',
-      text: 'Your phone looks for paired phones only while you are at the Kingdom Hall, every minute or two.',
-    },
-    {
-      mode: 'manual',
-      title: 'Only when I tap Sync now',
-      text: 'Nothing runs in the background.',
-    },
-  ];
-
-const AUTOMATIONS = [
-  ['Arrive', 'At the Kingdom Hall, when you get there.'],
-  ['Time of Day', 'A few minutes after each meeting starts.'],
-  ['NFC', 'When you hold the iPhone to a sticker at the Kingdom Hall.'],
+const MODES: { mode: SyncMode; key: string; recommended?: boolean }[] = [
+  { mode: 'always', key: 'always', recommended: true },
+  { mode: 'location', key: 'hall' },
+  { mode: 'manual', key: 'manual' },
 ];
+
+const AUTOMATIONS = ['arrive', 'timeOfDay', 'nfc'];
 
 /**
  * Two iPhones only find each other with one app open. A Shortcuts
@@ -119,26 +114,30 @@ const AUTOMATIONS = [
 const ShortcutsGuide = () => (
   <Stack spacing="12px">
     <CardSubSectionHeader
-      title="Sync with other iPhones by itself"
-      description="Two iPhones find each other only while one has Territories open. Shortcuts can start the sync for you, with the app closed. Set it up once:"
+      title={t('automatic.shortcuts')}
+      description={t('automatic.shortcutsText')}
     />
     <Typography className="body-small-regular">
-      In Shortcuts, open Automation, tap +, choose a trigger below, then the
-      action “Sync territories”, and choose “Run Immediately”.
+      {t('automatic.shortcutsSteps')}
     </Typography>
     <Stack spacing="8px">
-      {AUTOMATIONS.map(([trigger, text]) => (
+      {AUTOMATIONS.map((trigger) => (
         <Box key={trigger}>
-          <Typography className="body-small-semibold">{trigger}</Typography>
+          <Typography className="body-small-semibold">
+            {t(`automatic.${trigger}`)}
+          </Typography>
           <Typography className="body-small-regular" color="var(--grey-400)">
-            {text}
+            {t(`automatic.${trigger}Text`)}
           </Typography>
         </Box>
       ))}
     </Stack>
     <Actions
       actions={[
-        { label: 'Open Shortcuts', onClick: () => nearby('shortcuts') },
+        {
+          label: t('automatic.openShortcuts'),
+          onClick: () => nearby('shortcuts'),
+        },
       ]}
     />
   </Stack>
@@ -146,7 +145,6 @@ const ShortcutsGuide = () => (
 
 /** How this phone syncs: always, at the Kingdom Hall, or by hand. */
 const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
-  const navigate = useNavigate();
   const schedule = status.schedule ?? {};
   const mode: SyncMode = status.mode ?? 'always';
   const missing = needsForAutomatic(status).filter((need) => !need.ok);
@@ -165,18 +163,22 @@ const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
   return (
     <CardSection id="automatic">
       <CardSectionHeader
-        title="How your phone syncs"
-        description="Everything stays between your phones. Nothing goes over the internet."
+        title={t('automatic.title')}
+        description={t('automatic.text')}
       />
       <CardSectionContent>
-        <Stack spacing="8px">
+        <Stack
+          spacing="8px"
+          role="radiogroup"
+          aria-label={t('automatic.title')}
+        >
           {MODES.map((item) => (
             <Choice
               key={item.mode}
               checked={mode === item.mode}
-              title={item.title}
-              badge={item.badge}
-              text={item.text}
+              title={t(`automatic.${item.key}`)}
+              badge={item.recommended ? t('common.recommended') : undefined}
+              text={t(`automatic.${item.key}Text`)}
               onSelect={() => choose(item.mode)}
             >
               {item.mode === 'location' && (
@@ -184,19 +186,23 @@ const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
                   <Typography className="body-small-semibold">
                     {status.hall
                       ? status.inside
-                        ? 'You are at the Kingdom Hall now.'
-                        : 'Kingdom Hall location saved.'
-                      : 'Choose where the Kingdom Hall is first.'}
+                        ? t('automatic.atHall')
+                        : t('automatic.hallSaved')
+                      : t('automatic.hallFirst')}
                   </Typography>
                   <Box sx={{ paddingTop: '8px' }}>
                     <Actions
                       actions={[
                         {
                           label: status.hall
-                            ? 'Change location'
-                            : 'Choose location',
+                            ? t('automatic.changeLocation')
+                            : t('automatic.chooseLocation'),
                           kind: status.hall ? 'secondary' : 'main',
-                          onClick: () => navigate('/settings/hall'),
+                          onClick: () =>
+                            document.getElementById('hall')?.scrollIntoView({
+                              behavior: 'smooth',
+                              block: 'start',
+                            }),
                         },
                       ]}
                     />
@@ -210,8 +216,8 @@ const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
         {missing.length > 0 && (
           <Stack spacing="16px">
             <CardSubSectionHeader
-              title="Your phone still has to allow"
-              description="Without these, your phone can’t sync by itself."
+              title={t('automatic.missing')}
+              description={t('automatic.missingText')}
             />
             {missing.map((need) => (
               <NeedRow
@@ -219,11 +225,14 @@ const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
                 title={need.title}
                 text={need.text}
                 action={
-                  <Actions
-                    actions={[
-                      { label: need.label, kind: 'main', onClick: need.fix },
-                    ]}
-                  />
+                  <Button
+                    variant="small"
+                    disableAutoStretch
+                    onClick={need.fix}
+                    sx={{ flexShrink: 0 }}
+                  >
+                    {need.label}
+                  </Button>
                 }
               />
             ))}
@@ -231,8 +240,8 @@ const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
         )}
 
         <SwitchWithLabel
-          label="Tell me what a sync brought"
-          helper="Which territories changed and with whom. A sync that brings nothing new stays silent."
+          label={t('automatic.notify')}
+          helper={t('automatic.notifyText')}
           checked={schedule.notify !== false}
           onChange={(notify) => save({ notify })}
         />

@@ -90,6 +90,17 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  // uiMode is in configChanges, so a dark-mode switch lands here, not in a restart
+  override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+    super.onConfigurationChanged(newConfig)
+    val night = (newConfig.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+      android.content.res.Configuration.UI_MODE_NIGHT_YES
+    webView?.evaluateJavascript(
+      "window.__organizedSystemDark&&window.__organizedSystemDark($night)",
+      null
+    )
+  }
+
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
     prefs().getInt(PREF_BAR_COLOR, 0).takeIf { it != 0 }?.let { color ->
@@ -142,12 +153,24 @@ class MainActivity : TauriActivity() {
     } ?: return
     intent.data = null
     intent.removeExtra(Intent.EXTRA_STREAM)
-    val text = runCatching {
-      contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8).trim() }
-    }.getOrNull() ?: return
-    if (!text.startsWith("OTB1:") && !text.startsWith("OTC1:")) return
+    val text = runCatching { readTransfer(uri) }.getOrNull() ?: return
     openedFile = text
     deliverFile()
+  }
+
+  /** Any app can hand over any file, so only up to a size a transfer can have. */
+  private fun readTransfer(uri: android.net.Uri): String? {
+    val text = contentResolver.openInputStream(uri)?.use { input ->
+      val bytes = java.io.ByteArrayOutputStream()
+      val buffer = ByteArray(64 * 1024)
+      while (bytes.size() <= FILE_MAX) {
+        val read = input.read(buffer)
+        if (read < 0) break
+        bytes.write(buffer, 0, read)
+      }
+      if (bytes.size() > FILE_MAX) null else bytes.toString("UTF-8").trim()
+    } ?: return null
+    return text.takeIf { listOf("OTB1:", "OTC1:", "OTA1:").any(it::startsWith) }
   }
 
   private fun deliverFile() {
@@ -176,8 +199,9 @@ class MainActivity : TauriActivity() {
     val type = intent.getStringExtra(FileHandoff.EXTRA_TYPE) ?: "*/*"
     val what = intent.getStringExtra(FileHandoff.EXTRA_ACTION)
     intent.removeExtra(FileHandoff.EXTRA_PATH)
-    val file = java.io.File(path)
-    if (!file.exists()) return
+    // only the app's own notifications name a file; any other app could send one
+    val file = runCatching { java.io.File(path).canonicalFile }.getOrNull() ?: return
+    if (!FileHandoff.isShared(this, file) || !file.exists()) return
     when (what) {
       FileHandoff.SHARE -> FileHandoff.share(this, file, type)
       FileHandoff.PRINT -> FileHandoff.print(this, file)
@@ -258,6 +282,7 @@ class MainActivity : TauriActivity() {
       NearbyService.start(this, "open", 2 * 60_000L)
     }
     Reminders.apply(this)
+    Backups.catchUp(this)
     webView?.evaluateJavascript(THEME_COLOR_SCRIPT) { result ->
       parseCssColor(result?.trim('"'))?.let(::applyBarColor)
     }
@@ -365,18 +390,15 @@ class MainActivity : TauriActivity() {
 
   /** Territory cards and exports; a web view drops downloads. */
   private inner class FilesBridge {
+    // on the bridge's own thread: writing a large file would hold up the screen
     @JavascriptInterface
     fun save(name: String, type: String, base64: String) {
-      bytes(base64)?.let { data ->
-        handler.post { FileHandoff.receive(this@MainActivity, name, type, data) }
-      }
+      bytes(base64)?.let { data -> FileHandoff.receive(this@MainActivity, name, type, data) }
     }
 
     @JavascriptInterface
     fun share(name: String, type: String, base64: String) {
-      bytes(base64)?.let { data ->
-        handler.post { FileHandoff.share(this@MainActivity, name, type, data) }
-      }
+      bytes(base64)?.let { data -> FileHandoff.share(this@MainActivity, name, type, data) }
     }
 
     private fun bytes(base64: String) =
@@ -395,6 +417,8 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  // "bluetoothOn" throws without the Bluetooth permission, and the settings open instead
+  @android.annotation.SuppressLint("MissingPermission")
   private fun nearbyCommand(name: String, args: JSONObject) {
     val service = NearbyService.instance
     when (name) {
@@ -433,20 +457,47 @@ class MainActivity : TauriActivity() {
         runCatching { startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)) }
       }
       "nfcSettings" -> runCatching { startActivity(Intent(android.provider.Settings.ACTION_NFC_SETTINGS)) }
-      "hallSet" -> Reminders.setHall(
-        this,
-        args.getDouble("lat"),
-        args.getDouble("lng"),
-        args.optDouble("radius", 150.0).toFloat()
-      ).also { if (!Nearby.granted(this, Manifest.permission.ACCESS_FINE_LOCATION)) askPermissions("location") }
+      "openUrl" -> args.optString("url").takeIf { it.startsWith("https://") }?.let { url ->
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+      }
+      "hallSet" -> {
+        val lat = args.optDouble("lat")
+        val lng = args.optDouble("lng")
+        if (!lat.isNaN() && !lng.isNaN()) {
+          Reminders.setHall(this, lat, lng, args.optDouble("radius", 150.0).toFloat())
+          if (!Nearby.granted(this, Manifest.permission.ACCESS_FINE_LOCATION)) askPermissions("location")
+        }
+      }
       "hallClear" -> Reminders.clearHall(this)
       "takeFile" -> deliverFile()
+      "backupStatus" -> Backups.emit(this)
+      "backupSchedule" -> {
+        Backups.setSchedule(this, args)
+        Backups.emit(this)
+      }
+      "backupFolder" -> pickBackupFolder(false)
+      "backupNow" -> if (Backups.status(this).optBoolean("folderOk")) Backups.runNow(this) else pickBackupFolder(true)
       "shareFile" -> {
         val bytes = args.optString("text").toByteArray(Charsets.UTF_8)
         FileHandoff.share(this, args.optString("name"), "application/octet-stream", bytes)
       }
     }
     emitNearby()
+  }
+
+  private var backupAfterPick = false
+
+  private val pickFolder = registerForActivityResult(
+    androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
+  ) { uri ->
+    if (uri != null) Backups.setFolder(this, uri)
+    if (uri != null && backupAfterPick) Backups.runNow(this) else Backups.emit(this)
+    backupAfterPick = false
+  }
+
+  private fun pickBackupFolder(thenBackUp: Boolean) {
+    backupAfterPick = thenBackUp
+    runCatching { pickFolder.launch(null) }.onFailure { Backups.emit(this) }
   }
 
   fun emitNearby() {
@@ -501,11 +552,31 @@ class MainActivity : TauriActivity() {
           arrayOf(Manifest.permission.POST_NOTIFICATIONS)
         } else emptyArray()
     }.filter { !Nearby.granted(this, it) }
-    if (wanted.isNotEmpty()) {
-      requestPermissions(wanted.toTypedArray(), REQUEST_PERMISSIONS)
-    } else if (askBatteryAfter) {
-      askBattery()
+    // Android shows no dialog for a permission refused twice; only its settings help then
+    val asked = getSharedPreferences("permissions", MODE_PRIVATE)
+    val blocked = wanted.filter { asked.getBoolean(it, false) && !shouldShowRequestPermissionRationale(it) }
+    val askable = wanted - blocked.toSet()
+    when {
+      askable.isNotEmpty() -> {
+        asked.edit().apply { askable.forEach { putBoolean(it, true) } }.apply()
+        requestPermissions(askable.toTypedArray(), REQUEST_PERMISSIONS)
+      }
+      blocked.isNotEmpty() -> openSettings(notifications = false)
+      // allowed, but switched off for this app
+      which.isEmpty() && !Notify.mayNotify(this) -> openSettings(notifications = true)
+      askBatteryAfter -> askBattery()
     }
+  }
+
+  private fun openSettings(notifications: Boolean) {
+    val intent = if (notifications && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+    } else {
+      Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        .setData(android.net.Uri.parse("package:$packageName"))
+    }
+    runCatching { startActivity(intent) }
   }
 
   private var askBatteryAfter = false
@@ -630,6 +701,7 @@ class MainActivity : TauriActivity() {
     }
 
     private const val SPLASH_MAX_MS = 5000L
+    private const val FILE_MAX = 32 * 1024 * 1024
     const val FRAME_MS = 16L
     const val PREF_BAR_COLOR = "bar_color"
     const val PREF_ACCENT = "accent"

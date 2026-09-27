@@ -1,18 +1,21 @@
 package com.sws2apps.territories
 
-import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Notification
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
-import androidx.core.content.ContextCompat
+import androidx.core.app.NotificationManagerCompat
 
 object Notify {
+  /** The permission on Android 13+, and the app's switch in the settings everywhere. */
   fun mayNotify(context: Context): Boolean =
-    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-      ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-      PackageManager.PERMISSION_GRANTED
+    NotificationManagerCompat.from(context).areNotificationsEnabled()
+
+  @SuppressLint("MissingPermission") // mayNotify is the check
+  fun post(context: Context, id: Int, notification: Notification) {
+    if (mayNotify(context)) runCatching { NotificationManagerCompat.from(context).notify(id, notification) }
+  }
 
   /** The page's accent (res/values/accents.xml), for notification tints. */
   fun accentColor(context: Context): Int {

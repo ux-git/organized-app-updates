@@ -12,6 +12,7 @@ import { territoriesState } from '@states/territories';
 import { forTab } from '@features/territories/helpers';
 import DashboardCard from '@features/dashboard/card';
 import DashboardMenu from '@features/dashboard/menu';
+import { t } from '../i18n';
 
 // The main app's territories card without requests, and with the coverage
 // map and do-not-calls on phones too.
@@ -25,11 +26,12 @@ const TerritoriesCard = () => {
   );
 
   return (
-    <DashboardCard header="Territories">
+    // grows with its rows; the grid keeps both cards the same height
+    <DashboardCard header={t('territories.title')} sx={{ height: 'auto' }}>
       <ListItem disablePadding>
         <DashboardMenu
           icon={<IconMap color="var(--black)" />}
-          primaryText="My territories"
+          primaryText={t('territories.mine')}
           badgeText={String(mine)}
           path="/territories?tab=mine"
         />
@@ -37,7 +39,7 @@ const TerritoriesCard = () => {
       <ListItem disablePadding>
         <DashboardMenu
           icon={<IconMapOverview color="var(--black)" />}
-          primaryText="All territories"
+          primaryText={t('territories.all')}
           badgeText={String(territories.length)}
           path="/territories?tab=all"
         />
@@ -45,14 +47,14 @@ const TerritoriesCard = () => {
       <ListItem disablePadding>
         <DashboardMenu
           icon={<IconMapView color="var(--black)" />}
-          primaryText="Coverage map"
+          primaryText={t('territories.map')}
           path="/territories/map"
         />
       </ListItem>
       <ListItem disablePadding>
         <DashboardMenu
           icon={<IconCancelCicle color="var(--black)" />}
-          primaryText="Do not call"
+          primaryText={t('territories.doNotCall')}
           badgeText={String(doNotCalls)}
           path="/territories/do-not-calls"
         />
@@ -60,14 +62,14 @@ const TerritoriesCard = () => {
       <ListItem disablePadding>
         <DashboardMenu
           icon={<IconAssignmetHistory color="var(--black)" />}
-          primaryText="Assignment history"
+          primaryText={t('territories.history')}
           path="/territories/history"
         />
       </ListItem>
       <ListItem disablePadding>
         <DashboardMenu
           icon={<IconStatsYear color="var(--black)" />}
-          primaryText="Statistics"
+          primaryText={t('territories.statistics')}
           path="/territories/statistics"
         />
       </ListItem>

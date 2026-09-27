@@ -1,0 +1,62 @@
+<resources>
+    <string name="app_name">"Gebiete: Organized"</string>
+    <string name="main_activity_title">"Gebiete: Organized"</string>
+    <string name="file_channel_name">Gespeicherte Dateien</string>
+    <string name="file_saved">In Downloads gespeichert</string>
+    <string name="file_ready">Bereit zum Öffnen</string>
+    <string name="file_share">Teilen</string>
+    <string name="file_print">Drucken</string>
+    <string name="sync_channel">Mit gekoppelten Geräten synchronisieren</string>
+    <string name="sync_title">Gebiete: Organized</string>
+    <string name="sync_looking">Sucht nach gekoppelten Geräten in der Nähe</string>
+    <string name="results_channel">Ergebnisse der Synchronisierung</string>
+    <string name="done_title">Synchronisiert mit %1$s</string>
+    <string name="done_someone">dem anderen Gerät</string>
+    <string name="done_sent_only">Deine Änderungen sind jetzt auch auf dem anderen Gerät.</string>
+    <string name="done_joined">%1$s ist zu euren Geräten dazugekommen. Du synchronisierst jetzt auch damit.</string>
+    <string name="done_line">Gebiet Nr. %1$s: %2$s</string>
+    <string name="done_more">+%1$d weitere</string>
+    <string name="number">%1$s</string>
+    <string name="kind_created">neu angelegt</string>
+    <string name="kind_deleted">gelöscht</string>
+    <string name="kind_border">Grenze geändert</string>
+    <string name="kind_details">Angaben geändert</string>
+    <string name="kind_assigned">zugeteilt</string>
+    <string name="kind_returned">zurückgegeben</string>
+    <string name="kind_assignment_removed">Zuteilung entfernt</string>
+    <string name="kind_dnc_added">„Nicht besuchen“ hinzugefügt</string>
+    <string name="kind_dnc_removed">„Nicht besuchen“ entfernt</string>
+    <string name="kind_dnc_changed">„Nicht besuchen“ geändert</string>
+    <string name="kind_assignment">Zuteilung</string>
+    <string name="kind_do_not_call">„Nicht besuchen“-Adresse</string>
+    <string name="and">und</string>
+    <plurals name="done_territories">
+        <item quantity="one">Gebiet Nr. %1$s wurde geändert.</item>
+        <item quantity="other">Gebiete Nr. %1$s wurden geändert.</item>
+    </plurals>
+    <plurals name="done_people">
+        <item quantity="one">1 Name geändert.</item>
+        <item quantity="other">%1$d Namen geändert.</item>
+    </plurals>
+    <plurals name="done_conflicts">
+        <item quantity="one">1 Angabe wurde auf beiden Geräten geändert. Prüfe sie in der App.</item>
+        <item quantity="other">%1$d Angaben wurden auf beiden Geräten geändert. Prüfe sie in der App.</item>
+    </plurals>
+    <string name="found_title">%1$s ist in der Nähe</string>
+    <string name="found_someone">Ein gekoppeltes Gerät</string>
+    <string name="found_text">Eure Geräte haben noch nicht synchronisiert. Tippe auf „Jetzt synchronisieren“ oder öffne die App.</string>
+    <string name="found_action">Jetzt synchronisieren</string>
+    <string name="sync_timeout">Das andere Gerät antwortet nicht mehr</string>
+    <string name="sync_lost">Die Verbindung ist abgebrochen</string>
+    <string name="reminder_leave_title">Du bist vor der Synchronisierung gegangen</string>
+    <string name="reminder_leave">Deine Änderungen haben %1$s noch nicht erreicht. Öffne die App, wenn du wieder in der Nähe bist.</string>
+    <string name="shortcut_sync">Jetzt synchronisieren</string>
+    <string name="shortcut_meet">Gerät koppeln</string>
+    <string name="scan_hint">Richte die Kamera auf den Code des anderen Geräts</string>
+    <string name="scan_progress">%1$d von %2$d Codes gescannt. Halte die Kamera weiter auf den Bildschirm.</string>
+    <string name="tap_description">Mit einem anderen Gerät koppeln, indem du beide Geräte aneinanderhältst</string>
+    <string name="backup_channel">Sicherungen</string>
+    <string name="backup_failed_title">Sicherung fehlgeschlagen</string>
+    <string name="backup_failed">Die automatische Sicherung konnte nicht gespeichert werden. Öffne die App, um es noch einmal zu versuchen.</string>
+    <string name="backup_failed_folder">Die App kann nicht mehr in deinem Sicherungsordner speichern. Öffne die App und wähle den Ordner noch einmal aus.</string>
+</resources>

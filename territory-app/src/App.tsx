@@ -6,9 +6,11 @@ import {
   useLocation,
 } from 'react-router';
 import { Provider, useAtomValue } from 'jotai';
+import { useTranslation } from 'react-i18next';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { deDE } from '@mui/x-date-pickers/locales';
 import { CacheProvider } from '@emotion/react';
 import createCache from '@emotion/cache';
 import { appLocaleState, appThemeState } from '@states/app';
@@ -19,7 +21,6 @@ import { load, persist } from './persistence';
 import Layout from './Layout';
 import '@global/global.css';
 import '@global/index.css';
-import '@services/i18n/index';
 
 const Territories = lazy(() => import('@pages/territories/hub'));
 const TerritoryDetails = lazy(() => import('@pages/territories/details'));
@@ -31,14 +32,17 @@ const TerritoryDoNotCalls = lazy(
 );
 const Home = lazy(() => import('./pages/Home'));
 const Welcome = lazy(() => import('./pages/Welcome'));
-const KingdomHall = lazy(() => import('./pages/KingdomHall'));
-const Sync = lazy(() => import('./pages/Sync'));
-const Publishers = lazy(() => import('./pages/Publishers'));
+const Settings = lazy(() => import('./pages/Settings'));
 
-// reminders and shortcuts from 0.2 open /nearby
-const OldSettingsLink = () => {
+// notifications, launcher shortcuts and reminders from 0.2 (/nearby) open
+// the sync page by its old addresses
+const SyncLink = () => {
   const { search } = useLocation();
-  return <Navigate to={{ pathname: '/sync', search }} replace />;
+  const params = new URLSearchParams(search);
+  if (params.get('section') === 'automatic') {
+    return <Navigate to="/settings/automatic" replace />;
+  }
+  return <Navigate to={{ pathname: '/settings/sync', search }} replace />;
 };
 
 const cache = createCache({ key: 'css', prepend: true });
@@ -56,18 +60,17 @@ const router = createHashRouter([
       { path: '/territories/do-not-calls', element: <TerritoryDoNotCalls /> },
       { path: '/territories/:id', element: <TerritoryDetails /> },
       { path: '/welcome', element: <Welcome /> },
+      { path: '/settings/:tab?', element: <Settings /> },
       {
-        path: '/settings/automatic',
-        element: <Navigate to="/sync?section=automatic" replace />,
+        path: '/settings/hall',
+        element: <Navigate to="/settings/automatic" replace />,
       },
-      { path: '/settings/hall', element: <KingdomHall /> },
       {
-        path: '/settings',
-        element: <Navigate to="/sync?section=automatic" replace />,
+        path: '/publishers',
+        element: <Navigate to="/settings/publishers" replace />,
       },
-      { path: '/sync', element: <Sync /> },
-      { path: '/publishers', element: <Publishers /> },
-      { path: '/nearby', element: <OldSettingsLink /> },
+      { path: '/sync', element: <SyncLink /> },
+      { path: '/nearby', element: <SyncLink /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
@@ -76,6 +79,7 @@ const router = createHashRouter([
 const Themed = () => {
   const theme = useAtomValue(appThemeState);
   const locale = useAtomValue(appLocaleState);
+  const { i18n } = useTranslation();
   const [ready, setReady] = useState(!isNative());
 
   useEffect(() => {
@@ -96,11 +100,20 @@ const Themed = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={locale}>
+      <LocalizationProvider
+        dateAdapter={AdapterDateFns}
+        adapterLocale={locale}
+        localeText={
+          i18n.language === 'deu'
+            ? deDE.components.MuiLocalizationProvider.defaultProps.localeText
+            : undefined
+        }
+      >
         <CssBaseline />
         <CacheProvider value={cache}>
           {ready ? (
-            <RouterProvider router={router} />
+            // every page takes up a new language at once
+            <RouterProvider key={i18n.language} router={router} />
           ) : (
             <WaitingLoader type="lottie" />
           )}

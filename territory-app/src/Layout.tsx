@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import {
   Outlet,
   ScrollRestoration,
@@ -7,25 +7,35 @@ import {
 } from 'react-router';
 import { useAtomValue } from 'jotai';
 import { AppBar, Box, Container, Toolbar } from '@mui/material';
-import { IconNavigateLeft, IconSettings } from '@icons/index';
+import {
+  IconAccount,
+  IconInfo,
+  IconNavigateLeft,
+  IconSettings,
+} from '@icons/index';
 import { navBarOptionsState } from '@states/app';
 import { useBreakpoints, useNavigationTrail } from '@hooks/index';
 import { markLastNavBarButton } from '@layouts/navbar/markLastNavBarButton';
 import AppFeedback from '@features/app_feedback';
+import ThemeSwitcher from '@features/theme_switcher';
 import BottomMenu from '@layouts/bottom_menu';
 import IconButton from '@components/icon_button';
 import PageTransition from '@components/page_transition';
 import Typography from '@components/typography';
 import WaitingLoader from '@components/waiting_loader';
 import usePageWidth from '@layouts/usePageWidth';
+import About from './shell/About';
+import AccountMenu from './shell/AccountMenu';
 import logo from './assets/logo.svg?url';
+import { t } from './i18n';
 import { ConfirmHost } from './pages/confirm';
+import useNearby from './pages/useNearby';
 import useSyncFeedback from './pages/sync/useSyncFeedback';
 
 const HOME = '/';
 
-// The main app's nav bar without its account, notifications and dashboard
-// parts: the page title, back, the page's quick settings and its buttons.
+// Organized's nav bar (layouts/navbar): the logo and the account menu on the
+// dashboard, back and the page title everywhere else.
 const Layout = () => {
   useNavigationTrail();
   useSyncFeedback();
@@ -35,8 +45,12 @@ const Layout = () => {
   const options = useAtomValue(navBarOptionsState);
   const { tablet688Up } = useBreakpoints();
   const pageWidth = usePageWidth();
+  const { name } = useNearby();
+  const [settingsAnimating, setSettingsAnimating] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
-  const isHome = pathname === HOME || pathname === '/welcome';
+  const isWelcome = pathname === '/welcome';
+  const isHome = pathname === HOME || isWelcome;
 
   const handleBack = () => {
     if (options.onBack) {
@@ -47,6 +61,13 @@ const Layout = () => {
     else navigate(HOME);
   };
 
+  const ellipsis = {
+    whiteSpace: 'nowrap',
+    textOverflow: 'ellipsis',
+    overflow: 'hidden',
+    maxWidth: '100%',
+  } as const;
+
   return (
     <>
       <AppBar
@@ -55,93 +76,196 @@ const Layout = () => {
           backgroundColor: 'var(--accent-100)',
           borderBottom: '1px solid var(--accent-200)',
           minHeight: '62px',
+          overflow: 'hidden',
           zIndex: (theme) => theme.zIndex.drawer + 1,
           boxShadow: 'none',
         }}
       >
-        <Toolbar sx={{ padding: 0, minHeight: '62px' }}>
+        <Toolbar sx={{ padding: 0, minHeight: '62px', alignItems: 'center' }}>
           <Container
             maxWidth={false}
             sx={{
               maxWidth: pageWidth,
-              padding: { mobile: '4px 16px', tablet: '6px 32px' },
+              padding: isHome
+                ? { mobile: '8px 16px', tablet: '6px 32px' }
+                : { mobile: '4px 16px', tablet: '6px 32px' },
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '8px',
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                minWidth: 0,
-                flex: 1,
-              }}
-            >
-              {isHome && <img src={logo} alt="" width={40} height={40} />}
-              {!isHome && (
-                <IconButton
-                  className="back-arrow-button"
-                  aria-label="Back"
-                  onClick={handleBack}
-                  sx={{ flexShrink: 0 }}
-                >
-                  <IconNavigateLeft color="var(--black)" />
-                </IconButton>
-              )}
-              <Box
-                sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}
-              >
-                <Typography
-                  className="h3"
+            {isHome ? (
+              <>
+                <Box
+                  onClick={() => navigate(HOME)}
                   sx={{
-                    color: 'var(--black)',
-                    whiteSpace: 'nowrap',
-                    textOverflow: 'ellipsis',
-                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: { mobile: '8px', tablet: '16px' },
+                    minWidth: 0,
                   }}
                 >
-                  {options.title ?? 'Territories'}
-                </Typography>
-                {options.secondaryTitle && (
+                  <Box
+                    component="img"
+                    src={logo}
+                    alt=""
+                    width={40}
+                    height={40}
+                    // a light edge in the icon grid's colour
+                    sx={{
+                      borderRadius: '10px',
+                      outline: '1px solid #767F92',
+                      outlineOffset: '-1px',
+                    }}
+                  />
                   <Typography
-                    className="label-small-regular"
-                    sx={{ color: 'var(--accent-400)' }}
+                    className="h3"
+                    sx={{ color: 'var(--black)', ...ellipsis }}
                   >
-                    {options.secondaryTitle}
+                    {t('common.appName')}
                   </Typography>
-                )}
-              </Box>
-            </Box>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {options.quickSettings && (
-                <IconButton
-                  aria-label="Quick settings"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    options.quickSettings!();
-                  }}
-                >
-                  <IconSettings color="var(--black)" />
-                </IconButton>
-              )}
-              {tablet688Up && options.buttons && (
+                </Box>
                 <Box
                   sx={{
                     display: 'flex',
-                    gap: '4px',
-                    padding: '4px',
-                    backgroundColor: 'var(--accent-150)',
-                    borderRadius: 'var(--radius-xl)',
+                    alignItems: 'center',
+                    gap: '2px',
+                    flexShrink: 0,
                   }}
                 >
-                  {markLastNavBarButton(options.buttons)}
+                  <ThemeSwitcher
+                    sx={{
+                      height: '40px',
+                      padding: '0 8px',
+                      borderRadius: 'var(--radius-max)',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.3s',
+                      '&:hover': {
+                        backgroundColor: 'var(--accent-200)',
+                        '& .MuiSwitch-track': {
+                          backgroundColor: 'var(--accent-300)',
+                          transition: 'background-color 0.3s',
+                        },
+                      },
+                      '& .MuiSwitch-track': {
+                        transition: 'background-color 0.3s',
+                      },
+                    }}
+                  />
+                  {!isWelcome && (
+                    <AccountMenu
+                      name={name || t('settings.nameMissing')}
+                      subtitle={t('account.thisPhone')}
+                      items={[
+                        {
+                          icon: <IconAccount color="var(--black)" />,
+                          label: t('account.profile'),
+                          onClick: () => navigate('/settings/profile'),
+                        },
+                        {
+                          icon: <IconInfo color="var(--black)" />,
+                          label: t('about.title'),
+                          onClick: () => setAboutOpen(true),
+                        },
+                      ]}
+                    />
+                  )}
                 </Box>
-              )}
-            </Box>
+              </>
+            ) : (
+              <>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: { mobile: '8px', tablet: '16px' },
+                    alignItems: 'center',
+                    minWidth: 0,
+                    width: tablet688Up ? 'auto' : '100%',
+                    justifyContent: tablet688Up ? 'start' : 'space-between',
+                  }}
+                >
+                  <IconButton
+                    className="back-arrow-button"
+                    aria-label={t('common.back')}
+                    onClick={handleBack}
+                    sx={{
+                      flexShrink: 0,
+                      '&:hover': { backgroundColor: 'var(--accent-200)' },
+                    }}
+                  >
+                    <IconNavigateLeft color="var(--black)" />
+                  </IconButton>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minWidth: 0,
+                      alignItems: tablet688Up ? 'flex-start' : 'center',
+                      textAlign: tablet688Up ? 'left' : 'center',
+                      marginLeft: tablet688Up ? '-8px' : 0,
+                    }}
+                  >
+                    <Typography
+                      className="h3"
+                      sx={{ color: 'var(--black)', ...ellipsis }}
+                    >
+                      {options.title}
+                    </Typography>
+                    {options.secondaryTitle && (
+                      <Typography
+                        className="label-small-regular"
+                        sx={{ color: 'var(--accent-400)', ...ellipsis }}
+                      >
+                        {options.secondaryTitle}
+                      </Typography>
+                    )}
+                  </Box>
+                  {options.quickSettings ? (
+                    <IconButton
+                      aria-label={t('common.quickSettings')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        options.quickSettings!();
+                        setSettingsAnimating(true);
+                        setTimeout(() => setSettingsAnimating(false), 250);
+                      }}
+                      sx={{
+                        marginRight: '-8px',
+                        '&:hover': {
+                          backgroundColor: 'var(--accent-200)',
+                          '& svg': {
+                            transform: settingsAnimating
+                              ? 'rotate(0deg)'
+                              : 'rotate(60deg)',
+                          },
+                        },
+                        '& svg': { transition: 'transform 0.25s ease-out' },
+                      }}
+                    >
+                      <IconSettings color="var(--black)" />
+                    </IconButton>
+                  ) : (
+                    !tablet688Up && (
+                      <Box sx={{ width: '22px', height: '22px' }} />
+                    )
+                  )}
+                </Box>
+                {tablet688Up && options.buttons && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      gap: '4px',
+                      padding: '4px',
+                      backgroundColor: 'var(--accent-150)',
+                      borderRadius: 'var(--radius-xl)',
+                    }}
+                  >
+                    {markLastNavBarButton(options.buttons)}
+                  </Box>
+                )}
+              </>
+            )}
           </Container>
         </Toolbar>
       </AppBar>
@@ -149,6 +273,7 @@ const Layout = () => {
         <BottomMenu buttons={markLastNavBarButton(options.buttons)} />
       )}
 
+      <About open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <AppFeedback />
       <ConfirmHost />
 

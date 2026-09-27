@@ -1,16 +1,21 @@
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Stack } from '@mui/material';
+import { Box } from '@mui/material';
 import { useAtom } from 'jotai';
 import Typography from '@components/typography';
 import {
   CardSection,
+  CardSectionContent,
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
 import { territoriesState } from '@states/territories';
 import { Territory } from '@definition/territory';
 import { play } from '../../haptics';
 import { invoke, listen } from '../../native';
-import { Actions } from './parts';
+import { list, t } from '../../i18n';
+import BorderSketch, { Drawing } from './BorderSketch';
+import { Peer } from '../useNearby';
+import { Actions, Avatar } from './parts';
+import { notify } from './text';
 
 type Conflict = {
   table: string;
@@ -25,31 +30,58 @@ type Conflict = {
   record: Record<string, unknown>;
 };
 
-const FIELDS: Record<string, string> = {
-  holder: 'Assigned to',
-  publisher: 'Publisher',
-  assignedOn: 'Assigned on',
-  returnedOn: 'Returned on',
-  status: 'Status',
-  name: 'Name',
-  number: 'Number',
-  city: 'City',
-  notes: 'Notes',
-  address: 'Address',
-  households: 'Households',
-  cardLost: 'Card lost',
-  group: 'Field service group',
-  boundary: 'Map',
+const FIELDS = [
+  'holder',
+  'publisher',
+  'assignedOn',
+  'returnedOn',
+  'status',
+  'name',
+  'number',
+  'city',
+  'notes',
+  'address',
+  'households',
+  'cardLost',
+  'group',
+  'boundary',
+];
+
+// a border is drawn as one thing, so its parts are decided together
+const BORDER = [
+  'boundary',
+  'boundaryStyle',
+  'mapLines',
+  'mapShapes',
+  'mapMarkers',
+];
+
+const isBorder = (conflict: Conflict) =>
+  conflict.table === 'territories' && BORDER.includes(conflict.field);
+
+/** The border as this phone had it, or as the other phone had it. */
+const drawingOf = (group: Conflict[], mine: boolean): Drawing => {
+  const drawing = { ...group[0].record };
+  for (const conflict of group) {
+    drawing[conflict.field] =
+      conflict.mine === mine ? conflict.lost : conflict.kept;
+  }
+  return drawing;
 };
 
 const fieldName = (field: string) =>
-  FIELDS[field] ??
-  field.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+  FIELDS.includes(field)
+    ? t(`decisions.${field}`)
+    : field.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
 
 const show = (value: unknown) => {
-  if (value === null || value === undefined || value === '') return 'Empty';
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  if (typeof value === 'object') return 'Changed';
+  if (value === null || value === undefined || value === '') {
+    return t('decisions.empty');
+  }
+  if (typeof value === 'boolean') {
+    return value ? t('decisions.yes') : t('decisions.no');
+  }
+  if (typeof value === 'object') return t('decisions.changed');
   return String(value);
 };
 
@@ -60,28 +92,30 @@ const open = (territory: Territory) =>
 const Card = ({
   title,
   text,
+  by,
   children,
 }: {
   title: string;
   text: string;
+  /** The other device whose change is on offer. */
+  by?: { name: string; id?: string };
   children: ReactNode;
 }) => (
   <Box
     sx={{
       display: 'flex',
       flexDirection: 'column',
-      gap: '12px',
-      padding: '16px',
-      borderRadius: 'var(--radius-l)',
-      border: '1px solid var(--orange-main)',
-      backgroundColor: 'var(--orange-secondary)',
+      gap: '16px',
     }}
   >
-    <Box>
-      <Typography className="h4">{title}</Typography>
-      <Typography className="body-small-regular" color="var(--grey-400)">
-        {text}
-      </Typography>
+    <Box sx={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+      {by && <Avatar name={by.name} id={by.id} />}
+      <Box sx={{ minWidth: 0 }}>
+        <Typography className="h3">{title}</Typography>
+        <Typography className="body-small-regular" color="var(--grey-400)">
+          {text}
+        </Typography>
+      </Box>
     </Box>
     {children}
   </Box>
@@ -95,12 +129,22 @@ const Card = ({
 const Decisions = () => {
   const [territories, setTerritories] = useAtom(territoriesState);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
+  const [peers, setPeers] = useState<Peer[]>([]);
 
   const refresh = useCallback(() => {
     invoke<Conflict[]>('conflicts')
       .then(setConflicts)
       .catch(() => {});
+    invoke<Peer[]>('peers')
+      .then(setPeers)
+      .catch(() => {});
   }, []);
+
+  // a conflict names the device, not its id
+  const device = (name?: string) =>
+    name
+      ? { name, id: peers.find((peer) => peer.name === name)?.id }
+      : undefined;
 
   useEffect(() => {
     refresh();
@@ -120,26 +164,66 @@ const Decisions = () => {
     const record = conflict.record;
     switch (conflict.table) {
       case 'territories':
-        return `Territory ${record.number ?? ''} ${record.name ?? ''}`.trim();
+        return t('decisions.territory', {
+          number: record.number ?? '',
+          name: record.name ?? '',
+        }).trim();
       case 'assignments':
-        return `Territory ${numberOf(record.territory)}, assignment of ${show(record.publisher)}`;
+        return t('decisions.assignment', {
+          number: numberOf(record.territory),
+          publisher: show(record.publisher),
+        });
       case 'do_not_calls':
-        return `Do not call: ${show(record.address)}`;
+        return t('decisions.doNotCall', { address: show(record.address) });
       case 'people':
         return show(record.name);
       default:
-        return 'A setting';
+        return t('decisions.setting');
     }
   };
 
-  const resolve = async (conflict: Conflict, useOther: boolean) => {
+  const resolve = (conflict: Conflict, useOther: boolean) => {
     play(useOther ? 'synced' : 'remove');
-    await invoke('resolve_conflict', {
+    invoke('resolve_conflict', {
       table: conflict.table,
       id: conflict.id,
       field: conflict.field,
       useOther,
-    });
+    })
+      .then(refresh)
+      .catch((error) =>
+        notify(t('common.somethingWrong'), String(error), 'error')
+      );
+  };
+
+  const resolveBorder = async (
+    group: Conflict[],
+    mine: boolean,
+    name: string
+  ) => {
+    play(mine ? 'remove' : 'synced');
+    const number = group[0].record.number ?? '';
+    try {
+      // the lost value is the one to bring back
+      for (const conflict of group) {
+        await invoke('resolve_conflict', {
+          table: conflict.table,
+          id: conflict.id,
+          field: conflict.field,
+          useOther: conflict.mine === mine,
+        });
+      }
+      notify(
+        t('decisions.borderKept'),
+        mine
+          ? t('decisions.borderKeptMine', { number })
+          : name
+            ? t('decisions.borderKeptOther', { number, name })
+            : t('decisions.borderKeptOtherOne', { number })
+      );
+    } catch (error) {
+      notify(t('common.somethingWrong'), String(error), 'error');
+    }
     refresh();
   };
 
@@ -177,25 +261,37 @@ const Decisions = () => {
       !(
         conflict.table === 'territories' &&
         doubles.some((territory) => territory.id === conflict.id)
-      )
+      ) && !isBorder(conflict)
   );
 
-  if (!doubles.length && !shown.length) return null;
+  const borders = [
+    ...conflicts
+      .filter(isBorder)
+      .reduce((groups, conflict) => {
+        groups.set(conflict.id, [...(groups.get(conflict.id) ?? []), conflict]);
+        return groups;
+      }, new Map<string, Conflict[]>())
+      .values(),
+  ];
+
+  if (!doubles.length && !shown.length && !borders.length) return null;
 
   return (
     <CardSection>
       <CardSectionHeader
-        title="Needs your decision"
-        description="Your phones synced, but these were changed on two phones before that. The newer change is in place for now."
+        title={t('decisions.title')}
+        description={t('decisions.text')}
       />
-      <Stack spacing="12px">
+      <CardSectionContent>
         {doubles.map((territory) => {
           const assignments = open(territory);
           return (
             <Card
               key={territory.id}
-              title={`Territory ${territory.number} was assigned twice`}
-              text={`To ${assignments.map((a) => a.publisher).join(' and ')}, probably on two phones at the same time. Who keeps it?`}
+              title={t('decisions.twice', { number: territory.number })}
+              text={t('decisions.twiceText', {
+                names: list(assignments.map((a) => a.publisher)),
+              })}
             >
               <Actions
                 actions={assignments.map((assignment) => ({
@@ -206,25 +302,78 @@ const Decisions = () => {
             </Card>
           );
         })}
+        {borders.map((group) => {
+          const by = group.find(
+            (conflict) => !conflict.mine && conflict.by
+          )?.by;
+          const number = group[0].record.number ?? '';
+          return (
+            <Card
+              key={`border/${group[0].id}`}
+              title={t('decisions.border', { number })}
+              text={t('decisions.borderText')}
+              by={device(by)}
+            >
+              <Box sx={{ display: 'flex', gap: '12px' }}>
+                <BorderSketch
+                  label={t('decisions.yours')}
+                  drawing={drawingOf(group, true)}
+                  other={drawingOf(group, false)}
+                />
+                <BorderSketch
+                  label={
+                    by
+                      ? t('decisions.theirs', { name: by })
+                      : t('decisions.otherOne')
+                  }
+                  drawing={drawingOf(group, false)}
+                  other={drawingOf(group, true)}
+                />
+              </Box>
+              <Actions
+                actions={[
+                  {
+                    label: t('decisions.keepMine'),
+                    onClick: () => resolveBorder(group, true, by ?? ''),
+                  },
+                  {
+                    label: by
+                      ? t('decisions.useTheirs', { name: by })
+                      : t('decisions.useOtherOne'),
+                    kind: 'main',
+                    onClick: () => resolveBorder(group, false, by ?? ''),
+                  },
+                ]}
+              />
+            </Card>
+          );
+        })}
         {shown.map((conflict) => {
           const other = conflict.mine
-            ? 'this phone'
-            : `${conflict.by || 'the other phone'}’s phone`;
+            ? t('decisions.thisPhone')
+            : conflict.by
+              ? t('decisions.theirPhone', { name: conflict.by })
+              : t('decisions.otherPhone');
           return (
             <Card
               key={`${conflict.table}/${conflict.id}/${conflict.field}`}
               title={`${label(conflict)}: ${fieldName(conflict.field)}`}
-              text={`Now “${show(conflict.kept)}”. On ${other} it was “${show(conflict.lost)}”.`}
+              by={conflict.mine ? undefined : device(conflict.by)}
+              text={t('decisions.now', {
+                kept: show(conflict.kept),
+                other,
+                lost: show(conflict.lost),
+              })}
             >
               <Actions
                 actions={[
                   {
-                    label: `Keep “${show(conflict.kept)}”`,
+                    label: t('decisions.keep', { value: show(conflict.kept) }),
                     kind: 'main',
                     onClick: () => resolve(conflict, false),
                   },
                   {
-                    label: `Use “${show(conflict.lost)}”`,
+                    label: t('decisions.use', { value: show(conflict.lost) }),
                     onClick: () => resolve(conflict, true),
                   },
                 ]}
@@ -232,7 +381,7 @@ const Decisions = () => {
             </Card>
           );
         })}
-      </Stack>
+      </CardSectionContent>
     </CardSection>
   );
 };

@@ -1,9 +1,12 @@
 import { ReactElement, ReactNode } from 'react';
 import { Box, keyframes } from '@mui/material';
+import { useAtomValue } from 'jotai';
 import Badge from '@components/badge';
 import Button from '@components/button';
 import Typography from '@components/typography';
+import { useBreakpoints } from '@hooks/index';
 import { BadgeColor } from '@definition/app';
+import { avatarsState } from '../../profiles';
 
 const ripple = keyframes`
   from { transform: scale(1); opacity: 0.45; }
@@ -56,7 +59,9 @@ export const Pulse = ({
 // the Organized logo's four colours, so each phone keeps its own
 const AVATAR_COLORS = ['#7D5FBD', '#E59A1F', '#1E9CC9', '#4E9E14'];
 
-export const Avatar = ({ name }: { name: string }) => {
+/** A device's picture when it has one (by its id), else its initials. */
+export const Avatar = ({ name, id }: { name: string; id?: string }) => {
+  const picture = useAtomValue(avatarsState)[id ?? ''];
   const initials =
     name
       .trim()
@@ -69,6 +74,22 @@ export const Avatar = ({ name }: { name: string }) => {
       [...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) %
         AVATAR_COLORS.length
     ];
+  if (picture) {
+    return (
+      <Box
+        component="img"
+        src={picture}
+        alt=""
+        sx={{
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          objectFit: 'cover',
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
   return (
     <Box
       sx={{
@@ -91,11 +112,13 @@ export const Avatar = ({ name }: { name: string }) => {
 };
 
 export const PhoneRow = ({
+  id,
   name,
   detail,
   onClick,
   trailing,
 }: {
+  id?: string;
   name: string;
   detail: ReactNode;
   onClick?: VoidFunction;
@@ -118,7 +141,7 @@ export const PhoneRow = ({
       '&:hover': onClick ? { backgroundColor: 'var(--accent-150)' } : {},
     }}
   >
-    <Avatar name={name} />
+    <Avatar name={name} id={id} />
     <Box sx={{ flex: 1, minWidth: 0 }}>
       <Typography className="body-regular">{name}</Typography>
       <Typography className="label-small-regular" color="var(--grey-400)">
@@ -132,124 +155,175 @@ export const PhoneRow = ({
 export type Action = {
   label: string;
   onClick: VoidFunction;
-  /** main first, then secondary, tertiary; a removal always comes last, in red */
   kind?: 'main' | 'secondary' | 'tertiary' | 'remove';
   disabled?: boolean;
 };
 
-const ORDER = ['main', 'secondary', 'tertiary', 'remove'];
+// the order on a phone, top to bottom; a row shows the same buttons reversed
+const RANK = { main: 0, secondary: 1, tertiary: 2, remove: 3 };
 
-/** The buttons of a card or section, the same everywhere. */
-export const Actions = ({ actions }: { actions: Action[] }) =>
-  actions.length ? (
-    <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-      {[...actions]
-        .sort(
-          (a, b) =>
-            ORDER.indexOf(a.kind ?? 'secondary') -
-            ORDER.indexOf(b.kind ?? 'secondary')
-        )
-        .map((action) => {
-          const kind = action.kind ?? 'secondary';
-          return (
-            <Button
-              key={action.label}
-              variant={kind === 'remove' ? 'tertiary' : kind}
-              color={kind === 'remove' ? 'red' : undefined}
-              disabled={action.disabled}
-              disableAutoStretch
-              onClick={action.onClick}
-              sx={{ minHeight: '36px', height: '36px', paddingInline: '16px' }}
-            >
-              {action.label}
-            </Button>
-          );
-        })}
+// Organized's DialogActions order everywhere: on a phone full width with the
+// main action on top, on a tablet in a row with it at the end. A removal
+// stays apart, last on a phone and at the start of the row.
+export const Actions = ({ actions }: { actions: Action[] }) => {
+  const { tabletUp } = useBreakpoints();
+  if (!actions.length) return null;
+
+  // actions of one kind keep the order they were given in
+  const sorted = [...actions].sort(
+    (a, b) => RANK[a.kind ?? 'secondary'] - RANK[b.kind ?? 'secondary']
+  );
+
+  const button = (action: Action) => {
+    const kind = action.kind ?? 'secondary';
+    return (
+      <Button
+        key={action.label}
+        variant={kind === 'remove' ? 'tertiary' : kind}
+        color={kind === 'remove' ? 'red' : undefined}
+        disabled={action.disabled}
+        disableAutoStretch={tabletUp}
+        onClick={action.onClick}
+        sx={tabletUp ? { minWidth: '96px' } : undefined}
+      >
+        {action.label}
+      </Button>
+    );
+  };
+
+  if (!tabletUp) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {sorted.map(button)}
+      </Box>
+    );
+  }
+
+  const removals = sorted.filter((action) => action.kind === 'remove');
+  const others = sorted
+    .filter((action) => action.kind !== 'remove')
+    .sort((a, b) => RANK[b.kind ?? 'secondary'] - RANK[a.kind ?? 'secondary']);
+
+  return (
+    <Box sx={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+      {removals.map(button)}
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'flex-end',
+          gap: '8px',
+          marginLeft: 'auto',
+        }}
+      >
+        {others.map(button)}
+      </Box>
     </Box>
-  ) : null;
+  );
+};
 
 export type MethodState = { text: string; color: BadgeColor };
 
-/** One way of pairing or sharing: what it is, whether it can be used now, and its buttons. */
-export const Method = ({
+type PairChoice = { icon: ReactElement; label: string; onClick: VoidFunction };
+
+// Pairing: the recommended way up front, the others as outlined buttons
+export const PairOptions = ({
   icon,
   title,
   description,
-  recommended,
   state,
-  actions,
+  action,
+  others,
+  othersText,
 }: {
   icon: ReactElement;
   title: string;
   description: string;
-  recommended?: boolean;
   state?: MethodState;
-  actions: {
-    label: string;
-    onClick: VoidFunction;
-    main?: boolean;
-    disabled?: boolean;
-  }[];
-}) => (
-  <Box
-    sx={{
-      display: 'flex',
-      gap: '16px',
-      padding: '16px',
-      borderRadius: 'var(--radius-l)',
-      border: recommended
-        ? '1px solid var(--accent-main)'
-        : '1px solid var(--accent-200)',
-      backgroundColor: recommended ? 'var(--accent-100)' : 'var(--white)',
-    }}
-  >
-    <Box
-      sx={{
-        width: 44,
-        height: 44,
-        borderRadius: 'var(--radius-m)',
-        backgroundColor: 'var(--accent-150)',
-        color: 'var(--accent-main)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}
-    >
-      {icon}
-    </Box>
-    <Box
-      sx={{
-        flex: 1,
-        minWidth: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-      }}
-    >
+  action: { label: string; onClick: VoidFunction; disabled?: boolean };
+  others: PairChoice[];
+  othersText: string;
+}) => {
+  const { tabletUp } = useBreakpoints();
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <Box
         sx={{
           display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          flexWrap: 'wrap',
+          flexDirection: tabletUp ? 'row' : 'column',
+          alignItems: tabletUp ? 'center' : 'stretch',
+          gap: '16px',
+          padding: '16px',
+          borderRadius: 'var(--radius-l)',
+          backgroundColor: 'var(--accent-150)',
         }}
       >
-        <Typography className="h4">{title}</Typography>
-        {recommended && (
-          <Badge text="Recommended" color="accent" size="small" filled />
-        )}
-        {state && <Badge text={state.text} color={state.color} size="small" />}
+        <Box sx={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0 }}>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              flexShrink: 0,
+              borderRadius: 'var(--radius-m)',
+              backgroundColor: 'var(--accent-200)',
+              color: 'var(--accent-main)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {icon}
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <Typography className="h3">{title}</Typography>
+              {state && (
+                <Badge text={state.text} color={state.color} size="small" />
+              )}
+            </Box>
+            <Typography className="body-small-regular" color="var(--grey-400)">
+              {description}
+            </Typography>
+          </Box>
+        </Box>
+        <Button
+          variant="main"
+          disabled={action.disabled}
+          onClick={action.onClick}
+          sx={{ flexShrink: 0, width: tabletUp ? 'auto' : '100%' }}
+        >
+          {action.label}
+        </Button>
       </Box>
-      <Typography className="body-small-regular" color="var(--grey-400)">
-        {description}
-      </Typography>
-      <Actions
-        actions={actions.map((action) => ({
-          ...action,
-          kind: action.main ? 'main' : 'secondary',
-        }))}
-      />
+
+      {others.length > 0 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Typography className="body-small-regular" color="var(--grey-400)">
+            {othersText}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {others.map((other) => (
+              <Button
+                key={other.label}
+                variant="tertiary"
+                startIcon={other.icon}
+                onClick={other.onClick}
+                sx={{ flex: tabletUp ? '0 0 auto' : '1 1 auto' }}
+              >
+                {other.label}
+              </Button>
+            ))}
+          </Box>
+        </Box>
+      )}
     </Box>
-  </Box>
-);
+  );
+};
