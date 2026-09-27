@@ -2,6 +2,7 @@ import { Box, MenuItem, Stack } from '@mui/material';
 import { Select, Typography } from '@components/index';
 import SwitchWithLabel from '@components/switch_with_label';
 import QuickSettings from '@features/quick_settings';
+import { tx } from '@services/i18n/translation';
 
 type TerritoriesQuickSettingsProps = {
   open: boolean;
@@ -20,11 +21,11 @@ const TerritoriesQuickSettings = ({
   overdueMonths,
   onOverdueMonthsChange,
 }: TerritoriesQuickSettingsProps) => (
-  <QuickSettings title="Territories" open={open} onClose={onClose}>
+  <QuickSettings title={tx('Territories')} open={open} onClose={onClose}>
     <Stack spacing="16px" sx={{ width: '100%' }}>
       <SwitchWithLabel
-        label="Show households count"
-        helper="Display the number of households next to every territory"
+        label={tx('Show households count')}
+        helper={tx('Display the number of households next to every territory')}
         checked={showHouseholds}
         onChange={onShowHouseholdsChange}
       />
@@ -36,16 +37,18 @@ const TerritoriesQuickSettings = ({
       >
         <Stack spacing="4px">
           <Typography className="body-regular" color="var(--black)">
-            Overdue period
+            {tx('Overdue period')}
           </Typography>
           <Typography className="label-small-regular" color="var(--grey-350)">
-            Months a publisher may hold a territory before it counts as overdue
+            {tx(
+              'Months a publisher may hold a territory before it counts as overdue'
+            )}
           </Typography>
         </Stack>
 
         <Box sx={{ width: '116px', flexShrink: 0 }}>
           <Select
-            label="Months"
+            label={tx('Months')}
             value={String(overdueMonths)}
             onChange={(event) =>
               onOverdueMonthsChange(Number(event.target.value))

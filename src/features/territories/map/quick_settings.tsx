@@ -2,6 +2,7 @@ import { Box, MenuItem, Stack } from '@mui/material';
 import { Checkbox, Select, Typography } from '@components/index';
 import SwitchWithLabel from '@components/switch_with_label';
 import QuickSettings from '@features/quick_settings';
+import { tx } from '@services/i18n/translation';
 import { MAP_PROVIDERS, MapProviderKey } from './constants';
 import { TerritoriesMapState } from './useTerritoriesMap';
 import { LayerSwitch, PLACE_TYPES, PlaceType } from './basemap';
@@ -53,10 +54,10 @@ const MapQuickSettings = ({
   open: boolean;
   onClose: VoidFunction;
 }) => (
-  <QuickSettings title="Coverage map" open={open} onClose={onClose}>
+  <QuickSettings title={tx('Coverage map')} open={open} onClose={onClose}>
     <Stack spacing="16px" sx={{ width: '100%' }}>
       <Select
-        label="Map provider"
+        label={tx('Map provider')}
         value={map.provider}
         onChange={(event) =>
           map.setProvider(event.target.value as MapProviderKey)
@@ -72,8 +73,8 @@ const MapQuickSettings = ({
       {LAYER_SWITCHES.map((item) => (
         <Stack key={item.key} spacing="8px">
           <SwitchWithLabel
-            label={item.label}
-            helper={item.helper}
+            label={tx(item.label)}
+            helper={tx(item.helper)}
             checked={map.layers[item.key]}
             onChange={(value) => map.setLayer(item.key, value)}
           />
@@ -90,7 +91,7 @@ const MapQuickSettings = ({
               {(Object.keys(PLACE_TYPES) as PlaceType[]).map((type) => (
                 <Checkbox
                   key={type}
-                  label={PLACE_TYPES[type].label}
+                  label={tx(PLACE_TYPES[type].label)}
                   checked={map.layers.placeTypes.includes(type)}
                   onChange={() => map.togglePlaceType(type)}
                   className="body-small-regular"
@@ -102,15 +103,15 @@ const MapQuickSettings = ({
       ))}
 
       <SwitchWithLabel
-        label="Territory numbers"
-        helper="Show the number in the middle of every territory"
+        label={tx('Territory numbers')}
+        helper={tx('Show the number in the middle of every territory')}
         checked={map.showNumbers}
         onChange={map.setShowNumbers}
       />
 
       <SwitchWithLabel
-        label="Households count"
-        helper="Show the households under the number"
+        label={tx('Households count')}
+        helper={tx('Show the households under the number')}
         checked={map.showHouseholds}
         onChange={map.setShowHouseholds}
       />

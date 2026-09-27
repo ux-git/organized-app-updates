@@ -11,6 +11,7 @@ import {
   TYPE_LABEL,
 } from '@definition/territory';
 import { appliedFilters, clearedFilters, COVERAGE_PERIODS } from '../helpers';
+import { tx } from '@services/i18n/translation';
 
 const Group = ({ label, children }: { label: string; children: ReactNode }) => (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -66,54 +67,64 @@ const TerritoryFilters = ({
       <Stack direction="row" spacing="12px" sx={{ alignItems: 'center' }}>
         {showTitle && (
           <Typography className="body-small-semibold" color="var(--black)">
-            Filters
+            {tx('Filters')}
           </Typography>
         )}
         <Badge
           size="small"
           filled={false}
           color={applied > 0 ? 'accent' : 'grey'}
-          text={`Applied: ${applied}`}
+          text={tx('Applied: {{n}}', { n: applied })}
           sx={{ width: 'fit-content' }}
         />
       </Stack>
 
-      <Group label="Assignment">
+      {filters.holder && (
+        <Group label={tx('Publisher')}>
+          <FilterChip
+            label={filters.holder}
+            selected
+            onClick={() => onChange({ ...filters, holder: undefined })}
+          />
+        </Group>
+      )}
+
+      <Group label={tx('Assignment')}>
         {(Object.keys(STATUS_LABEL) as TerritoryStatus[]).map((status) => (
           <FilterChip
             key={status}
-            label={STATUS_LABEL[status]}
+            label={tx(STATUS_LABEL[status])}
             selected={filters.status.includes(status)}
             onClick={() => toggle('status', status)}
           />
         ))}
       </Group>
 
-      <Group label="Type">
+      <Group label={tx('Type')}>
         {(Object.keys(TYPE_LABEL) as TerritoryType[]).map((type) => (
           <FilterChip
             key={type}
-            label={TYPE_LABEL[type]}
+            label={tx(TYPE_LABEL[type])}
             selected={filters.type.includes(type)}
             onClick={() => toggle('type', type)}
           />
         ))}
       </Group>
 
-      <Group label="Categories">
+      <Group label={tx('Categories')}>
         {categories.map((category) => (
           <FilterChip
             key={category.id}
-            label={category.name}
+            label={tx(category.name)}
             selected={filters.categories.includes(category.id)}
             onClick={() => toggle('categories', category.id)}
           />
         ))}
       </Group>
 
-      <Group label="Card">
+      <Group label={tx('Card')}>
         <FilterChip
-          label="Lost"
+          label={tx('Lost')}
           selected={filters.cardLostOnly}
           onClick={() =>
             onChange({ ...filters, cardLostOnly: !filters.cardLostOnly })
@@ -123,13 +134,13 @@ const TerritoryFilters = ({
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <Typography className="body-small-semibold" color="var(--black)">
-          Work status
+          {tx('Work status')}
         </Typography>
 
         {[true, false].map((covered) => (
           <Group
             key={String(covered)}
-            label={covered ? 'Covered' : 'Not covered'}
+            label={covered ? tx('Covered') : tx('Not covered')}
           >
             {periods.map((period) => (
               <FilterChip
@@ -152,7 +163,7 @@ const TerritoryFilters = ({
           disabled={applied === 0}
           onClick={() => onChange(clearedFilters(filters))}
         >
-          Clear all
+          {tx('Clear all')}
         </Button>
       )}
     </Box>

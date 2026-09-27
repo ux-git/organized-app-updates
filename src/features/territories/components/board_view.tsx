@@ -17,9 +17,11 @@ import {
   CardLostBadge,
   CategoryBadges,
   CoveredBadge,
+  DoNotCallBadge,
 } from './territory_badges';
 import TruncatedText from './truncated_text';
 import { emptyListMessage } from '../helpers';
+import { tx } from '@services/i18n/translation';
 
 type Column = 'available' | 'requested' | 'in_work' | 'overdue';
 
@@ -160,14 +162,14 @@ const BoardView = ({
                   className="body-small-semibold"
                   color="var(--black)"
                 >
-                  {COLUMN_LABEL[status]}
+                  {tx(COLUMN_LABEL[status])}
                 </Typography>
                 {status === 'overdue' && overdueMonths && (
                   <Typography
                     className="label-small-regular"
                     color="var(--grey-350)"
                   >
-                    {`Out longer than ${overdueMonths} months`}
+                    {tx('Out longer than {{n}} months', { n: overdueMonths })}
                   </Typography>
                 )}
               </Stack>
@@ -197,7 +199,7 @@ const BoardView = ({
                     className="label-small-regular"
                     color="var(--grey-350)"
                   >
-                    {canDrop ? 'Drop here' : emptyListMessage()}
+                    {canDrop ? tx('Drop here') : emptyListMessage()}
                   </Typography>
                 </Stack>
               )}
@@ -267,9 +269,9 @@ const BoardView = ({
                       <TruncatedText
                         className="label-small-regular"
                         color="var(--grey-350)"
-                        text={`${territory.holder ?? TYPE_LABEL[territory.type]}${
+                        text={`${territory.holder ?? tx(TYPE_LABEL[territory.type])}${
                           showHouseholds
-                            ? ` · ${territory.households} households`
+                            ? ` · ${tx('{{n}} households', { n: territory.households })}`
                             : ''
                         }`}
                       />
@@ -288,6 +290,7 @@ const BoardView = ({
                             overflow: 'hidden',
                           }}
                         >
+                          <DoNotCallBadge territory={territory} />
                           <CoveredBadge days={territory.daysSinceCovered} />
                           <CardLostBadge territory={territory} />
                           <CategoryBadges territory={territory} />

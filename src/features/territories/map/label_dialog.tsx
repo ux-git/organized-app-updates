@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button, TextField } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
+import { tx } from '@services/i18n/translation';
 
 const LabelDialog = ({
   onSave,
@@ -16,11 +17,13 @@ const LabelDialog = ({
     <Dialog
       onClose={onClose}
       open
-      title="Add text"
-      description="The note is printed on the territory card together with the map."
+      title={tx('Add text')}
+      description={tx(
+        'The note is printed on the territory card together with the map.'
+      )}
     >
       <TextField
-        label="Text"
+        label={tx('Text')}
         autoFocus
         value={text}
         onChange={(event) => setText(event.target.value)}
@@ -28,14 +31,14 @@ const LabelDialog = ({
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          Cancel
+          {tx('Cancel')}
         </Button>
         <Button
           variant="main"
           disabled={!text.trim()}
           onClick={() => onSave(text)}
         >
-          Save
+          {tx('Save')}
         </Button>
       </DialogActions>
     </Dialog>

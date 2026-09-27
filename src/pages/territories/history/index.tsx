@@ -9,6 +9,7 @@ import TerritoriesHistory from '@features/territories/history';
 import useExportS13 from '@features/territories/history/useExportS13';
 import ExportS13Dialog from '@features/territories/history/export_s13_dialog';
 import useParentPage from '@features/territories/useParentPage';
+import { tx } from '@services/i18n/translation';
 
 const TerritoryHistoryPage = () => {
   const { parent, goBack } = useParentPage();
@@ -28,13 +29,13 @@ const TerritoryHistoryPage = () => {
       }}
     >
       <PageTitle
-        title="Assignment history"
-        secondaryTitle={parent}
+        title={tx('Assignment history')}
+        secondaryTitle={tx(parent)}
         onBack={goBack}
         buttons={
           <NavBarButtonGroup>
             <NavBarButton
-              text="Export S-13"
+              text={tx('Export S-13')}
               icon={<IconExport />}
               onClick={() => setExportOpen(true)}
             />

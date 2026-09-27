@@ -6,6 +6,7 @@ import { coverageGrid } from '../helpers';
 import { ChartCard } from '../components/charts';
 import { Territory } from '@definition/territory';
 import { territoryMonthsState } from '@states/territories';
+import { tx } from '@services/i18n/translation';
 
 const Cell = ({
   value,
@@ -95,7 +96,7 @@ const CoverageGrid = ({
         {months.map((month) => (
           <Label key={month}>{month}</Label>
         ))}
-        <Label align="right">Total</Label>
+        <Label align="right">{tx('Total')}</Label>
 
         {rows.map((row) => (
           <Box key={row.year} sx={{ display: 'contents' }}>
@@ -117,7 +118,11 @@ const CoverageGrid = ({
                 key={months[month]}
                 value={value}
                 max={max}
-                label={`${value} covered in ${months[month]} ${row.year}`}
+                label={tx('{{n}} covered in {{month}} {{year}}', {
+                  n: value,
+                  month: months[month],
+                  year: row.year,
+                })}
               />
             ))}
 
@@ -136,15 +141,17 @@ const CoverageGrid = ({
 
   return (
     <ChartCard
-      title="Territories covered each month"
-      hint="A territory counts in the month it came back · service year runs September to August"
+      title={tx('Territories covered each month')}
+      hint={tx(
+        'A territory counts in the month it came back · service year runs September to August'
+      )}
       span={12}
     >
       {grid}
 
       <Stack direction="row" spacing="8px" sx={{ alignItems: 'center' }}>
         <Typography className="label-small-regular" color="var(--grey-350)">
-          Less
+          {tx('Less')}
         </Typography>
         {[0.15, 0.35, 0.55, 0.75, 1].map((step) => (
           <Box
@@ -161,7 +168,7 @@ const CoverageGrid = ({
           />
         ))}
         <Typography className="label-small-regular" color="var(--grey-350)">
-          More
+          {tx('More')}
         </Typography>
       </Stack>
     </ChartCard>

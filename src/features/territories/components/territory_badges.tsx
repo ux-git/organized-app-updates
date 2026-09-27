@@ -1,8 +1,8 @@
 import { Box, Stack } from '@mui/material';
 import Tooltip from '@components/tooltip';
 import { Badge } from '@components/index';
-import { IconRaiseHand } from '@icons/index';
-import { daysLabel } from '../helpers';
+import { IconCancelCicle, IconRaiseHand } from '@icons/index';
+import { daysLabel, doNotCallLabel } from '../helpers';
 import { categoryBadge } from '../category_colors';
 import { useAtomValue } from 'jotai';
 import { territoryCategoriesState } from '@states/territories';
@@ -12,6 +12,7 @@ import {
   Territory,
   TerritoryStatus,
 } from '@definition/territory';
+import { tx } from '@services/i18n/translation';
 
 // in a tight row a badge shortens its text instead of dropping out of view;
 // long names give up their space first, so short ones stay readable
@@ -32,7 +33,7 @@ export const StatusBadge = ({ status }: { status: TerritoryStatus }) => (
   <Badge
     size="small"
     color={STATUS_COLOR[status]}
-    text={STATUS_LABEL[status]}
+    text={tx(STATUS_LABEL[status])}
     filled={false}
     sx={{ width: 'fit-content', flexShrink: 0 }}
   />
@@ -44,13 +45,19 @@ const coveredColor = (days: number) => {
   return 'grey';
 };
 
-export const CoveredBadge = ({ days }: { days: number }) => {
+export const CoveredBadge = ({
+  days,
+  label = daysLabel(days),
+}: {
+  days: number;
+  label?: string;
+}) => {
   return (
     <Badge
       size="small"
       filled={false}
       color={coveredColor(days)}
-      text={daysLabel(days)}
+      text={label}
       sx={{ width: 'fit-content', flexShrink: 0 }}
     />
   );
@@ -64,10 +71,56 @@ export const RequestBadge = ({ territory }: { territory: Territory }) => {
       size="small"
       color="orange"
       filled={false}
-      text="Requested"
+      text={tx('Requested')}
       icon={<IconRaiseHand color="var(--orange-dark)" />}
-      sx={{ width: 'fit-content', ...shrink('Requested') }}
+      sx={{ width: 'fit-content', ...shrink(tx('Requested')) }}
     />
+  );
+};
+
+export const DoNotCallBadge = ({
+  territory,
+  onClick,
+}: {
+  territory: Territory;
+  onClick?: VoidFunction;
+}) => {
+  const count = territory.doNotCalls.length;
+
+  if (count === 0) return null;
+
+  const label = doNotCallLabel(count, territory.type === 'phone');
+
+  return (
+    <Tooltip title={label}>
+      {/* the tooltip needs a DOM child to anchor to */}
+      <Box
+        aria-label={label}
+        {...(onClick && { component: 'button', type: 'button', onClick })}
+        sx={{
+          width: 'fit-content',
+          flexShrink: 0,
+          ...(onClick && {
+            display: 'block',
+            padding: 0,
+            border: 'none',
+            background: 'none',
+            borderRadius: 'var(--radius-s)',
+            cursor: 'pointer',
+            '&:focus-visible': { outline: 'var(--red-main) auto 1px' },
+          }),
+        }}
+      >
+        <Badge
+          size="small"
+          color="red"
+          filled={false}
+          text={String(count)}
+          icon={<IconCancelCicle color="var(--red-dark)" />}
+          sx={{ width: 'fit-content' }}
+        />
+      </Box>
+    </Tooltip>
   );
 };
 
@@ -79,8 +132,8 @@ export const CardLostBadge = ({ territory }: { territory: Territory }) => {
       size="small"
       color="red"
       filled={false}
-      text="Reprint"
-      sx={{ width: 'fit-content', ...shrink('Reprint') }}
+      text={tx('Reprint')}
+      sx={{ width: 'fit-content', ...shrink(tx('Reprint')) }}
     />
   );
 };
@@ -117,11 +170,11 @@ export const CategoryBadges = ({
             key={category.id}
             size="small"
             color={badge.color}
-            text={category.name}
+            text={tx(category.name)}
             filled={false}
             sx={{
               width: 'fit-content',
-              ...shrink(category.name),
+              ...shrink(tx(category.name)),
               ...badge.sx,
             }}
           />
@@ -131,7 +184,7 @@ export const CategoryBadges = ({
         <Tooltip
           title={known
             .slice(max)
-            .map((category) => category.name)
+            .map((category) => tx(category.name))
             .join(', ')}
         >
           {/* the tooltip needs a DOM child to anchor to */}

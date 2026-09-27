@@ -4,6 +4,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import * as maplibregl from 'maplibre-gl';
 import { IconCheckCircle } from '@icons/index';
 import { displaySnackNotification } from '@services/states/app';
+import { tx } from '@services/i18n/translation';
 import { getCSSPropertyValue } from '@utils/common';
 import { isDarkThemeState } from '@states/app';
 import {
@@ -11,7 +12,7 @@ import {
   territoriesState,
   territoriesWithStatusState,
 } from '@states/territories';
-import { MapColor, TerritoryBoundary } from '@definition/territory';
+import { TerritoryBoundary } from '@definition/territory';
 import {
   MAP_PROVIDERS,
   CONGREGATION_FILL_LAYER,
@@ -31,7 +32,7 @@ import {
   SOURCE_ID,
   styleUrl,
 } from './constants';
-import { ColorView, colorScheme, HEATMAP_YEARS } from './views';
+import { ColorView, colorScheme } from './views';
 import {
   addAttribution,
   addHouseIcon,
@@ -40,38 +41,41 @@ import {
   captionPlacement,
   captionText,
   LABEL_DETAIL_ZOOM,
+  LABEL_FILTER,
   LABEL_TEXT_SIZE,
+  labelOpacity,
   numberText,
   resolveColor,
   allMarkers,
   boundaryBounds,
   boundaryCollection,
+  congregationBounds,
+  drawnColor,
   labelCollection,
+  mapLocale,
 } from './helpers';
 import {
   applyBasemapOptions,
   BasemapOptions,
   DEFAULT_BASEMAP,
+  hideStylePlaces,
   LayerSwitch,
   PlaceType,
 } from './basemap';
-import { addDrawingLayers, setDrawingData } from './layers';
+import {
+  addBoundaryLayers,
+  addDrawingLayers,
+  FILL_OPACITY,
+  setDrawingData,
+} from './layers';
 import { MarkerRegistry, syncMarkers } from './markers';
 import useFullscreen from './useFullscreen';
 import useMapEditor, { EditScope } from './useMapEditor';
 
 const ZOOM_STEP = 0.5;
 
-const FILL_OPACITY: maplibregl.ExpressionSpecification = [
-  'case',
-  ['get', 'filled'],
-  ['case', ['get', 'selected'], 0.45, 0.18],
-  0,
-];
-
-// a border has no transparent option, and an empty fill leaves the area unfilled
-const drawnColor = (color: MapColor | 'transparent') =>
-  color === 'transparent' ? '' : MAP_COLORS[color];
+// the padding a map keeps around the area it opens on
+const FIT_PADDING = 80;
 
 const useTerritoriesMap = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -100,11 +104,11 @@ const useTerritoriesMap = () => {
   const [search, setSearch] = useState('');
   const [colorView, setColorView] = useState<ColorView>('status');
 
-  const [heatmapYear, setHeatmapYear] = useState(HEATMAP_YEARS()[0]);
+  const [heatmapPeriod, setHeatmapPeriod] = useState('last12');
 
   const scheme = useMemo(
-    () => colorScheme(colorView, heatmapYear),
-    [colorView, heatmapYear]
+    () => colorScheme(colorView, heatmapPeriod),
+    [colorView, heatmapPeriod]
   );
   const [provider, setProvider] = useState<MapProviderKey>(DEFAULT_PROVIDER);
   const [layers, setLayers] = useState<BasemapOptions>(DEFAULT_BASEMAP);
@@ -122,7 +126,7 @@ const useTerritoriesMap = () => {
     const [west, south, east, north] = boundaryBounds(boundary);
 
     map.current?.fitBounds([west, south, east, north], {
-      padding: 80,
+      padding: FIT_PADDING,
       maxZoom: 16,
     });
   }, []);
@@ -197,6 +201,7 @@ const useTerritoriesMap = () => {
         hiddenId,
       }),
       rest,
+      selectedId,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -287,27 +292,12 @@ const useTerritoriesMap = () => {
       },
     });
 
-    instance.addLayer({
-      id: FILL_LAYER,
-      type: 'fill',
-      source: SOURCE_ID,
-      paint: {
-        'fill-color': ['get', 'fill'],
-        'fill-opacity': FILL_OPACITY,
-      },
+    addBoundaryLayers(instance, SOURCE_ID, {
+      fill: FILL_LAYER,
+      line: LINE_LAYER,
     });
 
-    instance.addLayer({
-      id: LINE_LAYER,
-      type: 'line',
-      source: SOURCE_ID,
-      paint: {
-        'line-color': ['get', 'color'],
-        'line-width': ['case', ['get', 'selected'], 3, 1.5],
-      },
-    });
-
-    addDrawingLayers(instance, current.rest);
+    addDrawingLayers(instance, current.rest, 'drawing', current.selectedId);
 
     const fonts = MAP_PROVIDERS[labelOptions.current.provider].fonts;
     const caption = captionPlacement(labelOptions.current.showNumbers);
@@ -318,6 +308,7 @@ const useTerritoriesMap = () => {
       type: 'symbol',
       source: LABELS_SOURCE,
       minzoom: LABEL_DETAIL_ZOOM,
+      filter: LABEL_FILTER,
       layout: {
         'text-field': captionText(labelOptions.current, fonts),
         'text-font': [...fonts.regular],
@@ -326,8 +317,10 @@ const useTerritoriesMap = () => {
         'text-anchor': caption.anchor,
         'text-offset': caption.offset,
         'text-allow-overlap': false,
+        'symbol-sort-key': ['get', 'labelZoom'],
       },
       paint: {
+        'text-opacity': labelOpacity(1),
         'text-color': getCSSPropertyValue('--black'),
         // a thin, softened halo keeps small text readable over any tile
         'text-halo-color': getCSSPropertyValue('--white'),
@@ -340,6 +333,7 @@ const useTerritoriesMap = () => {
       id: LABEL_LAYER,
       type: 'symbol',
       source: LABELS_SOURCE,
+      filter: LABEL_FILTER,
       layout: {
         visibility: labelOptions.current.showNumbers ? 'visible' : 'none',
         'text-field': numberText(fonts),
@@ -353,14 +347,13 @@ const useTerritoriesMap = () => {
         // gives less at the top and more at the bottom to look centred
         'icon-text-fit-padding': [-2, 4, 4, 4],
         'icon-allow-overlap': false,
-        // numbers still avoid each other, but don't push away their own
-        // caption underneath
-        'text-ignore-placement': true,
-        'icon-ignore-placement': true,
+        // the biggest territories claim their place first
+        'symbol-sort-key': ['get', 'labelZoom'],
       },
       paint: {
         'text-color': getCSSPropertyValue('--black'),
-        'icon-opacity': 0.92,
+        'text-opacity': labelOpacity(1),
+        'icon-opacity': labelOpacity(0.92),
       },
     });
   }, []);
@@ -370,12 +363,17 @@ const useTerritoriesMap = () => {
 
     style.current = styleUrl(provider, isDark);
 
+    // a map with nothing picked opens on the congregation's own area
+    const area = congregationBounds(territories, congregationBoundary);
+
     const instance = new maplibregl.Map({
       container: container.current,
       style: style.current,
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_ZOOM,
+      ...(area
+        ? { bounds: area, fitBoundsOptions: { padding: FIT_PADDING } }
+        : { center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM }),
       attributionControl: false,
+      locale: mapLocale(),
     });
 
     addAttribution(instance);
@@ -450,7 +448,7 @@ const useTerritoriesMap = () => {
     source(CONGREGATION_SOURCE)?.setData(data.border);
     source(SOURCE_ID)?.setData(data.areas);
     source(LABELS_SOURCE)?.setData(labelCollection(data.areas));
-    setDrawingData(instance, data.rest);
+    setDrawingData(instance, data.rest, 'drawing', data.selectedId);
     syncMarkers(instance, allMarkers(data.rest), markers.current);
 
     // without this the first frame can stay empty until something else moves
@@ -483,26 +481,22 @@ const useTerritoriesMap = () => {
     for (const layer of [
       'drawing-shapes-line',
       'drawing-lines-solid',
-      'drawing-lines-dashed',
+      'drawing-lines-dashed-selected',
     ]) {
       set(layer, 'line-opacity', fade);
     }
+    set('drawing-lines-dashed', 'line-opacity', labelOpacity(fade));
 
-    for (const layer of [LABEL_LAYER, LABEL_CAPTION_LAYER]) {
-      set(layer, 'text-opacity', fade);
-      set(layer, 'icon-opacity', fade);
-    }
+    set(LABEL_LAYER, 'text-opacity', labelOpacity(fade));
+    set(LABEL_LAYER, 'icon-opacity', labelOpacity(0.92 * fade));
+    set(LABEL_CAPTION_LAYER, 'text-opacity', labelOpacity(fade));
   }, [editor.editing, styleVersion]);
 
   useEffect(() => {
     const instance = map.current;
     if (!instance || !styleVersion) return;
 
-    for (const layer of instance.getStyle()?.layers ?? []) {
-      if (!/^poi/i.test(layer.id)) continue;
-
-      instance.setLayoutProperty(layer.id, 'visibility', 'none');
-    }
+    hideStylePlaces(instance);
   }, [styleVersion]);
 
   useEffect(() => {
@@ -641,8 +635,8 @@ const useTerritoriesMap = () => {
       setCongregationBoundary(draft.boundary);
 
       displaySnackNotification({
-        header: 'Congregation border saved',
-        message: 'The outer border of the congregation was updated.',
+        header: tx('Congregation border saved'),
+        message: tx('The outer border of the congregation was updated.'),
         severity: 'success',
         icon: <IconCheckCircle color="var(--white)" />,
       });
@@ -663,8 +657,10 @@ const useTerritoriesMap = () => {
       );
 
       displaySnackNotification({
-        header: 'Map saved',
-        message: `The map of territory ${selected.number} was saved.`,
+        header: tx('Map saved'),
+        message: tx('The map of territory {{number}} was saved.', {
+          number: selected.number,
+        }),
         severity: 'success',
         icon: <IconCheckCircle color="var(--white)" />,
       });
@@ -687,8 +683,8 @@ const useTerritoriesMap = () => {
       },
       () =>
         displaySnackNotification({
-          header: 'Location unavailable',
-          message: 'The device did not share its position.',
+          header: tx('Location unavailable'),
+          message: tx('The device did not share its position.'),
           severity: 'error',
         })
     );
@@ -707,6 +703,7 @@ const useTerritoriesMap = () => {
   return {
     wrapper,
     container,
+    instance: ready ? map.current : null,
     territories: visible,
     mapped,
     selected,
@@ -718,8 +715,8 @@ const useTerritoriesMap = () => {
     setSearch,
     colorView,
     setColorView,
-    heatmapYear,
-    setHeatmapYear,
+    heatmapPeriod,
+    setHeatmapPeriod,
     provider,
     setProvider,
     layers,

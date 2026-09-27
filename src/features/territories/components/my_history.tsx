@@ -23,6 +23,7 @@ import {
 import { clickableRow, ROW_DIVIDER, rowStates } from './table_styles';
 import { Households } from './territory_table';
 import TruncatedText from './truncated_text';
+import { tx } from '@services/i18n/translation';
 
 // the latest ones answer "what did I have lately"; the rest load on request
 const FIRST_PAGE = 10;
@@ -78,7 +79,7 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
         }}
       >
         <Typography component="h2" className="h2" color="var(--black)">
-          My previous territories
+          {tx('My previous territories')}
         </Typography>
         {/* the accent badge vanishes on the tinted card */}
         <Badge
@@ -172,7 +173,7 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
               endIcon={<IconExpand />}
               sx={{ width: '100%' }}
             >
-              Show more
+              {tx('Show more')}
             </Button>
           )}
         </Stack>

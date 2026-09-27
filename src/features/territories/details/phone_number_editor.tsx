@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
 import { Button, TextField } from '@components/index';
 import Dialog from '@components/dialog';
@@ -23,8 +24,14 @@ const PhoneNumberEditor = ({
       open
       header={
         <EditorHeader
-          title={value === undefined ? 'Add phone number' : 'Edit phone number'}
-          description="A number the publishers call when they work this territory."
+          title={
+            value === undefined
+              ? tx('Add phone number')
+              : tx('Edit phone number')
+          }
+          description={tx(
+            'A number the publishers call when they work this territory.'
+          )}
           onDelete={
             value !== undefined && onDelete
               ? () => {
@@ -37,7 +44,7 @@ const PhoneNumberEditor = ({
       }
     >
       <TextField
-        label="Phone number"
+        label={tx('Phone number')}
         type="tel"
         autoFocus
         value={number}
@@ -46,7 +53,7 @@ const PhoneNumberEditor = ({
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          Cancel
+          {tx('Cancel')}
         </Button>
         <Button
           variant="main"
@@ -56,7 +63,7 @@ const PhoneNumberEditor = ({
             onClose();
           }}
         >
-          Save
+          {tx('Save')}
         </Button>
       </DialogActions>
     </Dialog>

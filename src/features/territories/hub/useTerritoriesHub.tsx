@@ -29,6 +29,7 @@ import {
   TerritoryStatus,
   TerritoryTab,
 } from '@definition/territory';
+import { tx } from '@services/i18n/translation';
 
 const TAB_GROUPS: TerritoryTab[][] = [
   ['recommended', 'all'],
@@ -71,7 +72,11 @@ const useTerritoriesHub = () => {
   const restrictedCategories = useAtomValue(territoryRestrictedCategoriesState);
   const restrictedTypes = useAtomValue(territoryRestrictedTypesState);
 
-  const [filters, setFilters] = useState<TerritoryFilters>(EMPTY_FILTERS);
+  // the statistics open the list for one publisher's territories
+  const [filters, setFilters] = useState<TerritoryFilters>(() => ({
+    ...EMPTY_FILTERS,
+    holder: (location.state as { holder?: string } | null)?.holder,
+  }));
 
   const restricted = useMemo(
     () => ({ categories: restrictedCategories, types: restrictedTypes }),
@@ -152,7 +157,9 @@ const useTerritoriesHub = () => {
     group.length > 1
       ? group.map((id) => ({
           label:
-            id === 'all' && !isTerritoryEditor ? 'Available' : TAB_LABELS[id],
+            id === 'all' && !isTerritoryEditor
+              ? tx('Available')
+              : tx(TAB_LABELS[id]),
           ...(id === 'requested' && ownRequests > 0
             ? { badge: ownRequests }
             : {}),

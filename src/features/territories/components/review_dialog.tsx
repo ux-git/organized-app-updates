@@ -4,9 +4,14 @@ import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { IconMoveForward, IconReject } from '@icons/index';
 import { daysLabel } from '../helpers';
-import { CategoryBadges, StatusBadge } from './territory_badges';
+import {
+  CategoryBadges,
+  DoNotCallBadge,
+  StatusBadge,
+} from './territory_badges';
 import StatTile from './stat_tile';
 import { Territory, TYPE_LABEL } from '@definition/territory';
+import { tx } from '@services/i18n/translation';
 
 type ReviewDialogProps = {
   territory?: Territory;
@@ -30,7 +35,7 @@ const ReviewDialog = ({
       onClose={onClose}
       open
       closable
-      title="Request for territory"
+      title={tx('Request for territory')}
       description={[territory.number, territory.name, territory.city]
         .filter(Boolean)
         .join(' · ')}
@@ -47,6 +52,7 @@ const ReviewDialog = ({
         <Box sx={{ width: 'fit-content' }}>
           <StatusBadge status={territory.status} />
         </Box>
+        <DoNotCallBadge territory={territory} />
         <CategoryBadges territory={territory} max={4} />
       </Stack>
 
@@ -58,13 +64,16 @@ const ReviewDialog = ({
           width: '100%',
         }}
       >
-        <StatTile label="Requested by" value={publisher} />
+        <StatTile label={tx('Requested by')} value={publisher} />
         <StatTile
-          label="Last covered"
+          label={tx('Last covered')}
           value={daysLabel(territory.daysSinceCovered)}
         />
-        <StatTile label="Type" value={TYPE_LABEL[territory.type]} />
-        <StatTile label="Households" value={String(territory.households)} />
+        <StatTile label={tx('Type')} value={tx(TYPE_LABEL[territory.type])} />
+        <StatTile
+          label={tx('Households')}
+          value={String(territory.households)}
+        />
       </Box>
 
       <DialogActions>
@@ -77,7 +86,7 @@ const ReviewDialog = ({
             onClose();
           }}
         >
-          Refuse
+          {tx('Refuse')}
         </Button>
         <Button
           variant="main"
@@ -87,7 +96,7 @@ const ReviewDialog = ({
             onClose();
           }}
         >
-          Assign
+          {tx('Assign')}
         </Button>
       </DialogActions>
     </Dialog>

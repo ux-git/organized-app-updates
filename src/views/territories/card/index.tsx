@@ -3,6 +3,7 @@ import { Document } from '@views/components';
 import { TerritoryTemplateProps } from '../index.types';
 import CardBack from '../shared/CardBack';
 import CardFront from '../shared/CardFront';
+import { tx } from '@services/i18n/translation';
 
 const CUT = '0.5px dashed #BDBDBD';
 
@@ -18,7 +19,7 @@ const TemplateTerritoryCard = ({
   parts,
 }: TerritoryTemplateProps) => {
   return (
-    <Document title="Territory card" lang={lang}>
+    <Document title={tx('Territory card')} lang={lang}>
       {territories.map((territory) => (
         <Page
           key={territory.id}

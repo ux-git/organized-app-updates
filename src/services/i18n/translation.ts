@@ -20,6 +20,24 @@ export const getTranslation = ({
   return 'not-found';
 };
 
+// English written in the code, shown as it is unless an app that reuses
+// these pages adds a translation of it in the 'text' namespace
+export const tx = (text: string, values: Record<string, unknown> = {}) => {
+  const i18n = getI18n();
+
+  if (!i18n) {
+    return text.replace(/{{(\w+)}}/g, (_, name) => String(values[name]));
+  }
+
+  return i18n.t(text, {
+    ns: 'text',
+    defaultValue: text,
+    keySeparator: false,
+    nsSeparator: false,
+    ...values,
+  }) as string;
+};
+
 export const generateWeekday = (language?: string) => {
   const result: string[] = [
     getTranslation({ key: 'tr_monday', language }),

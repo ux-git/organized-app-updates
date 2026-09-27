@@ -6,6 +6,8 @@ import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { useNavigate } from 'react-router';
 import { useBreakpoints } from '@hooks/index';
+import { systemBarInset } from '@utils/common';
+import { tx } from '@services/i18n/translation';
 import {
   IconAdd,
   IconEdit,
@@ -22,12 +24,15 @@ import EditToolbar, { IdleToolbar, ViewToolbar } from './edit_toolbar';
 import EditPanel from './edit_panel';
 import LabelDialog from './label_dialog';
 import MapFilters from './map_filters';
-import MapIsland, { MapAction } from './map_island';
+import MapIsland, { MapAction, NorthAction } from './map_island';
 import TerritoryPicker from './territory_picker';
 import { TerritoriesMapState } from './useTerritoriesMap';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 const PANEL_WIDTH = 320;
+
+// Organized's subpage slide (the settings redesign)
+const SLIDE = '340ms cubic-bezier(0.32, 0.72, 0, 1)';
 
 const BOTTOM_GAP = 16;
 
@@ -37,31 +42,35 @@ const INFO_ICON =
 
 // the attribution sits in the map's bottom-left corner like the other map
 // buttons, and opens to the right so it never runs off the map
+// OSM's attribution guidelines: legible, in a corner, shown when the map loads
+// (MapLibre's compact control opens at first and folds into the button)
 const ATTRIBUTION_STYLES = {
   '& .maplibregl-ctrl-bottom-left': { left: '12px', bottom: '12px' },
   '& .maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib.maplibregl-compact': {
     margin: 0,
-    minHeight: '36px',
-    padding: '0 0 0 34px',
+    // 24 × 24 folded, border included
+    height: '24px',
+    minHeight: '24px',
+    padding: '0 0 0 22px',
     boxSizing: 'border-box',
     display: 'flex',
     alignItems: 'center',
     borderRadius: 'var(--radius-max)',
     border: '1px solid var(--accent-200)',
-    boxShadow: 'var(--hover-shadow)',
-    backgroundColor: 'var(--white)',
+    backgroundColor: 'rgba(var(--white-base), 0.9)',
     color: 'var(--grey-400)',
-    fontSize: '11px',
+    fontSize: '10px',
+    lineHeight: '14px',
   },
   '& .maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib.maplibregl-compact-show':
-    { padding: '0 14px 0 34px' },
+    { padding: '0 10px 0 22px' },
   '& .maplibregl-ctrl-attrib a': { color: 'var(--grey-400)' },
   '& .maplibregl-ctrl-attrib-button': {
     top: 0,
     left: 0,
     right: 'auto',
-    width: '34px',
-    height: '34px',
+    width: '22px',
+    height: '22px',
     borderRadius: 'var(--radius-max)',
     backgroundImage: 'none',
     backgroundColor: 'transparent',
@@ -70,7 +79,7 @@ const ATTRIBUTION_STYLES = {
       position: 'absolute',
       inset: 0,
       backgroundColor: 'var(--accent-main)',
-      mask: `${INFO_ICON} center / 20px no-repeat`,
+      mask: `${INFO_ICON} center / 14px no-repeat`,
     },
     '&:hover': { backgroundColor: 'var(--accent-150)' },
   },
@@ -80,6 +89,17 @@ const ATTRIBUTION_STYLES = {
 };
 
 const LAYOUT_GAP = 32;
+
+// the scroll area reaches 12px past the cards so their shadows aren't clipped
+const PANEL_STACK = {
+  padding: '12px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px',
+  overflowY: 'auto',
+  pointerEvents: 'none',
+  '& > *': { pointerEvents: 'auto', boxShadow: 'var(--hover-shadow)' },
+} as const;
 
 const SWITCH_SHELL = {
   borderRadius: 'var(--radius-l)',
@@ -127,25 +147,78 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
   // on a phone the editing steps sit behind the panel button, so the drawing stays visible
   const showPanel = panelOpen || (editor.editing && !compact);
 
-  const inset = showPanel && !compact ? `${PANEL_WIDTH + 24}px` : '12px';
+  // on a wide screen the switch keeps the top left and the panel slides out
+  // from under it, so nothing jumps when it opens or closes
+  const inset = compact ? '12px' : `${PANEL_WIDTH + 24}px`;
 
   const modeSwitch = (
     <TabSwitcher
-      ariaLabel="Map mode"
+      ariaLabel={tx('Map mode')}
       surface="light"
       iconOnly={compact}
       value={map.mode}
       onChange={map.setMode}
       options={[
-        { value: 'view', label: 'View', icon: <IconVisibility /> },
-        { value: 'edit', label: 'Edit', icon: <IconEdit /> },
+        { value: 'view', label: tx('View'), icon: <IconVisibility /> },
+        { value: 'edit', label: tx('Edit'), icon: <IconEdit /> },
       ]}
       // as tall as the map's button islands
       sx={{
-        width: compact ? '88px' : '256px',
+        width: compact ? '88px' : '100%',
         '& button': { minHeight: '36px' },
       }}
     />
+  );
+
+  const panelButton = (
+    <MapIsland corner="static">
+      <MapAction
+        title={showPanel ? tx('Hide the panel') : tx('Show the panel')}
+        // the panel slides under the pointer, so the tip waits
+        delaySpeed="slow"
+        onClick={() => setPanelOpen(!showPanel)}
+      >
+        {showPanel ? (
+          <IconPanelClose color="var(--accent-main)" />
+        ) : (
+          <IconPanelOpen color="var(--accent-main)" />
+        )}
+      </MapAction>
+    </MapIsland>
+  );
+
+  const panelContents = (
+    <>
+      {editor.editing && (
+        <EditPanel editor={editor} territory={map.selected} onSave={map.save} />
+      )}
+
+      {!editor.editing && (
+        <>
+          <MapFilters
+            search={map.search}
+            onSearch={map.setSearch}
+            colorView={map.colorView}
+            onColorViewChange={map.setColorView}
+            heatmapPeriod={map.heatmapPeriod}
+            onHeatmapPeriodChange={map.setHeatmapPeriod}
+            onCollapse={() => setPanelOpen(false)}
+          />
+
+          <Box sx={{ flex: '1 0 200px', minHeight: '200px' }}>
+            <TerritoryPicker
+              territories={map.territories}
+              selectedId={map.selectedId}
+              onSelect={(id) => {
+                map.pickTerritory(id);
+                if (!laptopUp) setPanelOpen(false);
+              }}
+              height="100%"
+            />
+          </Box>
+        </>
+      )}
+    </>
   );
 
   return (
@@ -161,7 +234,10 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
           right: 0,
           bottom: 0,
           zIndex: 1300,
-          padding: '12px',
+          paddingTop: `calc(12px + ${systemBarInset('top')})`,
+          paddingRight: `calc(12px + ${systemBarInset('right')})`,
+          paddingBottom: `calc(12px + ${systemBarInset('bottom')})`,
+          paddingLeft: `calc(12px + ${systemBarInset('left')})`,
           backgroundColor: 'var(--white)',
         }),
       }}
@@ -172,7 +248,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
           position: 'relative',
           height: map.fullscreen
             ? '100%'
-            : `max(560px, calc(100dvh - ${top + BOTTOM_GAP}px))`,
+            : `max(560px, calc(100dvh - ${top + BOTTOM_GAP}px - ${systemBarInset('top')} - ${systemBarInset('bottom')}))`,
           backgroundColor: 'var(--white)',
           borderRadius: 'var(--radius-l)',
           border: '1px solid var(--accent-200)',
@@ -185,63 +261,81 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
       >
         <Box ref={map.container} sx={{ height: '100%', width: '100%' }} />
 
-        {showPanel && (
+        {compact && showPanel && (
           <Box
             sx={{
               position: 'absolute',
               // on a phone it opens under the top row, which stays usable
-              top: compact ? '70px' : '12px',
-              left: '12px',
-              // leaves the corner below free for the attribution button
-              bottom: compact ? '12px' : '56px',
-              maxHeight: compact ? 'calc(100% - 82px)' : 'calc(100% - 68px)',
-              width: compact ? 'calc(100% - 24px)' : `${PANEL_WIDTH}px`,
+              top: '58px',
+              left: 0,
+              bottom: 0,
+              width: '100%',
               zIndex: 3,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              overflowY: 'auto',
-              pointerEvents: 'none',
-              '& > *': {
-                pointerEvents: 'auto',
-                boxShadow: 'var(--hover-shadow)',
-              },
+              ...PANEL_STACK,
             }}
           >
-            {editor.editing && (
-              <EditPanel
-                editor={editor}
-                territory={map.selected}
-                onSave={map.save}
-              />
-            )}
-
-            {!editor.editing && (
-              <>
-                <MapFilters
-                  search={map.search}
-                  onSearch={map.setSearch}
-                  colorView={map.colorView}
-                  onColorViewChange={map.setColorView}
-                  heatmapYear={map.heatmapYear}
-                  onHeatmapYearChange={map.setHeatmapYear}
-                  onCollapse={() => setPanelOpen(false)}
-                />
-
-                <Box sx={{ flex: '1 0 200px', minHeight: '200px' }}>
-                  <TerritoryPicker
-                    territories={map.territories}
-                    selectedId={map.selectedId}
-                    onSelect={(id) => {
-                      map.pickTerritory(id);
-                      if (!laptopUp) setPanelOpen(false);
-                    }}
-                    height="100%"
-                  />
-                </Box>
-              </>
-            )}
+            {panelContents}
           </Box>
+        )}
+
+        {!compact && (
+          <Stack
+            spacing="8px"
+            sx={{
+              position: 'absolute',
+              top: '12px',
+              left: '12px',
+              // leaves the corner below free for the attribution button
+              bottom: '44px',
+              width: `${PANEL_WIDTH}px`,
+              zIndex: 3,
+              pointerEvents: 'none',
+              '& > *': { pointerEvents: 'auto' },
+            }}
+          >
+            <Box sx={SWITCH_SHELL}>{modeSwitch}</Box>
+
+            <Box sx={{ position: 'relative', flex: 1, minHeight: 0 }}>
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: '-12px',
+                  ...PANEL_STACK,
+                  transform: showPanel
+                    ? 'none'
+                    : `translateX(calc(-100% - 24px))`,
+                  opacity: showPanel ? 1 : 0,
+                  visibility: showPanel ? 'visible' : 'hidden',
+                  transition: `transform ${SLIDE}, opacity ${SLIDE}, visibility 0s ${showPanel ? '0s' : '340ms'}`,
+                  '@media (prefers-reduced-motion: reduce)': {
+                    transition: 'none',
+                  },
+                }}
+              >
+                {panelContents}
+              </Box>
+
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  opacity: showPanel ? 0 : 1,
+                  transform: showPanel ? 'scale(0.9)' : 'none',
+                  visibility: showPanel ? 'hidden' : 'visible',
+                  // appears once the panel has slid away
+                  transition: showPanel
+                    ? 'opacity 120ms, transform 120ms, visibility 0s 120ms'
+                    : `opacity 200ms 180ms, transform 200ms 180ms`,
+                  '@media (prefers-reduced-motion: reduce)': {
+                    transition: 'none',
+                  },
+                }}
+              >
+                {panelButton}
+              </Box>
+            </Box>
+          </Stack>
         )}
 
         <Stack
@@ -252,27 +346,13 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             left: inset,
             right: '12px',
             zIndex: 2,
-            transition: 'left 0.2s ease',
             gap: compact ? '6px' : '8px',
             alignItems: 'flex-start',
             pointerEvents: 'none',
             '& > *': { pointerEvents: 'auto' },
           }}
         >
-          {(!showPanel || compact) && (
-            <MapIsland corner="static">
-              <MapAction
-                title={showPanel ? 'Hide the panel' : 'Show the panel'}
-                onClick={() => setPanelOpen(!showPanel)}
-              >
-                {showPanel ? (
-                  <IconPanelClose color="var(--accent-main)" />
-                ) : (
-                  <IconPanelOpen color="var(--accent-main)" />
-                )}
-              </MapAction>
-            </MapIsland>
-          )}
+          {compact && panelButton}
 
           {editor.editing && <EditToolbar editor={editor} compact={compact} />}
 
@@ -290,7 +370,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
               onDetails={() =>
                 map.selected &&
                 navigate(`/territories/${map.selected.id}`, {
-                  state: { parent: 'Territory coverage map' },
+                  state: { parent: tx('Territory coverage map') },
                 })
               }
             />
@@ -302,21 +382,6 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             </Box>
           )}
         </Stack>
-
-        {!compact && (
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: '12px',
-              left: `calc(${inset} + (100% - ${inset}) / 2)`,
-              transform: 'translateX(-50%)',
-              zIndex: 2,
-              ...SWITCH_SHELL,
-            }}
-          >
-            {modeSwitch}
-          </Box>
-        )}
 
         <Box
           sx={{
@@ -331,24 +396,38 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
           }}
         >
           <MapIsland corner="static" vertical>
-            <MapAction title="Zoom in" placement="left" onClick={map.zoomIn}>
+            <MapAction
+              title={tx('Zoom in')}
+              placement="left"
+              onClick={map.zoomIn}
+            >
               <IconAdd color="var(--accent-main)" />
             </MapAction>
 
             <CustomDivider color="var(--accent-200)" sx={{ width: '24px' }} />
 
-            <MapAction title="Zoom out" placement="left" onClick={map.zoomOut}>
+            <MapAction
+              title={tx('Zoom out')}
+              placement="left"
+              onClick={map.zoomOut}
+            >
               <IconRemove color="var(--accent-main)" />
             </MapAction>
           </MapIsland>
 
           <MapIsland corner="static">
-            <MapAction title="My location" placement="top" onClick={map.locate}>
+            <NorthAction map={map.instance} placement="top" />
+
+            <MapAction
+              title={tx('My location')}
+              placement="top"
+              onClick={map.locate}
+            >
               <IconMyLocation color="var(--accent-main)" />
             </MapAction>
 
             <MapAction
-              title="Show all territories"
+              title={tx('Show all territories')}
               placement="top"
               onClick={map.fitAll}
             >
@@ -356,7 +435,9 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             </MapAction>
 
             <MapAction
-              title={map.fullscreen ? 'Exit full screen' : 'Full screen'}
+              title={
+                map.fullscreen ? tx('Exit full screen') : tx('Full screen')
+              }
               placement="top"
               onClick={map.toggleFullscreen}
             >
@@ -373,15 +454,15 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
       <Dialog
         open={map.pendingLeave}
         onClose={map.keepEditing}
-        title="Discard changes"
-        description="Your unsaved changes will be lost."
+        title={tx('Discard changes')}
+        description={tx('Your unsaved changes will be lost.')}
       >
         <DialogActions>
           <Button variant="secondary" onClick={map.keepEditing}>
-            Keep editing
+            {tx('Keep editing')}
           </Button>
           <Button variant="main" color="red" onClick={map.confirmLeave}>
-            Discard
+            {tx('Discard')}
           </Button>
         </DialogActions>
       </Dialog>

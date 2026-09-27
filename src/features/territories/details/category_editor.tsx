@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
 import { Box, ButtonBase, Popover, Stack } from '@mui/material';
 import { useAtom, useSetAtom } from 'jotai';
@@ -42,7 +43,9 @@ const ColorDot = ({
   return (
     <>
       <ButtonBase
-        aria-label={`Color: ${CATEGORY_COLOR_LABEL[color]}`}
+        aria-label={tx('Color: {{color}}', {
+          color: tx(CATEGORY_COLOR_LABEL[color]),
+        })}
         aria-haspopup="true"
         onClick={(event) => setAnchor(event.currentTarget)}
         sx={{
@@ -76,9 +79,9 @@ const ColorDot = ({
       >
         <Stack direction="row" sx={{ gap: '4px' }}>
           {CATEGORY_COLORS.map((option) => (
-            <Tooltip key={option} title={CATEGORY_COLOR_LABEL[option]}>
+            <Tooltip key={option} title={tx(CATEGORY_COLOR_LABEL[option])}>
               <ButtonBase
-                aria-label={CATEGORY_COLOR_LABEL[option]}
+                aria-label={tx(CATEGORY_COLOR_LABEL[option])}
                 aria-pressed={option === color}
                 onClick={() => {
                   onChange(option);
@@ -127,7 +130,10 @@ const CategoryEditor = ({
   const [categories, setCategories] = useAtom(territoryCategoriesState);
   const setTerritories = useSetAtom(territoriesState);
 
-  const [draft, setDraft] = useState<TerritoryCategoryOption[]>(categories);
+  // the default names are edited in the app's language
+  const [draft, setDraft] = useState<TerritoryCategoryOption[]>(() =>
+    categories.map((category) => ({ ...category, name: tx(category.name) }))
+  );
 
   if (!open) return null;
 
@@ -139,8 +145,10 @@ const CategoryEditor = ({
   const handleAdd = () => {
     if (draft.length >= MAX_CATEGORIES) {
       displaySnackNotification({
-        header: 'Too many categories',
-        message: `A congregation can keep up to ${MAX_CATEGORIES} categories.`,
+        header: tx('Too many categories'),
+        message: tx('A congregation can keep up to {{max}} categories.', {
+          max: MAX_CATEGORIES,
+        }),
         severity: 'error',
       });
 
@@ -189,8 +197,10 @@ const CategoryEditor = ({
     <Dialog
       onClose={onClose}
       open
-      title="Categories"
-      description={`Up to ${MAX_CATEGORIES} categories, each with its own color.`}
+      title={tx('Categories')}
+      description={tx('Up to {{max}} categories, each with its own color.', {
+        max: MAX_CATEGORIES,
+      })}
     >
       <Stack spacing="8px" sx={{ width: '100%' }}>
         {draft.map((category) => (
@@ -205,7 +215,7 @@ const CategoryEditor = ({
             />
 
             <TextField
-              placeholder="Category name"
+              placeholder={tx('Category name')}
               value={category.name}
               slotProps={{ htmlInput: { maxLength: MAX_CATEGORY_NAME } }}
               autoFocus={category.name.length === 0}
@@ -214,11 +224,11 @@ const CategoryEditor = ({
               }
             />
 
-            <Tooltip title="Delete">
+            <Tooltip title={tx('Delete')}>
               <IconButton
                 color="error"
                 edge={false}
-                aria-label="Delete"
+                aria-label={tx('Delete')}
                 onClick={() =>
                   setDraft(draft.filter((item) => item.id !== category.id))
                 }
@@ -248,17 +258,17 @@ const CategoryEditor = ({
             onClick={handleAdd}
             sx={{ minHeight: '32px', minWidth: 'unset' }}
           >
-            Add
+            {tx('Add')}
           </Button>
         </Stack>
       )}
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          Cancel
+          {tx('Cancel')}
         </Button>
         <Button variant="main" onClick={handleSave}>
-          Save
+          {tx('Save')}
         </Button>
       </DialogActions>
     </Dialog>

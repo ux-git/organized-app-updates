@@ -6,10 +6,17 @@ import { IconCheck, IconPerson } from '@icons/index';
 import { useBreakpoints } from '@hooks/index';
 import { monthNamesState } from '@states/app';
 import { shortDateFormatState } from '@states/settings';
-import { displayDate, parseDate, emptyListMessage } from '../helpers';
+import {
+  assignmentIssues,
+  displayDate,
+  issuesText,
+  parseDate,
+  emptyListMessage,
+} from '../helpers';
 import { clickableRow, rowStates } from './table_styles';
 import TruncatedText from './truncated_text';
 import { Territory } from '@definition/territory';
+import { tx } from '@services/i18n/translation';
 
 type Row = {
   territory: Territory;
@@ -84,6 +91,7 @@ const AssignmentHistory = ({
           >
             {group.rows.map(({ territory, assignment }) => {
               const open = !assignment.returnedOn;
+              const warning = issuesText(assignmentIssues(assignment));
 
               return (
                 <Stack
@@ -139,6 +147,15 @@ const AssignmentHistory = ({
                         text={assignment.publisher}
                       />
                     </Stack>
+
+                    {warning && (
+                      <Typography
+                        className="label-small-regular"
+                        color="var(--red-main)"
+                      >
+                        {warning}
+                      </Typography>
+                    )}
                   </Stack>
 
                   <Stack
@@ -170,7 +187,7 @@ const AssignmentHistory = ({
                         color={open ? 'var(--orange-main)' : 'var(--grey-350)'}
                         noWrap
                       >
-                        {open ? 'In progress' : date(assignment.returnedOn)}
+                        {open ? tx('In progress') : date(assignment.returnedOn)}
                       </Typography>
                     </Stack>
                   </Stack>
@@ -188,7 +205,7 @@ const AssignmentHistory = ({
             disableAutoStretch
             onClick={() => setLimit(limit + PAGE)}
           >
-            Show more
+            {tx('Show more')}
           </Button>
         </Box>
       )}

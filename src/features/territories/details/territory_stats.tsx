@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { Box } from '@mui/material';
 import { daysLabel } from '../helpers';
 import StatTile from '../components/stat_tile';
@@ -19,23 +20,23 @@ const TerritoryStats = ({
   const stats = [
     {
       id: 'covered',
-      label: 'Last covered',
+      label: tx('Last covered'),
       value: daysLabel(territory.daysSinceCovered),
     },
     {
       id: 'households',
-      label: 'Households',
+      label: tx('Households'),
       value: String(territory.households),
     },
     average && {
       id: 'duration',
-      label: 'Usual duration',
-      value: `${average} mo`,
+      label: tx('Usual duration'),
+      value: tx('{{n}} mo', { n: average }),
     },
     showDoNotCalls &&
       territory.doNotCalls.length > 0 && {
         id: 'dnc',
-        label: 'Do not call',
+        label: tx('Do not call'),
         value: String(territory.doNotCalls.length),
       },
   ].filter(Boolean) as { id: string; label: string; value: string }[];
@@ -43,7 +44,7 @@ const TerritoryStats = ({
   if (showDoNotCalls && stats.length < 3) {
     stats.push({
       id: 'dnc',
-      label: 'Do not call',
+      label: tx('Do not call'),
       value: String(territory.doNotCalls.length),
     });
   }

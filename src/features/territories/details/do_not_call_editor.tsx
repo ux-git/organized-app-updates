@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
 import { Box, MenuItem, Stack } from '@mui/material';
 import { Button, Select, TextField, Typography } from '@components/index';
@@ -48,13 +49,19 @@ const DoNotCallEditor = ({
       open
       header={
         <EditorHeader
-          title={`${entry ? 'Edit' : 'Add'} do-not-call ${
-            numbers ? 'number' : 'address'
-          }`}
+          title={
+            numbers
+              ? entry
+                ? tx('Edit do-not-call number')
+                : tx('Add do-not-call number')
+              : entry
+                ? tx('Edit do-not-call address')
+                : tx('Add do-not-call address')
+          }
           description={
             numbers
-              ? 'A number the publishers should not call, and since when.'
-              : 'An address the publishers should skip, and since when.'
+              ? tx('A number the publishers should not call, and since when.')
+              : tx('An address the publishers should skip, and since when.')
           }
           onDelete={
             entry && onDelete
@@ -69,7 +76,7 @@ const DoNotCallEditor = ({
     >
       {numbers ? (
         <Select
-          label="Phone number"
+          label={tx('Phone number')}
           value={address}
           onChange={(event) => setAddress(event.target.value as string)}
         >
@@ -81,7 +88,7 @@ const DoNotCallEditor = ({
         </Select>
       ) : (
         <TextField
-          label="Address"
+          label={tx('Address')}
           autoFocus={!entry}
           value={address}
           onChange={(event) => setAddress(event.target.value)}
@@ -96,7 +103,7 @@ const DoNotCallEditor = ({
         {!numbers && (
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <TextField
-              label="Name"
+              label={tx('Name')}
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
@@ -105,7 +112,7 @@ const DoNotCallEditor = ({
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <DatePicker
-            label="Date"
+            label={tx('Date')}
             value={date}
             onChange={(value) => setDate(value)}
           />
@@ -114,10 +121,10 @@ const DoNotCallEditor = ({
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          Cancel
+          {tx('Cancel')}
         </Button>
         <Button variant="main" disabled={!address.trim()} onClick={handleSave}>
-          Save
+          {tx('Save')}
         </Button>
       </DialogActions>
     </Dialog>

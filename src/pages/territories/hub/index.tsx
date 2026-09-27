@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 import { Box } from '@mui/material';
 import {
   IconAdd,
@@ -6,17 +6,18 @@ import {
   IconVisibility,
   IconAssignmetHistory,
   IconCancelCicle,
-  IconImportExport,
 } from '@icons/index';
 import { useBreakpoints, useUpNavigation } from '@hooks/index';
 import { useNavigate } from 'react-router';
+import { useAtomValue } from 'jotai';
+import { territoryLocalModeState } from '@states/territories';
 import NavBarButton from '@components/nav_bar_button';
 import NavBarButtonGroup from '@components/nav_bar_button_group';
 import PageTitle from '@components/page_title';
 import TerritoriesHub from '@features/territories/hub';
-import TerritoryImport from '@features/territories/import';
 import TerritoriesQuickSettings from '@features/territories/hub/quick_settings';
 import useTerritoriesHub from '@features/territories/hub/useTerritoriesHub';
+import { tx } from '@services/i18n/translation';
 
 const Territories = () => {
   const navigate = useNavigate();
@@ -26,10 +27,9 @@ const Territories = () => {
   const hub = useTerritoriesHub();
 
   const { isTerritoryEditor } = hub;
+  const localMode = useAtomValue(territoryLocalModeState);
 
   const isFilterSubpage = !desktopUp && hub.filtersOpen;
-
-  const [importOpen, setImportOpen] = useState(false);
 
   const { title } = hub;
 
@@ -38,7 +38,7 @@ const Territories = () => {
   const mineButtons = hub.canBrowse && (
     <NavBarButtonGroup>
       <NavBarButton
-        text={hub.canRequest ? 'Request' : 'Available'}
+        text={hub.canRequest ? tx('Request') : tx('Available')}
         icon={hub.canRequest ? <IconRaiseHand /> : <IconVisibility />}
         textImportant
         onClick={() => navigate('/territories?tab=recommended')}
@@ -46,35 +46,31 @@ const Territories = () => {
     </NavBarButtonGroup>
   );
 
-  // the tools live on the hub itself; the requests page stays a focused review
+  // the tools live on the hub itself; the requests page stays a focused review.
+  // Standalone, do-not-calls and history have their own dashboard entries.
   const browseButtons = (
     <NavBarButtonGroup>
-      {isTerritoryEditor && (
+      {isTerritoryEditor && !localMode && (
         <NavBarButton
-          text="Do not call"
+          text={tx('Do not call')}
           icon={<IconCancelCicle />}
           onClick={() =>
             navigate('/territories/do-not-calls', { state: { parent: title } })
           }
         />
       )}
-      <NavBarButton
-        text="History"
-        icon={<IconAssignmetHistory />}
-        onClick={() =>
-          navigate('/territories/history', { state: { parent: title } })
-        }
-      />
-      {isTerritoryEditor && (
+      {!localMode && (
         <NavBarButton
-          text="Import"
-          icon={<IconImportExport />}
-          onClick={() => setImportOpen(true)}
+          text={tx('History')}
+          icon={<IconAssignmetHistory />}
+          onClick={() =>
+            navigate('/territories/history', { state: { parent: title } })
+          }
         />
       )}
       {isTerritoryEditor && (
         <NavBarButton
-          text="Add"
+          text={tx('Add')}
           icon={<IconAdd />}
           textImportant
           onClick={() =>
@@ -108,13 +104,9 @@ const Territories = () => {
         />
       )}
 
-      {importOpen && (
-        <TerritoryImport open onClose={() => setImportOpen(false)} />
-      )}
-
       <PageTitle
-        title={isFilterSubpage ? 'Filters' : title}
-        secondaryTitle={isFilterSubpage ? title : undefined}
+        title={isFilterSubpage ? tx('Filters') : tx(title)}
+        secondaryTitle={isFilterSubpage ? tx(title) : undefined}
         onBack={
           isFilterSubpage
             ? () => {

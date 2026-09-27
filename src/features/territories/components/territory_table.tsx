@@ -21,7 +21,12 @@ import { useAtomValue } from 'jotai';
 import Tooltip from '@components/tooltip';
 import { useBreakpoints } from '@hooks/index';
 import { shortDateFormatState } from '@states/settings';
-import { displayDate, parseDate, emptyListMessage } from '../helpers';
+import {
+  displayDate,
+  parseDate,
+  emptyListMessage,
+  CURRENT_PUBLISHER,
+} from '../helpers';
 import {
   STATUS_LABEL,
   Territory,
@@ -33,8 +38,10 @@ import TruncatedText from './truncated_text';
 import {
   CardLostBadge,
   CategoryBadges,
+  DoNotCallBadge,
   RequestBadge,
 } from './territory_badges';
+import { tx } from '@services/i18n/translation';
 
 type TerritoryTableProps = {
   territories: Territory[];
@@ -53,6 +60,8 @@ type TerritoryTableProps = {
   actions?: boolean;
   // publishers see whether a territory is free, not who is working it
   showHolder?: boolean;
+  // like the details page: elders see every count, a publisher only on their own
+  showDoNotCalls?: boolean;
   emptyMessage?: string;
   title?: string;
   selectionBar?: ReactNode;
@@ -165,7 +174,7 @@ const StatusLine = ({
           color="var(--green-main)"
           noWrap
         >
-          {returned ? date(returned) : 'No records yet'}
+          {returned ? date(returned) : tx('No records yet')}
         </Typography>
       </Stack>
     );
@@ -189,7 +198,7 @@ const StatusLine = ({
         className="label-small-regular"
         color={overdue ? 'var(--red-main)' : 'var(--grey-400)'}
         text={[
-          showHolder ? territory.holder : STATUS_LABEL[territory.status],
+          showHolder ? territory.holder : tx(STATUS_LABEL[territory.status]),
           assigned && date(assigned),
         ]
           .filter(Boolean)
@@ -199,8 +208,15 @@ const StatusLine = ({
   );
 };
 
-const badges = (territory: Territory, showRequested: boolean) => (
+const badges = (
+  territory: Territory,
+  showRequested: boolean,
+  showDoNotCalls: boolean
+) => (
   <>
+    {(showDoNotCalls || territory.holder === CURRENT_PUBLISHER) && (
+      <DoNotCallBadge territory={territory} />
+    )}
     {showRequested && <RequestBadge territory={territory} />}
     <CardLostBadge territory={territory} />
     <CategoryBadges territory={territory} />
@@ -252,6 +268,7 @@ const TerritoryTable = ({
   showRequested = true,
   actions = true,
   showHolder = true,
+  showDoNotCalls = false,
   emptyMessage = emptyListMessage(),
   title,
   selectionBar,
@@ -291,10 +308,10 @@ const TerritoryTable = ({
   const sortButton = (
     <>
       <Tooltip
-        title={`${SORTS[sortBy].label} · ${SORTS[sortBy].directions[reversed ? 1 : 0]}`}
+        title={`${tx(SORTS[sortBy].label)} · ${tx(SORTS[sortBy].directions[reversed ? 1 : 0])}`}
       >
         <IconButton
-          aria-label="Sort"
+          aria-label={tx('Sort')}
           onClick={(event) => setSortMenu(event.currentTarget)}
           sx={{ padding: '6px', margin: 0, borderRadius: 'var(--radius-m)' }}
         >
@@ -326,7 +343,7 @@ const TerritoryTable = ({
               sx={{ alignItems: 'center', gap: '12px', width: '100%' }}
             >
               <Typography className="body-regular" sx={{ flexGrow: 1 }}>
-                {SORTS[key].label}
+                {tx(SORTS[key].label)}
               </Typography>
               {key === sortBy && arrow}
             </Stack>
@@ -451,7 +468,7 @@ const TerritoryTable = ({
               >
                 <StatusLine territory={territory} showHolder={showHolder} />
 
-                {!laptopUp && badges(territory, showRequested)}
+                {!laptopUp && badges(territory, showRequested, showDoNotCalls)}
               </Stack>
             </Stack>
 
@@ -466,7 +483,7 @@ const TerritoryTable = ({
                   overflow: 'hidden',
                 }}
               >
-                {badges(territory, showRequested)}
+                {badges(territory, showRequested, showDoNotCalls)}
               </Stack>
             )}
 

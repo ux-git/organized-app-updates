@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { ReactNode } from 'react';
 import { Box, FormControlLabel, RadioGroup, Stack } from '@mui/material';
 import { Button, Checkbox, CustomDivider, Typography } from '@components/index';
@@ -67,8 +68,10 @@ const TerritoryExport = ({
     <Dialog
       onClose={onClose}
       open
-      title={`Export territory ${territory.number}`}
-      description="Choose what to include and the format. The PDF is saved to your device."
+      title={tx('Export territory {{number}}', { number: territory.number })}
+      description={tx(
+        'Choose what to include and the format. The PDF is saved to your device.'
+      )}
     >
       <Stack
         direction={tablet600Up ? 'row' : 'column'}
@@ -84,16 +87,16 @@ const TerritoryExport = ({
         }
         sx={{ width: '100%', '& > .MuiStack-root': { flex: 1, minWidth: 0 } }}
       >
-        <OptionGroup label="Include">
+        <OptionGroup label={tx('Include')}>
           <Checkbox
-            label={isPhone ? 'Phone numbers' : 'Map'}
+            label={isPhone ? tx('Phone numbers') : tx('Map')}
             checked={parts.front}
             disabled={parts.front && !parts.back}
             onChange={() => exporter.toggleSide('front')}
             className="body-regular"
           />
           <Checkbox
-            label="Do not call"
+            label={tx('Do not call')}
             checked={parts.back}
             disabled={parts.back && !parts.front}
             onChange={() => exporter.toggleSide('back')}
@@ -101,7 +104,7 @@ const TerritoryExport = ({
           />
           {qrShown && (
             <Checkbox
-              label="QR code"
+              label={tx('QR code')}
               checked={exporter.showQr}
               onChange={(_, checked) => exporter.setShowQr(checked)}
               className="body-regular"
@@ -109,7 +112,7 @@ const TerritoryExport = ({
           )}
         </OptionGroup>
 
-        <OptionGroup label="Format">
+        <OptionGroup label={tx('Format')}>
           <RadioGroup
             value={exporter.format}
             onChange={(event) =>
@@ -122,7 +125,7 @@ const TerritoryExport = ({
                 key={item.id}
                 value={item.id}
                 control={<Radio />}
-                label={<Typography>{item.name}</Typography>}
+                label={<Typography>{tx(item.name)}</Typography>}
               />
             ))}
           </RadioGroup>
@@ -156,7 +159,7 @@ const TerritoryExport = ({
             }}
           >
             <Typography className="body-small-regular" color="var(--grey-400)">
-              Preparing the preview…
+              {tx('Preparing the preview…')}
             </Typography>
           </Stack>
         )}
@@ -164,7 +167,7 @@ const TerritoryExport = ({
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          Cancel
+          {tx('Cancel')}
         </Button>
         <Button
           variant="main"
@@ -172,7 +175,7 @@ const TerritoryExport = ({
           endIcon={exporter.isProcessing ? <IconLoading /> : undefined}
           onClick={handleExport}
         >
-          Export
+          {tx('Export')}
         </Button>
       </DialogActions>
     </Dialog>

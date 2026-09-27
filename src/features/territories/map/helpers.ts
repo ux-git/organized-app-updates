@@ -1,7 +1,9 @@
 import { createElement } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { getCSSPropertyValue } from '@utils/common';
+import { tx } from '@services/i18n/translation';
 import {
+  MapColor,
   Territory,
   TerritoryBoundary,
   TerritoryMapMarker,
@@ -11,6 +13,10 @@ import { MAP_COLORS, pinLabel } from './constants';
 // legend colors are CSS variables; maplibre needs the resolved value
 export const resolveColor = (color: string) =>
   color.startsWith('--') ? getCSSPropertyValue(color) : color;
+
+// a border has no transparent option, and an empty fill leaves the area unfilled
+export const drawnColor = (color: MapColor | 'transparent') =>
+  color === 'transparent' ? '' : MAP_COLORS[color];
 
 type BoundaryFeature = GeoJSON.Feature<GeoJSON.Polygon>;
 
@@ -76,6 +82,18 @@ export const boundaryBounds = (boundary: TerritoryBoundary) =>
     [Infinity, Infinity, -Infinity, -Infinity]
   ) as [number, number, number, number];
 
+// where the congregation works, for a map with no territory of its own to show
+export const congregationBounds = (
+  territories: Territory[],
+  congregationBoundary?: TerritoryBoundary
+) => {
+  const points = congregationBoundary?.length
+    ? congregationBoundary
+    : territories.flatMap((territory) => territory.boundary ?? []);
+
+  return points.length ? boundaryBounds(points) : undefined;
+};
+
 // terra draw rejects coordinates more precise than it stores
 export const roundPosition = ([lng, lat]: GeoJSON.Position) =>
   [Math.round(lng * 1e7) / 1e7, Math.round(lat * 1e7) / 1e7] as [
@@ -100,14 +118,24 @@ export const toBoundary = (
 };
 
 export const lineCollection = (
-  territories: Territory[]
+  territories: Territory[],
+  selectedId?: string
 ): GeoJSON.FeatureCollection<GeoJSON.LineString> => ({
   type: 'FeatureCollection',
   features: territories.flatMap((territory) =>
     (territory.mapLines ?? []).map((line) => ({
       type: 'Feature' as const,
       id: line.id,
-      properties: { style: line.style, territory: territory.id },
+      properties: {
+        style: line.style,
+        territory: territory.id,
+        selected: territory.id === selectedId,
+        // the dashes show together with the territory's number
+        labelZoom:
+          (territory.boundary?.length ?? 0) > 2
+            ? labelZoom(territory.boundary!, String(territory.number ?? ''))
+            : 0,
+      },
       geometry: { type: 'LineString' as const, coordinates: line.path },
     }))
   ),
@@ -139,8 +167,46 @@ export const chip = (item: TerritoryMapMarker) => ({
   label:
     item.kind === 'text'
       ? (item.text ?? '')
-      : item.text || pinLabel(item.pinType),
+      : item.text || tx(pinLabel(item.pinType)),
 });
+
+const EARTH_METRES = 40_075_016.686;
+
+// maplibre can't measure a polygon on screen, so each label carries the zoom
+// from which its territory is big enough to hold the number badge
+const labelZoom = (ring: GeoJSON.Position[], number: string) => {
+  const [west, south, east, north] = boundaryBounds(ring as TerritoryBoundary);
+  const scale = Math.cos((((south + north) / 2) * Math.PI) / 180);
+  const perDegree = EARTH_METRES / 360;
+
+  const width = (east - west) * perDegree * scale;
+  const height = (north - south) * perDegree;
+
+  // a thin or bent area holds less than its box
+  const area =
+    Math.abs(
+      ring.reduce((sum, [x1, y1], index) => {
+        const [x2, y2] = ring[(index + 1) % ring.length];
+        return sum + x1 * y2 - x2 * y1;
+      }, 0) / 2
+    ) *
+    perDegree *
+    perDegree *
+    scale;
+  const fill = Math.sqrt(area / (width * height)) || 0;
+
+  // at zoom z a 512 px world tile spans the earth, so a metre is
+  // 512 * 2^z / (EARTH_METRES * scale) pixels
+  const zoomFor = (pixels: number, metres: number) =>
+    Math.log2((pixels * EARTH_METRES * scale) / (512 * metres));
+
+  const zoom = Math.max(
+    zoomFor(8 + 7 * number.length, width * fill),
+    zoomFor(18, height * fill)
+  );
+
+  return Number.isFinite(zoom) ? Math.min(zoom, 24) : 24;
+};
 
 // a label on the polygon itself repeats on every tile the area crosses
 export const labelCollection = (
@@ -154,13 +220,22 @@ export const labelCollection = (
 
     return {
       type: 'Feature' as const,
-      properties: feature.properties,
+      properties: {
+        ...feature.properties,
+        labelZoom: labelZoom(ring, String(feature.properties?.number ?? '')),
+      },
       geometry: { type: 'Point' as const, coordinates: [lng, lat] },
     };
   }),
 });
 
 // starts folded into the info button, so the credits never cover the map
+// maplibre's own control labels, in the app's language
+export const mapLocale = () => ({
+  'AttributionControl.ToggleAttribution': tx('Toggle attribution'),
+  'Map.Title': tx('Map'),
+});
+
 export const addAttribution = (map: maplibregl.Map) => {
   map.addControl(
     new maplibregl.AttributionControl({ compact: true }),
@@ -313,4 +388,30 @@ export const LABEL_TEXT_SIZE: maplibregl.ExpressionSpecification = [
   12,
   17,
   13,
+];
+
+// a label fades in over half a zoom level once its territory can hold it;
+// zoom stops can't come from a feature, so the ramp is sampled every half level
+export const labelOpacity = (
+  opacity: number
+): maplibregl.ExpressionSpecification =>
+  [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    ...Array.from({ length: 49 }, (_, index) => index / 2).flatMap((zoom) => [
+      zoom,
+      [
+        '*',
+        opacity,
+        ['max', 0, ['min', 1, ['*', 2, ['-', zoom, ['get', 'labelZoom']]]]],
+      ],
+    ]),
+  ] as maplibregl.ExpressionSpecification;
+
+// labels too small to show yet leave room for others, the street names too
+export const LABEL_FILTER: maplibregl.FilterSpecification = [
+  '<',
+  ['get', 'labelZoom'],
+  ['+', ['zoom'], 1],
 ];

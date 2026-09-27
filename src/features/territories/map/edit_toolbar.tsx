@@ -12,8 +12,10 @@ import {
   IconUndo,
 } from '@icons/index';
 import { STATUS_LABEL, Territory } from '@definition/territory';
+import { tx } from '@services/i18n/translation';
 import useMapEditor from './useMapEditor';
 import { openInMaps, territoryCenter } from '../helpers';
+import { DoNotCallBadge } from '../components/territory_badges';
 
 type Editor = ReturnType<typeof useMapEditor>;
 
@@ -116,8 +118,8 @@ export const IdleToolbar = ({
 }) => (
   <Stack direction="row" sx={{ flexShrink: 0, ...SHELL }}>
     <ToolButton
-      label="Congregation border"
-      hint="Draw the outer border of everything the congregation covers"
+      label={tx('Congregation border')}
+      hint={tx('Draw the outer border of everything the congregation covers')}
       icon={<IconCongregationBorder />}
       compact={compact}
       onClick={onCongregation}
@@ -137,7 +139,11 @@ export const ViewToolbar = ({
   const drawn = !!selected.boundary?.length;
   const center = territoryCenter(selected);
 
-  const info = [selected.city, STATUS_LABEL[selected.status], selected.holder]
+  const info = [
+    selected.city,
+    tx(STATUS_LABEL[selected.status]),
+    selected.holder,
+  ]
     .filter(Boolean)
     .join(' · ');
 
@@ -152,13 +158,15 @@ export const ViewToolbar = ({
           color={drawn ? 'var(--grey-350)' : 'var(--orange-dark)'}
           noWrap
         >
-          {drawn ? info : 'No borders drawn yet'}
+          {drawn ? info : tx('No borders drawn yet')}
         </Typography>
       </Box>
 
+      <DoNotCallBadge territory={selected} />
+
       {center && (
         <ToolButton
-          label="Open in maps"
+          label={tx('Open in maps')}
           icon={<IconLocation />}
           compact
           onClick={() => openInMaps(center)}
@@ -166,7 +174,7 @@ export const ViewToolbar = ({
       )}
 
       <ToolButton
-        label="Details"
+        label={tx('Details')}
         icon={<IconArrowLink />}
         compact={compact}
         onClick={onDetails}
@@ -187,13 +195,13 @@ const EditToolbar = ({
   return (
     <Stack direction="row" sx={{ flexShrink: 0, ...SHELL }}>
       <ToolButton
-        label="Undo"
+        label={tx('Undo')}
         icon={<IconUndo />}
         compact={compact}
         onClick={editor.undo}
       />
       <ToolButton
-        label="Redo"
+        label={tx('Redo')}
         icon={<IconRedo />}
         compact={compact}
         onClick={editor.redo}
@@ -202,8 +210,8 @@ const EditToolbar = ({
       <Divider />
 
       <ToolButton
-        label="Adjust points"
-        hint="Drag corners and midpoints of the border, areas and lines"
+        label={tx('Adjust points')}
+        hint={tx('Drag corners and midpoints of the border, areas and lines')}
         active={editor.tool === 'points'}
         disabled={!hasBorder}
         icon={<IconEditPoints />}
@@ -212,8 +220,8 @@ const EditToolbar = ({
       />
 
       <ToolButton
-        label="Move items"
-        hint="Drag whole pins, notes, lines and areas"
+        label={tx('Move items')}
+        hint={tx('Drag whole pins, notes, lines and areas')}
         active={editor.tool === 'move'}
         disabled={!hasBorder}
         icon={<IconMoveAround />}

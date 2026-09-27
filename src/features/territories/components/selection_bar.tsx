@@ -2,6 +2,7 @@ import { Box, Stack } from '@mui/material';
 import { Button, CustomDivider, Typography } from '@components/index';
 import { IconMoveBack, IconMoveForward } from '@icons/index';
 import { Territory } from '@definition/territory';
+import { tx } from '@services/i18n/translation';
 
 type SelectionBarProps = {
   selected: Territory[];
@@ -49,7 +50,7 @@ const SelectionBar = ({
           fontVariantNumeric: 'tabular-nums',
         }}
       >
-        Selected: {selected.length}
+        {tx('Selected: {{n}}', { n: selected.length })}
       </Typography>
 
       <CustomDivider
@@ -75,7 +76,7 @@ const SelectionBar = ({
               fontVariantNumeric: 'tabular-nums',
             }}
           >
-            Assign {assignable}
+            {tx('Assign {{n}}', { n: assignable })}
           </Button>
         </Box>
       )}
@@ -97,7 +98,7 @@ const SelectionBar = ({
               fontVariantNumeric: 'tabular-nums',
             }}
           >
-            Return {returnable}
+            {tx('Return {{n}}', { n: returnable })}
           </Button>
         </Box>
       )}

@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useBreakpoints } from '@hooks/index';
 import { Box, Stack } from '@mui/material';
-import { Button, CustomDivider, Typography } from '@components/index';
+import { Badge, Button, CustomDivider, Typography } from '@components/index';
 import { ChartCard } from '../components/charts';
 import { CoveredBadge, StatusBadge } from '../components/territory_badges';
 import TruncatedText from '../components/truncated_text';
+import { daysLabel, waitingAge } from '../helpers';
 import { Territory } from '@definition/territory';
+import { tx } from '@services/i18n/translation';
 
 const AttentionCard = ({ territories }: { territories: Territory[] }) => {
   const navigate = useNavigate();
@@ -15,22 +17,36 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
 
   const [limit, setLimit] = useState(10);
 
-  const rows = [...territories]
-    .sort((a, b) => b.daysSinceCovered - a.daysSinceCovered)
+  const aged = territories.map((territory) => ({
+    territory,
+    age: waitingAge(territory),
+  }));
+
+  // never covered comes first: it has waited longer than any date can show
+  const rows = aged
+    .sort(
+      (a, b) =>
+        Number(b.age.kind === 'never') - Number(a.age.kind === 'never') ||
+        b.age.days - a.age.days
+    )
     .slice(0, limit)
-    .map((territory, index) => ({ territory, rank: index + 1 }));
+    .map((row, index) => ({ ...row, rank: index + 1 }));
 
   const half = Math.ceil(rows.length / 2);
   const columns = laptopUp ? [rows.slice(0, half), rows.slice(half)] : [rows];
 
-  const overYear = territories.filter(
-    (territory) => territory.daysSinceCovered > 365
+  const overYear = aged.filter(
+    ({ age }) => age.kind !== 'never' && age.days > 365
   ).length;
+  const never = aged.filter(({ age }) => age.kind === 'never').length;
 
   return (
     <ChartCard
-      title="Waiting the longest"
-      hint={`${overYear} of ${territories.length} territories have waited over a year`}
+      title={tx('Waiting the longest')}
+      hint={`${tx(
+        '{{over}} of {{total}} territories out or waiting for over a year',
+        { over: overYear, total: territories.length }
+      )}${never ? ` · ${tx('{{never}} never covered', { never })}` : ''}`}
       span={12}
     >
       <Box
@@ -58,7 +74,7 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
             spacing="4px"
             divider={<CustomDivider color="var(--accent-200)" />}
           >
-            {column.map(({ territory, rank }) => (
+            {column.map(({ territory, age, rank }) => (
               <Stack
                 key={territory.id}
                 direction="row"
@@ -102,7 +118,12 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
                   <TruncatedText
                     className="label-small-regular"
                     color="var(--grey-350)"
-                    text={`${territory.city} · ${territory.households} households`}
+                    text={`${territory.city} · ${tx(
+                      '{{households}} households',
+                      {
+                        households: territory.households,
+                      }
+                    )}`}
                   />
                 </Box>
 
@@ -110,7 +131,24 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
                   <StatusBadge status={territory.status} />
                 </Box>
 
-                <CoveredBadge days={territory.daysSinceCovered} />
+                {age.kind === 'never' ? (
+                  <Badge
+                    size="small"
+                    filled={false}
+                    color="red"
+                    text={tx('Never covered')}
+                    sx={{ width: 'fit-content', flexShrink: 0 }}
+                  />
+                ) : (
+                  <CoveredBadge
+                    days={age.days}
+                    label={
+                      age.kind === 'out'
+                        ? tx('Out for {{time}}', { time: daysLabel(age.days) })
+                        : tx('Waiting {{time}}', { time: daysLabel(age.days) })
+                    }
+                  />
+                )}
               </Stack>
             ))}
           </Stack>,
@@ -124,7 +162,7 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
           onClick={() => setLimit(limit + 10)}
           sx={{ alignSelf: 'flex-start' }}
         >
-          Show more
+          {tx('Show more')}
         </Button>
       )}
     </ChartCard>

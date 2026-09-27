@@ -348,6 +348,13 @@ const filterPlaces = (map: maplibregl.Map, id: string, types: PlaceType[]) => {
 const setVisible = (map: maplibregl.Map, id: string, visible: boolean) =>
   map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
 
+// the style's own place icons crowd a territory map
+export const hideStylePlaces = (map: maplibregl.Map) => {
+  for (const layer of map.getStyle()?.layers ?? []) {
+    if (/^poi/i.test(layer.id)) setVisible(map, layer.id, false);
+  }
+};
+
 export const applyBasemapOptions = (
   map: maplibregl.Map,
   provider: MapProviderKey,

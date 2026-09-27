@@ -11,6 +11,8 @@ type RecordItem = {
   subtitle?: string;
   // right-aligned where there is room, otherwise the end of the subtitle
   date?: string;
+  // a red line under the subtitle, e.g. dates that can't be right
+  warning?: string;
   badge?: ReactNode;
   actions?: ReactNode;
   onClick?: VoidFunction;
@@ -80,6 +82,15 @@ const RecordList = ({
                   noWrap
                 >
                   {subtitle}
+                </Typography>
+              )}
+
+              {item.warning && (
+                <Typography
+                  className="label-small-regular"
+                  color="var(--red-main)"
+                >
+                  {item.warning}
                 </Typography>
               )}
             </Box>

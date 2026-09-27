@@ -16,9 +16,11 @@ import {
 } from '@icons/index';
 import TabSwitcher from '@components/tab_switcher';
 import { useBreakpoints } from '@hooks/index';
+import { tx } from '@services/i18n/translation';
 import {
   appliedFilters,
   clearedFilters,
+  doNotCallLabel,
   emptyListMessage,
   NO_MATCHES,
 } from '../helpers';
@@ -33,12 +35,11 @@ import AssignDialog from '../components/assign_dialog';
 import MyHistory from '../components/my_history';
 import ReturnDialog from '../components/return_dialog';
 import SelectionBar from '../components/selection_bar';
+import StreetResults from '../components/street_results';
 import DialogActions from '@components/dialog_actions';
 import dashedBorder from '@utils/dashed_border';
 import TerritoryFilters from '../components/territory_filters';
 import TerritoryTable from '../components/territory_table';
-
-const plural = (count: number) => (count === 1 ? 'territory' : 'territories');
 
 const SearchRow = ({
   search,
@@ -58,7 +59,7 @@ const SearchRow = ({
   <Stack direction="row" sx={{ alignItems: 'center', gap: '16px' }}>
     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
       <SearchBar
-        placeholder="Search territories"
+        placeholder={tx('Search territories')}
         value={search}
         onSearch={onSearch}
       />
@@ -72,7 +73,7 @@ const SearchRow = ({
         onClick={onToggleFilters}
         endIcon={filtersOpen ? <IconPanelOpen /> : <IconPanelClose />}
       >
-        {applied ? `Filters (${applied})` : 'Filters'}
+        {applied ? tx('Filters ({{n}})', { n: applied }) : tx('Filters')}
       </Button>
     )}
   </Stack>
@@ -105,10 +106,12 @@ const FiltersPane = ({
         disabled={applied === 0}
         onClick={() => onChange(clearedFilters(filters))}
       >
-        Clear all
+        {tx('Clear all')}
       </Button>
       <Button variant="main" onClick={onClose}>
-        {`Show ${count} ${plural(count)}`}
+        {count === 1
+          ? tx('Show {{n}} territory', { n: count })
+          : tx('Show {{n}} territories', { n: count })}
       </Button>
     </DialogActions>
   </Card>
@@ -223,6 +226,16 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
   const { desktopUp, tablet688Up } = useBreakpoints();
 
+  const reminder = (
+    count: number,
+    text: (label: string) => string,
+    isPhone = false
+  ) => (count > 0 ? text(doNotCallLabel(count, isPhone)) : undefined);
+
+  const manyDoNotCalls = selected
+    .filter((territory) => territory.status === 'available')
+    .reduce((sum, territory) => sum + territory.doNotCalls.length, 0);
+
   const { filtersOpen, setFiltersOpen } = hub;
 
   const applied = appliedFilters(filters);
@@ -239,20 +252,20 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
   // a search or filter explains an empty list; otherwise it's simply empty
   const emptyMessage =
     !isMine && (applied > 0 || filters.search.trim())
-      ? NO_MATCHES
+      ? tx(NO_MATCHES)
       : emptyListMessage();
 
   const canSwitchLayout = isTerritoryEditor && isBrowsing;
 
   const layoutSwitch = canSwitchLayout && (
     <TabSwitcher
-      ariaLabel="Layout"
+      ariaLabel={tx('Layout')}
       surface="light"
       value={isBoard ? 'board' : 'list'}
       onChange={(value) => setIsBoard(value === 'board')}
       options={[
-        { value: 'list', label: 'List', icon: <IconListView /> },
-        { value: 'board', label: 'Board', icon: <IconInformationBoard /> },
+        { value: 'list', label: tx('List'), icon: <IconListView /> },
+        { value: 'board', label: tx('Board'), icon: <IconInformationBoard /> },
       ]}
       sx={{ width: tablet688Up ? '240px' : '100%', flexShrink: 0 }}
     />
@@ -287,8 +300,9 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
       showRequested={tabId !== 'requests' && tabId !== 'requested'}
       actions={isTerritoryEditor || (!isBrowsing && hub.canRequest)}
       showHolder={isTerritoryEditor}
+      showDoNotCalls={isTerritoryEditor}
       emptyMessage={emptyMessage}
-      title={`Territories: ${visible.length}`}
+      title={tx('Territories: {{n}}', { n: visible.length })}
       selectionBar={
         <SelectionBar
           selected={selected}
@@ -314,6 +328,14 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
         />
       )}
 
+      {!isMine && (
+        <StreetResults
+          search={filters.search}
+          territories={territories}
+          onOpen={handleOpen}
+        />
+      )}
+
       <Box>
         <TabsRow
           tabs={isBoard ? [] : tabs}
@@ -335,7 +357,7 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
             }}
           >
             <Typography className="h3" noWrap>
-              Territories: {boardTerritories.length}
+              {tx('Territories: {{n}}', { n: boardTerritories.length })}
             </Typography>
           </Stack>
         )}
@@ -358,9 +380,18 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
       {/* both dialogs mount per territory so their fields start from it */}
       {assignTarget && (
         <AssignDialog
-          title={`Assign ${assignTarget.number}`}
+          title={tx('Assign {{number}}', { number: assignTarget.number })}
           subtitle={`${assignTarget.name} · ${assignTarget.city}`}
           requestedBy={assignTarget.requestedBy}
+          doNotCallNote={reminder(
+            assignTarget.doNotCalls.length,
+            (label) =>
+              tx(
+                '{{label}} in this territory. Remind the publisher to skip them.',
+                { label }
+              ),
+            assignTarget.type === 'phone'
+          )}
           territories={territories}
           onClose={() => setAssignId(undefined)}
           onAssign={(publisher, assignedOn) =>
@@ -371,7 +402,17 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
       {assignManyOpen && (
         <AssignDialog
-          title={`Assign ${assignableCount} ${plural(assignableCount)}`}
+          title={
+            assignableCount === 1
+              ? tx('Assign {{n}} territory', { n: assignableCount })
+              : tx('Assign {{n}} territories', { n: assignableCount })
+          }
+          doNotCallNote={reminder(manyDoNotCalls, (label) =>
+            tx(
+              '{{label}} in these territories. Remind the publisher to skip them.',
+              { label }
+            )
+          )}
           territories={territories}
           onClose={() => setAssignManyOpen(false)}
           onAssign={assignMany}

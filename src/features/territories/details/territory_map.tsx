@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { useEffect, useRef, useState } from 'react';
 import { Box, Dialog as MuiDialog, Stack } from '@mui/material';
 import { saveAs } from 'file-saver';
@@ -22,13 +23,17 @@ import { isDarkThemeState } from '@states/app';
 import { territoriesState } from '@states/territories';
 import { Territory } from '@definition/territory';
 import { DEFAULT_PROVIDER, MAP_PROVIDER } from '../map/constants';
-import { applyBasemapOptions, DEFAULT_BASEMAP } from '../map/basemap';
-import { addAttribution, boundaryBounds } from '../map/helpers';
+import {
+  applyBasemapOptions,
+  DEFAULT_BASEMAP,
+  hideStylePlaces,
+} from '../map/basemap';
+import { addAttribution, boundaryBounds, mapLocale } from '../map/helpers';
 import { addOutsideVeil, addTerritoryLayers } from '../map/layers';
 import { getCSSPropertyValue } from '@utils/common';
 import { captureTerritoryMap } from '../map/capture';
 import { MarkerRegistry, syncMarkers } from '../map/markers';
-import MapIsland, { MapAction } from '../map/map_island';
+import MapIsland, { MapAction, NorthAction } from '../map/map_island';
 import Tooltip from '@components/tooltip';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -79,6 +84,7 @@ const BoundaryPreview = ({
       fitBoundsOptions: { padding: padding() },
       interactive,
       attributionControl: false,
+      locale: mapLocale(),
     });
 
     // the card settles its size after the map starts, and changes with the window;
@@ -97,8 +103,9 @@ const BoundaryPreview = ({
 
     instance.on('style.load', () => {
       applyBasemapOptions(instance, DEFAULT_PROVIDER, DEFAULT_BASEMAP);
+      hideStylePlaces(instance);
       addOutsideVeil(instance, boundary, getCSSPropertyValue('--white'));
-      addTerritoryLayers(instance, latest.current, 0.12);
+      addTerritoryLayers(instance, latest.current);
       syncMarkers(instance, mapMarkers ?? [], registry);
       instance.triggerRepaint();
     });
@@ -138,7 +145,8 @@ const FullscreenMap = ({
 
   return (
     <MuiDialog open fullScreen onClose={onClose}>
-      <Box sx={{ position: 'relative', height: '100dvh' }}>
+      {/* the paper keeps clear of the system bars, so the map fills what's left */}
+      <Box sx={{ position: 'relative', height: '100%' }}>
         <BoundaryPreview territory={territory} interactive onReady={setMap} />
 
         <MapIsland corner="top-left">
@@ -149,7 +157,10 @@ const FullscreenMap = ({
             // as tall as the Close button beside it
             sx={{ padding: '10px', maxWidth: 'calc(100vw - 220px)' }}
           >
-            {[`Territory ${territory.number}`, territory.name]
+            {[
+              tx('Territory {{number}}', { number: territory.number }),
+              territory.name,
+            ]
               .filter(Boolean)
               .join(' · ')}
           </Typography>
@@ -158,28 +169,29 @@ const FullscreenMap = ({
               size="small"
               color="red"
               filled={false}
-              text={`Do not call: ${doNotCalls}`}
+              text={tx('Do not call: {{n}}', { n: doNotCalls })}
               sx={{ width: 'fit-content', flexShrink: 0, marginRight: '6px' }}
             />
           )}
         </MapIsland>
 
         <MapIsland corner="top-right">
-          <MapAction title="Close" placement="left" onClick={onClose}>
+          <MapAction title={tx('Close')} placement="left" onClick={onClose}>
             <IconClose color="var(--accent-main)" />
           </MapAction>
         </MapIsland>
 
         <MapIsland corner="bottom-right" vertical>
+          <NorthAction map={map} placement="left" />
           <MapAction
-            title="Zoom in"
+            title={tx('Zoom in')}
             placement="left"
             onClick={() => map?.zoomIn()}
           >
             <IconAdd color="var(--accent-main)" />
           </MapAction>
           <MapAction
-            title="Zoom out"
+            title={tx('Zoom out')}
             placement="left"
             onClick={() => map?.zoomOut()}
           >
@@ -187,7 +199,7 @@ const FullscreenMap = ({
           </MapAction>
           {/* also turns the map back to north up */}
           <MapAction
-            title="Show the whole territory"
+            title={tx('Show the whole territory')}
             placement="left"
             onClick={fit}
           >
@@ -238,8 +250,10 @@ const TerritoryMap = ({
 
       if (!image) {
         displaySnackNotification({
-          header: 'Sharing failed',
-          message: 'The map picture could not be created. Please try again.',
+          header: tx('Sharing failed'),
+          message: tx(
+            'The map picture could not be created. Please try again.'
+          ),
           severity: 'error',
         });
         return;
@@ -252,7 +266,7 @@ const TerritoryMap = ({
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: `Territory ${territory.number}`,
+          title: tx('Territory {{number}}', { number: territory.number }),
         });
       } else {
         saveAs(blob, name);
@@ -260,7 +274,7 @@ const TerritoryMap = ({
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         displaySnackNotification({
-          header: 'Sharing failed',
+          header: tx('Sharing failed'),
           message: (error as Error).message,
           severity: 'error',
         });
@@ -272,9 +286,9 @@ const TerritoryMap = ({
 
   const small = { minHeight: '28px', padding: '2px 8px', minWidth: 'unset' };
 
-  let emptyText = 'No borders yet.';
-  if (!isSaved) emptyText = 'Save first to draw borders.';
-  if (readOnly) emptyText = 'No map yet.';
+  let emptyText = tx('No borders yet.');
+  if (!isSaved) emptyText = tx('Save first to draw borders.');
+  if (readOnly) emptyText = tx('No map yet.');
 
   return (
     <Stack spacing="16px">
@@ -325,7 +339,7 @@ const TerritoryMap = ({
                 startIcon={<IconDrawShape color="var(--accent-main)" />}
                 onClick={openMap}
               >
-                Draw borders
+                {tx('Draw borders')}
               </Button>
             )}
           </Stack>
@@ -358,11 +372,11 @@ const TerritoryMap = ({
                 disabled: false,
               },
             ].map(({ label, icon: Icon, onClick, disabled }) => (
-              <Tooltip key={label} title={label}>
+              <Tooltip key={label} title={tx(label)}>
                 <Button
                   variant="small"
                   disableAutoStretch
-                  aria-label={label}
+                  aria-label={tx(label)}
                   disabled={disabled}
                   onClick={onClick}
                   sx={{ ...small, width: '28px', padding: '2px' }}
@@ -383,7 +397,7 @@ const TerritoryMap = ({
               onClick={openMap}
               sx={small}
             >
-              Edit
+              {tx('Edit')}
             </Button>
           </MapIsland>
         )}

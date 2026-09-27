@@ -6,6 +6,7 @@ import DoNotCallTable, {
   DoNotCallChip,
   MoreEntries,
 } from '../shared/DoNotCallTable';
+import { tx } from '@services/i18n/translation';
 
 // an A4 sheet on its side, cut into two A5 halves: the map, and what goes with it
 const HALF = 421;
@@ -36,7 +37,7 @@ const MapSide = ({ territory }: { territory: TerritoryPrintData }) => (
           }}
         >
           <Text style={styles.fine}>
-            This territory has no borders on the map yet
+            {tx('This territory has no borders on the map yet')}
           </Text>
         </View>
       )}
@@ -119,7 +120,9 @@ const DetailsSide = ({
           >
             {titleOf(territory)}
           </Text>
-          <Text style={styles.fine}>Printed on {printedOn}</Text>
+          <Text style={styles.fine}>
+            {tx('Printed on {{date}}', { date: printedOn })}
+          </Text>
         </View>
 
         {entries.length > 0 && (
@@ -134,7 +137,9 @@ const DetailsSide = ({
       {!!territory.notes && (
         <View style={{ gap: 5 }}>
           <View style={[styles.chip, { backgroundColor: COLORS.chip }]}>
-            <Text style={[styles.chipText, { color: COLORS.text }]}>Notes</Text>
+            <Text style={[styles.chipText, { color: COLORS.text }]}>
+              {tx('Notes')}
+            </Text>
           </View>
           <Text style={styles.notes}>{territory.notes}</Text>
         </View>
@@ -149,7 +154,7 @@ const TemplateTerritoryCardVertical = ({
   printedOn,
   parts,
 }: TerritoryTemplateProps) => (
-  <Document title="Territory card" lang={lang}>
+  <Document title={tx('Territory card')} lang={lang}>
     {territories.map((territory) => (
       <Page
         key={territory.id}

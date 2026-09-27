@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { shortDateFormatState } from '@states/settings';
@@ -10,7 +11,9 @@ import RowAction from '../components/row_action';
 import { StatusBadge } from '../components/territory_badges';
 import {
   assignmentFromDates,
+  assignmentIssues,
   displayDate,
+  issuesText,
   parseDate,
   emptyListMessage,
 } from '../helpers';
@@ -60,14 +63,20 @@ const TerritoryAssignments = ({
           title: assignment.publisher,
           date: assignment.returnedOn
             ? `${displayDate(assignment.assignedOn, format)} – ${displayDate(assignment.returnedOn, format)}`
-            : `Since: ${displayDate(assignment.assignedOn, format)}`,
+            : tx('Since: {{date}}', {
+                date: displayDate(assignment.assignedOn, format),
+              }),
+          warning: issuesText(assignmentIssues(assignment)),
           badge: !assignment.returnedOn && (
             <Box sx={{ flexShrink: 0 }}>
               <StatusBadge status="in_work" />
             </Box>
           ),
           actions: onChange && (
-            <RowAction title="Edit" onClick={() => setEditing(assignment)}>
+            <RowAction
+              title={tx('Edit')}
+              onClick={() => setEditing(assignment)}
+            >
               <IconEdit color="var(--accent-main)" width={18} height={18} />
             </RowAction>
           ),
@@ -86,7 +95,7 @@ const TerritoryAssignments = ({
             }}
             sx={{ minHeight: '32px', minWidth: 'unset' }}
           >
-            Add
+            {tx('Add')}
           </Button>
         </Stack>
       )}

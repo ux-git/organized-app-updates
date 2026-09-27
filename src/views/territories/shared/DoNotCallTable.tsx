@@ -1,6 +1,7 @@
 import { Text, View } from '@react-pdf/renderer';
 import { DoNotCall } from '@definition/territory';
 import styles, { COLORS } from '../index.styles';
+import { tx } from '@services/i18n/translation';
 
 const cells = {
   wide: { flexGrow: 2, flexBasis: 0 },
@@ -21,10 +22,12 @@ const DoNotCallTable = ({
       style={{ flexDirection: 'row', gap: 8, paddingTop: 4, paddingBottom: 4 }}
     >
       <Text style={[styles.columnTitle, cells.wide]}>
-        {phone ? 'Number' : 'Address'}
+        {phone ? tx('Number') : tx('Address')}
       </Text>
-      {!phone && <Text style={[styles.columnTitle, cells.wide]}>Name</Text>}
-      <Text style={[styles.columnTitle, cells.date]}>Date</Text>
+      {!phone && (
+        <Text style={[styles.columnTitle, cells.wide]}>{tx('Name')}</Text>
+      )}
+      <Text style={[styles.columnTitle, cells.date]}>{tx('Date')}</Text>
     </View>
 
     {entries.map((entry) => (
@@ -42,7 +45,7 @@ const DoNotCallTable = ({
 export const DoNotCallChip = () => (
   <View style={[styles.chip, { backgroundColor: COLORS.dncChip }]}>
     <Text style={[styles.chipText, { color: COLORS.dncText }]}>
-      Do not call
+      {tx('Do not call')}
     </Text>
   </View>
 );
@@ -51,7 +54,7 @@ export const DoNotCallChip = () => (
 export const MoreEntries = ({ count }: { count: number }) =>
   count > 0 ? (
     <Text style={[styles.fine, { marginTop: 4 }]}>
-      +{count} more in the Organized app
+      {tx('+{{n}} more in the Organized app', { n: count })}
     </Text>
   ) : null;
 

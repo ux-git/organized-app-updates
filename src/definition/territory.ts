@@ -118,6 +118,7 @@ export type TerritoryFilters = {
   categories: string[];
   coverage?: { covered: boolean; period: string };
   cardLostOnly: boolean;
+  holder?: string;
 };
 
 export type TerritoryAccess = 'own' | 'view' | 'request';

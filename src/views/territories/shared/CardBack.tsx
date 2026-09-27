@@ -3,6 +3,7 @@ import { TerritoryPrintData } from '../index.types';
 import styles, { COLORS } from '../index.styles';
 import DoNotCallTable, { DoNotCallChip, MoreEntries } from './DoNotCallTable';
 import QrNote from './QrNote';
+import { tx } from '@services/i18n/translation';
 
 const CardBack = ({
   territory,
@@ -65,7 +66,7 @@ const CardBack = ({
             <>
               <View style={[styles.chip, { backgroundColor: COLORS.chip }]}>
                 <Text style={[styles.chipText, { color: COLORS.text }]}>
-                  Notes
+                  {tx('Notes')}
                 </Text>
               </View>
               <Text style={styles.notes}>{notes}</Text>

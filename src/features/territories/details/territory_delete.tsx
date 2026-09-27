@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { Button } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
@@ -18,15 +19,17 @@ const TerritoryDelete = ({
   <Dialog
     onClose={onClose}
     open={open}
-    title={`Delete territory ${number}?`}
-    description="The territory, its addresses and its assignment history will be removed. This cannot be undone."
+    title={tx('Delete territory {{number}}?', { number })}
+    description={tx(
+      'The territory, its addresses and its assignment history will be removed. This cannot be undone.'
+    )}
   >
     <DialogActions>
       <Button variant="secondary" onClick={onClose}>
-        Cancel
+        {tx('Cancel')}
       </Button>
       <Button variant="main" color="red" onClick={onDelete}>
-        Delete
+        {tx('Delete')}
       </Button>
     </DialogActions>
   </Dialog>

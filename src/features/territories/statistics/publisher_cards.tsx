@@ -1,11 +1,22 @@
+import { useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { useAtomValue } from 'jotai';
 import { Typography } from '@components/index';
 import Tooltip from '@components/tooltip';
-import { publisherCoverage, publishersPerMonth, serviceYear } from '../helpers';
+import {
+  publisherCoverage,
+  PublisherSort,
+  publishersPerMonth,
+  rangeMonths,
+  StatsRange,
+} from '../helpers';
 import { ChartCard, ColumnChart } from '../components/charts';
+import PublisherLoad, {
+  PublisherSortButton,
+} from '../components/publisher_load';
 import { Territory } from '@definition/territory';
-import { territoryMonthsState } from '@states/territories';
+import { monthShortNamesState } from '@states/app';
+import { tx } from '@services/i18n/translation';
 
 export const PublisherSplit = ({
   territories,
@@ -14,39 +25,47 @@ export const PublisherSplit = ({
 }) => {
   const { withTerritory, without, never } = publisherCoverage(territories);
 
-  const total = withTerritory + without + never || 1;
-  const share = Math.round((withTerritory / total) * 100);
+  const [open, setOpen] = useState<string>();
+  const [sort, setSort] = useState<PublisherSort>('count');
+
+  const total = withTerritory.length + without.length + never.length || 1;
+  const share = Math.round((withTerritory.length / total) * 100);
 
   const rows = [
     {
       label: 'With territory',
-      tooltip: 'with a territory',
-      value: withTerritory,
+      tooltip: '{{n}} with a territory',
+      entries: withTerritory,
       color: 'var(--accent-main)',
     },
     {
       label: 'Without territory',
-      tooltip: 'without one now',
-      value: without,
+      tooltip: '{{n}} without one now',
+      entries: without,
       color: 'var(--accent-300)',
     },
     {
       label: 'Never had a territory',
-      tooltip: 'never had a territory',
-      value: never,
+      tooltip: '{{n}} never had a territory',
+      entries: never,
       color: 'var(--orange-main)',
     },
-  ];
+  ].map((row) => ({ ...row, value: row.entries.length }));
+
+  const opened = rows.find((row) => row.label === open);
 
   return (
     <ChartCard
-      title="Publishers with a territory"
-      hint={`${share}% of publishers and groups hold at least one`}
+      title={tx('Publishers with a territory')}
+      hint={tx('{{share}}% of publishers and groups hold at least one', {
+        share,
+      })}
       span={4}
+      action={opened && <PublisherSortButton sort={sort} onChange={setSort} />}
     >
       <Stack direction="row" spacing="4px" sx={{ height: '20px' }}>
         {rows.map((row) => (
-          <Tooltip key={row.label} title={`${row.value} ${row.tooltip}`}>
+          <Tooltip key={row.label} title={tx(row.tooltip, { n: row.value })}>
             <Box
               sx={{
                 flexGrow: row.value || 0.02,
@@ -58,13 +77,24 @@ export const PublisherSplit = ({
         ))}
       </Stack>
 
-      <Stack spacing="8px">
+      <Stack spacing="2px">
         {rows.map((row) => (
           <Stack
             key={row.label}
             direction="row"
             spacing="8px"
-            sx={{ alignItems: 'center' }}
+            onClick={() => setOpen(open === row.label ? undefined : row.label)}
+            sx={{
+              alignItems: 'center',
+              cursor: 'pointer',
+              padding: '6px 8px',
+              margin: '0 -8px',
+              borderRadius: 'var(--radius-m)',
+              transition: 'background-color 0.15s ease',
+              backgroundColor:
+                open === row.label ? 'var(--accent-150)' : undefined,
+              '&:hover': { backgroundColor: 'var(--accent-100)' },
+            }}
           >
             <Box
               sx={{
@@ -75,7 +105,7 @@ export const PublisherSplit = ({
               }}
             />
             <Typography className="body-small-regular" color="var(--black)">
-              {row.label}
+              {tx(row.label)}
             </Typography>
             <Box sx={{ flexGrow: 1 }} />
             <Typography className="body-small-semibold" color="var(--black)">
@@ -84,25 +114,61 @@ export const PublisherSplit = ({
           </Stack>
         ))}
       </Stack>
+
+      {opened && (
+        <PublisherLoad
+          key={opened.label}
+          entries={opened.entries}
+          sort={sort}
+        />
+      )}
+    </ChartCard>
+  );
+};
+
+export const PublisherLoadCard = ({
+  territories,
+}: {
+  territories: Territory[];
+}) => {
+  const [sort, setSort] = useState<PublisherSort>('count');
+
+  return (
+    <ChartCard
+      title={tx('Publishers')}
+      hint={
+        sort === 'count'
+          ? tx('Most territories held')
+          : tx('Territories held, by name')
+      }
+      span={4}
+      action={<PublisherSortButton sort={sort} onChange={setSort} />}
+    >
+      <PublisherLoad
+        entries={publisherCoverage(territories).withTerritory}
+        sort={sort}
+        limit={9}
+      />
     </ChartCard>
   );
 };
 
 export const PublisherTrend = ({
   territories,
+  range,
 }: {
   territories: Territory[];
+  range: StatsRange;
 }) => {
-  const months = useAtomValue(territoryMonthsState);
+  const monthNames = useAtomValue(monthShortNamesState);
 
-  const year = serviceYear() - 1;
-
-  const values = publishersPerMonth(territories, year);
+  const months = rangeMonths(range).map(({ month }) => monthNames[month]);
+  const values = publishersPerMonth(territories, range);
 
   return (
     <ChartCard
-      title="Publishers holding a territory"
-      hint={`Each month of the ${year} service year`}
+      title={tx('Publishers holding a territory')}
+      hint={tx('Each month of the period')}
       span={8}
     >
       <ColumnChart values={values} labels={months} />

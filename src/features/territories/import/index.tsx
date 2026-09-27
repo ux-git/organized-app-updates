@@ -6,7 +6,7 @@ import { Button, InfoNote, Radio, Typography } from '@components/index';
 import Dialog from '@components/dialog';
 import WaitingLoader from '@components/waiting_loader';
 import { IconImportFile } from '@icons/index';
-import { getMessageByCode } from '@services/i18n/translation';
+import { getMessageByCode, tx } from '@services/i18n/translation';
 import { displaySnackNotification } from '@services/states/app';
 import { territoriesState } from '@states/territories';
 import {
@@ -19,7 +19,7 @@ type Mode = 'merge' | 'replace';
 const numberKey = (value: string) => value.trim().toLowerCase();
 
 const Summary = ({ result }: { result: ServiceTerritoryImport }) => {
-  const lines = [
+  const lines: [string, number, boolean?][] = [
     ['Territories', result.territories.length],
     ['Assignments', result.assignments],
     [
@@ -28,7 +28,12 @@ const Summary = ({ result }: { result: ServiceTerritoryImport }) => {
     ],
     ['Do not call', result.doNotCalls],
     ['Publishers named', result.publishers],
-  ] as const;
+  ];
+
+  // imported as they are, marked on the assignments afterwards
+  if (result.dateWarnings > 0) {
+    lines.push(['Dates to check', result.dateWarnings, true]);
+  }
 
   return (
     <Stack
@@ -39,16 +44,24 @@ const Summary = ({ result }: { result: ServiceTerritoryImport }) => {
         gap: '6px',
       }}
     >
-      {lines.map(([label, value]) => (
+      {lines.map(([label, value, warning]) => (
         <Stack
           key={label}
           direction="row"
           sx={{ justifyContent: 'space-between' }}
         >
-          <Typography className="body-small-regular" color="var(--grey-400)">
-            {label}
+          <Typography
+            className="body-small-regular"
+            color={warning ? 'var(--red-main)' : 'var(--grey-400)'}
+          >
+            {tx(label)}
           </Typography>
-          <Typography className="body-small-semibold">{value}</Typography>
+          <Typography
+            className="body-small-semibold"
+            color={warning ? 'var(--red-main)' : undefined}
+          >
+            {value}
+          </Typography>
         </Stack>
       ))}
     </Stack>
@@ -129,8 +142,14 @@ const TerritoryImport = ({
 
     displaySnackNotification({
       severity: 'success',
-      header: 'Territories imported',
-      message: `${result.territories.length} territories with ${result.assignments} assignments.`,
+      header: tx('Territories imported'),
+      message: tx(
+        '{{territories}} territories with {{assignments}} assignments.',
+        {
+          territories: result.territories.length,
+          assignments: result.assignments,
+        }
+      ),
     });
 
     onClose();
@@ -140,8 +159,10 @@ const TerritoryImport = ({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Import territories"
-      description="Bring territories, their assignment history and do-not-call addresses over from a Service Territory backup (.bkt)."
+      title={tx('Import territories')}
+      description={tx(
+        'Bring territories, their assignment history and do-not-call addresses over from a Service Territory backup (.bkt).'
+      )}
     >
       <Stack spacing="16px" sx={{ width: '100%' }}>
         {processing && <WaitingLoader variant="standard" size={60} />}
@@ -166,7 +187,7 @@ const TerritoryImport = ({
             <Stack direction="row" spacing="8px" sx={{ alignItems: 'center' }}>
               <IconImportFile color="var(--accent-dark)" />
               <Typography className="button-caps" color="var(--accent-dark)">
-                Drag or click to choose
+                {tx('Drag or click to choose')}
               </Typography>
             </Stack>
             <Typography
@@ -186,9 +207,14 @@ const TerritoryImport = ({
               <InfoNote
                 message={[
                   result.driveMaps > 0 &&
-                    `${result.driveMaps} maps are Google Drive links and were not imported; draw the borders on the map instead.`,
+                    tx(
+                      '{{n}} maps are Google Drive links and were not imported; draw the borders on the map instead.',
+                      { n: result.driveMaps }
+                    ),
                   result.skippedDisabled > 0 &&
-                    `${result.skippedDisabled} disabled territories were skipped.`,
+                    tx('{{n}} disabled territories were skipped.', {
+                      n: result.skippedDisabled,
+                    }),
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -204,7 +230,9 @@ const TerritoryImport = ({
                 control={<Radio />}
                 label={
                   <Typography className="body-regular">
-                    Update territories with the same number, add the rest
+                    {tx(
+                      'Update territories with the same number, add the rest'
+                    )}
                   </Typography>
                 }
               />
@@ -213,7 +241,7 @@ const TerritoryImport = ({
                 control={<Radio />}
                 label={
                   <Typography className="body-regular">
-                    Replace all territories
+                    {tx('Replace all territories')}
                   </Typography>
                 }
               />
@@ -224,11 +252,11 @@ const TerritoryImport = ({
         <Stack spacing="8px">
           {result && (
             <Button variant="main" onClick={handleImport}>
-              Import
+              {tx('Import')}
             </Button>
           )}
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {tx('Cancel')}
           </Button>
         </Stack>
       </Stack>

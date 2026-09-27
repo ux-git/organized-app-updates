@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { shortDateFormatState } from '@states/settings';
@@ -78,7 +79,7 @@ const DoNotCallPanel = ({
             <>
               {!isPhone && (
                 <RowAction
-                  title="Open in maps"
+                  title={tx('Open in maps')}
                   onClick={() => showOnMap(entry)}
                 >
                   <IconLocation
@@ -89,7 +90,7 @@ const DoNotCallPanel = ({
                 </RowAction>
               )}
               {canEdit(entry) && (
-                <RowAction title="Edit" onClick={() => setEditing(entry)}>
+                <RowAction title={tx('Edit')} onClick={() => setEditing(entry)}>
                   <IconEdit color="var(--accent-main)" width={18} height={18} />
                 </RowAction>
               )}
@@ -107,7 +108,7 @@ const DoNotCallPanel = ({
             onClick={() => setEditing('new')}
             sx={{ minHeight: '32px', minWidth: 'unset' }}
           >
-            Add
+            {tx('Add')}
           </Button>
         </Stack>
       )}

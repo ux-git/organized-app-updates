@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { pdf } from '@react-pdf/renderer';
@@ -139,7 +140,7 @@ const useTerritoryExport = (territory: Territory) => {
       } catch (error) {
         if (!cancelled) {
           displaySnackNotification({
-            header: 'Preview failed',
+            header: tx('Preview failed'),
             message: (error as Error).message,
             severity: 'error',
           });

@@ -1,15 +1,23 @@
 import type { Database, SqlValue } from 'sql.js';
+import { tx } from '@services/i18n/translation';
 import {
   DoNotCall,
   Territory,
   TerritoryAssignment,
   TerritoryType,
 } from '@definition/territory';
-import { assignmentFromDates, toStoredDate, withAssignments } from '../helpers';
+import {
+  assignmentFromDates,
+  assignmentIssues,
+  toStoredDate,
+  withAssignments,
+} from '../helpers';
 
 export type ServiceTerritoryImport = {
   territories: Territory[];
   assignments: number;
+  // assignments whose dates can't be right, imported as they are
+  dateWarnings: number;
   doNotCalls: number;
   publishers: number;
   skippedDisabled: number;
@@ -69,7 +77,7 @@ export const parseServiceTerritory = async (
     db = await loadDatabase(buffer);
     db.exec('SELECT count(*) FROM territories');
   } catch {
-    throw new Error('This file is not a Service Territory backup.');
+    throw new Error(tx('This file is not a Service Territory backup.'));
   }
 
   try {
@@ -100,6 +108,7 @@ export const parseServiceTerritory = async (
     ).at(0)?.count as number;
 
     let assignments = 0;
+    let dateWarnings = 0;
     let doNotCalls = 0;
     let skippedDisabled = 0;
 
@@ -141,6 +150,9 @@ export const parseServiceTerritory = async (
         });
 
         assignments += records.length;
+        dateWarnings += records.filter(
+          (record) => assignmentIssues(record).length > 0
+        ).length;
 
         const dncs: DoNotCall[] = doNotCallRows
           .filter((item) => item.idTerritory === row._id)
@@ -189,6 +201,7 @@ export const parseServiceTerritory = async (
     return {
       territories,
       assignments,
+      dateWarnings,
       doNotCalls,
       publishers: publishers.size,
       skippedDisabled,

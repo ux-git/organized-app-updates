@@ -340,3 +340,6 @@ const buildTerritories = (count: number): Territory[] => {
 };
 
 export const TERRITORIES = buildTerritories(132);
+
+// street name -> territory numbers; the territory app fills it from its seed
+export const STREET_INDEX: Record<string, string[]> = {};

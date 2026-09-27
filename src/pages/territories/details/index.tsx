@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
 import { Box } from '@mui/material';
 import { Navigate } from 'react-router';
@@ -24,24 +25,26 @@ import { Territory } from '@definition/territory';
 
 const publisherNoteOf = (territory: Territory) => {
   if (territory.holder === CURRENT_PUBLISHER) {
-    return 'You are working this territory.';
+    return tx('You are working this territory.');
   }
   if (territory.requestedBy === CURRENT_PUBLISHER) {
-    return 'You asked for this territory. You will hear back when it is assigned.';
+    return tx(
+      'You asked for this territory. You will hear back when it is assigned.'
+    );
   }
   if (territory.requestedBy) {
-    return 'Someone else has already asked for this territory.';
+    return tx('Someone else has already asked for this territory.');
   }
   if (territory.status !== 'available') {
-    return 'This territory is being worked right now.';
+    return tx('This territory is being worked right now.');
   }
   return undefined;
 };
 
 const titleOf = (territory: Territory, isNew: boolean) =>
   isNew
-    ? 'New territory'
-    : [`Territory ${territory.number}`, territory.name]
+    ? tx('New territory')
+    : [tx('Territory {{number}}', { number: territory.number }), territory.name]
         .filter(Boolean)
         .join(' · ');
 
@@ -64,7 +67,7 @@ const TerritoryDetailsPage = () => {
   } = useTerritoryDetails();
 
   if (!territory) {
-    return <InfoNote message="This territory no longer exists." />;
+    return <InfoNote message={tx('This territory no longer exists.')} />;
   }
 
   // only those who manage territories add new ones
@@ -86,10 +89,14 @@ const TerritoryDetailsPage = () => {
     });
 
     displaySnackNotification({
-      header: requested ? 'Request sent' : 'Request cancelled',
+      header: requested ? tx('Request sent') : tx('Request cancelled'),
       message: requested
-        ? `You asked for territory ${territory.number}.`
-        : `Your request for territory ${territory.number} was withdrawn.`,
+        ? tx('You asked for territory {{number}}.', {
+            number: territory.number,
+          })
+        : tx('Your request for territory {{number}} was withdrawn.', {
+            number: territory.number,
+          }),
       severity: 'success',
       icon: <IconCheckCircle color="var(--white)" />,
     });
@@ -99,14 +106,14 @@ const TerritoryDetailsPage = () => {
     <NavBarButtonGroup>
       {requestedByMe && (
         <NavBarButton
-          text="Cancel request"
+          text={tx('Cancel request')}
           icon={<IconClose />}
           onClick={() => setRequest(false)}
         />
       )}
       {canRequest && (
         <NavBarButton
-          text="Request"
+          text={tx('Request')}
           icon={<IconRaiseHand />}
           main
           onClick={() => setRequest(true)}
@@ -118,13 +125,13 @@ const TerritoryDetailsPage = () => {
   const editorButtons = !isNew && (
     <NavBarButtonGroup>
       <NavBarButton
-        text="Delete"
+        text={tx('Delete')}
         color="red"
         icon={<IconDelete />}
         onClick={() => setDeleteOpen(true)}
       />
       <NavBarButton
-        text="Export"
+        text={tx('Export')}
         icon={<IconPrint />}
         onClick={() => setExportOpen(true)}
       />
@@ -156,7 +163,7 @@ const TerritoryDetailsPage = () => {
 
       <PageTitle
         title={titleOf(territory, isNew)}
-        secondaryTitle={parent}
+        secondaryTitle={tx(parent)}
         onBack={goBack}
         buttons={
           isTerritoryEditor ? editorButtons || undefined : publisherButtons

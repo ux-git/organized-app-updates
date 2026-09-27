@@ -1,6 +1,7 @@
 import { Image, Text, View } from '@react-pdf/renderer';
 import { TerritoryPrintData } from '../index.types';
 import styles, { CARD, COLORS } from '../index.styles';
+import { tx } from '@services/i18n/translation';
 
 const COLUMNS = 4;
 
@@ -90,16 +91,16 @@ const CardFront = ({
         paddingTop: CARD.headerTop,
       }}
     >
-      <Text style={styles.title}>Territory Map Card</Text>
+      <Text style={styles.title}>{tx('Territory Map Card')}</Text>
 
       <View style={{ flexDirection: 'row', gap: 16, marginTop: 2 }}>
         <View style={[styles.metaField, { flexGrow: 1 }]}>
-          <Text style={styles.metaLabel}>Locality:</Text>
+          <Text style={styles.metaLabel}>{tx('Locality:')}</Text>
           <Text style={styles.metaValue}>{territory.city}</Text>
         </View>
 
         <View style={[styles.metaField, { width: 110 }]}>
-          <Text style={styles.metaLabel}>Terr. no:</Text>
+          <Text style={styles.metaLabel}>{tx('Terr. no:')}</Text>
           <Text style={styles.metaValue}>{territory.number}</Text>
         </View>
       </View>
@@ -138,7 +139,7 @@ const CardFront = ({
             }}
           >
             <Text style={styles.fine}>
-              This territory has no borders on the map yet
+              {tx('This territory has no borders on the map yet')}
             </Text>
           </View>
         )}
@@ -157,16 +158,16 @@ const CardFront = ({
             }}
           >
             <Text style={styles.households}>
-              Households: {territory.households}
+              {tx('Households: {{n}}', { n: territory.households })}
             </Text>
           </View>
         )}
       </View>
 
       <Text style={[styles.fine, { marginTop: 5, width: inner }]}>
-        Please keep this card in the envelope. Do not soil, mark, or bend it.
-        Each time the territory is covered, please inform the brother who cares
-        for the territory files.
+        {tx(
+          'Please keep this card in the envelope. Do not soil, mark, or bend it. Each time the territory is covered, please inform the brother who cares for the territory files.'
+        )}
       </Text>
     </View>
   );

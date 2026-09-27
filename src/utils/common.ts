@@ -373,6 +373,11 @@ export const getCSSPropertyValue = (key: string) => {
     .trim();
 };
 
+// the system bars an edge-to-edge app draws under, set by the app's shell;
+// none in a browser
+export const systemBarInset = (side: 'top' | 'right' | 'bottom' | 'left') =>
+  `var(--organized-inset-${side}, 0px)`;
+
 export const updatedAtOverride = <T extends object>(object: T): T => {
   const objectKeys = Object.keys(object);
 

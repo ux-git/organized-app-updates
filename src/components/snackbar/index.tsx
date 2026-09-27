@@ -9,6 +9,7 @@ import {
   SnackbarOrigin,
 } from '@mui/material';
 import { EASING } from '@constants/index';
+import { systemBarInset } from '@utils/common';
 import { SnackbarPropsType } from './index.types';
 import InfoMessage from '@components/info-message';
 
@@ -92,7 +93,11 @@ const Snackbar = (props: SnackbarPropsType) => {
       }}
       sx={{
         padding: 0,
-        top: position === 'top-center' ? '80px' : 'unset',
+        // the shell already lifts the snackbar off the navigation bar
+        top:
+          position === 'top-center'
+            ? `calc(80px + ${systemBarInset('top')})`
+            : 'unset',
         bottom: position === 'bottom-center' ? '24px' : 'unset',
         left: '50%',
         right: 'auto',

@@ -3,6 +3,7 @@ import { useBreakpoints } from '@hooks/index';
 import PageTitle from '@components/page_title';
 import TerritoryDoNotCalls from '@features/territories/do_not_calls';
 import useParentPage from '@features/territories/useParentPage';
+import { tx } from '@services/i18n/translation';
 
 const DoNotCallsPage = () => {
   const { parent, goBack } = useParentPage();
@@ -17,7 +18,11 @@ const DoNotCallsPage = () => {
         paddingBottom: tablet688Up ? '0px' : '60px',
       }}
     >
-      <PageTitle title="Do not call" secondaryTitle={parent} onBack={goBack} />
+      <PageTitle
+        title={tx('Do not call')}
+        secondaryTitle={tx(parent)}
+        onBack={goBack}
+      />
 
       <TerritoryDoNotCalls />
     </Box>

@@ -4,12 +4,8 @@ import {
   Territory,
   TYPE_LABEL,
 } from '@definition/territory';
-import {
-  daysLabel,
-  parseDate,
-  serviceYear,
-  serviceYearBounds,
-} from '../helpers';
+import { tx } from '@services/i18n/translation';
+import { daysLabel, parseDate, periodWindow, serviceYear } from '../helpers';
 
 export type ColorView =
   | 'status'
@@ -18,29 +14,40 @@ export type ColorView =
   | 'type'
   | 'original';
 
-export const HEATMAP_YEARS = () =>
-  [1, 2, 3].map((back) => serviceYear() - back);
+export const HEATMAP_PERIODS = () => [
+  { id: 'last6', label: tx('Last 6 months') },
+  { id: 'last12', label: tx('Last 12 months') },
+  ...[1, 2, 3].map((back) => ({
+    id: `sy${serviceYear() - back}`,
+    label: tx('{{year}} service year', { year: serviceYear() - back }),
+  })),
+];
 
 export const COLOR_VIEWS = [
   {
     id: 'status' as ColorView,
     label: 'Status',
+    description: 'Available, in work or overdue',
   },
   {
     id: 'lastCovered' as ColorView,
     label: 'Last covered',
+    description: 'How long ago it was last worked',
   },
   {
     id: 'heatmap' as ColorView,
     label: 'Heatmap',
+    description: 'How often it was worked in a chosen period',
   },
   {
     id: 'type' as ColorView,
     label: 'Type',
+    description: 'Door to door or business',
   },
   {
     id: 'original' as ColorView,
-    label: 'Original colors',
+    label: 'Own colors',
+    description: 'The colors picked for each territory',
   },
 ];
 
@@ -86,8 +93,10 @@ const recencyKey = (territory: Territory) => {
   return 'h3';
 };
 
-const timesWorked = (territory: Territory, year: number) => {
-  const { start, end } = serviceYearBounds(year);
+const timesWorked = (territory: Territory, period: string) => {
+  const window = periodWindow(period);
+  if (!window) return 0;
+  const { start, end } = window;
 
   return returns(territory).filter(
     (time) => time >= start.getTime() && time <= end.getTime()
@@ -96,12 +105,12 @@ const timesWorked = (territory: Territory, year: number) => {
 
 const lastCoveredText = (territory: Territory) => {
   const last = Math.max(0, ...returns(territory));
-  if (!last) return 'Never';
+  if (!last) return tx('Never');
 
   return daysLabel(Math.round((Date.now() - last) / DAY));
 };
 
-export const colorScheme = (view: ColorView, year = HEATMAP_YEARS()[0]) => {
+export const colorScheme = (view: ColorView, period = 'last12') => {
   if (view === 'lastCovered') {
     return {
       buckets: RECENCY,
@@ -114,8 +123,8 @@ export const colorScheme = (view: ColorView, year = HEATMAP_YEARS()[0]) => {
     return {
       buckets: FREQUENCY,
       keyOf: (territory: Territory) =>
-        `f${Math.min(timesWorked(territory, year), 4)}`,
-      detailOf: (territory: Territory) => `${timesWorked(territory, year)}×`,
+        `f${Math.min(timesWorked(territory, period), 4)}`,
+      detailOf: (territory: Territory) => `${timesWorked(territory, period)}×`,
     };
   }
 
@@ -131,7 +140,7 @@ export const colorScheme = (view: ColorView, year = HEATMAP_YEARS()[0]) => {
     return {
       buckets: TYPES,
       keyOf: (territory: Territory) => territory.type,
-      detailOf: (territory: Territory) => TYPE_LABEL[territory.type],
+      detailOf: (territory: Territory) => tx(TYPE_LABEL[territory.type]),
     };
   }
 
@@ -142,6 +151,6 @@ export const colorScheme = (view: ColorView, year = HEATMAP_YEARS()[0]) => {
       color: `--${STATUS_COLOR[status]}-main`,
     })),
     keyOf: (territory: Territory) => territory.status as string,
-    detailOf: (territory: Territory) => STATUS_LABEL[territory.status],
+    detailOf: (territory: Territory) => tx(STATUS_LABEL[territory.status]),
   };
 };

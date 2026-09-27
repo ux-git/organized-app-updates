@@ -1,6 +1,18 @@
 import { formatDate } from '@utils/date';
-import { getTranslation } from '@services/i18n/translation';
-import { CURRENT_PUBLISHER, GROUPS, PUBLISHERS } from './mockData';
+import { getTranslation, tx } from '@services/i18n/translation';
+import {
+  CURRENT_PUBLISHER,
+  GROUPS,
+  PUBLISHERS,
+  STREET_INDEX,
+} from './mockData';
+import {
+  matchStreets,
+  streetsOf,
+  streetTerritories,
+  territoryKey,
+} from './street_search';
+import { AssignmentIssue, ISSUE_TEXT } from './assignment_issues';
 import {
   Territory,
   TerritoryAssignment,
@@ -31,10 +43,16 @@ export const COVERAGE_PERIODS = () => {
   const current = serviceYear();
 
   return [
-    { id: 'last6', label: 'Last 6 months' },
-    { id: 'last12', label: 'Last 12 months' },
-    { id: `sy${current - 1}`, label: `${current - 1} service year` },
-    { id: `sy${current - 2}`, label: `${current - 2} service year` },
+    { id: 'last6', label: tx('Last 6 months') },
+    { id: 'last12', label: tx('Last 12 months') },
+    {
+      id: `sy${current - 1}`,
+      label: tx('{{year}} service year', { year: current - 1 }),
+    },
+    {
+      id: `sy${current - 2}`,
+      label: tx('{{year}} service year', { year: current - 2 }),
+    },
   ];
 };
 
@@ -45,15 +63,49 @@ export const serviceYearBounds = (year: number) => ({
   end: new Date(year, 7, 31, 23, 59, 59),
 });
 
-const periodWindow = (period: string) => {
-  const now = new Date();
+export type StatsRange = { start: Date; end: Date };
 
-  if (period === 'last6') {
-    return { start: new Date(now.getTime() - 182 * DAY), end: now };
+export const STATS_PERIODS = () => {
+  const current = serviceYear();
+
+  return [
+    { id: 'last6', label: tx('Last 6 months') },
+    { id: 'last12', label: tx('Last 12 months') },
+    {
+      id: `sy${current}`,
+      label: tx('{{year}} service year (current)', { year: current }),
+    },
+    {
+      id: `sy${current - 1}`,
+      label: tx('{{year}} service year', { year: current - 1 }),
+    },
+    { id: 'custom', label: tx('Custom') },
+  ];
+};
+
+// the calendar months a range covers, the last 24 at most, for the charts
+export const rangeMonths = ({ start, end }: StatsRange) => {
+  const months: { year: number; month: number }[] = [];
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+
+  while (cursor <= end) {
+    months.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
+    cursor.setMonth(cursor.getMonth() + 1);
   }
 
-  if (period === 'last12') {
-    return { start: new Date(now.getTime() - 365 * DAY), end: now };
+  return months.slice(-24);
+};
+
+// last6 and last12 are calendar months: this month and the ones before it
+export const periodWindow = (period: string) => {
+  const now = new Date();
+
+  if (period === 'last6' || period === 'last12') {
+    const months = period === 'last6' ? 6 : 12;
+    return {
+      start: new Date(now.getFullYear(), now.getMonth() - months + 1, 1),
+      end: now,
+    };
   }
 
   const year = Number(period.replace('sy', ''));
@@ -85,16 +137,18 @@ const matchesCoverage = (
 
 export const daysLabel = (days?: number) => {
   if (days === undefined) return '–';
-  if (days < 31) return `${days} d`;
+  if (days < 31) return tx('{{days}} d', { days });
 
   const months = Math.round(days / 30);
 
-  if (months < 12) return `${months} mo`;
+  if (months < 12) return tx('{{months}} mo', { months });
 
   const years = Math.floor(months / 12);
   const rest = months % 12;
 
-  return rest === 0 ? `${years} y` : `${years} y ${rest} mo`;
+  return rest === 0
+    ? tx('{{years}} y', { years })
+    : tx('{{years}} y {{rest}} mo', { years, rest });
 };
 
 // overdue is not stored: it follows from how long the territory has been out
@@ -113,11 +167,20 @@ export const withDerivedStatus = (
     } as Territory;
   });
 
+export const streetMatches = (query: string) =>
+  matchStreets(STREET_INDEX, query);
+
+export const territoryStreets = (number: string) =>
+  streetsOf(STREET_INDEX, number);
+
 export const applyFilters = (
   territories: Territory[],
   filters: TerritoryFilters
-) =>
-  territories.filter((territory) => {
+) => {
+  // a street name finds the territories it runs through
+  const onStreet = streetTerritories(STREET_INDEX, filters.search);
+
+  return territories.filter((territory) => {
     if (filters.status.length && !filters.status.includes(territory.status)) {
       return false;
     }
@@ -139,15 +202,23 @@ export const applyFilters = (
 
     if (filters.cardLostOnly && !territory.cardLost) return false;
 
+    if (filters.holder && territory.holder !== filters.holder) return false;
+
     if (filters.search.length) {
       const haystack =
         `${territory.number} ${territory.name} ${territory.city} ${territory.holder ?? ''} ${territory.categories.join(' ')}`.toLowerCase();
 
-      if (!haystack.includes(filters.search.toLowerCase())) return false;
+      if (
+        !haystack.includes(filters.search.toLowerCase()) &&
+        !onStreet.has(territoryKey(territory.number))
+      ) {
+        return false;
+      }
     }
 
     return true;
   });
+};
 
 export const NO_RESTRICTIONS: TerritoryRestrictions = {
   categories: [],
@@ -282,11 +353,9 @@ export const suggestedPublisher = (territories: Territory[]) =>
 
 export const coverageRate = (
   territories: Territory[],
-  year = serviceYear()
+  { start, end }: StatsRange
 ) => {
   if (!territories.length) return 0;
-
-  const { start, end } = serviceYearBounds(year);
 
   const covered = territories.filter((territory) =>
     returnedWithin(territory, start, end)
@@ -306,30 +375,43 @@ const DURATION_BANDS = [
   { label: '17-24 mo', max: Infinity },
 ];
 
-const allDurations = (territories: Territory[]) =>
+const returnedIn = (assignment: TerritoryAssignment, range?: StatsRange) => {
+  const returned = parseDate(assignment.returnedOn);
+  if (!returned) return false;
+
+  return !range || (returned >= range.start && returned <= range.end);
+};
+
+const allDurations = (territories: Territory[], range?: StatsRange) =>
   territories.flatMap((territory) =>
     territory.assignments
-      .filter((assignment) => assignment.returnedOn)
+      .filter((assignment) => returnedIn(assignment, range))
       .map((assignment) => assignment.months)
   );
 
-export const durationBuckets = (territories: Territory[]) => {
+export const durationBuckets = (
+  territories: Territory[],
+  range?: StatsRange
+) => {
   const counts = DURATION_BANDS.map(() => 0);
 
-  for (const months of allDurations(territories)) {
+  for (const months of allDurations(territories, range)) {
     const index = DURATION_BANDS.findIndex((band) => months <= band.max);
 
     counts[index] += 1;
   }
 
   return DURATION_BANDS.map((band, index) => ({
-    label: band.label,
+    label: tx(band.label),
     value: counts[index],
   }));
 };
 
-export const medianDuration = (territories: Territory[]) => {
-  const months = allDurations(territories).sort((a, b) => a - b);
+export const medianDuration = (
+  territories: Territory[],
+  range?: StatsRange
+) => {
+  const months = allDurations(territories, range).sort((a, b) => a - b);
   if (!months.length) return 0;
 
   const middle = Math.floor(months.length / 2);
@@ -339,8 +421,11 @@ export const medianDuration = (territories: Territory[]) => {
     : Math.round(((months[middle - 1] + months[middle]) / 2) * 10) / 10;
 };
 
-export const averageDuration = (territories: Territory[]) => {
-  const months = allDurations(territories);
+export const averageDuration = (
+  territories: Territory[],
+  range?: StatsRange
+) => {
+  const months = allDurations(territories, range);
   if (!months.length) return 0;
 
   return (
@@ -349,12 +434,6 @@ export const averageDuration = (territories: Territory[]) => {
     ) / 10
   );
 };
-
-// month 0 is September of the year before the service year
-const serviceMonthBounds = (year: number, month: number) => ({
-  start: new Date(year - 1, 8 + month, 1),
-  end: new Date(year - 1, 9 + month, 0, 23, 59, 59),
-});
 
 const heldWithin = (
   assignment: TerritoryAssignment,
@@ -369,12 +448,17 @@ const heldWithin = (
   return returned >= start;
 };
 
+const monthBounds = (year: number, month: number) => ({
+  start: new Date(year, month, 1),
+  end: new Date(year, month + 1, 0, 23, 59, 59),
+});
+
 export const inProgressPerMonth = (
   territories: Territory[],
-  year = serviceYear()
+  range: StatsRange
 ) =>
-  Array.from({ length: 12 }, (_, month) => {
-    const { start, end } = serviceMonthBounds(year, month);
+  rangeMonths(range).map(({ year, month }) => {
+    const { start, end } = monthBounds(year, month);
 
     return territories.filter((territory) =>
       territory.assignments.some((assignment) =>
@@ -383,30 +467,41 @@ export const inProgressPerMonth = (
     ).length;
   });
 
-export const completionCounts = (territories: Territory[]) => {
+export const completionCounts = (
+  territories: Territory[],
+  range?: StatsRange
+) => {
   const counts = [0, 0, 0, 0];
 
   for (const territory of territories) {
-    const returned = territory.assignments.filter(
-      (assignment) => assignment.returnedOn
+    const returned = territory.assignments.filter((assignment) =>
+      returnedIn(assignment, range)
     ).length;
 
     counts[Math.min(returned, 3)] += 1;
   }
 
   return [
-    { label: 'Covered never', value: counts[0], color: 'var(--red-main)' },
-    { label: 'Covered once', value: counts[1], color: 'var(--orange-main)' },
-    { label: 'Covered twice', value: counts[2], color: 'var(--accent-main)' },
+    { label: tx('Covered never'), value: counts[0], color: 'var(--red-main)' },
     {
-      label: 'Covered 3 or more',
+      label: tx('Covered once'),
+      value: counts[1],
+      color: 'var(--orange-main)',
+    },
+    {
+      label: tx('Covered twice'),
+      value: counts[2],
+      color: 'var(--accent-main)',
+    },
+    {
+      label: tx('Covered 3 or more'),
       value: counts[3],
       color: 'var(--green-main)',
     },
   ];
 };
 
-export const gapBuckets = (territories: Territory[]) => {
+export const gapBuckets = (territories: Territory[], range?: StatsRange) => {
   const labels = ['0-2 mo', '3-5 mo', '6-8 mo', '9-11 mo', '12 mo+'];
   const counts = [0, 0, 0, 0, 0];
 
@@ -422,6 +517,8 @@ export const gapBuckets = (territories: Territory[]) => {
     for (let index = 1; index < sorted.length; index += 1) {
       const previous = sorted[index - 1].returned;
       if (!previous) continue;
+      const next = sorted[index].assigned!;
+      if (range && (next < range.start || next > range.end)) continue;
 
       const days =
         (sorted[index].assigned!.getTime() - previous.getTime()) / DAY;
@@ -431,8 +528,16 @@ export const gapBuckets = (territories: Territory[]) => {
     }
   }
 
-  return labels.map((label, index) => ({ label, value: counts[index] }));
+  return labels.map((label, index) => ({
+    label: tx(label),
+    value: counts[index],
+  }));
 };
+
+export { assignmentIssues } from './assignment_issues';
+
+export const issuesText = (issues: AssignmentIssue[]) =>
+  issues.map((issue) => tx(ISSUE_TEXT[issue])).join(' · ');
 
 // dates are stored as dd.mm.yyyy
 export const parseDate = (value?: string) => {
@@ -508,18 +613,57 @@ export const publisherCoverage = (territories: Territory[]) => {
 
   const idle = load.filter((entry) => entry.count === 0);
 
-  const withTerritory = load.length - idle.length;
-  const never = idle.filter((entry) => !everHeld.has(entry.publisher)).length;
+  return {
+    withTerritory: load.filter((entry) => entry.count > 0),
+    without: idle.filter((entry) => everHeld.has(entry.publisher)),
+    never: idle.filter((entry) => !everHeld.has(entry.publisher)),
+  };
+};
 
-  return { withTerritory, without: idle.length - never, never };
+export type PublisherSort = 'count' | 'name';
+
+export const sortedPublishers = (
+  entries: { publisher: string; count: number }[],
+  sort: PublisherSort
+) =>
+  [...entries].sort((a, b) =>
+    sort === 'name' || a.count === b.count
+      ? a.publisher.localeCompare(b.publisher)
+      : b.count - a.count
+  );
+
+// from the dates: the stored daysSinceCovered is a snapshot, 3650 after an import
+export const waitingAge = (
+  territory: Territory
+): { kind: 'out' | 'waiting' | 'never'; days: number } => {
+  const daysAgo = (time: number) =>
+    Math.max(0, Math.round((Date.now() - time) / DAY));
+
+  const open = territory.assignments.find((item) => !item.returnedOn);
+  const assigned = parseDate(open?.assignedOn);
+
+  if (open) {
+    return { kind: 'out', days: assigned ? daysAgo(assigned.getTime()) : 0 };
+  }
+
+  const lastReturned = Math.max(
+    0,
+    ...territory.assignments.map(
+      (item) => parseDate(item.returnedOn)?.getTime() ?? 0
+    )
+  );
+
+  if (lastReturned) return { kind: 'waiting', days: daysAgo(lastReturned) };
+
+  return { kind: 'never', days: 0 };
 };
 
 export const publishersPerMonth = (
   territories: Territory[],
-  year = serviceYear()
+  range: StatsRange
 ) =>
-  Array.from({ length: 12 }, (_, month) => {
-    const { start, end } = serviceMonthBounds(year, month);
+  rangeMonths(range).map(({ year, month }) => {
+    const { start, end } = monthBounds(year, month);
     const holders = new Set<string>();
 
     for (const territory of territories) {
@@ -534,9 +678,10 @@ export const publishersPerMonth = (
   });
 
 // entries past two years are due for a re-check with the householder
-export const doNotCallAges = (territories: Territory[], year: number) => {
-  const { start, end } = serviceYearBounds(year);
-
+export const doNotCallAges = (
+  territories: Territory[],
+  { start, end }: StatsRange
+) => {
   const twoYearsAgo = new Date();
   twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
 
@@ -565,7 +710,8 @@ export const appliedFilters = (filters: TerritoryFilters) =>
   filters.type.length +
   filters.categories.length +
   (filters.coverage ? 1 : 0) +
-  (filters.cardLostOnly ? 1 : 0);
+  (filters.cardLostOnly ? 1 : 0) +
+  (filters.holder ? 1 : 0);
 
 // holder and status follow the open assignment, so a hand edit never leaves a stale holder
 export const withAssignments = (
@@ -630,3 +776,15 @@ export const isDoNotCallNumber = (territory: Territory, number: string) =>
   territory.doNotCalls.some(
     (entry) => phoneDigits(entry.address) === phoneDigits(number)
   );
+
+export const doNotCallLabel = (count: number, isPhone = false) => {
+  if (isPhone) {
+    return count === 1
+      ? tx('{{n}} do-not-call number', { n: count })
+      : tx('{{n}} do-not-call numbers', { n: count });
+  }
+
+  return count === 1
+    ? tx('{{n}} do-not-call address', { n: count })
+    : tx('{{n}} do-not-call addresses', { n: count });
+};

@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { useEffect, useRef, useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { Badge, Button, InfoNote } from '@components/index';
@@ -98,14 +99,17 @@ const PhoneNumbersPanel = ({
                     size="small"
                     color="red"
                     filled={false}
-                    text="Do not call"
+                    text={tx('Do not call')}
                     sx={{ width: 'fit-content', flexShrink: 0 }}
                   />
                 ),
                 actions: (
                   <>
                     {!blocked && (
-                      <RowAction title="Call" onClick={() => call(number)}>
+                      <RowAction
+                        title={tx('Call', { context: 'action' })}
+                        onClick={() => call(number)}
+                      >
                         <IconCall
                           color="var(--accent-main)"
                           width={18}
@@ -114,7 +118,10 @@ const PhoneNumbersPanel = ({
                       </RowAction>
                     )}
                     {!readOnly && (
-                      <RowAction title="Edit" onClick={() => setEditing(index)}>
+                      <RowAction
+                        title={tx('Edit')}
+                        onClick={() => setEditing(index)}
+                      >
                         <IconEdit
                           color="var(--accent-main)"
                           width={18}
@@ -139,7 +146,7 @@ const PhoneNumbersPanel = ({
             onClick={() => setEditing('new')}
             sx={{ minHeight: '32px', minWidth: 'unset' }}
           >
-            Add
+            {tx('Add')}
           </Button>
         </Stack>
       )}

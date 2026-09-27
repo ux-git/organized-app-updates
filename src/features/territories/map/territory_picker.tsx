@@ -7,7 +7,9 @@ import {
   Typography,
 } from '@components/index';
 import { Territory } from '@definition/territory';
+import { tx } from '@services/i18n/translation';
 import { NO_MATCHES } from '../helpers';
+import { DoNotCallBadge } from '../components/territory_badges';
 
 const TerritoryPicker = ({
   territories,
@@ -31,8 +33,10 @@ const TerritoryPicker = ({
 
   const emptyTabMessage =
     tab === 0
-      ? 'No territory is on the map yet. Pick one under “No borders” to draw it.'
-      : 'Every territory has its borders drawn.';
+      ? tx(
+          'No territory is on the map yet. Pick one under “Unmapped” to draw it.'
+        )
+      : tx('Every territory has its borders drawn.');
 
   const handleKey = (event: KeyboardEvent, id: string) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -58,8 +62,8 @@ const TerritoryPicker = ({
           appearance="plain"
           layout="stretch"
           tabs={[
-            { label: 'On the map', badge: added.length },
-            { label: 'No borders', badge: notAdded.length },
+            { label: tx('Mapped'), badge: added.length },
+            { label: tx('Unmapped'), badge: notAdded.length },
           ]}
           value={tab}
           onChange={setTab}
@@ -73,7 +77,9 @@ const TerritoryPicker = ({
         {shown.length === 0 && (
           <InfoNote
             sx={{ padding: '8px 8px 0' }}
-            message={territories.length === 0 ? NO_MATCHES : emptyTabMessage}
+            message={
+              territories.length === 0 ? tx(NO_MATCHES) : emptyTabMessage
+            }
           />
         )}
 
@@ -121,6 +127,8 @@ const TerritoryPicker = ({
                   {territory.city}
                 </Typography>
               </Box>
+
+              <DoNotCallBadge territory={territory} />
             </Stack>
           ))}
         </Stack>

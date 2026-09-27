@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
 import { Box, MenuItem, Stack } from '@mui/material';
 import {
@@ -44,8 +45,8 @@ const DetailsForm = ({
   const isDuplicate = !!trimmed && isTaken(trimmed);
   const isBlank = isStored && !trimmed;
 
-  let numberHelp = isBlank ? 'Enter a number' : '';
-  if (isDuplicate) numberHelp = 'This number is already used';
+  let numberHelp = isBlank ? tx('Enter a number') : '';
+  if (isDuplicate) numberHelp = tx('This number is already used');
 
   const handleNumberChange = (value: string) => {
     setNumber(value);
@@ -94,7 +95,7 @@ const DetailsForm = ({
           }}
         >
           <TextField
-            label="Number"
+            label={tx('Number')}
             value={number}
             error={isDuplicate || isBlank}
             helperText={numberHelp}
@@ -102,7 +103,7 @@ const DetailsForm = ({
           />
 
           <TextField
-            label="Name"
+            label={tx('Name')}
             value={territory.name}
             onChange={(event) =>
               onChange({ ...territory, name: event.target.value })
@@ -110,7 +111,7 @@ const DetailsForm = ({
           />
 
           <TextField
-            label="Locality"
+            label={tx('Locality')}
             value={territory.city}
             onChange={(event) =>
               onChange({ ...territory, city: event.target.value })
@@ -118,7 +119,7 @@ const DetailsForm = ({
           />
 
           <TextField
-            label="Households"
+            label={tx('Households')}
             type="number"
             value={String(territory.households)}
             onChange={(event) =>
@@ -130,7 +131,7 @@ const DetailsForm = ({
           />
 
           <Select
-            label="Type"
+            label={tx('Type')}
             value={territory.type}
             onChange={(event) =>
               onChange({
@@ -142,7 +143,7 @@ const DetailsForm = ({
             {(Object.keys(TYPE_LABEL) as TerritoryType[]).map((type) => (
               <MenuItem key={type} value={type}>
                 <Typography className="body-regular">
-                  {TYPE_LABEL[type]}
+                  {tx(TYPE_LABEL[type])}
                 </Typography>
               </MenuItem>
             ))}
@@ -163,10 +164,10 @@ const DetailsForm = ({
       >
         <Stack direction="row" spacing="4px" sx={{ alignItems: 'center' }}>
           <Typography className="h3" color="var(--black)">
-            Categories
+            {tx('Categories')}
           </Typography>
 
-          <RowAction title="Edit" onClick={() => setCategoryEditor(true)}>
+          <RowAction title={tx('Edit')} onClick={() => setCategoryEditor(true)}>
             <IconEdit color="var(--accent-main)" width={18} height={18} />
           </RowAction>
         </Stack>
@@ -178,7 +179,7 @@ const DetailsForm = ({
           {categories.map((category) => (
             <Checkbox
               key={category.id}
-              label={category.name}
+              label={tx(category.name)}
               checked={territory.categories.includes(category.id)}
               onChange={() => toggleCategory(category.id)}
             />
@@ -189,8 +190,8 @@ const DetailsForm = ({
       <CustomDivider color="var(--accent-200)" />
 
       <SwitchWithLabel
-        label="Card lost"
-        helper="The printed card is missing and has to be printed again"
+        label={tx('Card lost')}
+        helper={tx('The printed card is missing and has to be printed again')}
         checked={territory.cardLost}
         onChange={(value) => onChange({ ...territory, cardLost: value })}
       />

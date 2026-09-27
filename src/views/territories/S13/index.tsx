@@ -1,6 +1,7 @@
 import { Page, Text, View } from '@react-pdf/renderer';
 import { Document } from '@views/components';
 import styles from './index.styles';
+import { tx } from '@services/i18n/translation';
 
 type S13Entry = {
   publisher: string;
@@ -51,22 +52,28 @@ const Cell = ({
 const HeaderRow = () => (
   <View style={[styles.row, { height: 40 }]} fixed>
     <Cell width={35} head>
-      No.
+      {tx('No.')}
     </Cell>
     <Cell width={63} head>
-      Last date completed
+      {tx('Last date completed')}
     </Cell>
     {Array.from({ length: GROUPS }, (_, index) => (
       <View key={index} style={[styles.group, styles.head]}>
         <View style={[styles.groupTop, { height: 18 }]}>
-          <Text style={[styles.text, styles.headText]}>Assigned to</Text>
+          <Text style={[styles.text, styles.headText]}>
+            {tx('Assigned to')}
+          </Text>
         </View>
         <View style={styles.groupBottom}>
           <View style={[styles.half, { height: 22 }]}>
-            <Text style={[styles.text, styles.headText]}>Date assigned</Text>
+            <Text style={[styles.text, styles.headText]}>
+              {tx('Date assigned')}
+            </Text>
           </View>
           <View style={[styles.half, styles.halfLast, { height: 22 }]}>
-            <Text style={[styles.text, styles.headText]}>Date completed</Text>
+            <Text style={[styles.text, styles.headText]}>
+              {tx('Date completed')}
+            </Text>
           </View>
         </View>
       </View>
@@ -121,11 +128,15 @@ const TemplateS13 = ({
           size="A4"
           style={styles.page}
         >
-          <Text style={styles.title}>Territory assignment record</Text>
+          <Text style={styles.title}>{tx('Territory assignment record')}</Text>
 
           <View style={styles.meta}>
-            <Text style={styles.year}>Service year: {serviceYear}</Text>
-            <Text style={styles.created}>Created: {createdOn}</Text>
+            <Text style={styles.year}>
+              {tx('Service year: {{year}}', { year: serviceYear })}
+            </Text>
+            <Text style={styles.created}>
+              {tx('Created: {{date}}', { date: createdOn })}
+            </Text>
           </View>
 
           <View style={styles.table}>

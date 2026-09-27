@@ -1,6 +1,7 @@
 import { Stack } from '@mui/material';
 import { ChartCard, StatRow } from '../components/charts';
 import { trimEmptyBands } from '../helpers';
+import { tx } from '@services/i18n/translation';
 
 const CoverageCycleCard = ({
   buckets,
@@ -12,8 +13,8 @@ const CoverageCycleCard = ({
 
   return (
     <ChartCard
-      title="Time between coverings"
-      hint="Months a territory waits before it is worked again"
+      title={tx('Time between coverings')}
+      hint={tx('Months a territory waits before it is worked again')}
       span={4}
     >
       <Stack spacing="12px">

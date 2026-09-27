@@ -2,7 +2,13 @@ import { Box, Stack } from '@mui/material';
 import { Typography } from '@components/index';
 import { IconPerson } from '@icons/index';
 import { Territory, TYPE_LABEL } from '@definition/territory';
-import { CardLostBadge, CategoryBadges, StatusBadge } from './territory_badges';
+import {
+  CardLostBadge,
+  CategoryBadges,
+  DoNotCallBadge,
+  StatusBadge,
+} from './territory_badges';
+import { tx } from '@services/i18n/translation';
 
 const row = {
   alignItems: 'center',
@@ -15,12 +21,19 @@ const TerritorySummary = ({
   territory,
   meta,
   heading = false,
+  showDoNotCalls = false,
+  onDoNotCalls,
 }: {
   territory: Territory;
   meta?: string;
   heading?: boolean;
+  showDoNotCalls?: boolean;
+  onDoNotCalls?: VoidFunction;
 }) => {
-  const description = [heading && territory.city, TYPE_LABEL[territory.type]]
+  const description = [
+    heading && territory.city,
+    tx(TYPE_LABEL[territory.type]),
+  ]
     .filter(Boolean)
     .join(' · ');
 
@@ -49,22 +62,42 @@ const TerritorySummary = ({
     );
   }
 
-  // status and holder sit top right beside the title, wrapping under it on a phone
+  // the badges sit top right, centred on the title; the holder wraps under
+  // the description on a phone
   return (
-    <Stack
-      direction="row"
-      sx={{
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        gap: '8px 16px',
-      }}
-    >
-      <Stack spacing="4px" sx={{ minWidth: 0 }}>
-        <Typography className="h2" color="var(--black)">
-          Overview
+    <Stack spacing="4px">
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px',
+        }}
+      >
+        <Typography className="h2" color="var(--black)" sx={{ minWidth: 0 }}>
+          {tx('Overview')}
         </Typography>
 
+        <Stack
+          direction="row"
+          sx={{ alignItems: 'center', gap: '6px', flexShrink: 0 }}
+        >
+          {showDoNotCalls && (
+            <DoNotCallBadge territory={territory} onClick={onDoNotCalls} />
+          )}
+          <StatusBadge status={territory.status} />
+        </Stack>
+      </Stack>
+
+      <Stack
+        direction="row"
+        sx={{
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '4px 16px',
+        }}
+      >
         {/* as tall as a badge, so marking the card lost doesn't shift the card */}
         <Stack direction="row" sx={{ ...row, minHeight: '20px' }}>
           <Typography className="body-small-regular" color="var(--grey-400)">
@@ -73,12 +106,7 @@ const TerritorySummary = ({
           <CardLostBadge territory={territory} />
           <CategoryBadges territory={territory} />
         </Stack>
-      </Stack>
 
-      <Stack spacing="4px" sx={{ alignItems: 'flex-end' }}>
-        <Box sx={{ width: 'fit-content' }}>
-          <StatusBadge status={territory.status} />
-        </Box>
         {meta && (
           <Stack direction="row" sx={{ alignItems: 'center', gap: '4px' }}>
             <IconPerson color="var(--grey-400)" width={16} height={16} />

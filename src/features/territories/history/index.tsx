@@ -8,6 +8,7 @@ import { territoriesState } from '@states/territories';
 import Card from '@components/card';
 import AssignmentHistory from '../components/assignment_history';
 import TerritoryHistory from './territory_history';
+import { tx } from '@services/i18n/translation';
 
 const TerritoriesHistory = () => {
   const { id } = useParams();
@@ -37,7 +38,7 @@ const TerritoriesHistory = () => {
     return selected ? (
       <TerritoryHistory territory={selected} />
     ) : (
-      <InfoNote message="This territory no longer exists." />
+      <InfoNote message={tx('This territory no longer exists.')} />
     );
   }
 

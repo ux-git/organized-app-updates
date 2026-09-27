@@ -15,6 +15,7 @@ import {
   IconTypeText,
 } from '@icons/index';
 import { MapColor, Territory } from '@definition/territory';
+import { tx } from '@services/i18n/translation';
 import { MAP_COLOR_LABEL, MAP_COLORS, PIN_TYPES } from './constants';
 import PinIcon from './pin_icon';
 import useMapEditor, { MapTool } from './useMapEditor';
@@ -31,6 +32,8 @@ const TOOL_HINT: Partial<Record<MapTool, string>> = {
   move: 'Drag an item to move it.',
   points: 'Drag corners to reshape. Pick one to delete it.',
 };
+
+const toolHint = (tool: MapTool) => tx(TOOL_HINT[tool] ?? '');
 
 const Section = ({
   step,
@@ -153,7 +156,9 @@ const ColorRow = ({
         (color) => (
           <Chip
             key={color}
-            label={color === 'transparent' ? 'None' : MAP_COLOR_LABEL[color]}
+            label={
+              color === 'transparent' ? tx('None') : tx(MAP_COLOR_LABEL[color])
+            }
             selected={value === color}
             onClick={() => onPick(color)}
           >
@@ -229,11 +234,11 @@ const EditPanel = ({
   const hasBorder = !!editor.draft.boundary?.length;
 
   const title = congregation
-    ? 'Congregation border'
-    : `Territory ${territory?.number ?? ''}`;
+    ? tx('Congregation border')
+    : tx('Territory {{number}}', { number: territory?.number ?? '' });
 
   const subtitle = congregation
-    ? 'Outer edge of all territories'
+    ? tx('Outer edge of all territories')
     : territory?.name;
 
   const extrasTool = ['text', 'pin', 'line', 'shape'].includes(editor.tool);
@@ -271,7 +276,7 @@ const EditPanel = ({
 
       <Section
         step={1}
-        title="Border"
+        title={tx('Border')}
         action={
           hasBorder && (
             <Button
@@ -281,23 +286,23 @@ const EditPanel = ({
               onClick={editor.redrawBorder}
               sx={{ minHeight: '28px', padding: '2px 8px' }}
             >
-              Redraw
+              {tx('Redraw')}
             </Button>
           )
         }
       >
-        {!hasBorder && <Hint>{TOOL_HINT.shape}</Hint>}
+        {!hasBorder && <Hint>{toolHint('shape')}</Hint>}
 
         {!congregation && (
           <>
             <ColorRow
-              label="Outline"
+              label={tx('Outline')}
               allowNone={false}
               value={editor.boundaryStyle.border}
               onPick={(border) => editor.pickBoundary({ border })}
             />
             <ColorRow
-              label="Fill"
+              label={tx('Fill')}
               value={editor.boundaryStyle.fill}
               onPick={(fill) => editor.pickBoundary({ fill })}
             />
@@ -306,7 +311,7 @@ const EditPanel = ({
 
         {hasBorder && (
           <>
-            {editor.tool === 'points' && <Hint>{TOOL_HINT.points}</Hint>}
+            {editor.tool === 'points' && <Hint>{toolHint('points')}</Hint>}
 
             {editor.cornerPicked && (
               <Button
@@ -321,7 +326,7 @@ const EditPanel = ({
                   alignSelf: 'flex-start',
                 }}
               >
-                Delete corner
+                {tx('Delete corner')}
               </Button>
             )}
 
@@ -337,7 +342,7 @@ const EditPanel = ({
                   alignSelf: 'flex-start',
                 }}
               >
-                Adjust border
+                {tx('Adjust border')}
               </Button>
             )}
           </>
@@ -347,7 +352,7 @@ const EditPanel = ({
       {!congregation && (
         <Section
           step={2}
-          title="Map notes (optional)"
+          title={tx('Map notes (optional)')}
           disabled={!hasBorder}
           action={
             pickedNote && (
@@ -359,42 +364,42 @@ const EditPanel = ({
                 onClick={editor.deleteSelected}
                 sx={{ minHeight: '28px', padding: '2px 8px' }}
               >
-                Delete
+                {tx('Delete')}
               </Button>
             )
           }
         >
           <Hint>
             {hasBorder
-              ? 'Printed on the territory card.'
-              : 'Draw the border first.'}
+              ? tx('Printed on the territory card.')
+              : tx('Draw the border first.')}
           </Hint>
 
           <Stack direction="row" spacing="6px">
             <ExtraTool
               tool="text"
-              label="Text"
+              label={tx('Text')}
               icon={<IconTypeText />}
               editor={editor}
               disabled={!hasBorder}
             />
             <ExtraTool
               tool="pin"
-              label="Pin"
+              label={tx('Pin')}
               icon={<IconAddPin />}
               editor={editor}
               disabled={!hasBorder}
             />
             <ExtraTool
               tool="line"
-              label="Line"
+              label={tx('Line')}
               icon={<IconDrawLine />}
               editor={editor}
               disabled={!hasBorder}
             />
             <ExtraTool
               tool="shape"
-              label="Area"
+              label={tx('Area')}
               icon={<IconShapes />}
               editor={editor}
               disabled={!hasBorder}
@@ -408,13 +413,13 @@ const EditPanel = ({
                   {PIN_TYPES.map((item) => (
                     <Chip
                       key={item.id}
-                      label={item.label}
+                      label={tx(item.label)}
                       selected={editor.pinType === item.id}
                       onClick={() => editor.pickPinType(item.id)}
                     >
                       <PinIcon type={item.id} color="var(--black)" size={16} />
                       <Typography className="label-small-regular">
-                        {item.label}
+                        {tx(item.label)}
                       </Typography>
                     </Chip>
                   ))}
@@ -424,23 +429,23 @@ const EditPanel = ({
               {editor.tool === 'line' && (
                 <Stack direction="row" sx={{ gap: '6px' }}>
                   <Chip
-                    label="Solid"
+                    label={tx('Solid')}
                     selected={editor.lineStyle === 'solid'}
                     onClick={() => editor.pickLineStyle('solid')}
                   >
                     <IconSolidLine color="var(--black)" />
                     <Typography className="label-small-regular">
-                      Solid
+                      {tx('Solid')}
                     </Typography>
                   </Chip>
                   <Chip
-                    label="Dashed"
+                    label={tx('Dashed')}
                     selected={editor.lineStyle === 'dashed'}
                     onClick={() => editor.pickLineStyle('dashed')}
                   >
                     <IconDashedLine color="var(--black)" />
                     <Typography className="label-small-regular">
-                      Dashed
+                      {tx('Dashed')}
                     </Typography>
                   </Chip>
                 </Stack>
@@ -451,21 +456,21 @@ const EditPanel = ({
           {shapeStyle && hasBorder && (
             <Stack spacing="10px">
               <ColorRow
-                label="Outline"
+                label={tx('Outline')}
                 value={shapeStyle.border}
                 onPick={(border) => editor.pickShape({ border })}
               />
               <ColorRow
-                label="Fill"
+                label={tx('Fill')}
                 value={shapeStyle.fill}
                 onPick={(fill) => editor.pickShape({ fill })}
               />
             </Stack>
           )}
 
-          {extrasTool && hasBorder && <Hint>{TOOL_HINT[editor.tool]}</Hint>}
+          {extrasTool && hasBorder && <Hint>{toolHint(editor.tool)}</Hint>}
 
-          {editor.tool === 'move' && <Hint>{TOOL_HINT.move}</Hint>}
+          {editor.tool === 'move' && <Hint>{toolHint('move')}</Hint>}
         </Section>
       )}
 
@@ -487,7 +492,7 @@ const EditPanel = ({
           onClick={editor.cancelAction}
           sx={{ flex: 1 }}
         >
-          Cancel
+          {tx('Cancel')}
         </Button>
         <Button
           variant="main"
@@ -496,7 +501,7 @@ const EditPanel = ({
           onClick={onSave}
           sx={{ flex: 1 }}
         >
-          Save
+          {tx('Save')}
         </Button>
       </Stack>
     </Stack>

@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { useEffect, useRef, useState } from 'react';
 import { Box } from '@mui/material';
 import { Typography } from '@components/index';
@@ -72,7 +73,7 @@ const PdfPreview = ({ url }: { url?: string }) => {
           color="var(--grey-400)"
           sx={{ padding: '16px', textAlign: 'center' }}
         >
-          The preview could not be shown. Save the PDF to check it.
+          {tx('The preview could not be shown. Save the PDF to check it.')}
         </Typography>
       )}
 

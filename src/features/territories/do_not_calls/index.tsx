@@ -18,6 +18,7 @@ import { dropdownPaper } from '@components/select/index.styles';
 import {
   IconAdd,
   IconArrowLink,
+  IconCancelCicle,
   IconCollapse,
   IconEdit,
   IconLocation,
@@ -42,6 +43,7 @@ import RecordList from '../components/record_list';
 import RowAction from '../components/row_action';
 import TruncatedText from '../components/truncated_text';
 import DoNotCallEditor from '../details/do_not_call_editor';
+import { tx } from '@services/i18n/translation';
 
 type SortKey = 'territory' | 'locality' | 'street' | 'date';
 
@@ -88,14 +90,16 @@ const groupOf = (
   if (sortBy === 'territory') {
     return {
       key: territory.id,
-      label: place(territory) || `Territory ${territory.number}`,
+      label:
+        place(territory) ||
+        tx('Territory {{number}}', { number: territory.number }),
     };
   }
 
   if (sortBy === 'locality') {
     return {
       key: territory.city || '',
-      label: territory.city || 'No locality',
+      label: territory.city || tx('No locality'),
     };
   }
 
@@ -105,7 +109,10 @@ const groupOf = (
   }
 
   const year = parseDate(entry.date)?.getFullYear();
-  return { key: String(year ?? ''), label: year ? String(year) : 'No date' };
+  return {
+    key: String(year ?? ''),
+    label: year ? String(year) : tx('No date'),
+  };
 };
 
 const GROUP_ORDER: Record<SortKey, (a: Group, b: Group) => number> = {
@@ -238,7 +245,7 @@ const DoNotCalls = () => {
   return (
     <Card>
       <SearchBar
-        placeholder="Search addresses, names or territories"
+        placeholder={tx('Search addresses, names or territories')}
         value={search}
         onSearch={setSearch}
       />
@@ -254,13 +261,15 @@ const DoNotCalls = () => {
         }}
       >
         <Stack direction="row" sx={{ alignItems: 'center', gap: '4px' }}>
-          <Typography className="h3">{`Addresses: ${entries.length}`}</Typography>
+          <Typography className="h3">
+            {tx('Addresses: {{n}}', { n: entries.length })}
+          </Typography>
 
           <Tooltip
-            title={`${SORTS[sortBy].label} · ${SORTS[sortBy].directions[reversed ? 1 : 0]}`}
+            title={`${tx(SORTS[sortBy].label)} · ${tx(SORTS[sortBy].directions[reversed ? 1 : 0])}`}
           >
             <IconButton
-              aria-label="Sort"
+              aria-label={tx('Sort')}
               onClick={(event) => setSortMenu(event.currentTarget)}
               sx={{
                 padding: '6px',
@@ -296,7 +305,7 @@ const DoNotCalls = () => {
                   sx={{ alignItems: 'center', gap: '12px', width: '100%' }}
                 >
                   <Typography className="body-regular" sx={{ flexGrow: 1 }}>
-                    {SORTS[key].label}
+                    {tx(SORTS[key].label)}
                   </Typography>
                   {key === sortBy && arrow}
                 </Stack>
@@ -319,13 +328,13 @@ const DoNotCalls = () => {
             onClick={toggleAll}
             sx={{ minHeight: '32px', minWidth: 'unset' }}
           >
-            {allOpen ? 'Collapse all' : 'Expand all'}
+            {allOpen ? tx('Collapse all') : tx('Expand all')}
           </Button>
         )}
       </Stack>
 
       {groups.length === 0 && (
-        <InfoNote message={term ? NO_MATCHES : emptyListMessage()} />
+        <InfoNote message={term ? tx(NO_MATCHES) : emptyListMessage()} />
       )}
 
       <Stack
@@ -398,9 +407,10 @@ const DoNotCalls = () => {
 
                 <Badge
                   size="small"
-                  color="grey"
+                  color="red"
                   filled={false}
                   text={String(group.entries.length)}
+                  icon={<IconCancelCicle color="var(--red-dark)" />}
                   sx={{ width: 'fit-content', flexShrink: 0 }}
                 />
 
@@ -411,7 +421,7 @@ const DoNotCalls = () => {
                     sx={{ marginLeft: 'auto', flexShrink: 0, gap: '2px' }}
                   >
                     <RowAction
-                      title="Add address"
+                      title={tx('Add address')}
                       onClick={() =>
                         setEditing({ territoryId: group.territory!.id })
                       }
@@ -424,7 +434,7 @@ const DoNotCalls = () => {
                     </RowAction>
 
                     <RowAction
-                      title="Open territory"
+                      title={tx('Open territory')}
                       onClick={() => openTerritory(group.territory!)}
                     >
                       <IconArrowLink
@@ -457,7 +467,7 @@ const DoNotCalls = () => {
                       <>
                         {territory.type !== 'phone' && (
                           <RowAction
-                            title="Open in maps"
+                            title={tx('Open in maps')}
                             onClick={() =>
                               openInMaps(
                                 [entry.address, territory.city]
@@ -474,7 +484,7 @@ const DoNotCalls = () => {
                           </RowAction>
                         )}
                         <RowAction
-                          title="Edit"
+                          title={tx('Edit')}
                           onClick={() =>
                             setEditing({ territoryId: territory.id, entry })
                           }

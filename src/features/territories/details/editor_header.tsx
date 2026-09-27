@@ -1,3 +1,4 @@
+import { tx } from '@services/i18n/translation';
 import { Stack } from '@mui/material';
 import { Button, Typography } from '@components/index';
 import { IconDelete } from '@icons/index';
@@ -38,7 +39,7 @@ const EditorHeader = ({
         onClick={onDelete}
         sx={{ minHeight: '32px', minWidth: 'unset', flexShrink: 0 }}
       >
-        Delete
+        {tx('Delete')}
       </Button>
     )}
   </Stack>

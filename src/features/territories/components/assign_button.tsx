@@ -4,6 +4,7 @@ import { Button } from '@components/index';
 import { IconMoveBack, IconMoveForward, IconRaiseHand } from '@icons/index';
 import ReviewDialog from './review_dialog';
 import { Territory } from '@definition/territory';
+import { tx } from '@services/i18n/translation';
 
 type AssignButtonProps = {
   territory: Territory;
@@ -17,7 +18,7 @@ type AssignButtonProps = {
 const lookOf = (isAssigned: boolean, isRequested: boolean) => {
   if (isAssigned) {
     return {
-      label: 'Return',
+      label: tx('Return'),
       color: 'red' as const,
       icon: <IconMoveBack color="var(--red-main)" />,
     };
@@ -25,14 +26,14 @@ const lookOf = (isAssigned: boolean, isRequested: boolean) => {
 
   if (isRequested) {
     return {
-      label: 'Review',
+      label: tx('Review'),
       color: 'orange' as const,
       icon: <IconRaiseHand color="var(--orange-dark)" />,
     };
   }
 
   return {
-    label: 'Assign',
+    label: tx('Assign'),
     color: undefined,
     icon: <IconMoveForward color="var(--accent-main)" />,
   };

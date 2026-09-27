@@ -5,7 +5,10 @@ import {
   getShortDatePickerFormat,
   getTranslation,
 } from '@services/i18n/translation';
-import { localStorageGetItem } from '@utils/common';
+import {
+  localStorageGetItem,
+  systemBarInset,
+} from '@utils/common';
 import {
   BackupFileType,
   BeforeInstallPromptEvent,
@@ -58,7 +61,7 @@ export const appThemeState = atom((get) => {
     (record) => record.threeLettersCode === appLang
   )?.direction ?? 'ltr') as Direction;
 
-  return createTheme({
+  const theme = createTheme({
     typography: {
       allVariants: {
         fontFamily: font,
@@ -82,6 +85,31 @@ export const appThemeState = atom((get) => {
         styleOverrides: {
           // MUI's -11px label offset assumes 9px control padding; ours is 4px
           root: { marginLeft: '-4px' },
+        },
+      },
+      MuiDialog: {
+        styleOverrides: {
+          // a full-screen dialog pads its own paper
+          container: ({ ownerState }) =>
+            ownerState.fullScreen
+              ? {}
+              : {
+                  boxSizing: 'border-box',
+                  paddingTop: systemBarInset('top'),
+                  paddingRight: systemBarInset('right'),
+                  paddingBottom: systemBarInset('bottom'),
+                  paddingLeft: systemBarInset('left'),
+                },
+        },
+      },
+      MuiPopover: {
+        defaultProps: { marginThreshold: 16 },
+        // menus keep off the status and navigation bars; the sides keep 16px
+        styleOverrides: {
+          paper: {
+            marginTop: systemBarInset('top'),
+            maxHeight: `calc(100% - 32px - ${systemBarInset('top')} - ${systemBarInset('bottom')})`,
+          },
         },
       },
       MuiMenuItem: { styleOverrides: { root: focusedRowStyles } },
@@ -137,6 +165,8 @@ export const appThemeState = atom((get) => {
     },
     direction,
   });
+
+  return theme;
 });
 
 export const monthNamesState = atom((get) => {
