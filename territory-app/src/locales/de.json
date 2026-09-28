@@ -195,7 +195,13 @@
     "scan": "QR-Codes scannen",
     "otherWays": "Oder auf anderem Weg koppeln:",
     "sendQr": "Änderungen als QR-Codes an {{name}} senden",
-    "publisher": "Verkündiger: {{name}}"
+    "publisher": "Verkündiger: {{name}}",
+    "outdated": "Aktualisiere die App auf beiden Geräten und versuche es dann noch einmal.",
+    "oneSided": "Ein gekoppeltes Gerät kennt dieses nicht mehr. Koppelt die beiden Geräte erneut.",
+    "repairTitle": "Erneut koppeln, um zu synchronisieren",
+    "repairText": "Das Gerät von {{name}} kennt dieses nicht mehr, deshalb können sie nicht synchronisieren. Koppelt sie erneut, mit beiden Geräten nah beieinander.",
+    "later": "Später",
+    "pairAgain": "Erneut koppeln"
   },
   "receive": {
     "paired": "Gerät gekoppelt",
@@ -204,7 +210,11 @@
     "got": "Du hast {{items}} bekommen.",
     "nothing": "Nichts Neues. Du hattest schon alles.",
     "unknown": "Unbekannter Code",
-    "unknownText": "Dieser Code ist nicht aus der App $t(common.appName)."
+    "unknownText": "Dieser Code ist nicht aus der App $t(common.appName).",
+    "cardOutside": "Noch nicht gekoppelt",
+    "cardOutsideText": "Öffne „Gerät koppeln“ › „QR-Code“ und scanne dort den Code des anderen Geräts.",
+    "tooLarge": "Datei zu groß",
+    "tooLargeText": "Dateien über 32 MB können hier nicht geöffnet werden."
   },
   "meet": {
     "pairedWith": "Gekoppelt mit {{name}}",
@@ -234,7 +244,15 @@
     "pairText": "Scannt gegenseitig eure Codes. Mach das nur mit dem Bruder neben dir.",
     "scanCode": "Code scannen",
     "sendTitle": "An {{name}} senden",
-    "sendText": "Öffne auf {{name}} „Synchronisieren und koppeln“, tippe auf „QR-Codes scannen“ und halte die Kamera hierauf, bis es fertig ist."
+    "sendText": "Öffne auf {{name}} „Synchronisieren und koppeln“, tippe auf „QR-Codes scannen“ und halte die Kamera hierauf, bis es fertig ist.",
+    "yourCode": "Dein Code: {{fingerprint}}",
+    "reading": "Code wird gelesen…",
+    "confirm": "Mit {{name}} koppeln?",
+    "confirmText": "Prüfe, dass auf dem Gerät von {{name}} unter dem QR-Code „Dein Code: {{fingerprint}}“ steht.",
+    "removedWarning": "Das Gerät von {{name}} wurde aus der Gruppe entfernt. Kopple es nur erneut, wenn es wieder mit euren Geräten synchronisieren soll.",
+    "clash": "Dieser Code passt nicht zu dem Gerät, das unter diesem Namen schon gekoppelt ist. Es wurde nichts gekoppelt.",
+    "old": "Dieser Code ist veraltet. Scanne den Code, den das andere Gerät jetzt zeigt.",
+    "self": "Das ist der Code dieses Geräts."
   },
   "history": {
     "removed": "{{names}} aus der Gruppe entfernt",
@@ -307,7 +325,12 @@
     "borderKeptMine": "Gebiet Nr. {{number}} behält deine Grenze, auf allen Geräten.",
     "borderKeptOther": "Gebiet Nr. {{number}} hat jetzt die Grenze von {{name}}, auf allen Geräten.",
     "borderKeptOtherOne": "Gebiet Nr. {{number}} hat jetzt die Grenze des anderen Geräts, auf allen Geräten.",
-    "use": "„{{value}}“ nehmen"
+    "use": "„{{value}}“ nehmen",
+    "deleted": "{{what}} wurde gleichzeitig gelöscht und geändert",
+    "deletedHere": "Du hast es auf diesem Gerät gelöscht, während es auf einem anderen geändert wurde. Vorerst ist es wieder da.",
+    "deletedThere": "Es wurde auf {{other}} gelöscht, während es anderswo geändert wurde. Vorerst ist es wieder da.",
+    "keepIt": "Behalten",
+    "deleteIt": "Löschen"
   },
   "automatic": {
     "always": "Immer",

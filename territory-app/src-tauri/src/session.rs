@@ -9,7 +9,6 @@
 //! itself (an NFC tap).
 
 use std::collections::BTreeMap;
-use std::io::{Read, Write};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use hmac::{Hmac, Mac};
@@ -18,15 +17,17 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use snow::{Builder, HandshakeState, TransportState};
 
+use crate::pack::{pack, unpack, LIMIT};
 use crate::store::{is_id, Applied, Cell, Member, Peer, Result, Standing, Store, Touched, Versions};
 
 const PARAMS: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
 const PROLOGUE: &[u8] = b"organized-territories-1";
 /// Plaintext per message, under Noise's 65535-byte limit with room for the tag.
 const CHUNK: usize = 60_000;
-/// The most a sync or transfer may carry, packed or unpacked, so a broken
-/// or hostile peer can't make the phone run out of memory.
-const LIMIT: usize = 64 << 20;
+/// What this version speaks, and the oldest it still syncs with. A hello
+/// without them comes from version 1.
+const PROTOCOL: u32 = 2;
+const OLDEST: u32 = 1;
 
 const HELLO: u8 = 1;
 const COMMIT: u8 = 2;
@@ -41,9 +42,17 @@ const CIRCLE: u8 = 10;
 /// Sent instead of a hello to a phone removed from the group, with the stamp
 /// of its removal. Older versions take it as an unexpected message.
 const REMOVED: u8 = 11;
+/// Kinds above this come from newer versions and are skipped.
+const LAST_KIND: u8 = REMOVED;
 
 /// Why a sync with a phone removed from the group stops, on both phones.
 pub const REMOVED_REASON: &str = "removed from the group";
+/// Why a sync stops when one phone's version is too old for the other.
+pub const OUTDATED_REASON: &str = "update the app on both devices";
+/// What a phone that doesn't know this one answers.
+const NOT_PAIRED: &str = "this phone is not paired";
+/// A paired phone answered that: it has to be paired again.
+pub const ONE_SIDED_REASON: &str = "not paired on the other device";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Mode {
@@ -82,7 +91,17 @@ pub enum Status {
     },
     Failed {
         reason: String,
+        /// The paired phone to pair again, when it no longer knows this one.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        peer: Option<String>,
     },
+}
+
+fn failed(reason: &str) -> Status {
+    Status::Failed {
+        reason: reason.into(),
+        peer: None,
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -94,6 +113,10 @@ struct Hello {
     /// Only while pairing: the secret the peer's Bluetooth tag is made with.
     #[serde(default)]
     adv: Option<String>,
+    #[serde(default)]
+    protocol: Option<u32>,
+    #[serde(default)]
+    oldest: Option<u32>,
 }
 
 enum Noise {
@@ -133,38 +156,17 @@ fn frame(out: &mut Vec<u8>, message: &[u8]) {
     out.extend_from_slice(message);
 }
 
+/// Whether the phone that sent this hello and this one speak alike enough.
+fn compatible(hello: &Hello) -> bool {
+    hello.protocol.unwrap_or(1) >= OLDEST && hello.oldest.unwrap_or(1) <= PROTOCOL
+}
+
 fn sha256(parts: &[&[u8]]) -> [u8; 32] {
     let mut hash = Sha256::new();
     for part in parts {
         hash.update(part);
     }
     hash.finalize().into()
-}
-
-fn deflate(bytes: &[u8]) -> Vec<u8> {
-    let mut encoder = flate2::write::DeflateEncoder::new(Vec::new(), flate2::Compression::best());
-    let _ = encoder.write_all(bytes);
-    encoder.finish().unwrap_or_default()
-}
-
-fn inflate(bytes: &[u8]) -> Result<Vec<u8>> {
-    let mut out = Vec::new();
-    flate2::read::DeflateDecoder::new(bytes)
-        .take(LIMIT as u64 + 1)
-        .read_to_end(&mut out)
-        .map_err(|e| e.to_string())?;
-    if out.len() > LIMIT {
-        return Err("too much data".into());
-    }
-    Ok(out)
-}
-
-pub fn pack(value: &impl Serialize) -> Result<Vec<u8>> {
-    Ok(deflate(&serde_json::to_vec(value).map_err(|e| e.to_string())?))
-}
-
-pub fn unpack<T: for<'a> Deserialize<'a>>(bytes: &[u8]) -> Result<T> {
-    serde_json::from_slice(&inflate(bytes)?).map_err(|e| e.to_string())
 }
 
 impl Session {
@@ -214,6 +216,11 @@ impl Session {
         matches!(self.status, Status::Done { .. } | Status::Failed { .. })
     }
 
+    /// A pairing with a code this phone started (`outgoing`) or answered.
+    pub fn pairs_with_code(&self, outgoing: bool) -> bool {
+        self.mode == (Mode::Pair { code: true }) && self.initiator == outgoing
+    }
+
     /// The first message; only the side that connected sends one.
     pub fn start(&mut self) -> Vec<u8> {
         let mut out = Vec::new();
@@ -259,12 +266,13 @@ impl Session {
     }
 
     fn answer(&mut self, store: &mut Store, accept: bool, out: &mut Vec<u8>) -> Result<()> {
+        if accept {
+            self.pairing_peer(store)?;
+        }
         self.local_ok = Some(accept);
         self.send(out, CONFIRM, &[accept as u8])?;
         if !accept {
-            self.status = Status::Failed {
-                reason: "declined".into(),
-            };
+            self.status = failed("declined");
             return Ok(());
         }
         self.paired(store, out)
@@ -275,9 +283,7 @@ impl Session {
             return;
         }
         let _ = self.send(out, FAIL, reason.as_bytes());
-        self.status = Status::Failed {
-            reason: reason.into(),
-        };
+        self.status = failed(reason);
     }
 
     fn send(&mut self, out: &mut Vec<u8>, kind: u8, body: &[u8]) -> Result<()> {
@@ -337,7 +343,7 @@ impl Session {
                     self.send(out, REMOVED, stamp.as_bytes())?;
                     return Err(REMOVED_REASON.into());
                 }
-                return Err("this phone is not paired".into());
+                return Err(NOT_PAIRED.into());
             };
             self.peer = Some(peer.id);
         }
@@ -348,6 +354,8 @@ impl Session {
             versions: store.versions()?,
             adv: matches!(self.mode, Mode::Pair { .. })
                 .then(|| STANDARD.encode(store.identity.adv_secret)),
+            protocol: Some(PROTOCOL),
+            oldest: Some(OLDEST),
         };
         self.send(out, HELLO, &serde_json::to_vec(&hello).map_err(|e| e.to_string())?)
     }
@@ -361,6 +369,9 @@ impl Session {
         match kind {
             HELLO if self.hello.is_none() => {
                 let hello: Hello = serde_json::from_slice(body).map_err(|e| e.to_string())?;
+                if !compatible(&hello) {
+                    return Err(OUTDATED_REASON.into());
+                }
                 if let Some(peer) = &self.peer {
                     if peer != &hello.id {
                         return Err("the phone's key does not match its id".into());
@@ -403,9 +414,7 @@ impl Session {
                 let accept = body.first() == Some(&1);
                 self.remote_ok = Some(accept);
                 if !accept {
-                    self.status = Status::Failed {
-                        reason: "declined on the other phone".into(),
-                    };
+                    self.status = failed("declined on the other phone");
                     return Ok(());
                 }
                 self.paired(store, out)?;
@@ -451,10 +460,17 @@ impl Session {
                 self.finish(store)?;
             }
             FAIL => {
-                self.status = Status::Failed {
-                    reason: String::from_utf8_lossy(body).into_owned(),
+                let reason = String::from_utf8_lossy(body).into_owned();
+                // it doesn't know this phone, though this one lists it
+                self.status = match &self.peer {
+                    Some(peer) if self.mode == Mode::Sync && reason == NOT_PAIRED => Status::Failed {
+                        reason: ONE_SIDED_REASON.into(),
+                        peer: Some(peer.clone()),
+                    },
+                    _ => failed(&reason),
                 };
             }
+            kind if kind > LAST_KIND => {}
             _ => return Err("unexpected message".into()),
         }
         Ok(())
@@ -478,35 +494,44 @@ impl Session {
         Ok(())
     }
 
-    fn paired(&mut self, store: &mut Store, out: &mut Vec<u8>) -> Result<()> {
-        if self.local_ok != Some(true) || self.remote_ok != Some(true) {
-            return Ok(());
-        }
-        let hello = self.hello.clone().ok_or("no hello")?;
+    /// The phone this pairing adds, checked before this side says yes: a
+    /// phone that would refuse it never does, so the other doesn't add it
+    /// alone.
+    fn pairing_peer(&self, store: &Store) -> Result<Peer> {
+        let hello = self.hello.as_ref().ok_or("no hello")?;
         let adv = STANDARD
             .decode(hello.adv.as_deref().unwrap_or_default())
             .map_err(|e| e.to_string())?;
         if !is_id(&hello.id) || adv.len() != 16 {
             return Err("the other phone sent a bad id".into());
         }
-        store.add_peer(&Peer {
+        store.check_pair(&hello.id, &self.remote_key)?;
+        Ok(Peer {
             id: hello.id.clone(),
             name: hello.name.clone(),
-            platform: hello.platform,
+            platform: hello.platform.clone(),
             public_key: self.remote_key.clone(),
             adv_secret: adv,
             paired_at: 0,
             last_sync: None,
             pending: 0,
             introduced_by: None,
-        })?;
-        self.peer = Some(hello.id.clone());
+        })
+    }
+
+    fn paired(&mut self, store: &mut Store, out: &mut Vec<u8>) -> Result<()> {
+        if self.local_ok != Some(true) || self.remote_ok != Some(true) {
+            return Ok(());
+        }
+        let peer = self.pairing_peer(store)?;
+        store.add_peer(&peer)?;
+        self.peer = Some(peer.id.clone());
         // a tap only introduces the phones; the data follows over Bluetooth,
         // so nobody has to hold two phones together through a whole transfer
         if self.mode == (Mode::Pair { code: false }) {
             self.status = Status::Done {
-                peer: hello.id,
-                name: hello.name,
+                peer: peer.id,
+                name: peer.name,
                 sent: 0,
                 received: 0,
                 items: BTreeMap::new(),
@@ -617,7 +642,7 @@ pub fn recognise(store: &Store, beacon: &[u8], now: i64) -> Result<Option<Sighti
     }
     let epoch = now / 900;
     let ours = version_hash(&store.versions()?);
-    for peer in store.peers()? {
+    for peer in store.paired()? {
         let known = (epoch - 1..=epoch + 1).any(|e| tag(&peer.adv_secret, e) == beacon[..8]);
         if known {
             return Ok(Some(Sighting {
@@ -633,6 +658,7 @@ pub fn recognise(store: &Store, beacon: &[u8], now: i64) -> Result<Option<Sighti
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::io::Write;
 
     fn store(name: &str) -> Store {
         let mut s = Store::in_memory().unwrap();
@@ -1018,7 +1044,7 @@ mod tests {
 
         // Xena learns it the next time she meets one of them, and stops
         let status = sync(&mut sx, &mut sc);
-        assert_eq!(status, Status::Failed { reason: REMOVED_REASON.into() });
+        assert_eq!(status, failed(REMOVED_REASON));
         assert!(sx.is_removed().unwrap());
         assert!(sx.peers().unwrap().is_empty());
         // she keeps her data, but is no longer part of any sync
@@ -1066,5 +1092,76 @@ mod tests {
         sync(&mut sc, &mut sa);
         assert!(knows(&sc, &sx));
         assert!(matches!(sync(&mut sx, &mut sc), Status::Done { .. }));
+    }
+
+    #[test]
+    fn a_message_of_a_newer_kind_is_skipped() {
+        let mut sa = store("Anna");
+        let mut sb = store("Ben");
+        let (mut a, mut b) = codes_shown(&mut sa, &mut sb);
+        let mut out = Vec::new();
+        b.send(&mut out, LAST_KIND + 1, b"news").unwrap();
+        a.feed(&mut sa, &out);
+        assert!(matches!(a.status(), Status::Confirm { .. }), "{:?}", a.status());
+    }
+
+    #[test]
+    fn a_hello_tells_whether_the_versions_can_talk() {
+        let hello = |extra: &str| {
+            let text = format!(r#"{{"id":"00000000000000aa","name":"Ben","platform":"ios","versions":{{}}{extra}}}"#);
+            serde_json::from_str::<Hello>(&text).unwrap()
+        };
+        // what an older version sends
+        assert!(compatible(&hello("")));
+        assert!(compatible(&hello(r#","protocol":9,"oldest":2"#)));
+        assert!(!compatible(&hello(r#","protocol":9,"oldest":3"#)));
+    }
+
+    fn peer_of(s: &Store) -> Peer {
+        Peer {
+            id: s.identity.id.clone(),
+            name: s.identity.name.clone(),
+            platform: "ios".into(),
+            public_key: s.identity.public_key.to_vec(),
+            adv_secret: s.identity.adv_secret.to_vec(),
+            paired_at: 0,
+            last_sync: None,
+            pending: 0,
+            introduced_by: None,
+        }
+    }
+
+    #[test]
+    fn a_pairing_one_phone_refuses_is_added_on_neither() {
+        let mut sa = store("Anna");
+        let mut sb = store("Ben");
+        let sc = store("Carl");
+        // Ben has Anna's id paired, with another key
+        let fake = Peer { id: sa.identity.id.clone(), ..peer_of(&sc) };
+        sb.add_peer(&fake).unwrap();
+        let (mut a, mut b) = codes_shown(&mut sa, &mut sb);
+        let mut to_b = a.confirm(&mut sa, true);
+        let mut to_a = b.confirm(&mut sb, true);
+        for _ in 0..10 {
+            let next_a = b.feed(&mut sb, &std::mem::take(&mut to_b));
+            let next_b = a.feed(&mut sa, &std::mem::take(&mut to_a));
+            to_a.extend(next_a);
+            to_b.extend(next_b);
+        }
+        assert!(sa.peers().unwrap().is_empty());
+        assert_eq!(a.status(), &failed(crate::store::PAIR_CLASH));
+        assert_eq!(sb.peer(&sa.identity.id).unwrap().unwrap().public_key, sc.identity.public_key);
+    }
+
+    #[test]
+    fn a_paired_phone_that_no_longer_knows_this_one_asks_for_a_new_pairing() {
+        let mut sa = store("Anna");
+        let mut sb = store("Ben");
+        sa.add_peer(&peer_of(&sb)).unwrap();
+        let status = sync(&mut sa, &mut sb);
+        assert_eq!(
+            status,
+            Status::Failed { reason: ONE_SIDED_REASON.into(), peer: Some(sb.identity.id.clone()) }
+        );
     }
 }

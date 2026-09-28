@@ -9,7 +9,7 @@ import {
   describeSync,
   isRemovedReason,
   notify,
-  removalText,
+  reasonText,
   SyncResult,
 } from './text';
 
@@ -71,20 +71,20 @@ const useSyncFeedback = () => {
     };
   }, []);
 
-  // a sync stopped because this device or the other was removed from the group
+  // a sync stopped for a reason someone can act on: a removal from the
+  // group, an app too old, a pairing only one device still has
   useEffect(() => {
     // a failure stays in the status until the exchange goes
     let shown = new Set<string>();
     const stop = listen<NearbyStatus>('nearby', (status) => {
       const failed = (status.exchanges ?? []).filter(
-        (exchange) =>
-          exchange.state === 'failed' && removalText(exchange.reason)
+        (exchange) => exchange.state === 'failed' && reasonText(exchange.reason)
       );
       const keys = failed.map((item) => `${item.address}:${item.reason}`);
       failed.forEach((exchange, index) => {
         if (shown.has(keys[index])) return;
         play('error');
-        notify(t('sync.notSynced'), removalText(exchange.reason)!, 'error');
+        notify(t('sync.notSynced'), reasonText(exchange.reason)!, 'error');
         // the core says so only through identity, with no store change
         if (isRemovedReason(exchange.reason)) loadIdentity().catch(() => {});
       });

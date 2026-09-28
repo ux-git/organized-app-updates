@@ -6,7 +6,7 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD as B64, Engine};
 use serde::{Deserialize, Serialize};
 
-use crate::session::{pack, unpack};
+use crate::pack::{pack, unpack};
 use crate::store::{now_secs, Cell, Result, Store, Versions};
 
 pub const BACKUP: &str = "OTA1:";
@@ -41,10 +41,25 @@ pub fn export(store: &Store) -> Result<String> {
     Ok(format!("{BACKUP}{}", B64.encode(pack(&contents)?)))
 }
 
+/// Who made a backup and when, read without restoring it.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Info {
+    pub device: String,
+    pub name: String,
+    pub at: i64,
+}
+
+pub fn info(text: &str) -> Result<Info> {
+    let body = text.trim().strip_prefix(BACKUP).ok_or("not a backup")?;
+    unpack(&B64.decode(body).map_err(|e| e.to_string())?)
+}
+
 pub fn restore(store: &mut Store, text: &str) -> Result<Restored> {
     let body = text.trim().strip_prefix(BACKUP).ok_or("not a backup")?;
     let contents: Contents = unpack(&B64.decode(body).map_err(|e| e.to_string())?)?;
-    let applied = store.apply(&contents.cells, &contents.versions)?;
+    // anyone can write a file: it may not claim more than it brings
+    let adopt = store.capped(&contents.versions, &contents.cells)?;
+    let applied = store.merge(&contents.cells, &contents.versions, &adopt)?;
     Ok(Restored {
         name: contents.name,
         device: contents.device,
@@ -54,12 +69,17 @@ pub fn restore(store: &mut Store, text: &str) -> Result<Restored> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn backup_export() -> Result<String> {
     export(&*crate::store()?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
+pub fn backup_info(text: String) -> Result<Info> {
+    info(&text)
+}
+
+#[tauri::command(async)]
 pub fn backup_restore(text: String) -> Result<Restored> {
     let restored = restore(&mut *crate::store()?, &text)?;
     crate::changed();
@@ -198,6 +218,32 @@ mod tests {
         assert_eq!(b.list("territories").unwrap().len(), 2);
         // b now holds all of a's changes, so a sync has nothing of a's left to send
         assert!(a.changes_since(&b.versions().unwrap()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_backup_tells_who_made_it_without_restoring() {
+        let a = filled();
+        let info = info(&export(&a).unwrap()).unwrap();
+        assert_eq!((info.device, info.name), (a.identity.id.clone(), "Anna".to_string()));
+        assert!(info.at > 0);
+        assert!(super::info("OTB1:abc").is_err());
+    }
+
+    #[test]
+    fn a_backup_brings_only_cells_from_the_devices_that_made_them() {
+        let a = filled();
+        let mut contents: Contents = unpack(
+            &B64.decode(export(&a).unwrap().strip_prefix(BACKUP).unwrap()).unwrap(),
+        )
+        .unwrap();
+        // a cell passed off as another device's, and a claim of far more changes
+        contents.cells[0].o = "00000000000000bb".into();
+        contents.versions.insert("00000000000000bb".into(), 1 << 40);
+        let text = format!("{BACKUP}{}", B64.encode(pack(&contents).unwrap()));
+        let mut b = Store::in_memory().unwrap();
+        let restored = restore(&mut b, &text).unwrap();
+        assert_eq!(restored.received, contents.cells.len() - 1);
+        assert_eq!(b.versions().unwrap().get("00000000000000bb"), None);
     }
 
     #[test]

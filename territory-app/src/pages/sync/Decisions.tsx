@@ -59,6 +59,9 @@ const BORDER = [
 const isBorder = (conflict: Conflict) =>
   conflict.table === 'territories' && BORDER.includes(conflict.field);
 
+/** Deleted on one device and changed on another: the change brought it back. */
+const isDeletion = (conflict: Conflict) => conflict.field === '_deleted';
+
 /** The border as this phone had it, or as the other phone had it. */
 const drawingOf = (group: Conflict[], mine: boolean): Drawing => {
   const drawing = { ...group[0].record };
@@ -263,6 +266,8 @@ const Decisions = () => {
         doubles.some((territory) => territory.id === conflict.id)
       ) && !isBorder(conflict)
   );
+  const deletions = shown.filter(isDeletion);
+  const fields = shown.filter((conflict) => !isDeletion(conflict));
 
   const borders = [
     ...conflicts
@@ -348,7 +353,37 @@ const Decisions = () => {
             </Card>
           );
         })}
-        {shown.map((conflict) => {
+        {deletions.map((conflict) => (
+          <Card
+            key={`${conflict.table}/${conflict.id}/${conflict.field}`}
+            title={t('decisions.deleted', { what: label(conflict) })}
+            by={conflict.mine ? undefined : device(conflict.by)}
+            text={
+              conflict.mine
+                ? t('decisions.deletedHere')
+                : t('decisions.deletedThere', {
+                    other: conflict.by
+                      ? t('decisions.theirPhone', { name: conflict.by })
+                      : t('decisions.otherPhone'),
+                  })
+            }
+          >
+            <Actions
+              actions={[
+                {
+                  label: t('decisions.keepIt'),
+                  kind: 'main',
+                  onClick: () => resolve(conflict, false),
+                },
+                {
+                  label: t('decisions.deleteIt'),
+                  onClick: () => resolve(conflict, true),
+                },
+              ]}
+            />
+          </Card>
+        ))}
+        {fields.map((conflict) => {
           const other = conflict.mine
             ? t('decisions.thisPhone')
             : conflict.by

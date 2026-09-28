@@ -1,8 +1,14 @@
 mod backup;
 mod hlc;
+mod pack;
 mod qr;
-mod session;
 mod store;
+
+// only the phones sync over the air
+#[cfg(any(target_os = "android", target_os = "ios", test))]
+mod session;
+// the iPhone reads a tap in Swift, with a plain session
+#[cfg(any(target_os = "android", test))]
 mod tap;
 
 #[cfg(any(target_os = "android", target_os = "ios", test))]
@@ -71,7 +77,9 @@ struct Write {
     deleted: bool,
 }
 
-#[tauri::command]
+// the heavier commands run off the main thread; writes stay on it, in order
+
+#[tauri::command(async)]
 fn store_list(table: String) -> Result<Vec<Value>> {
     store()?.list(&table)
 }
@@ -82,6 +90,10 @@ fn store_write(writes: Vec<Write>) -> Result<usize> {
     store()?.batch(|store| {
         let mut written = 0;
         for write in writes {
+            // what no other phone would take in
+            if !store::TABLES.contains(&write.table.as_str()) {
+                return Err(format!("no table {}", write.table));
+            }
             if write.deleted {
                 store.remove(&write.table, &write.id)?;
                 written += 1;
@@ -93,7 +105,7 @@ fn store_write(writes: Vec<Write>) -> Result<usize> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn identity() -> Result<Value> {
     let store = store()?;
     Ok(serde_json::json!({
@@ -110,7 +122,7 @@ fn set_name(name: String) -> Result<()> {
     store()?.set_name(name.trim())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn peers() -> Result<Vec<Peer>> {
     store()?.peers()
 }
@@ -120,12 +132,12 @@ fn remove_peer(id: String) -> Result<()> {
     store()?.remove_peer(&id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn sync_log() -> Result<Vec<Value>> {
     store()?.log()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn conflicts() -> Result<Vec<Value>> {
     store()?.conflicts()
 }
@@ -137,22 +149,33 @@ fn resolve_conflict(table: String, id: String, field: String, use_other: bool) -
     Ok(())
 }
 
+/// This phone's pairing code, and the fingerprint the other phone shows of it.
 #[tauri::command]
-fn pairing_card() -> Result<String> {
-    qr::card(&*store()?, PLATFORM)
+fn pairing_card() -> Result<Value> {
+    let store = store()?;
+    Ok(serde_json::json!({
+        "text": qr::card(&store, PLATFORM)?,
+        "fingerprint": qr::fingerprint(&store.identity.public_key),
+    }))
 }
 
 #[tauri::command]
-fn add_pairing_card(text: String) -> Result<Peer> {
-    qr::add_card(&mut *store()?, &text)
+fn read_pairing_card(text: String) -> Result<qr::CardInfo> {
+    qr::read_card(&*store()?, &text)
 }
 
+/// `again` pairs a device that was removed from the group.
 #[tauri::command]
+fn add_pairing_card(text: String, again: Option<bool>) -> Result<Peer> {
+    qr::add_card(&mut *store()?, &text, again.unwrap_or(false))
+}
+
+#[tauri::command(async)]
 fn export_bundle(peer: String) -> Result<String> {
     qr::export(&*store()?, &peer)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn import_bundle(text: String) -> Result<qr::Imported> {
     let imported = qr::import(&mut *store()?, &text)?;
     changed();
@@ -174,17 +197,36 @@ pub fn opened_file(take: bool) -> Option<String> {
     }
 }
 
+/// What the sync page gets instead of a file too large to open.
+#[cfg(any(target_os = "ios", target_os = "macos", test))]
+pub const TOO_LARGE: &str = "OTX1:too-large";
+
+/// Reads at most `limit` bytes of a file; `TOO_LARGE` for a larger one.
+#[cfg(any(target_os = "ios", target_os = "macos", test))]
+fn read_capped(path: &Path, limit: u64) -> std::io::Result<String> {
+    use std::io::Read;
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)?
+        .take(limit + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > limit {
+        return Ok(TOO_LARGE.into());
+    }
+    String::from_utf8(bytes).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+}
+
 /// Reads a transfer into the waiting slot. iOS hands over a copy in
 /// Documents/Inbox, which iCloud would back up, so that copy goes.
 #[cfg(any(target_os = "ios", target_os = "macos"))]
 fn read_opened(path: &Path) -> bool {
-    let text = std::fs::read_to_string(path);
+    // unpacked, a larger file could take more memory than iOS allows the app
+    let text = read_capped(path, 32 << 20);
     if path.parent().is_some_and(|dir| dir.ends_with("Documents/Inbox")) {
         let _ = std::fs::remove_file(path);
     }
     let Ok(text) = text else { return false };
     let text = text.trim().to_string();
-    if !["OTB1:", "OTC1:", backup::BACKUP].iter().any(|p| text.starts_with(p)) {
+    if ![TOO_LARGE, "OTB1:", "OTC1:", backup::BACKUP].iter().any(|p| text.starts_with(p)) {
         return false;
     }
     if let Ok(mut file) = OPENED_FILE.lock() {
@@ -272,10 +314,12 @@ pub fn run() {
             conflicts,
             resolve_conflict,
             pairing_card,
+            read_pairing_card,
             add_pairing_card,
             export_bundle,
             import_bundle,
             backup::backup_export,
+            backup::backup_info,
             backup::backup_restore,
         ])
         .build(tauri::generate_context!())
@@ -287,4 +331,18 @@ pub fn run() {
                 open_files(_app, urls);
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_file_too_large_to_open_says_so() {
+        let path = std::env::temp_dir().join(format!("territories-large-{}", std::process::id()));
+        std::fs::write(&path, "OTB1:0123456789").unwrap();
+        assert_eq!(read_capped(&path, 8).unwrap(), TOO_LARGE);
+        assert_eq!(read_capped(&path, 100).unwrap(), "OTB1:0123456789");
+        std::fs::remove_file(path).unwrap();
+    }
 }

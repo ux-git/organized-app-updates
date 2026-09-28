@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Box } from '@mui/material';
 import { useAtomValue } from 'jotai';
@@ -26,7 +26,7 @@ import {
 import { confirm } from './confirm';
 import Decisions from './sync/Decisions';
 import History from './sync/History';
-import { ago, notify, time } from './sync/text';
+import { ago, CARD_PREFIX, notify, ONE_SIDED_REASON, time } from './sync/text';
 import { IconBluetooth, IconQr, IconTap } from './sync/icons';
 import {
   Actions,
@@ -42,6 +42,12 @@ const Sync = () => {
   const { peers, status, name, removed, refreshPeers, android } = useNearby();
   const [pairing, setPairing] = useState<PairMethod | null>(null);
   const [qrPairOpen, setQrPairOpen] = useState(false);
+  // a pairing code scanned while the QR pairing dialog is open, to confirm there
+  const [card, setCard] = useState<string | null>(null);
+  const pairOpen = useRef(false);
+  pairOpen.current = qrPairOpen;
+  // a paired device that no longer knows this one
+  const [repair, setRepair] = useState<string | null>(null);
   const [sendTo, setSendTo] = useState<Peer | null>(null);
   const links = useAtomValue(linksState);
   const people = useAtomValue(peopleState);
@@ -60,9 +66,10 @@ const Sync = () => {
 
   useEffect(() => {
     const stops = [
-      listen<{ text: string }>('qr', ({ text }) =>
-        receive(text).then(refreshPeers)
-      ),
+      listen<{ text: string }>('qr', ({ text }) => {
+        if (text.startsWith(CARD_PREFIX) && pairOpen.current) setCard(text);
+        else receive(text).then(refreshPeers);
+      }),
       listen<{ text: string }>('file', ({ text }) =>
         receive(text).then(refreshPeers)
       ),
@@ -71,6 +78,19 @@ const Sync = () => {
     Promise.all(stops).then(() => nearby('takeFile'));
     return () => stops.forEach((stop) => stop.then((unlisten) => unlisten()));
   }, [refreshPeers]);
+
+  const oneSided = status.exchanges?.find(
+    (exchange) =>
+      exchange.state === 'failed' && exchange.reason === ONE_SIDED_REASON
+  )?.peer;
+  useEffect(() => {
+    if (oneSided) setRepair(oneSided);
+  }, [oneSided]);
+  const synced = status.lastDone?.peer;
+  useEffect(() => {
+    if (synced) setRepair((current) => (current === synced ? null : current));
+  }, [synced]);
+  const repairPeer = peers.find((peer) => peer.id === repair);
 
   // links from notifications, the launcher shortcuts and the settings card
   useEffect(() => {
@@ -165,6 +185,29 @@ const Sync = () => {
           icon={<IconInfo />}
           text={t('sync.removedBanner')}
         />
+      )}
+      {repairPeer && (
+        <CardSection>
+          <CardSectionHeader
+            title={t('sync.repairTitle')}
+            description={t('sync.repairText', {
+              name: repairPeer.name || t('common.theOtherPhone'),
+            })}
+          />
+          <Actions
+            actions={[
+              { label: t('sync.later'), onClick: () => setRepair(null) },
+              {
+                label: t('sync.pairAgain'),
+                kind: 'main',
+                onClick: () => {
+                  setRepair(null);
+                  setPairing('nearby');
+                },
+              },
+            ]}
+          />
+        </CardSection>
       )}
       <CardSection>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -318,8 +361,16 @@ const Sync = () => {
       />
       <QrPairDialog
         open={qrPairOpen}
-        onClose={() => setQrPairOpen(false)}
+        onClose={() => {
+          setQrPairOpen(false);
+          setCard(null);
+        }}
         android={android}
+        card={card}
+        onCardDone={() => {
+          setCard(null);
+          refreshPeers();
+        }}
       />
       <QrSendDialog peer={sendTo} onClose={() => setSendTo(null)} />
     </>

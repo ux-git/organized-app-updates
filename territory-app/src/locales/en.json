@@ -195,7 +195,13 @@
     "scan": "Scan QR codes",
     "otherWays": "Or pair another way:",
     "sendQr": "Send changes to {{name}} as QR codes",
-    "publisher": "Publisher: {{name}}"
+    "publisher": "Publisher: {{name}}",
+    "outdated": "Update the app on both devices, then try again.",
+    "oneSided": "A paired device no longer knows this one. Pair the two devices again.",
+    "repairTitle": "Pair again to sync",
+    "repairText": "{{name}}’s device no longer knows this one, so they can’t sync. Pair them again, with both devices close together.",
+    "later": "Later",
+    "pairAgain": "Pair again"
   },
   "receive": {
     "paired": "Device paired",
@@ -204,7 +210,11 @@
     "got": "You got {{items}}.",
     "nothing": "Nothing new. You already had all of it.",
     "unknown": "Unknown code",
-    "unknownText": "This code isn’t from the $t(common.appName) app."
+    "unknownText": "This code isn’t from the $t(common.appName) app.",
+    "cardOutside": "Not paired yet",
+    "cardOutsideText": "Open Pair a device › QR code, then scan the other device’s code there.",
+    "tooLarge": "File too large",
+    "tooLargeText": "Files over 32 MB can’t be opened here."
   },
   "meet": {
     "pairedWith": "Paired with {{name}}",
@@ -234,7 +244,15 @@
     "pairText": "Scan each other’s code. Do this only with the brother next to you.",
     "scanCode": "Scan code",
     "sendTitle": "Send to {{name}}",
-    "sendText": "On {{name}}, open Sync and pairing, tap Scan QR codes and hold the camera here until it’s done."
+    "sendText": "On {{name}}, open Sync and pairing, tap Scan QR codes and hold the camera here until it’s done.",
+    "yourCode": "Your code: {{fingerprint}}",
+    "reading": "Reading the code…",
+    "confirm": "Pair with {{name}}?",
+    "confirmText": "Check that {{name}}’s device shows “Your code: {{fingerprint}}” under its QR code.",
+    "removedWarning": "{{name}}’s device was removed from the group. Pair it again only if it should sync with your devices again.",
+    "clash": "This code doesn’t match the device already paired under that name. Nothing was paired.",
+    "old": "This code is out of date. Scan the one the other device shows now.",
+    "self": "That’s this device’s own code."
   },
   "history": {
     "removed": "{{names}} removed from the group",
@@ -307,7 +325,12 @@
     "borderKeptMine": "Territory #{{number}} keeps your border, on every device.",
     "borderKeptOther": "Territory #{{number}} now has {{name}}’s border, on every device.",
     "borderKeptOtherOne": "Territory #{{number}} now has the other device’s border, on every device.",
-    "use": "Use “{{value}}”"
+    "use": "Use “{{value}}”",
+    "deleted": "{{what}} was deleted and changed at the same time",
+    "deletedHere": "You deleted it on this device while it was changed on another. It is back for now.",
+    "deletedThere": "It was deleted on {{other}} while it was changed elsewhere. It is back for now.",
+    "keepIt": "Keep it",
+    "deleteIt": "Delete it"
   },
   "automatic": {
     "always": "Always",

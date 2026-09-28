@@ -233,7 +233,7 @@ mod tests {
         for i in 0..40 {
             let mut other = store(&format!("P{i}"));
             other
-                .put("t", &format!("x{i}"), json!({"n": i}).as_object().unwrap())
+                .put("people", &format!("x{i}"), json!({"n": i}).as_object().unwrap())
                 .unwrap();
             let cells = other.changes_since(&Default::default()).unwrap();
             a.apply(&cells, &other.versions().unwrap()).unwrap();

@@ -10,6 +10,10 @@ pub struct Clock {
 
 /// The most a counter can hold in its six hex digits.
 const MAX_COUNTER: u32 = 0xff_ffff;
+/// The latest time thirteen hex digits hold.
+const MAX_MS: u64 = (1 << 52) - 1;
+/// How far ahead of this phone's clock a stamp from elsewhere may be.
+const AHEAD_MS: u64 = 24 * 60 * 60 * 1000;
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -37,9 +41,25 @@ pub fn valid(stamp: &str) -> bool {
     decode(stamp).is_some()
 }
 
+/// A stamp at most a day ahead of this phone's clock. One further ahead
+/// would win every clash until then, and drag this phone's clock along.
+fn near(stamp: &str) -> Option<(u64, u32)> {
+    decode(stamp).filter(|(ms, _)| *ms <= now_ms().saturating_add(AHEAD_MS))
+}
+
+pub fn plausible(stamp: &str) -> bool {
+    near(stamp).is_some()
+}
+
+/// The phone a stamp was made on.
+pub fn device(stamp: &str) -> Option<&str> {
+    decode(stamp)?;
+    stamp.splitn(3, '-').nth(2)
+}
+
 impl Clock {
     pub fn new(last: Option<&str>) -> Self {
-        let (ms, counter) = last.and_then(decode).unwrap_or((0, 0));
+        let (ms, counter) = last.and_then(near).unwrap_or((0, 0));
         Clock { ms, counter }
     }
 
@@ -50,7 +70,7 @@ impl Clock {
             self.counter = 0;
         } else if self.counter < MAX_COUNTER {
             self.counter += 1;
-        } else {
+        } else if self.ms < MAX_MS {
             self.ms += 1;
             self.counter = 0;
         }
@@ -60,7 +80,7 @@ impl Clock {
     /// Moves the clock past a stamp from another phone, so a later local edit
     /// wins over it even when this phone's wall clock runs behind.
     pub fn observe(&mut self, stamp: &str) {
-        if let Some(seen) = decode(stamp) {
+        if let Some(seen) = near(stamp) {
             if seen > (self.ms, self.counter) {
                 (self.ms, self.counter) = seen;
             }
@@ -95,6 +115,31 @@ mod tests {
         let mut clock = Clock::new(Some(&last));
         let next = clock.tick("aa");
         assert!(next > last && valid(&next), "{next} after {last}");
+    }
+
+    #[test]
+    fn a_stamp_far_ahead_neither_counts_nor_moves_the_clock() {
+        let soon = encode(now_ms() + AHEAD_MS / 2, 0, "bb");
+        let far = encode(now_ms() + 2 * AHEAD_MS, 0, "bb");
+        assert!(plausible(&soon) && !plausible(&far));
+        let mut clock = Clock::new(Some(&far));
+        clock.observe(&far);
+        assert!(clock.tick("aa") < soon);
+    }
+
+    #[test]
+    fn the_last_stamp_there_is_stays_valid() {
+        let mut clock = Clock::new(None);
+        (clock.ms, clock.counter) = (MAX_MS, MAX_COUNTER);
+        let last = clock.tick("aa");
+        assert!(valid(&last));
+        assert_eq!(clock.tick("aa"), last);
+    }
+
+    #[test]
+    fn a_stamp_names_its_device() {
+        assert_eq!(device(&encode(1, 2, "00000000000000aa")), Some("00000000000000aa"));
+        assert_eq!(device("zz-00000000000000aa"), None);
     }
 
     #[test]

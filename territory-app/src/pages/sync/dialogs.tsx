@@ -13,23 +13,32 @@ import { NearbyStatus, Peer, SessionStatus } from '../useNearby';
 import { IconBluetooth, IconTap } from './icons';
 import { PhoneRow, Pulse } from './parts';
 import { t } from '../../i18n';
-import { describeItems, notify } from './text';
+import {
+  CARD_PREFIX,
+  describeItems,
+  notify,
+  PAIR_CLASH,
+  reasonText,
+} from './text';
 import { BACKUP_PREFIX, restoreBackup } from '../useBackup';
 
 // ---- what a scanned QR code or an opened file contains ----
 
+/** What the core hands over instead of a file too large to open. */
+const TOO_LARGE = 'OTX1:too-large';
+
+/**
+ * A transfer or a backup. A pairing code only counts when it is scanned in
+ * the QR pairing dialog, which takes it before it gets here.
+ */
 export const receive = async (text: string) => {
   try {
-    if (text.startsWith('OTC1:')) {
-      const peer = await invoke<Peer>('add_pairing_card', { text });
-      nearby('paired');
-      play('paired');
-      notify(
-        t('receive.paired'),
-        t('receive.pairedText', {
-          name: peer.name || t('common.theOtherPhone'),
-        })
-      );
+    if (text.startsWith(CARD_PREFIX)) {
+      play('error');
+      notify(t('receive.cardOutside'), t('receive.cardOutsideText'), 'error');
+    } else if (text === TOO_LARGE) {
+      play('error');
+      notify(t('receive.tooLarge'), t('receive.tooLargeText'), 'error');
     } else if (text.startsWith('OTB1:')) {
       const imported = await invoke<{
         name: string;
@@ -273,7 +282,9 @@ export const MeetDialog = ({
         <Box sx={centered}>
           <Pulse icon={<IconBluetooth />} active={false} />
           <Typography className="body-regular" color="var(--red-main)">
-            {t('meet.failed')}
+            {pairing.reason === PAIR_CLASH
+              ? t('qr.clash')
+              : (reasonText(pairing.reason) ?? t('meet.failed'))}
           </Typography>
         </Box>
       );
@@ -352,7 +363,9 @@ export const MeetDialog = ({
       return (
         <Button
           variant="main"
-          onClick={() => nearby('confirm', { accept: true })}
+          onClick={() =>
+            nearby('confirm', { accept: true, address: pairing.address })
+          }
         >
           {t('meet.matches')}
         </Button>
@@ -385,7 +398,9 @@ export const MeetDialog = ({
         {pairing?.state === 'confirm' && !needsName ? (
           <Button
             variant="secondary"
-            onClick={() => nearby('confirm', { accept: false })}
+            onClick={() =>
+              nearby('confirm', { accept: false, address: pairing.address })
+            }
           >
             {t('meet.no')}
           </Button>
@@ -504,20 +519,47 @@ const AnimatedQr = ({ text }: { text: string }) => {
   );
 };
 
+type CardInfo = {
+  id: string;
+  name: string;
+  fingerprint: string;
+  /** Removed from the group and not paired since. */
+  removed: boolean;
+};
+
+// the core's reasons for refusing a scanned pairing code
+const CARD_ERRORS: Record<string, string> = {
+  [PAIR_CLASH]: 'qr.clash',
+  'the pairing code is out of date': 'qr.old',
+  'that is this phone': 'qr.self',
+};
+
+/**
+ * Shows this device's pairing code, and asks before pairing with a code
+ * scanned while it is open (`card`).
+ */
 export const QrPairDialog = ({
   open,
   onClose,
   android,
+  card,
+  onCardDone,
 }: {
   open: boolean;
   onClose: VoidFunction;
   android: boolean;
+  card: string | null;
+  onCardDone: VoidFunction;
 }) => {
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState({ text: '', fingerprint: '' });
+  const [info, setInfo] = useState<CardInfo | null>(null);
+  const [error, setError] = useState('');
+  const [adding, setAdding] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     let current = true;
-    invoke<string>('pairing_card')
+    invoke<{ text: string; fingerprint: string }>('pairing_card')
       .then((next) => current && setCode(next))
       .catch((error) =>
         notify(t('common.somethingWrong'), String(error), 'error')
@@ -526,15 +568,115 @@ export const QrPairDialog = ({
       current = false;
     };
   }, [open]);
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title={t('qr.pairTitle')}
-      description={t('qr.pairText')}
-    >
-      <QrImage text={code} />
-      <DialogActions>
+
+  useEffect(() => {
+    setInfo(null);
+    setError('');
+    if (!card) return;
+    let current = true;
+    invoke<CardInfo>('read_pairing_card', { text: card })
+      .then((next) => current && setInfo(next))
+      .catch((reason) => {
+        if (!current) return;
+        play('error');
+        const key = CARD_ERRORS[String(reason)];
+        setError(key ? t(key) : t('receive.unknownText'));
+      });
+    return () => {
+      current = false;
+    };
+  }, [card]);
+
+  const pair = async () => {
+    if (!card || !info || adding) return;
+    setAdding(true);
+    try {
+      await invoke<Peer>('add_pairing_card', {
+        text: card,
+        again: info.removed,
+      });
+      nearby('paired');
+      play('paired');
+      notify(
+        t('receive.paired'),
+        t('receive.pairedText', {
+          name: info.name || t('common.theOtherPhone'),
+        })
+      );
+      onCardDone();
+    } catch (reason) {
+      play('error');
+      const key = CARD_ERRORS[String(reason)];
+      setError(key ? t(key) : String(reason));
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const name = info?.name || t('common.theOtherPhone');
+
+  const body = () => {
+    if (!card) {
+      return (
+        <Box sx={centered}>
+          <QrImage text={code.text} />
+          {code.fingerprint && (
+            <Typography className="body-regular" color="var(--grey-400)">
+              {t('qr.yourCode', { fingerprint: code.fingerprint })}
+            </Typography>
+          )}
+        </Box>
+      );
+    }
+    if (error) {
+      return (
+        <Typography className="body-regular" color="var(--red-main)">
+          {error}
+        </Typography>
+      );
+    }
+    if (!info) {
+      return (
+        <Typography className="body-regular">{t('qr.reading')}</Typography>
+      );
+    }
+    return (
+      <Box sx={column}>
+        <Typography className="h3">{t('qr.confirm', { name })}</Typography>
+        <Typography className="body-regular">
+          {t('qr.confirmText', { name, fingerprint: info.fingerprint })}
+        </Typography>
+        {info.removed && (
+          <Typography className="body-regular" color="var(--red-main)">
+            {t('qr.removedWarning', { name })}
+          </Typography>
+        )}
+      </Box>
+    );
+  };
+
+  const actions = () => {
+    if (card && info && !error) {
+      return (
+        <>
+          <Button variant="secondary" onClick={onCardDone}>
+            {t('common.cancel')}
+          </Button>
+          <Button variant="main" disabled={adding} onClick={pair}>
+            {info.removed ? t('qr.pairAgain') : t('common.pair')}
+          </Button>
+        </>
+      );
+    }
+    if (card) {
+      return (
+        <Button variant="main" onClick={onCardDone}>
+          {t('common.back')}
+        </Button>
+      );
+    }
+    return (
+      <>
         <Button variant={android ? 'secondary' : 'main'} onClick={onClose}>
           {t('common.done')}
         </Button>
@@ -543,7 +685,19 @@ export const QrPairDialog = ({
             {t('qr.scanCode')}
           </Button>
         )}
-      </DialogActions>
+      </>
+    );
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t('qr.pairTitle')}
+      description={card ? undefined : t('qr.pairText')}
+    >
+      {body()}
+      <DialogActions>{actions()}</DialogActions>
     </Dialog>
   );
 };

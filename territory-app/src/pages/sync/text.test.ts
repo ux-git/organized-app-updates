@@ -9,7 +9,7 @@ import {
   describeSync,
   isRemovedReason,
   notify,
-  removalText,
+  reasonText,
   when,
 } from './text';
 
@@ -179,25 +179,38 @@ describe('removals', () => {
   });
 
   test('the core’s two reasons, translated', async () => {
-    expect(removalText('removed from the group')).toBe(
+    expect(reasonText('removed from the group')).toBe(
       'This device was removed from the group. Pair with someone again to rejoin.'
     );
-    expect(removalText('the other phone was removed from the group')).toBe(
+    expect(reasonText('the other phone was removed from the group')).toBe(
       'The other device was removed from the group.'
     );
-    expect(removalText('connection lost')).toBeUndefined();
-    expect(removalText(undefined)).toBeUndefined();
+    expect(reasonText('connection lost')).toBeUndefined();
+    expect(reasonText(undefined)).toBeUndefined();
     expect(isRemovedReason('removed from the group')).toBe(true);
     expect(isRemovedReason('the other phone was removed from the group')).toBe(
       false
     );
 
     await i18n.changeLanguage('deu');
-    expect(removalText('the other phone was removed from the group')).toBe(
+    expect(reasonText('the other phone was removed from the group')).toBe(
       'Das andere Gerät wurde aus der Gruppe entfernt.'
     );
     expect(describeSync({ removed: ['Anna'] })).toContain(
       'Anna wurde aus der Gruppe entfernt.'
+    );
+  });
+
+  test('an old app and a one-sided pairing are named too', async () => {
+    expect(reasonText('update the app on both devices')).toBe(
+      'Update the app on both devices, then try again.'
+    );
+    expect(reasonText('not paired on the other device')).toBe(
+      'A paired device no longer knows this one. Pair the two devices again.'
+    );
+    await i18n.changeLanguage('deu');
+    expect(reasonText('update the app on both devices')).toBe(
+      'Aktualisiere die App auf beiden Geräten und versuche es dann noch einmal.'
     );
   });
 });

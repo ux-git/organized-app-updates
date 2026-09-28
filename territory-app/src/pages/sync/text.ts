@@ -61,18 +61,29 @@ export type SyncResult = {
   removed?: string[];
 };
 
-// the core's reasons for a sync that stopped over a removal
-const REMOVAL_REASONS: Record<string, string> = {
+/** How a pairing code starts, scanned or opened. */
+export const CARD_PREFIX = 'OTC1:';
+
+/** The core's reason for a sync with a device that no longer knows this one. */
+export const ONE_SIDED_REASON = 'not paired on the other device';
+
+// the core's reasons for a stopped sync that someone can act on
+const REASONS: Record<string, string> = {
   'removed from the group': 'sync.removedBanner',
   'the other phone was removed from the group': 'sync.otherRemoved',
+  'update the app on both devices': 'sync.outdated',
+  [ONE_SIDED_REASON]: 'sync.oneSided',
 };
+
+/** Why the core refuses a pairing: the id or key is another paired device's. */
+export const PAIR_CLASH = 'the code does not match a paired device';
 
 export const isRemovedReason = (reason?: string) =>
   reason === 'removed from the group';
 
-/** What a failed sync's reason says, for the removals the core reports. */
-export const removalText = (reason?: string) => {
-  const key = REMOVAL_REASONS[reason ?? ''];
+/** What a failed sync's reason says, for the reasons the core reports. */
+export const reasonText = (reason?: string) => {
+  const key = REASONS[reason ?? ''];
   return key ? t(key) : undefined;
 };
 

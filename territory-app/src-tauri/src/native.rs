@@ -63,10 +63,16 @@ pub fn session_new(mode: i32, initiator: bool) -> i64 {
     let Ok(session) = Session::new(&store, mode, initiator, PLATFORM) else {
         return 0;
     };
-    let handle = next_handle();
-    if let Ok(mut sessions) = SESSIONS.lock() {
-        sessions.get_or_insert_with(HashMap::new).insert(handle, session);
+    let Ok(mut sessions) = SESSIONS.lock() else { return 0 };
+    let sessions = sessions.get_or_insert_with(HashMap::new);
+    // while this phone pairs with one, another asking to pair could have its
+    // code confirmed in the first one's place
+    let pairing = |s: &Session| s.pairs_with_code(true) && !s.finished();
+    if mode == (Mode::Pair { code: true }) && !initiator && sessions.values().any(pairing) {
+        return 0;
     }
+    let handle = next_handle();
+    sessions.insert(handle, session);
     handle
 }
 
@@ -117,11 +123,12 @@ pub fn recognise(beacon: &[u8]) -> String {
 pub fn summary() -> String {
     store()
         .and_then(|s| {
+            let peers = s.peers()?;
             Ok(serde_json::json!({
                 "id": s.identity.id,
                 "name": s.identity.name,
-                "peers": s.peers()?,
-                "unsynced": s.unsynced()?,
+                "unsynced": peers.iter().map(|p| p.pending).min().unwrap_or(0),
+                "peers": peers,
                 "removed": s.is_removed()?,
             })
             .to_string())
@@ -134,5 +141,24 @@ pub fn emit(event: &str, payload: &str) {
     let payload: serde_json::Value = serde_json::from_str(payload).unwrap_or_default();
     if let Some(app) = APP.get() {
         let _ = app.emit(event, payload);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_one_else_can_pair_while_this_phone_pairs() {
+        let dir = std::env::temp_dir().join(format!("territories-native-{}", std::process::id()));
+        assert!(open(dir.to_str().unwrap()));
+        let outgoing = session_new(1, true);
+        assert!(outgoing > 0);
+        assert_eq!(session_new(1, false), 0);
+        // a sync from a paired phone still comes in
+        let sync = session_new(0, false);
+        assert!(sync > 0);
+        session_close(sync);
+        session_close(outgoing);
     }
 }
