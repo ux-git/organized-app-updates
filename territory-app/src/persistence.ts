@@ -478,6 +478,23 @@ const save = () => {
   });
 };
 
+/** "M01" is written "M1": no zero before a single digit. */
+export const unpadded = (number: string) =>
+  number.replace(/^(\D*?)0+([1-9])$/, '$1$2');
+
+// numbers from before are renamed once in the store, which syncs them on
+const unpadNumbers = async (territories: Row[]) => {
+  const writes: Write[] = [];
+  for (const row of territories) {
+    if (typeof row.number !== 'string') continue;
+    const number = unpadded(row.number);
+    if (number === row.number) continue;
+    row.number = number;
+    writes.push({ table: TERRITORIES, id: row.id, fields: { number } });
+  }
+  if (writes.length) await writeRows(writes);
+};
+
 const read = async () => {
   const [territoryRows, assignmentRows, doNotCallRows, categoryRows, settings] =
     (
@@ -485,6 +502,7 @@ const read = async () => {
         [TERRITORIES, ASSIGNMENTS, DO_NOT_CALLS, CATEGORIES, SETTINGS].map(rows)
       )
     ).map((list) => list.map(present));
+  await unpadNumbers(territoryRows);
   await seedPeople((await rows(PEOPLE)).length > 0);
   await seedBoundaries(territoryRows);
   doNotCallRows.push(

@@ -17,6 +17,7 @@ import { invoke, listen } from './native';
 import { notify } from './pages/sync/text';
 import {
   assemble,
+  unpadded,
   load,
   loadIdentity,
   loadPeople,
@@ -622,5 +623,18 @@ describe('renaming', () => {
         },
       ],
     ]);
+  });
+});
+
+describe('territory numbers', () => {
+  test('lose the zero before a single digit', () => {
+    expect(unpadded('M01')).toBe('M1');
+    expect(unpadded('N09')).toBe('N9');
+    expect(unpadded('7')).toBe('7');
+    expect(unpadded('07')).toBe('7');
+    expect(unpadded('M10')).toBe('M10');
+    expect(unpadded('M100')).toBe('M100');
+    expect(unpadded('M0')).toBe('M0');
+    expect(unpadded('Nord 03')).toBe('Nord 3');
   });
 });
