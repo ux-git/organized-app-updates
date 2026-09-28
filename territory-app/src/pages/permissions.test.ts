@@ -68,6 +68,20 @@ describe('needsForAutomatic', () => {
     ]);
   });
 
+  test('exact alarms, once a scheduled burst couldn’t start without them', () => {
+    expect(keys(status({ exactAlarmsNeeded: true }))).toEqual([
+      'bluetooth',
+      'notifications',
+      'battery',
+      'exactAlarms',
+    ]);
+    expect(
+      keys(status({ exactAlarmsNeeded: true }, { mode: 'manual' }))
+    ).toEqual([]);
+    missingForAutomatic(status({ exactAlarmsNeeded: true }))[0].fix();
+    expect(vi.mocked(nearby)).toHaveBeenCalledWith('exactAlarms');
+  });
+
   test('Bluetooth needs both the permission and the switch', () => {
     const bluetooth = (permissions: Partial<Permissions>) =>
       needsForAutomatic(status(permissions))[0];

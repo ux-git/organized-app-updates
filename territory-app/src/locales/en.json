@@ -158,7 +158,9 @@
   "permissions": {
     "backgroundText": "Lets Android start the sync by itself, without you opening the app.",
     "locationIos": "Wakes the app when a paired Android device is near, also when it was closed.",
-    "locationHall": "Notices when you arrive at the Kingdom Hall, with the app closed."
+    "locationHall": "Notices when you arrive at the Kingdom Hall, with the app closed.",
+    "exactAlarms": "Alarms and reminders",
+    "exactAlarmsText": "Allow exact alarms for scheduled sync"
   },
   "sync": {
     "ready": "Ready",

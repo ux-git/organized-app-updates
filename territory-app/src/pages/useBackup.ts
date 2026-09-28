@@ -41,25 +41,6 @@ export const backupName = (date = new Date()) =>
 
 type BackupOrigin = { device: string; name: string; at: number };
 
-// the file is deflated JSON (backup.rs); iOS before 16.4 can't inflate it
-export const backupOrigin = async (
-  text: string
-): Promise<BackupOrigin | undefined> => {
-  try {
-    const body = text.trim().slice(BACKUP_PREFIX.length);
-    const base64 = body.replace(/-/g, '+').replace(/_/g, '/');
-    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
-    const stream = new Blob([bytes])
-      .stream()
-      .pipeThrough(new DecompressionStream('deflate-raw'));
-    const { device, name, at } = JSON.parse(await new Response(stream).text());
-    if (typeof device !== 'string' || typeof at !== 'number') return;
-    return { device, name: typeof name === 'string' ? name : '', at };
-  } catch {
-    return undefined;
-  }
-};
-
 const originText = ({ name, at }: BackupOrigin) => {
   const locale = i18n.language === 'deu' ? 'de' : 'en';
   const date = new Date(at * 1000).toLocaleString(locale, {
@@ -77,7 +58,10 @@ export const restoreBackup = async (text: string) => {
     notify(t('backup.notBackup'), t('backup.notBackupText'), 'error');
     return false;
   }
-  const origin = await backupOrigin(text);
+  // a damaged file has none, and the plain question is asked
+  const origin = await invoke<BackupOrigin>('backup_info', { text }).catch(
+    () => undefined
+  );
   const peers = await invoke<Peer[]>('peers').catch(() => []);
   // an old device of one's own is foreign too, the text says so
   const foreign =

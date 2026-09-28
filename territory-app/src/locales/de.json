@@ -158,7 +158,9 @@
   "permissions": {
     "backgroundText": "Lässt Android die Synchronisierung selbst starten, ohne dass du die App öffnest.",
     "locationIos": "Weckt die App, wenn ein gekoppeltes Android-Gerät in der Nähe ist, auch wenn sie geschlossen war.",
-    "locationHall": "Bemerkt, wenn du im Königreichssaal ankommst, auch bei geschlossener App."
+    "locationHall": "Bemerkt, wenn du im Königreichssaal ankommst, auch bei geschlossener App.",
+    "exactAlarms": "Wecker und Erinnerungen",
+    "exactAlarmsText": "Erlaube Wecker und Erinnerungen für die geplante Synchronisierung"
   },
   "sync": {
     "ready": "Bereit",

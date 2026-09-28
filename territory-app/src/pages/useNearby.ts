@@ -46,6 +46,8 @@ export type NearbyStatus = {
     bluetooth: boolean;
     notifications: boolean;
     exactAlarms: boolean;
+    /** Scheduled bursts couldn't start without exact alarms (Android 12+). */
+    exactAlarmsNeeded?: boolean;
     location: boolean;
     backgroundLocation: boolean;
     nfc?: boolean;

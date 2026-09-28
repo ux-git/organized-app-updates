@@ -45,6 +45,16 @@ export const needsForAutomatic = (status: NearbyStatus): Need[] => {
       fix: () => nearby('battery'),
     });
   }
+  if (allowed.exactAlarmsNeeded) {
+    needs.push({
+      key: 'exactAlarms',
+      title: t('permissions.exactAlarms'),
+      text: t('permissions.exactAlarmsText'),
+      ok: false,
+      label: t('common.allow'),
+      fix: () => nearby('exactAlarms'),
+    });
+  }
   if (ios && mode === 'always') {
     needs.push({
       key: 'location',
