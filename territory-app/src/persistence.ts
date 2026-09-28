@@ -145,9 +145,22 @@ export const assemble = (
   assignmentRows: Row[],
   doNotCallRows: Row[]
 ): Territory[] => {
-  const children = (list: Row[], territory: string) =>
-    list
-      .filter((row) => row.territory === territory)
+  // grouped once, not filtered and sorted again for every territory
+  const byTerritory = (list: Row[]) => {
+    const groups = new Map<unknown, Row[]>();
+    for (const row of list) {
+      const group = groups.get(row.territory);
+      if (group) group.push(row);
+      else groups.set(row.territory, [row]);
+    }
+    return groups;
+  };
+  const assignments = byTerritory(
+    [...assignmentRows].sort(byDate('assignedOn'))
+  );
+  const doNotCalls = byTerritory(doNotCallRows);
+  const children = (groups: Map<unknown, Row[]>, territory: string) =>
+    (groups.get(territory) ?? [])
       .sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0))
       .map((row) => without(row, 'territory', 'order'));
 
@@ -156,11 +169,8 @@ export const assemble = (
       (row) =>
         ({
           ...row,
-          assignments: children(
-            [...assignmentRows].sort(byDate('assignedOn')),
-            row.id
-          ) as TerritoryAssignment[],
-          doNotCalls: children(doNotCallRows, row.id) as DoNotCall[],
+          assignments: children(assignments, row.id) as TerritoryAssignment[],
+          doNotCalls: children(doNotCalls, row.id) as DoNotCall[],
         }) as unknown as Territory
     )
     .sort((a, b) =>
