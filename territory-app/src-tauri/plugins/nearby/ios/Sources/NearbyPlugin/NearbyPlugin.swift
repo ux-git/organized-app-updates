@@ -97,7 +97,7 @@ class NearbyPlugin: Tauri.Plugin {
     case "meetStart": nearby.startMeet()
     case "meetStop": nearby.stopMeet()
     case "pair": nearby.pair(args["address"] as? String ?? "")
-    case "confirm": nearby.confirm(args["accept"] as? Bool ?? false)
+    case "confirm": nearby.confirm(args["accept"] as? Bool ?? false, address: args["address"] as? String)
     case "schedule": nearby.schedule = args
     case "paired": nearby.apply()
     case "hallHere": Place.shared.hallHere(radius: args["radius"] as? Double ?? 150)

@@ -192,9 +192,9 @@ class MainActivity : TauriActivity() {
         if (read < 0) break
         bytes.write(buffer, 0, read)
       }
-      if (bytes.size() > FILE_MAX) null else bytes.toString("UTF-8").trim()
+      if (bytes.size() > FILE_MAX) TOO_LARGE else bytes.toString("UTF-8").trim()
     } ?: return null
-    return text.takeIf(::isTransfer)
+    return text.takeIf { it == TOO_LARGE || isTransfer(it) }
   }
 
   private fun isTransfer(text: String) = listOf("OTB1:", "OTC1:", "OTA1:").any(text::startsWith)
@@ -495,7 +495,7 @@ class MainActivity : TauriActivity() {
         service?.stopMeet()
       }
       "pair" -> service?.pair(args.optString("address"))
-      "confirm" -> service?.confirm(args.optBoolean("accept"))
+      "confirm" -> service?.confirm(args.optString("address"), args.optBoolean("accept"))
       "schedule" -> Reminders.saveSchedule(this, args.toString())
       "hallHere" -> hallHere(args.optDouble("radius", 150.0).toFloat())
       "paired" -> Reminders.apply(this)
@@ -753,6 +753,8 @@ class MainActivity : TauriActivity() {
 
     private const val SPLASH_MAX_MS = 5000L
     private const val FILE_MAX = 32 * 1024 * 1024
+    /** What the sync page gets instead of a larger file, as on iOS (src-tauri/src/lib.rs). */
+    private const val TOO_LARGE = "OTX1:too-large"
     const val FRAME_MS = 16L
     private const val MENU_IDLE_MS = 100L
     const val PREF_BAR_COLOR = "bar_color"

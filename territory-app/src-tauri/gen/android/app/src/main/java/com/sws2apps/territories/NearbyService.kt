@@ -317,8 +317,14 @@ class NearbyService : Service(), Link.Listener {
     link.connect(device)
   }
 
-  fun confirm(accept: Boolean) {
-    exchanges.values.firstOrNull { it.state == "confirm" }?.confirm(accept)
+  fun confirm(address: String, accept: Boolean) {
+    val exchange = if (address.isEmpty()) {
+      // an older page names no address
+      exchanges.values.firstOrNull { it.state == "confirm" }
+    } else {
+      exchanges[address]?.takeIf { it.state == "confirm" }
+    }
+    exchange?.confirm(accept)
   }
 
   fun status(): JSONObject {

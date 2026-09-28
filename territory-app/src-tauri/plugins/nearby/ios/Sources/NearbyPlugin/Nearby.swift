@@ -337,8 +337,15 @@ final class Nearby: NSObject, LinkListener {
     link?.connect(address)
   }
 
-  func confirm(_ accept: Bool) {
-    exchanges.values.first { $0.state == "confirm" }?.confirm(accept)
+  /// `address` as the page has it: an incoming pipe's key has "in:" before it.
+  func confirm(_ accept: Bool, address: String?) {
+    let waiting = exchanges.values.filter { $0.state == "confirm" }
+    guard let address = address, !address.isEmpty else {
+      // an older page names no address
+      waiting.first?.confirm(accept)
+      return
+    }
+    waiting.first { $0.pipe.address == address }?.confirm(accept)
   }
 
   func status() -> [String: Any] {
