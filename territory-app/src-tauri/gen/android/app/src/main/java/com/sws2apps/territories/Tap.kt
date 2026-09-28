@@ -202,8 +202,8 @@ object Tap {
     Native.emit("tap", json.toString())
     quietUntil = System.currentTimeMillis() + QUIET_MS
     val activity = activity ?: return
+    // paired: the page plays it as it shows it
     if (state == "done") {
-      Haptics.play(activity, "paired")
       Reminders.apply(activity)
       NearbyService.start(activity, "open", 2 * 60_000L)
     } else {

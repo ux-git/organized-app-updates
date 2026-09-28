@@ -15,7 +15,7 @@ import android.os.VibrationEffect.Composition.PRIMITIVE_SLOW_RISE as SWELL
 import android.os.VibrationEffect.Composition.PRIMITIVE_TICK as TICK
 
 /**
- * The sync's own vibrations, built from the phone's haptic primitives where
+ * The app's own vibrations, built from the phone's haptic primitives where
  * it has them (Android 11+ with a good motor), else from amplitude steps.
  * They follow the system's touch feedback setting on Android 13+.
  */
@@ -53,6 +53,9 @@ object Haptics {
         waveT, waveA
       )
     )
+    // each later ripple: one gentle swell
+    val (swellT, swellA) = swells(60)
+    put("swell", Pattern(listOf(Step(SWELL, 0.3f), Step(FALL, 0.2f)), swellT, swellA))
     // the phones touched: a firm double knock
     put(
       "contact",
@@ -77,18 +80,26 @@ object Haptics {
         longArrayOf(0, 60, 20, 20), intArrayOf(0, 110, 0, 220)
       )
     )
+    // waiting for the other phone to say yes: lub-dub
+    put(
+      "heartbeat",
+      Pattern(
+        listOf(Step(TICK, 0.5f), Step(TICK, 0.35f, 180)),
+        longArrayOf(0, 12, 180, 12), intArrayOf(0, 120, 0, 90)
+      )
+    )
     // a sync starts
     put(
       "start",
       Pattern(listOf(Step(SWELL, 0.5f)), longArrayOf(0, 40, 40, 40), intArrayOf(0, 60, 120, 60))
     )
-    // paired: ta-da-daa
+    // paired: ta-da-DAA, rising into a firm click
     put(
       "paired",
       Pattern(
-        listOf(Step(RISE, 0.5f), Step(CLICK, 0.9f, 30), Step(CLICK, 0.6f, 110), Step(CLICK, 1f, 90)),
-        longArrayOf(0, 50, 30, 20, 110, 16, 90, 30),
-        intArrayOf(0, 90, 0, 230, 0, 150, 0, 255)
+        listOf(Step(CLICK, 0.5f), Step(CLICK, 0.75f, 90), Step(RISE, 1f, 90), Step(CLICK, 1f)),
+        longArrayOf(0, 20, 90, 22, 90, 40, 40, 40, 10, 30),
+        intArrayOf(0, 130, 0, 190, 0, 80, 150, 210, 0, 255)
       )
     )
     // synced: a light run up and a click
@@ -113,6 +124,20 @@ object Haptics {
       "remove",
       Pattern(listOf(Step(FALL, 0.9f)), longArrayOf(0, 30, 30, 30), intArrayOf(0, 200, 120, 50))
     )
+    // switched on: a quick rise into a crisp click
+    put(
+      "toggleOn",
+      Pattern(
+        listOf(Step(RISE, 0.35f), Step(CLICK, 0.8f)),
+        longArrayOf(0, 15, 15, 5, 14), intArrayOf(0, 60, 120, 0, 230)
+      )
+    )
+    // switched off: a soft, short fall
+    put("toggleOff", Pattern(listOf(Step(FALL, 0.4f)), longArrayOf(0, 12, 12), intArrayOf(0, 110, 50)))
+    // a choice: one light tick
+    put("select", Pattern(listOf(Step(TICK, 0.6f)), longArrayOf(0, 10), intArrayOf(0, 140)))
+    // a picker's step: the lightest tick
+    put("step", Pattern(listOf(Step(TICK, 0.3f)), longArrayOf(0, 6), intArrayOf(0, 80)))
   }
 
   private fun vibrator(context: Context): Vibrator? =

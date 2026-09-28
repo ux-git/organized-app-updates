@@ -18,16 +18,21 @@ export const Pulse = ({
   icon,
   active,
   size = 88,
+  onWave,
 }: {
   icon: ReactElement;
   active: boolean;
   size?: number;
+  /** As each wave sets out; with reduced motion none do. */
+  onWave?: VoidFunction;
 }) => (
   <Box sx={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
     {active &&
       [0, 1].map((wave) => (
         <Box
           key={wave}
+          onAnimationStart={onWave}
+          onAnimationIteration={onWave}
           sx={{
             position: 'absolute',
             inset: 0,
@@ -53,6 +58,38 @@ export const Pulse = ({
     >
       {icon}
     </Box>
+  </Box>
+);
+
+// lub as it starts, dub 190 ms in, like the heartbeat haptic
+const beat = keyframes`
+  0%, 14%, 34%, 100% { transform: scale(1); }
+  4% { transform: scale(1.06); }
+  18% { transform: scale(1.04); }
+`;
+
+/**
+ * Beats softly while `active`, calling `onBeat` as each beat starts; the
+ * first a moment in, after the tap that started it.
+ */
+export const Heartbeat = ({
+  active,
+  onBeat,
+  children,
+}: {
+  active: boolean;
+  onBeat: VoidFunction;
+  children: ReactNode;
+}) => (
+  <Box
+    onAnimationStart={onBeat}
+    onAnimationIteration={onBeat}
+    sx={{
+      animation: active ? `${beat} 1.2s ease-out 0.6s infinite` : 'none',
+      '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+    }}
+  >
+    {children}
   </Box>
 );
 

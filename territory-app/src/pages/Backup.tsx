@@ -13,7 +13,7 @@ import {
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
 import { invoke, nearby } from '../native';
-import { play } from '../haptics';
+import { chosen, clockSteps, play } from '../haptics';
 import { t } from '../i18n';
 import { Actions } from './sync/parts';
 import { notify, when } from './sync/text';
@@ -196,7 +196,7 @@ const Backup = () => {
                 value={frequency}
                 onChange={(event) =>
                   setSchedule({
-                    frequency: event.target.value as BackupFrequency,
+                    frequency: chosen(event.target.value as BackupFrequency),
                   })
                 }
               >
@@ -209,17 +209,19 @@ const Backup = () => {
                 ))}
               </Select>
               {frequency !== 'off' && (
-                <TimePicker
-                  ampm={hour12()}
-                  label={t('backup.time')}
-                  value={time}
-                  onChange={(value) =>
-                    setSchedule({
-                      hour: value.getHours(),
-                      minute: value.getMinutes(),
-                    })
-                  }
-                />
+                <Box onPointerDown={clockSteps}>
+                  <TimePicker
+                    ampm={hour12()}
+                    label={t('backup.time')}
+                    value={time}
+                    onChange={(value) =>
+                      setSchedule({
+                        hour: value.getHours(),
+                        minute: value.getMinutes(),
+                      })
+                    }
+                  />
+                </Box>
               )}
             </Box>
             {frequency !== 'off' && status.approximate && (

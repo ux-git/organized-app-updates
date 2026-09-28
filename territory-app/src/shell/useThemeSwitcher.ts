@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { isDarkThemeState } from '@states/app';
+import { toggled } from '../haptics';
 import { followSystemState, setFollowSystem, setTheme } from '../theme';
 
 // the main app's nav bar switch, with the choice kept on this device
@@ -14,14 +15,14 @@ const useThemeSwitcher = () => {
       setIsOpenConfirm(true);
       return;
     }
-    setTheme(value ? 'dark' : 'light');
+    setTheme(toggled(value) ? 'dark' : 'light');
   };
 
   const handleCloseConfirm = () => setIsOpenConfirm(false);
 
   const handleOverrideThemeAuto = () => {
     setFollowSystem(false);
-    setTheme(isDark ? 'light' : 'dark');
+    setTheme(toggled(!isDark) ? 'dark' : 'light');
     setIsOpenConfirm(false);
   };
 

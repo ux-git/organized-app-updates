@@ -7,11 +7,11 @@ import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import TextField from '@components/textfield';
 import Typography from '@components/typography';
-import { play } from '../../haptics';
+import { announceFound, play } from '../../haptics';
 import { invoke, listen, nearby } from '../../native';
 import { NearbyStatus, Peer, SessionStatus } from '../useNearby';
 import { IconBluetooth, IconTap } from './icons';
-import { PhoneRow, Pulse } from './parts';
+import { Heartbeat, PhoneRow, Pulse } from './parts';
 import { t } from '../../i18n';
 import {
   CARD_PREFIX,
@@ -84,8 +84,6 @@ const column = {
   width: '100%',
 } as const;
 
-const WAVE_MS = 4000;
-
 export const MeetDialog = ({
   open,
   method,
@@ -106,6 +104,8 @@ export const MeetDialog = ({
   const [name, setName] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [dismissed, setDismissed] = useState('');
+  // the code this phone said yes to, waiting for the other one
+  const [accepted, setAccepted] = useState('');
   const needsName = open && !myName.trim();
 
   useEffect(() => {
@@ -155,22 +155,33 @@ export const MeetDialog = ({
   const waiting =
     open && method === 'tap' && nfcOn && !touching && !tapped && !paired;
 
-  // NFC: a ripple now and then, as if the phone were sending out waves
-  useEffect(() => {
-    if (!waiting) return;
-    play('wave');
-    const timer = setInterval(() => play('wave'), WAVE_MS);
-    return () => clearInterval(timer);
-  }, [waiting]);
+  // NFC: each ripple goes through the phone too, the first one stronger
+  const ripples = useRef(0);
+  if (!waiting) ripples.current = 0;
+  const onWave = () => {
+    if (waiting) play(ripples.current++ ? 'swell' : 'wave');
+  };
 
+  const announced = useRef(new Set<string>());
+  if (!open) announced.current.clear();
+  const listing = open && method === 'nearby' && !needsName && !pairing;
   useEffect(() => {
-    if (open && seen.length) play('found');
-  }, [open, seen.length]);
+    if (listing) {
+      announceFound(
+        announced.current,
+        (status.seen ?? []).map((phone) => phone.address)
+      );
+    }
+  }, [listing, status.seen]);
 
   useEffect(() => {
     if (pairing?.state === 'confirm') play('code');
     if (pairing?.state === 'failed') play('error');
   }, [pairing?.state]);
+
+  const codeKey =
+    pairing?.state === 'confirm' ? `${pairing.address}:${pairing.code}` : '';
+  const waitingOther = !!codeKey && accepted === codeKey;
 
   // paired: the dialog has done its job, a snackbar says so
   const pairedName =
@@ -195,6 +206,7 @@ export const MeetDialog = ({
       await invoke('set_name', { name: trimmed });
       onNamed();
     } catch (error) {
+      play('error');
       notify(t('common.somethingWrong'), String(error), 'error');
     } finally {
       setSavingName(false);
@@ -250,20 +262,22 @@ export const MeetDialog = ({
       return (
         <Box sx={centered}>
           <Typography className="body-regular">
-            {t('meet.sameNumber', {
+            {t(waitingOther ? 'meet.waitingFor' : 'meet.sameNumber', {
               name: pairing.name || t('common.theOtherPhone'),
             })}
           </Typography>
-          <Typography
-            className="h1"
-            sx={{
-              letterSpacing: '0.2em',
-              fontVariantNumeric: 'tabular-nums',
-              color: 'var(--accent-main)',
-            }}
-          >
-            {pairing.code?.replace(/(\d{3})(\d{3})/, '$1 $2')}
-          </Typography>
+          <Heartbeat active={waitingOther} onBeat={() => play('heartbeat')}>
+            <Typography
+              className="h1"
+              sx={{
+                letterSpacing: '0.2em',
+                fontVariantNumeric: 'tabular-nums',
+                color: 'var(--accent-main)',
+              }}
+            >
+              {pairing.code?.replace(/(\d{3})(\d{3})/, '$1 $2')}
+            </Typography>
+          </Heartbeat>
         </Box>
       );
     }
@@ -293,7 +307,7 @@ export const MeetDialog = ({
     if (method === 'tap') {
       return (
         <Box sx={centered}>
-          <Pulse icon={<IconTap />} active={nfcOn} />
+          <Pulse icon={<IconTap />} active={nfcOn} onWave={onWave} />
           <Typography className="body-regular">
             {!nfcOn
               ? t('meet.nfcOff')
@@ -363,9 +377,12 @@ export const MeetDialog = ({
       return (
         <Button
           variant="main"
-          onClick={() =>
-            nearby('confirm', { accept: true, address: pairing.address })
-          }
+          disabled={waitingOther}
+          onClick={() => {
+            play('select');
+            setAccepted(codeKey);
+            nearby('confirm', { accept: true, address: pairing.address });
+          }}
         >
           {t('meet.matches')}
         </Button>
@@ -561,9 +578,10 @@ export const QrPairDialog = ({
     let current = true;
     invoke<{ text: string; fingerprint: string }>('pairing_card')
       .then((next) => current && setCode(next))
-      .catch((error) =>
-        notify(t('common.somethingWrong'), String(error), 'error')
-      );
+      .catch((error) => {
+        play('error');
+        notify(t('common.somethingWrong'), String(error), 'error');
+      });
     return () => {
       current = false;
     };
@@ -586,6 +604,11 @@ export const QrPairDialog = ({
       current = false;
     };
   }, [card]);
+
+  // the scanner knocked as it read the code (contact); now it's on screen
+  useEffect(() => {
+    if (info) play('code');
+  }, [info]);
 
   const pair = async () => {
     if (!card || !info || adding) return;

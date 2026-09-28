@@ -61,7 +61,8 @@ class ScanActivity : ComponentActivity() {
 
   private fun finishWith(text: String) {
     done = true
-    Haptics.play(this, "synced")
+    // read: a knock now, the outcome on the page
+    Haptics.play(this, "contact")
     MainActivity.received = text
     finish()
   }

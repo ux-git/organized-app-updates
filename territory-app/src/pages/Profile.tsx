@@ -21,6 +21,7 @@ import {
 import ProfilePictureEntry from '@features/my_profile/user_profile_details/profile_picture_entry';
 import { useBreakpoints } from '@hooks/index';
 import { isDarkThemeState } from '@states/app';
+import { chosen, pickedRadio, toggled } from '../haptics';
 import { invoke } from '../native';
 import {
   loadIdentity,
@@ -157,7 +158,7 @@ const Profile = () => {
           }
           value={link.person ?? null}
           onChange={(_, value) =>
-            changeLink((value as Person | null)?.id ?? null)
+            changeLink(chosen((value as Person | null)?.id ?? null))
           }
           noOptionsText={
             <Typography className="body-regular" color="var(--grey-350)">
@@ -223,7 +224,7 @@ const Profile = () => {
         <Select
           label={t('settings.language')}
           value={i18n.language}
-          onChange={(event) => setLanguage(String(event.target.value))}
+          onChange={(event) => setLanguage(chosen(String(event.target.value)))}
         >
           {LANGUAGES.map((language) => (
             <MenuItem key={language.code} value={language.code}>
@@ -243,13 +244,15 @@ const Profile = () => {
               label={t('settings.followSystem')}
               helper={t('settings.followSystemText')}
               checked={followSystem}
-              onChange={setFollowSystem}
+              onChange={(on) => setFollowSystem(toggled(on))}
             />
             {!followSystem && (
               <Select
                 label={t('settings.theme')}
                 value={isDark ? 'dark' : 'light'}
-                onChange={(event) => setTheme(String(event.target.value))}
+                onChange={(event) =>
+                  setTheme(chosen(String(event.target.value)))
+                }
               >
                 {['light', 'dark'].map((theme) => (
                   <MenuItem key={theme} value={theme}>
@@ -263,7 +266,9 @@ const Profile = () => {
           </Stack>
           <Stack spacing="16px">
             <CardSubSectionHeader title={t('settings.colorScheme')} />
-            <ColorSchemeSwitcher />
+            <Box onClickCapture={pickedRadio}>
+              <ColorSchemeSwitcher />
+            </Box>
           </Stack>
         </CardSectionContent>
       </CardSection>

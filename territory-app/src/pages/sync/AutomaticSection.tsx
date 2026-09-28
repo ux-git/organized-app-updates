@@ -11,7 +11,7 @@ import {
   CardSectionHeader,
   CardSubSectionHeader,
 } from '@features/congregation/settings/shared_styles';
-import { play } from '../../haptics';
+import { play, toggled } from '../../haptics';
 import { nearby } from '../../native';
 import { t } from '../../i18n';
 import { needsForAutomatic } from '../permissions';
@@ -153,7 +153,7 @@ const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
     nearby('schedule', { notify: true, ...schedule, enabled: true, ...next });
 
   const choose = (next: SyncMode) => {
-    play(next === 'manual' ? 'remove' : 'start');
+    if (next !== mode) play('select');
     save({
       mode: next,
       auto: next === 'manual' ? (schedule.auto ?? 'always') : next,
@@ -243,7 +243,7 @@ const AutomaticSection = ({ status }: { status: NearbyStatus }) => {
           label={t('automatic.notify')}
           helper={t('automatic.notifyText')}
           checked={schedule.notify !== false}
-          onChange={(notify) => save({ notify })}
+          onChange={(notify) => save({ notify: toggled(notify) })}
         />
 
         {status.platform === 'ios' && <ShortcutsGuide />}

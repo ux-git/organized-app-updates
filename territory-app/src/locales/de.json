@@ -227,6 +227,7 @@
     "sameNumber": "Zeigt {{name}} dieselbe Zahl?",
     "no": "Nein",
     "matches": "Ja, stimmt überein",
+    "waitingFor": "Warte, bis {{name}} bestätigt…",
     "connecting": "Wird verbunden…",
     "nfcOff": "NFC ist auf diesem Gerät aus. Schalte es ein, um durch Aneinanderhalten zu koppeln.",
     "touching": "Gefunden. Halte die Geräte weiter aneinander…",

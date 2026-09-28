@@ -44,13 +44,14 @@ const withDateIssues = async (numbers: string[]) => {
 const useSyncFeedback = () => {
   useEffect(() => {
     const stop = listen<SyncResult>('synced', async (result) => {
-      play('synced');
       const header = t('result.syncedWith', {
         name: result.name || t('common.theOtherPhone'),
       });
       const flagged = await withDateIssues(
         (result.territories ?? []).map((item) => item.number)
       ).catch(() => []);
+      // with the message, not before the store is read
+      play('synced');
       if (flagged.length) {
         notify(
           header,

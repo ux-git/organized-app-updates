@@ -227,6 +227,7 @@
     "sameNumber": "Does {{name}} show the same number?",
     "no": "No",
     "matches": "Yes, it matches",
+    "waitingFor": "Waiting for {{name}} to confirm…",
     "connecting": "Connecting…",
     "nfcOff": "NFC is off on this device. Turn it on to pair by holding the devices together.",
     "touching": "Found it. Keep holding the devices together…",

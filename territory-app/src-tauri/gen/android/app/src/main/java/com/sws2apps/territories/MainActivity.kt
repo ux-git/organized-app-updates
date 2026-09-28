@@ -430,7 +430,7 @@ class MainActivity : TauriActivity() {
   private inner class HapticsBridge {
     @JavascriptInterface
     fun perform(intent: String): Boolean {
-      if (Haptics.has(intent)) return Haptics.play(this@MainActivity, intent)
+      if (Haptics.has(intent) && Haptics.play(this@MainActivity, intent)) return true
       val effect = HAPTIC_EFFECTS[intent] ?: return false
       handler.post { webView?.performHapticFeedback(effect) }
       return true

@@ -23,6 +23,7 @@ import {
 } from '@features/territories/map/constants';
 import MapIsland, { MapAction } from '@features/territories/map/map_island';
 import { congregationBounds } from '@features/territories/map/helpers';
+import { chosen } from '../haptics';
 import { nearby } from '../native';
 import { t } from '../i18n';
 
@@ -207,7 +208,7 @@ const HallPicker = ({
       <Select
         label={t('hall.area')}
         value={radius}
-        onChange={(event) => setRadius(Number(event.target.value))}
+        onChange={(event) => setRadius(chosen(Number(event.target.value)))}
       >
         {RADII.map((meters) => (
           <MenuItem key={meters} value={meters}>

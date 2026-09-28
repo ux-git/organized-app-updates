@@ -37,7 +37,7 @@ import {
   writeRows,
 } from '../persistence';
 import { linkedDevices, linksState } from '../profiles';
-import { play } from '../haptics';
+import { play, toggled } from '../haptics';
 import { confirm } from './confirm';
 import { list, t } from '../i18n';
 import { count, notify } from './sync/text';
@@ -138,7 +138,7 @@ const ImportDialog = ({
         {plan.missing.length > 0 && (
           <Checkbox
             checked={removeMissing}
-            onChange={(_, checked) => setRemoveMissing(checked)}
+            onChange={(_, checked) => setRemoveMissing(toggled(checked))}
             label={t(
               source === 'backup'
                 ? 'publishers.removeMissingBackup'
@@ -280,7 +280,7 @@ const NameDialog = ({
         label={t('publishers.group')}
         helper={t('publishers.groupText')}
         checked={group}
-        onChange={setGroup}
+        onChange={(on) => setGroup(toggled(on))}
         inputProps={{ 'aria-label': t('publishers.group') }}
       />
       {linked > 0 && (

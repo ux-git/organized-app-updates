@@ -255,7 +255,8 @@ class NearbyPlugin: Tauri.Plugin {
     guard let scanner = scanner else { return }
     self.scanner = nil
     frames = [:]
-    _ = Haptics.perform("synced")
+    // read: a knock now, the outcome on the page
+    _ = Haptics.perform("contact")
     scanner.dismiss(animated: true)
     Core.emit("qr", ["text": text])
   }
