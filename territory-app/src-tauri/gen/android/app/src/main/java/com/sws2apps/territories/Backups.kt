@@ -219,12 +219,23 @@ object Backups {
   private fun write(context: Context, tree: Uri, name: String, bytes: ByteArray): Boolean {
     val resolver = context.contentResolver
     val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
-    val doc = DocumentsContract.createDocument(resolver, parent, "application/octet-stream", name + PARTIAL) ?: return false
+    if (writeChecked(context, parent, name + PARTIAL, bytes) { DocumentsContract.renameDocument(resolver, it, name) != null }) {
+      return true
+    }
+    // some cloud folders can't rename: there it is written in place, checked the same way
+    return writeChecked(context, parent, name, bytes) { true }
+  }
+
+  /** Written, read back and compared; removed again when anything fails. */
+  private fun writeChecked(context: Context, parent: Uri, name: String, bytes: ByteArray, finish: (Uri) -> Boolean): Boolean {
+    val resolver = context.contentResolver
+    val doc = runCatching { DocumentsContract.createDocument(resolver, parent, "application/octet-stream", name) }.getOrNull()
+      ?: return false
     val done = runCatching {
       val stream = resolver.openOutputStream(doc, "wt") ?: return@runCatching false
       stream.use { it.write(bytes) }
       val back = resolver.openInputStream(doc)?.use { it.readBytes() }
-      back.contentEquals(bytes) && DocumentsContract.renameDocument(resolver, doc, name) != null
+      back.contentEquals(bytes) && finish(doc)
     }.getOrDefault(false)
     if (!done) runCatching { DocumentsContract.deleteDocument(resolver, doc) }
     return done

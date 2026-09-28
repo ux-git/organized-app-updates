@@ -12,8 +12,9 @@ pub struct Clock {
 const MAX_COUNTER: u32 = 0xff_ffff;
 /// The latest time thirteen hex digits hold.
 const MAX_MS: u64 = (1 << 52) - 1;
-/// How far ahead of this phone's clock a stamp from elsewhere may be.
-const AHEAD_MS: u64 = 24 * 60 * 60 * 1000;
+/// How far ahead of this phone's clock a stamp from elsewhere may be: wide enough for a phone
+/// whose own date is off by weeks, narrow enough that a stamp years ahead can't win for good.
+const AHEAD_MS: u64 = 30 * 24 * 60 * 60 * 1000;
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -41,7 +42,7 @@ pub fn valid(stamp: &str) -> bool {
     decode(stamp).is_some()
 }
 
-/// A stamp at most a day ahead of this phone's clock. One further ahead
+/// A stamp at most 30 days ahead of this phone's clock. One further ahead
 /// would win every clash until then, and drag this phone's clock along.
 fn near(stamp: &str) -> Option<(u64, u32)> {
     decode(stamp).filter(|(ms, _)| *ms <= now_ms().saturating_add(AHEAD_MS))

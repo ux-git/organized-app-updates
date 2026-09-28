@@ -67,6 +67,20 @@ const useTerritoryDetails = () => {
   // leaving the page counts as done typing
   useEffect(() => commitNew, [commitNew]);
 
+  // once saved, the address names it, so a reload opens it; the router isn't told, or the
+  // page would remount under the typing
+  const savedId = isNewPage ? stored?.id : undefined;
+  useEffect(() => {
+    if (!savedId) return;
+    const url = window.location.href.replace(
+      /territories\/new(?=[/?#]|$)/,
+      `territories/${encodeURIComponent(savedId)}`
+    );
+    if (url !== window.location.href) {
+      window.history.replaceState(window.history.state, '', url);
+    }
+  }, [savedId]);
+
   const handleDelete = () => {
     if (!territory) return;
 

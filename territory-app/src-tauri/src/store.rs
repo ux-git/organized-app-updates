@@ -2235,13 +2235,14 @@ mod tests {
     }
 
     #[test]
-    fn a_stamp_more_than_a_day_ahead_is_not_taken_in() {
+    fn a_stamp_more_than_30_days_ahead_is_not_taken_in() {
         let mut s = Store::in_memory().unwrap();
-        let soon = cell("soon", &hlc::encode(ms_from_now(2), 0, "00000000000000aa"));
-        let far = Cell { i: "2".into(), ..cell("far", &hlc::encode(ms_from_now(48), 0, "00000000000000aa")) };
+        // a week ahead: a phone whose date is off still syncs
+        let soon = cell("soon", &hlc::encode(ms_from_now(24 * 7), 0, "00000000000000aa"));
+        let far = Cell { i: "2".into(), ..cell("far", &hlc::encode(ms_from_now(24 * 40), 0, "00000000000000aa")) };
         assert_eq!(s.apply(&[soon, far], &Versions::new()).unwrap().cells, 1);
         assert_eq!(s.list("people").unwrap().len(), 1);
-        let far = Standing { stamp: hlc::encode(ms_from_now(48), 0, "00000000000000aa"), removed: true };
+        let far = Standing { stamp: hlc::encode(ms_from_now(24 * 40), 0, "00000000000000aa"), removed: true };
         s.take_standing("00000000000000bb", &far, "Ben").unwrap();
         assert_eq!(s.standing("00000000000000bb").unwrap(), None);
     }
