@@ -37,11 +37,13 @@ export const seedPeople = async (hasPeople: boolean) => {
 // Territory borders and the dashed lines between their parts, from
 // seed/boundaries.json: { "M12": { "boundary": [[lng, lat], ...], "lines": [...] } }.
 // Filled in where a territory has no border, or still has an earlier seeded
-// one (listed by its hash in "replaces"), so an edit on a phone stays.
+// one (listed by its hash in "replaces"), so an edit on a phone stays. The
+// lines alone follow the same way, by the hashes of their earlier paths.
 export type Border = {
   boundary: [number, number][];
   lines?: [number, number][][];
   replaces?: string[];
+  linesReplace?: string[];
 };
 
 export const hash = (value: unknown) => {
@@ -98,20 +100,32 @@ export const borderFields = (row: Row, border: Border | undefined) => {
     !drawn ||
     border?.replaces?.includes(hash(row.boundary)) ||
     (border && farOff(row.boundary as [number, number][], border.boundary));
-  if (!border || !replaceable) return;
-  const fields: Record<string, unknown> = { boundary: border.boundary };
+  if (!border) return;
   const lines = Array.isArray(row.mapLines) ? row.mapLines : [];
   const onlySeeded = lines.every((line: { id?: string }) =>
     String(line?.id).startsWith('seed-')
   );
-  if (border.lines?.length && onlySeeded) {
-    fields.mapLines = border.lines.map((path, index) => ({
+  const seededLines = () =>
+    border.lines!.map((path, index) => ({
       id: `seed-${row.id}-${index}`,
       path,
       style: 'dashed',
     }));
+  if (replaceable) {
+    const fields: Record<string, unknown> = { boundary: border.boundary };
+    if (border.lines?.length && onlySeeded) fields.mapLines = seededLines();
+    return fields;
   }
-  return fields;
+  // the border stays; lines still as an earlier seed had them take the new ones
+  const paths = lines.map((line: { path?: unknown }) => line?.path);
+  if (
+    border.lines?.length &&
+    lines.length &&
+    onlySeeded &&
+    border.linesReplace?.includes(hash(paths))
+  ) {
+    return { mapLines: seededLines() };
+  }
 };
 
 export const seedBoundaries = async (territories: Row[]) => {

@@ -101,6 +101,35 @@ describe('borderFields', () => {
   test('nothing without a seeded border', () => {
     expect(borderFields({ id: 't1' }, undefined)).toBeUndefined();
   });
+
+  test('updates lines an earlier seed made, and only those', () => {
+    const earlierPath = [
+      [6.47, 51.671],
+      [6.48, 51.681],
+    ];
+    const newer = { ...border, linesReplace: [hash([earlierPath])] };
+    const row = (path: unknown, id = 'seed-t1-0') => ({
+      id: 't1',
+      boundary: border.boundary,
+      mapLines: [{ id, path, style: 'dashed' }],
+    });
+    expect(borderFields(row(earlierPath), newer)).toEqual({
+      mapLines: [{ id: 'seed-t1-0', path: border.lines![0], style: 'dashed' }],
+    });
+    // taken once: the new lines aren't written again on the next load
+    expect(borderFields(row(border.lines![0]), newer)).toBeUndefined();
+    // moved on the device, or drawn there
+    expect(
+      borderFields(
+        row([
+          [6.4, 51.6],
+          [6.41, 51.61],
+        ]),
+        newer
+      )
+    ).toBeUndefined();
+    expect(borderFields(row(earlierPath, 'mine'), newer)).toBeUndefined();
+  });
 });
 
 describe('doNotCallWrites', () => {
