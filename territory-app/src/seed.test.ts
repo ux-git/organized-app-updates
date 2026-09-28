@@ -141,6 +141,11 @@ describe('doNotCallWrites', () => {
           order: 1,
         },
       },
+      {
+        table: 'settings',
+        id: 'seeded_do_not_calls',
+        fields: { id: 'seeded_do_not_calls', abc: true },
+      },
     ]);
   });
 
@@ -153,7 +158,31 @@ describe('doNotCallWrites', () => {
       [{ id: 'mine', territory: 'a' }],
       data
     );
-    expect(writes.map((write) => write.id)).toEqual(['seed-dnc-m2-0']);
+    expect(writes.map((write) => write.id)).toEqual([
+      'seed-dnc-m2-0',
+      'seeded_do_not_calls',
+    ]);
+    // its turn has passed too, so removing them later brings nothing back
+    expect(writes[1].fields).toEqual({
+      id: 'seeded_do_not_calls',
+      a: true,
+      b: true,
+    });
+  });
+
+  test('never seeds a territory twice, even after its entries were removed', () => {
+    const territories = [
+      { id: 'a', number: 'M1' },
+      { id: 'b', number: 'M2' },
+    ];
+    expect(
+      doNotCallWrites(territories, [], data, { a: true, b: true })
+    ).toEqual([]);
+    expect(
+      doNotCallWrites(territories, [], data, { a: true }).map(
+        (write) => write.id
+      )
+    ).toEqual(['seed-dnc-m2-0', 'seeded_do_not_calls']);
   });
 
   test('skips territories without seeded entries', () => {

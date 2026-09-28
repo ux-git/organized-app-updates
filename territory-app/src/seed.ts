@@ -128,8 +128,12 @@ export const seedBoundaries = async (territories: Row[]) => {
 
 // Do-not-call addresses, from seed/donotcalls.json:
 // { "M12": [{ "date": "dd.mm.yyyy", "address": "…", "name": "…" }] }.
-// Only for a territory that has none yet, with the same ids on every phone.
+// Once for a territory that has none yet, with the same ids on every phone.
+// The store keeps which territories had their turn, so removed entries don't
+// come back, on this device or a paired one.
 export type Entry = { date: string; address: string; name?: string };
+
+const SEEDED = 'seeded_do_not_calls';
 
 const doNotCalls = Object.values(
   import.meta.glob<Record<string, Entry[]>>('../seed/donotcalls.json', {
@@ -143,14 +147,18 @@ const doNotCallByKey = byKey(doNotCalls);
 export const doNotCallWrites = (
   territories: Row[],
   existing: Row[],
-  byNumber: Map<string, Entry[]>
+  byNumber: Map<string, Entry[]>,
+  seeded: Record<string, unknown> = {}
 ) => {
   const taken = new Set(existing.map((row) => row.territory));
   const writes: { table: string; id: string; fields: Row }[] = [];
+  const done: Record<string, boolean> = {};
   for (const row of territories) {
     const number = keyOf(row.number);
     const entries = byNumber.get(number);
-    if (!entries?.length || taken.has(row.id)) continue;
+    if (!entries?.length || seeded[row.id]) continue;
+    done[row.id] = true;
+    if (taken.has(row.id)) continue;
     entries.forEach((entry, order) => {
       const id = `seed-dnc-${number.toLowerCase()}-${order}`;
       writes.push({
@@ -160,12 +168,26 @@ export const doNotCallWrites = (
       });
     });
   }
+  if (Object.keys(done).length) {
+    writes.push({
+      table: 'settings',
+      id: SEEDED,
+      fields: { id: SEEDED, ...done },
+    });
+  }
   return writes;
 };
 
-export const seedDoNotCalls = async (territories: Row[], existing: Row[]) => {
+export const seedDoNotCalls = async (
+  territories: Row[],
+  existing: Row[],
+  settings: Row[]
+) => {
   if (!doNotCalls) return [];
-  const writes = doNotCallWrites(territories, existing, doNotCallByKey);
+  const seeded = settings.find((row) => row.id === SEEDED);
+  const writes = doNotCallWrites(territories, existing, doNotCallByKey, seeded);
   if (writes.length) await writeRows(writes);
-  return writes.map((write) => write.fields);
+  return writes
+    .filter((write) => write.table === 'do_not_calls')
+    .map((write) => write.fields);
 };

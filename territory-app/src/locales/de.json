@@ -107,7 +107,8 @@
     "map": "Übersichtskarte",
     "doNotCall": "Nicht besuchen",
     "history": "Zuteilungsverlauf",
-    "statistics": "Statistik"
+    "statistics": "Statistik",
+    "notSaved": "Deine Änderung konnte nicht gespeichert werden. Die App versucht es bei deiner nächsten Änderung erneut."
   },
   "settings": {
     "nameMissing": "Gib deinen Namen ein, damit gekoppelte Geräte wissen, dass du es bist",

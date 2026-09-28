@@ -4,6 +4,7 @@
 type Internals = {
   invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
   transformCallback: (callback: (event: unknown) => void) => number;
+  unregisterCallback?: (id: number) => void;
 };
 
 // Android's Kotlin side, for Bluetooth, NFC and the background sync.
@@ -41,6 +42,7 @@ export const listen = async <T>(
     handler: id,
   });
   return () => {
+    internals.unregisterCallback?.(id);
     internals
       .invoke('plugin:event|unlisten', { event, eventId })
       .catch(() => {});

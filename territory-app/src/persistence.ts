@@ -15,6 +15,7 @@ import { parseDate } from '@features/territories/helpers';
 import { store } from '@states/index';
 import { appLocalsState } from '@states/app_locals';
 import { settingsState } from '@states/settings';
+import { Atom } from 'jotai';
 import { invoke, listen, nearby } from './native';
 import { setCurrentPublisher, setMapCenter, setPeople } from './data';
 import { seedBoundaries, seedDoNotCalls, seedPeople } from './seed';
@@ -29,9 +30,11 @@ import {
   peopleState,
   PROFILES,
 } from './profiles';
+import { notify } from './pages/sync/text';
+import { t } from './i18n';
 
 // The territory pages keep their data in Jotai atoms. This mirrors the atoms
-// into the phone's store, record by record, and reloads them when a sync
+// into the phone's store, field by field, and reloads them when a sync
 // brings changes. Assignments and do-not-calls are records of their own, so
 // two phones adding to the same territory offline both keep their entries.
 
@@ -53,6 +56,12 @@ const SETTINGS = 'settings';
 export const PEOPLE = 'people';
 
 const rows = (table: string) => invoke<Row[]>('store_list', { table });
+
+// a cleared field is stored as null, and read back as not there
+const present = (row: Row) =>
+  Object.fromEntries(
+    Object.entries(row).filter(([, value]) => value !== null)
+  ) as Row;
 
 // every edit tells paired phones nearby at once (NearbyService.changed)
 export const writeRows = (writes: Write[]) =>
@@ -94,21 +103,42 @@ const without = (row: Row, ...fields: string[]) =>
     Object.entries(row).filter(([field]) => !fields.includes(field))
   );
 
-// what the store holds, as last written or loaded, to write only changes
-let saved = new Map<string, string>();
-let loading = false;
+// what the store holds, field by field as JSON, as last loaded or written
+let saved = new Map<string, Record<string, string>>();
+
+const json = (value: unknown) => JSON.stringify(value ?? null);
 
 const remember = (write: Write) => {
-  if (write.deleted) saved.delete(key(write.table, write.id));
-  else saved.set(key(write.table, write.id), JSON.stringify(write.fields));
+  const at = key(write.table, write.id);
+  if (write.deleted) {
+    saved.delete(at);
+    return;
+  }
+  const fields = { ...saved.get(at) };
+  for (const [field, value] of Object.entries(write.fields ?? {})) {
+    if (value == null) delete fields[field];
+    else fields[field] = json(value);
+  }
+  saved.set(at, fields);
 };
 
-const changed = (writes: Write[]) =>
-  writes.filter(
-    (write) =>
-      write.deleted ||
-      saved.get(key(write.table, write.id)) !== JSON.stringify(write.fields)
-  );
+// only the fields that differ from the store, so a newer synced field in the
+// same record stays; a cleared one goes as null
+const changes = (record: Write): Write[] => {
+  // a stored territory's record only counts as kept
+  if (!record.fields) return [];
+  const before = saved.get(key(record.table, record.id)) ?? {};
+  const after = record.fields;
+  const fields: Record<string, unknown> = {};
+  for (const field of new Set([
+    ...Object.keys(after),
+    ...Object.keys(before),
+  ])) {
+    const value = after[field] ?? null;
+    if (json(value) !== (before[field] ?? 'null')) fields[field] = value;
+  }
+  return Object.keys(fields).length ? [{ ...record, fields }] : [];
+};
 
 export const assemble = (
   territoryRows: Row[],
@@ -289,59 +319,6 @@ export const adoptProfile = async (old: Row) => {
   await loadProfiles();
 };
 
-export const load = async () => {
-  loading = true;
-  try {
-    const [
-      territoryRows,
-      assignmentRows,
-      doNotCallRows,
-      categoryRows,
-      settings,
-    ] = await Promise.all([
-      rows(TERRITORIES),
-      rows(ASSIGNMENTS),
-      rows(DO_NOT_CALLS),
-      rows(CATEGORIES),
-      rows(SETTINGS),
-    ]);
-    await seedPeople((await rows(PEOPLE)).length > 0);
-    await seedBoundaries(territoryRows);
-    doNotCallRows.push(...(await seedDoNotCalls(territoryRows, doNotCallRows)));
-    await Promise.all([loadPeople(), loadIdentity()]);
-    await loadProfiles();
-
-    const territories = assemble(territoryRows, assignmentRows, doNotCallRows);
-    const categories = categoryRows
-      .sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0))
-      .map((row) => without(row, 'order')) as TerritoryCategoryOption[];
-    const setting = (id: string) =>
-      settings.find((row) => row.id === id)?.value;
-    const boundary = (setting('boundary') ?? undefined) as
-      | TerritoryBoundary
-      | undefined;
-    const overdue = (setting('overdue_months') ?? undefined) as
-      | number
-      | undefined;
-
-    centerOf(
-      boundary ?? territories.flatMap((territory) => territory.boundary ?? [])
-    );
-
-    saved = new Map();
-    territories.flatMap(split).forEach(remember);
-    categoryWrites(categories).forEach(remember);
-    settingWrites(boundary, overdue).forEach(remember);
-
-    store.set(territoriesState, territories);
-    if (categories.length) store.set(territoryCategoriesState, categories);
-    store.set(congregationBoundaryState, boundary);
-    if (overdue) store.set(territoryOverdueMonthsState, overdue);
-  } finally {
-    loading = false;
-  }
-};
-
 const categoryWrites = (categories: TerritoryCategoryOption[]): Write[] =>
   categories.map((category, order) => ({
     table: CATEGORIES,
@@ -349,39 +326,237 @@ const categoryWrites = (categories: TerritoryCategoryOption[]): Write[] =>
     fields: { ...category, order },
   }));
 
-const settingWrites = (
-  boundary: TerritoryBoundary | undefined,
-  overdue: number | undefined
-): Write[] => [
-  { table: SETTINGS, id: 'boundary', fields: { value: boundary ?? null } },
-  { table: SETTINGS, id: 'overdue_months', fields: { value: overdue ?? null } },
+const settingWrite = (id: string, value: unknown): Write => ({
+  table: SETTINGS,
+  id,
+  fields: { value: value ?? null },
+});
+
+type State = {
+  territories: Territory[];
+  categories: TerritoryCategoryOption[];
+  boundary?: TerritoryBoundary;
+  overdue?: number;
+};
+
+const stateOf = (
+  territoryRows: Row[],
+  assignmentRows: Row[],
+  doNotCallRows: Row[],
+  categoryRows: Row[],
+  settingRows: Row[]
+): State => {
+  const setting = (id: string) =>
+    settingRows.find((row) => row.id === id)?.value;
+  return {
+    territories: assemble(territoryRows, assignmentRows, doNotCallRows),
+    categories: [...categoryRows]
+      .sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0))
+      .map((row) => without(row, 'order')) as TerritoryCategoryOption[],
+    boundary: setting('boundary') as TerritoryBoundary | undefined,
+    overdue: setting('overdue_months') as number | undefined,
+  };
+};
+
+const recordsOf = (state: State) =>
+  new Map(
+    [
+      ...state.territories.flatMap(split),
+      ...categoryWrites(state.categories),
+      settingWrite('boundary', state.boundary),
+      settingWrite('overdue_months', state.overdue),
+    ].map((record) => [key(record.table, record.id), record])
+  );
+
+const rowsOf = (records: Map<string, Write>, table: string) =>
+  [...records.values()]
+    .filter((record) => record.table === table)
+    .map((record) => present({ ...record.fields, id: record.id }));
+
+// an atom and the records it is stored as; records missing from `tables`
+// were deleted on the pages
+type Part = { atom: Atom<unknown>; records: () => Write[]; tables: string[] };
+
+// each territory as last loaded or written; only its id is compared then
+let stored = new Map<string, Territory>();
+
+const territoryPart: Part = {
+  atom: territoriesState,
+  records: () =>
+    store.get(territoriesState).flatMap((territory) => {
+      const records = split(territory);
+      return stored.get(territory.id) === territory
+        ? records.map(({ table, id }) => ({ table, id }))
+        : records;
+    }),
+  tables: [TERRITORIES, ASSIGNMENTS, DO_NOT_CALLS],
+};
+
+const byId = (territories: Territory[]) =>
+  new Map(territories.map((territory) => [territory.id, territory]));
+
+const parts: Part[] = [
+  territoryPart,
+  {
+    atom: territoryCategoriesState,
+    records: () => categoryWrites(store.get(territoryCategoriesState)),
+    tables: [CATEGORIES],
+  },
+  {
+    atom: congregationBoundaryState,
+    records: () => [
+      settingWrite('boundary', store.get(congregationBoundaryState)),
+    ],
+    tables: [],
+  },
+  {
+    atom: territoryOverdueMonthsState,
+    records: () => [
+      settingWrite('overdue_months', store.get(territoryOverdueMonthsState)),
+    ],
+    tables: [],
+  },
 ];
 
-const save = (writes: Write[]) => {
-  const pending = changed(writes);
-  if (!pending.length) return;
-  pending.forEach(remember);
-  writeRows(pending).catch((error) =>
-    console.error('territories: saving failed', error)
-  );
+const diff = (part: Part, records = part.records()) => {
+  const kept = new Set(records.map((record) => key(record.table, record.id)));
+  const writes = records.flatMap(changes);
+  for (const at of saved.keys()) {
+    const slash = at.indexOf('/');
+    const table = at.slice(0, slash);
+    if (part.tables.includes(table) && !kept.has(at)) {
+      writes.push({ table, id: at.slice(slash + 1), deleted: true });
+    }
+  }
+  return writes;
 };
 
-const removedChildren = (before: Territory, after?: Territory): Write[] => {
-  const gone = <T extends { id: string }>(list: T[], next: T[] = []) =>
-    list.filter((item) => !next.some((other) => other.id === item.id));
-  return [
-    ...gone(before.assignments, after?.assignments).map((a) => ({
-      table: ASSIGNMENTS,
-      id: a.id,
-      deleted: true,
-    })),
-    ...gone(before.doNotCalls, after?.doNotCalls).map((d) => ({
-      table: DO_NOT_CALLS,
-      id: d.id,
-      deleted: true,
-    })),
-  ];
+// the atoms changed on the pages since their last write
+const dirty = new Set<Part>();
+let applying = false;
+
+// loads and writes take turns: a load never overlaps a write or another load
+let queue: Promise<unknown> = Promise.resolve();
+const enqueue = (task: () => Promise<void>) => {
+  const run = queue.then(task);
+  queue = run.catch(() => {});
+  return run;
 };
+
+const flush = async () => {
+  const pending = [...dirty];
+  dirty.clear();
+  const territories = store.get(territoriesState);
+  try {
+    const writes = pending.flatMap((part) => diff(part));
+    await writeRows(writes);
+    // only once stored; a failed write stays a difference, tried again
+    writes.forEach(remember);
+    if (pending.includes(territoryPart)) stored = byId(territories);
+  } catch (error) {
+    pending.forEach((part) => dirty.add(part));
+    console.error('territories: saving failed', error);
+    notify(t('common.somethingWrong'), t('territories.notSaved'), 'error');
+  }
+};
+
+let nextFlush: Promise<void> | undefined;
+const save = () => {
+  nextFlush ??= enqueue(() => {
+    nextFlush = undefined;
+    return flush();
+  });
+};
+
+const read = async () => {
+  const [territoryRows, assignmentRows, doNotCallRows, categoryRows, settings] =
+    (
+      await Promise.all(
+        [TERRITORIES, ASSIGNMENTS, DO_NOT_CALLS, CATEGORIES, SETTINGS].map(rows)
+      )
+    ).map((list) => list.map(present));
+  await seedPeople((await rows(PEOPLE)).length > 0);
+  await seedBoundaries(territoryRows);
+  doNotCallRows.push(
+    ...(await seedDoNotCalls(territoryRows, doNotCallRows, settings))
+  );
+  await Promise.all([loadPeople(), loadIdentity()]);
+  await loadProfiles();
+
+  let state = stateOf(
+    territoryRows,
+    assignmentRows,
+    doNotCallRows,
+    categoryRows,
+    settings
+  );
+  const records = recordsOf(state);
+
+  // edits the store doesn't have yet (made during this load, or not written)
+  // stay on top of what it holds, and are written next
+  const edits = [...dirty];
+  dirty.clear();
+  const pending: Write[] = [];
+  const mine = new Map<string, Write>();
+  for (const part of edits) {
+    const current = part.records();
+    current.forEach((record) => mine.set(key(record.table, record.id), record));
+    const writes = diff(part, current);
+    if (writes.length) dirty.add(part);
+    pending.push(...writes);
+  }
+
+  if (pending.length) {
+    const shown = new Map(records);
+    for (const write of pending) {
+      const at = key(write.table, write.id);
+      if (write.deleted) {
+        shown.delete(at);
+        continue;
+      }
+      const base = shown.get(at) ?? mine.get(at)!;
+      shown.set(at, { ...base, fields: { ...base.fields, ...write.fields } });
+    }
+    state = stateOf(
+      rowsOf(shown, TERRITORIES),
+      rowsOf(shown, ASSIGNMENTS),
+      rowsOf(shown, DO_NOT_CALLS),
+      rowsOf(shown, CATEGORIES),
+      rowsOf(shown, SETTINGS)
+    );
+  }
+
+  saved = new Map();
+  records.forEach(remember);
+
+  centerOf(
+    state.boundary ??
+      state.territories.flatMap((territory) => territory.boundary ?? [])
+  );
+
+  stored = byId(dirty.has(territoryPart) ? [] : state.territories);
+  applying = true;
+  try {
+    store.set(territoriesState, state.territories);
+    if (state.categories.length) {
+      store.set(territoryCategoriesState, state.categories);
+    }
+    store.set(congregationBoundaryState, state.boundary);
+    if (state.overdue) store.set(territoryOverdueMonthsState, state.overdue);
+  } finally {
+    applying = false;
+  }
+  if (pending.length) save();
+};
+
+let nextLoad: Promise<void> | undefined;
+
+/** Reads the store into the pages; a burst of calls makes one load. */
+export const load = () =>
+  (nextLoad ??= enqueue(() => {
+    nextLoad = undefined;
+    return read();
+  }));
 
 /**
  * Territories keep names, not ids, so a renamed publisher or group is
@@ -412,55 +587,26 @@ export const renameOnTerritories = (renames: Map<string, string>) => {
   );
 };
 
-/** Writes every change made on the pages to the store. */
+/** Writes every change made on the pages to the store, until stopped. */
 export const persist = () => {
-  let previous = store.get(territoriesState);
-  store.sub(territoriesState, () => {
-    const next = store.get(territoriesState);
-    const before = previous;
-    previous = next;
-    if (loading) return;
+  const stops = parts.map((part) =>
+    store.sub(part.atom, () => {
+      if (applying) return;
+      dirty.add(part);
+      save();
+    })
+  );
 
-    const writes: Write[] = [];
-    for (const territory of next) {
-      const old = before.find((item) => item.id === territory.id);
-      if (old === territory) continue;
-      writes.push(...split(territory));
-      if (old) writes.push(...removedChildren(old, territory));
-    }
-    for (const old of before) {
-      if (next.some((item) => item.id === old.id)) continue;
-      writes.push({ table: TERRITORIES, id: old.id, deleted: true });
-      writes.push(...removedChildren(old));
-    }
-    save(writes);
-  });
-
-  store.sub(territoryCategoriesState, () => {
-    if (loading) return;
-    const categories = store.get(territoryCategoriesState);
-    const deleted = [...saved.keys()]
-      .filter((k) => k.startsWith(`${CATEGORIES}/`))
-      .map((k) => k.slice(CATEGORIES.length + 1))
-      .filter((id) => !categories.some((category) => category.id === id))
-      .map((id) => ({ table: CATEGORIES, id, deleted: true }));
-    save([...categoryWrites(categories), ...deleted]);
-  });
-
-  const saveSettings = () => {
-    if (loading) return;
-    save(
-      settingWrites(
-        store.get(congregationBoundaryState),
-        store.get(territoryOverdueMonthsState)
-      )
-    );
-  };
-  store.sub(congregationBoundaryState, saveSettings);
-  store.sub(territoryOverdueMonthsState, saveSettings);
-
-  // a sync from another phone changed the store
-  return listen('store-changed', () => {
+  // a sync from another device changed the store
+  const unlisten = listen('store-changed', () => {
     load().catch((error) => console.error('territories: reload failed', error));
+  }).catch((error) => {
+    console.error('territories: listening failed', error);
+    return () => {};
   });
+
+  return () => {
+    stops.forEach((stop) => stop());
+    unlisten.then((stop) => stop());
+  };
 };

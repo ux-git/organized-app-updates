@@ -85,17 +85,21 @@ const Themed = () => {
   useEffect(() => {
     if (!isNative()) return;
     let stop: (() => void) | undefined;
+    let gone = false;
     load()
-      .then(() => persist())
-      .then((unlisten) => {
-        stop = unlisten;
+      .then(() => {
+        // StrictMode mounts twice; only the mount that stays persists
+        if (!gone) stop = persist();
         setReady(true);
       })
       .catch((error) => {
         console.error('territories: loading failed', error);
         setReady(true);
       });
-    return () => stop?.();
+    return () => {
+      gone = true;
+      stop?.();
+    };
   }, []);
 
   return (

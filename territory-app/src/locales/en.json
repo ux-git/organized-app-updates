@@ -107,7 +107,8 @@
     "map": "Coverage map",
     "doNotCall": "Do not call",
     "history": "Assignment history",
-    "statistics": "Statistics"
+    "statistics": "Statistics",
+    "notSaved": "Your change couldn’t be saved. The app tries again with your next change."
   },
   "settings": {
     "nameMissing": "Add your name, so paired devices know it’s you",

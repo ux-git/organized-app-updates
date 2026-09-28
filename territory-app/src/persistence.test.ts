@@ -1,13 +1,23 @@
-import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vitest';
 import { Territory } from '@definition/territory';
 import { store } from '@states/index';
 import { appLocalsState } from '@states/app_locals';
 import { settingsState } from '@states/settings';
 import { territoriesState } from '@states/territories';
 import { CURRENT_PUBLISHER } from './data';
-import { invoke } from './native';
+import { invoke, listen } from './native';
+import { notify } from './pages/sync/text';
 import {
   assemble,
+  load,
   loadIdentity,
   loadPeople,
   loadProfiles,
@@ -30,10 +40,15 @@ import {
 
 vi.mock('./native', () => ({
   invoke: vi.fn(),
-  listen: vi.fn(),
+  listen: vi.fn(async () => () => {}),
   nearby: vi.fn(),
 }));
-vi.mock('./seed', () => ({}));
+vi.mock('./seed', () => ({
+  seedPeople: async () => {},
+  seedBoundaries: async () => {},
+  seedDoNotCalls: async () => [],
+}));
+vi.mock('./pages/sync/text', () => ({ notify: vi.fn() }));
 
 type Row = Record<string, unknown> & { id: string };
 
@@ -332,22 +347,249 @@ describe('linked publisher', () => {
   });
 });
 
-describe('renaming', () => {
-  test('a new name reaches the territories and is written', async () => {
-    vi.mocked(invoke).mockResolvedValue(1);
-    store.set(territoriesState, [
-      territory({
-        id: 't1',
-        number: '1',
-        holder: 'Ben',
-        assignments: [{ id: 'a1', publisher: 'Ben' }],
-        doNotCalls: [{ id: 'd1', addedBy: 'Ben' }],
-      }),
-      territory({ id: 't2', number: '2', requestedBy: 'Ben' }),
-      territory({ id: 't3', number: '3', holder: 'Anna' }),
+type Write = {
+  table: string;
+  id: string;
+  fields?: Record<string, unknown>;
+  deleted?: boolean;
+};
+
+// a store as the Rust side keeps it, for load(), and every write sent to it
+const fakeStore = (tables: Record<string, Row[]>) => {
+  const sent: Write[][] = [];
+  const gates: (() => void)[] = [];
+  const fake = {
+    sent,
+    fail: 0,
+    // store_list for territories waits for release() while held
+    held: false,
+    lists: 0,
+    release: () => gates.shift()?.(),
+  };
+  vi.mocked(invoke).mockImplementation(async (command, args) => {
+    if (command === 'identity') return { id: 'me', name: 'Tom’s phone' };
+    if (command === 'store_write') {
+      if (fake.fail > 0) {
+        fake.fail -= 1;
+        throw new Error('disk full');
+      }
+      sent.push((args as { writes: Write[] }).writes);
+      return 1;
+    }
+    const table = (args as { table: string }).table;
+    if (table === 'territories') {
+      fake.lists += 1;
+      if (fake.held) await new Promise<void>((done) => gates.push(done));
+    }
+    return structuredClone(tables[table] ?? []);
+  });
+  return fake;
+};
+
+const settled = () => new Promise((resolve) => setTimeout(resolve));
+
+const edit = (change: (territory: Territory) => Territory) =>
+  store.set(territoriesState, (territories) => territories.map(change));
+
+describe('saving', () => {
+  const stops: (() => void)[] = [];
+  const persisted = () => stops.push(persist());
+
+  beforeAll(() => vi.stubGlobal('window', new EventTarget()));
+  afterAll(() => vi.unstubAllGlobals());
+  afterEach(() => stops.splice(0).forEach((stop) => stop()));
+
+  const tables = () => ({
+    territories: [{ id: 't1', number: '1', holder: 'Ben', daysOut: 3 }],
+    assignments: [
+      { id: 'a1', territory: 't1', publisher: 'Ben', order: 0 },
+      { id: 'a2', territory: 't1', publisher: 'Anna', order: 1 },
+    ],
+  });
+
+  test('only the changed fields are written', async () => {
+    const fake = fakeStore(tables());
+    await load();
+    persisted();
+
+    edit((territory) => ({ ...territory, name: 'Old town' }));
+    await settled();
+    expect(fake.sent).toEqual([
+      [{ table: 'territories', id: 't1', fields: { name: 'Old town' } }],
     ]);
-    persist();
-    vi.mocked(invoke).mockClear();
+
+    // the next one moves up: only its order is written
+    edit((territory) => ({
+      ...territory,
+      assignments: territory.assignments.slice(1),
+    }));
+    await settled();
+    expect(fake.sent[1]).toEqual([
+      { table: 'assignments', id: 'a2', fields: { order: 0 } },
+      { table: 'assignments', id: 'a1', deleted: true },
+    ]);
+  });
+
+  test('going back to the territories from before is written too', async () => {
+    const fake = fakeStore(tables());
+    await load();
+    persisted();
+    const before = store.get(territoriesState);
+
+    edit((territory) => ({ ...territory, name: 'Old town' }));
+    await settled();
+    store.set(territoriesState, before);
+    await settled();
+    expect(fake.sent.at(-1)).toEqual([
+      { table: 'territories', id: 't1', fields: { name: null } },
+    ]);
+  });
+
+  test('a cleared field is sent as null, and read back as not there', async () => {
+    const fake = fakeStore(tables());
+    await load();
+    persisted();
+
+    // returned: no holder, and no days out
+    edit((territory) => {
+      const next = { ...territory, holder: undefined };
+      delete next.daysOut;
+      return next;
+    });
+    await settled();
+    expect(fake.sent).toEqual([
+      [
+        {
+          table: 'territories',
+          id: 't1',
+          fields: { holder: null, daysOut: null },
+        },
+      ],
+    ]);
+
+    fakeStore({ territories: [{ id: 't1', number: '1', holder: null }] });
+    await load();
+    expect(store.get(territoriesState)[0]).not.toHaveProperty('holder');
+  });
+
+  test('a failed write is retried', async () => {
+    const fake = fakeStore(tables());
+    await load();
+    persisted();
+
+    fake.fail = 1;
+    edit((territory) => ({ ...territory, name: 'Old town' }));
+    await settled();
+    expect(fake.sent).toEqual([]);
+    expect(notify).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      'error'
+    );
+
+    // a load in between keeps it, and writes it
+    await load();
+    await settled();
+    expect(store.get(territoriesState)[0].name).toBe('Old town');
+    expect(fake.sent).toEqual([
+      [{ table: 'territories', id: 't1', fields: { name: 'Old town' } }],
+    ]);
+
+    fake.fail = 1;
+    edit((territory) => ({ ...territory, city: 'Xanten' }));
+    await settled();
+    // the next change takes the failed one along
+    edit((territory) => ({ ...territory, name: 'Harbour' }));
+    await settled();
+    expect(fake.sent.at(-1)).toEqual([
+      {
+        table: 'territories',
+        id: 't1',
+        fields: { city: 'Xanten', name: 'Harbour' },
+      },
+    ]);
+  });
+
+  test('an edit during a load is kept', async () => {
+    const data = tables();
+    const fake = fakeStore(data);
+    await load();
+    persisted();
+
+    // a sync brought a new city meanwhile
+    data.territories[0] = { ...data.territories[0], city: 'Wesel' } as never;
+    fake.held = true;
+    const loading = load();
+    await settled();
+    edit((territory) => ({ ...territory, name: 'Old town' }));
+    fake.release();
+    await loading;
+    await settled();
+
+    const [territory] = store.get(territoriesState);
+    expect(territory.name).toBe('Old town');
+    expect(territory.city).toBe('Wesel');
+    expect(fake.sent).toEqual([
+      [{ table: 'territories', id: 't1', fields: { name: 'Old town' } }],
+    ]);
+  });
+
+  test('overlapping loads run in sequence, a burst as one', async () => {
+    const fake = fakeStore(tables());
+    await load();
+    persisted();
+    const changed = vi.mocked(listen).mock.calls.at(-1)![1] as () => void;
+    fake.lists = 0;
+    fake.held = true;
+
+    const first = load();
+    await settled();
+    expect(fake.lists).toBe(1);
+
+    // a sync tells three times while the first load runs
+    changed();
+    changed();
+    const next = load();
+    await settled();
+    expect(fake.lists).toBe(1);
+
+    fake.release();
+    await first;
+    await settled();
+    expect(fake.lists).toBe(2);
+    fake.release();
+    await next;
+    await settled();
+    expect(fake.lists).toBe(2);
+  });
+
+  test('stopped, the pages write nothing', async () => {
+    const fake = fakeStore(tables());
+    await load();
+    persist()();
+
+    edit((territory) => ({ ...territory, name: 'Old town' }));
+    await settled();
+    expect(fake.sent).toEqual([]);
+  });
+});
+
+describe('renaming', () => {
+  beforeAll(() => vi.stubGlobal('window', new EventTarget()));
+  afterAll(() => vi.unstubAllGlobals());
+
+  test('a new name reaches the territories and is written', async () => {
+    const fake = fakeStore({
+      territories: [
+        { id: 't1', number: '1', holder: 'Ben' },
+        { id: 't2', number: '2', requestedBy: 'Ben' },
+        { id: 't3', number: '3', holder: 'Anna' },
+      ],
+      assignments: [{ id: 'a1', territory: 't1', publisher: 'Ben', order: 0 }],
+      do_not_calls: [{ id: 'd1', territory: 't1', addedBy: 'Ben', order: 0 }],
+    });
+    await load();
+    const stop = persist();
 
     renameOnTerritories(new Map([['Ben', 'Ben Beispiel']]));
 
@@ -358,14 +600,27 @@ describe('renaming', () => {
     expect(t2.requestedBy).toBe('Ben Beispiel');
     expect(t3.holder).toBe('Anna');
 
-    const { writes } = vi.mocked(invoke).mock.calls[0][1] as {
-      writes: { table: string; id: string }[];
-    };
-    expect(writes.map((write) => `${write.table}/${write.id}`)).toEqual([
-      'territories/t1',
-      'assignments/a1',
-      'do_not_calls/d1',
-      'territories/t2',
+    await settled();
+    stop();
+    expect(fake.sent).toEqual([
+      [
+        { table: 'territories', id: 't1', fields: { holder: 'Ben Beispiel' } },
+        {
+          table: 'assignments',
+          id: 'a1',
+          fields: { publisher: 'Ben Beispiel' },
+        },
+        {
+          table: 'do_not_calls',
+          id: 'd1',
+          fields: { addedBy: 'Ben Beispiel' },
+        },
+        {
+          table: 'territories',
+          id: 't2',
+          fields: { requestedBy: 'Ben Beispiel' },
+        },
+      ],
     ]);
   });
 });
