@@ -28,6 +28,8 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import org.json.JSONObject
 
 // The Organized shell's window handling (organized-tauri-shell MainActivity):
@@ -112,6 +114,10 @@ class MainActivity : TauriActivity() {
     webView.addJavascriptInterface(HapticsBridge(), "OrganizedHaptics")
     webView.addJavascriptInterface(FilesBridge(), "OrganizedFiles")
     webView.addJavascriptInterface(NearbyBridge(), "TerritoryNearby")
+    // a reload starts the page over: routes and files wait for its ready() again
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+      WebViewCompat.addDocumentStartJavaScript(webView, "window===top&&OrganizedShell.loading()", setOf("*"))
+    }
     handler.post(::takeBackPress)
   }
 
@@ -361,7 +367,9 @@ class MainActivity : TauriActivity() {
         removed = true
       }
       if (removed) mode.invalidateContentRect()
-      handler.postDelayed(this, FRAME_MS)
+      // the web view rebuilds the menu when the selection changes, so it is
+      // watched while open, only not on every frame while nothing comes back
+      handler.postDelayed(this, if (removed) FRAME_MS else MENU_IDLE_MS)
     }
   }
 
@@ -392,6 +400,11 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun setAccent(theme: String) {
       handler.post { applyAccent(theme) }
+    }
+
+    @JavascriptInterface
+    fun loading() {
+      handler.post { pageReady = false }
     }
 
     @JavascriptInterface
@@ -542,6 +555,8 @@ class MainActivity : TauriActivity() {
       .put("bluetooth", Nearby.hasBluetooth(this))
       .put("notifications", Notify.mayNotify(this))
       .put("exactAlarms", Reminders.canExact(this))
+      // a burst failed for want of them
+      .put("exactAlarmsNeeded", SyncNotices.exactAlarmsNeeded(this))
       .put("location", Nearby.granted(this, Manifest.permission.ACCESS_FINE_LOCATION))
       .put(
         "bluetoothOn",
@@ -739,6 +754,7 @@ class MainActivity : TauriActivity() {
     private const val SPLASH_MAX_MS = 5000L
     private const val FILE_MAX = 32 * 1024 * 1024
     const val FRAME_MS = 16L
+    private const val MENU_IDLE_MS = 100L
     const val PREF_BAR_COLOR = "bar_color"
     const val PREF_ACCENT = "accent"
 

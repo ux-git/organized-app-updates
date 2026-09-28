@@ -1,14 +1,11 @@
 package com.sws2apps.territories
 
 import android.app.AlarmManager
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.DocumentsContract
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -28,10 +25,12 @@ import java.util.concurrent.Executors
 object Backups {
   private const val ACTION = "com.sws2apps.territories.BACKUP"
   private const val FAILED_ID = 53
-  private const val CHANNEL = "backup"
+  const val CHANNEL = "backup"
   private const val KEEP = 10
   private const val PREFIX = "Territories-backup-"
   private const val SUFFIX = ".territories"
+  /** Until it is written and read back; prune() doesn't count it. */
+  private const val PARTIAL = ".part"
   private const val EARLY_MS = 60_000L
 
   private val worker = Executors.newSingleThreadExecutor()
@@ -220,14 +219,15 @@ object Backups {
   private fun write(context: Context, tree: Uri, name: String, bytes: ByteArray): Boolean {
     val resolver = context.contentResolver
     val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
-    val doc = DocumentsContract.createDocument(resolver, parent, "application/octet-stream", name) ?: return false
-    val stream = resolver.openOutputStream(doc, "wt")
-    if (stream == null) {
-      runCatching { DocumentsContract.deleteDocument(resolver, doc) }
-      return false
-    }
-    stream.use { it.write(bytes) }
-    return true
+    val doc = DocumentsContract.createDocument(resolver, parent, "application/octet-stream", name + PARTIAL) ?: return false
+    val done = runCatching {
+      val stream = resolver.openOutputStream(doc, "wt") ?: return@runCatching false
+      stream.use { it.write(bytes) }
+      val back = resolver.openInputStream(doc)?.use { it.readBytes() }
+      back.contentEquals(bytes) && DocumentsContract.renameDocument(resolver, doc, name) != null
+    }.getOrDefault(false)
+    if (!done) runCatching { DocumentsContract.deleteDocument(resolver, doc) }
+    return done
   }
 
   /** Keeps the newest backups the app made; anything else in the folder stays. */
@@ -236,25 +236,25 @@ object Backups {
     val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
     val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME)
     val backups = mutableListOf<Pair<String, String>>()
+    val unfinished = mutableListOf<String>()
     resolver.query(children, columns, null, null, null)?.use { cursor ->
       while (cursor.moveToNext()) {
         val name = cursor.getString(1) ?: continue
         if (name.startsWith(PREFIX) && name.endsWith(SUFFIX)) backups += cursor.getString(0) to name
+        // left by a backup that was cut off
+        if (name.startsWith(PREFIX) && name.endsWith(PARTIAL)) unfinished += cursor.getString(0)
       }
     }
     // the names sort by their date
-    backups.sortedByDescending { it.second }.drop(KEEP).forEach { (id, _) ->
+    val old = backups.sortedByDescending { it.second }.drop(KEEP).map { it.first }
+    (old + unfinished).forEach { id ->
       runCatching { DocumentsContract.deleteDocument(resolver, DocumentsContract.buildDocumentUriUsingTree(tree, id)) }
     }
   }
 
   private fun notifyFailed(context: Context) {
     if (!Notify.mayNotify(context)) return
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-        NotificationChannel(CHANNEL, context.getString(R.string.backup_channel), NotificationManager.IMPORTANCE_DEFAULT)
-      )
-    }
+    ensureChannel(context)
     val text = context.getString(
       if (prefs(context).getString("error", null) == "folder") R.string.backup_failed_folder else R.string.backup_failed
     )

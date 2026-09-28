@@ -10,6 +10,7 @@
     <string name="sync_looking">Checking for paired devices nearby</string>
     <string name="results_channel">Sync results</string>
     <string name="done_title">Synced with %1$s</string>
+    <string name="done_public">Sync finished</string>
     <string name="done_someone">the other device</string>
     <string name="done_sent_only">Your changes are on their device now too.</string>
     <string name="done_joined">%1$s joined your devices. You now sync with them too.</string>
@@ -47,6 +48,8 @@
     <string name="found_action">Sync now</string>
     <string name="sync_timeout">The other device stopped answering</string>
     <string name="sync_lost">The connection was lost</string>
+    <string name="exact_title">Allow exact alarms for scheduled sync</string>
+    <string name="exact_text">Without them, Android doesn’t let the app look for your paired devices in the background. Tap to allow them.</string>
     <string name="reminder_leave_title">You left before syncing</string>
     <string name="reminder_leave">Your changes haven’t reached %1$s yet. Open the app when you’re near one of them again.</string>
     <string name="shortcut_sync">Sync now</string>

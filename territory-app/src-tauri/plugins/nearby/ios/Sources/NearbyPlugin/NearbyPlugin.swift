@@ -251,9 +251,12 @@ class NearbyPlugin: Tauri.Plugin {
   }
 
   private func finish(_ text: String) {
+    // the camera goes on reading while the scanner slides away
+    guard let scanner = scanner else { return }
+    self.scanner = nil
+    frames = [:]
     _ = Haptics.perform("synced")
-    scanner?.dismiss(animated: true)
-    scanner = nil
+    scanner.dismiss(animated: true)
     Core.emit("qr", ["text": text])
   }
 

@@ -2,14 +2,19 @@ import CoreBluetooth
 import Foundation
 import UIKit
 
-/// One Rust session over one Bluetooth connection.
+/// One Rust session over one Bluetooth connection. A step can apply a whole
+/// sync to the store, so the steps run on one queue of their own, in order,
+/// and what they send and say comes back on the main queue in the same order.
 final class Exchange {
+  private static let steps = DispatchQueue(label: "com.sws2apps.territories.session")
+
   let pipe: Pipe
   let handle: Int64
   let mode: Int32
   private let onStatus: (Exchange) -> Void
   private(set) var status: [String: Any] = ["state": "connecting"]
-  private(set) var lastActivity = Date()
+  private var heard = Date()
+  private var closed = false
   /// Known from the beacon or the handshake, and kept when the session fails.
   var knownPeer = ""
 
@@ -23,22 +28,33 @@ final class Exchange {
   var state: String { status["state"] as? String ?? "" }
   var finished: Bool { state == "done" || state == "failed" }
   var peer: String { status["peer"] as? String ?? knownPeer }
+  /// Bytes came in, a step ended, or the other device took a part.
+  var lastActivity: Date { max(heard, pipe.lastWritten) }
 
   func start(preamble: Data?) {
-    pipe.send((preamble ?? Data()) + Core.start(handle))
-    report()
+    step { (preamble ?? Data()) + Core.start(self.handle) }
   }
 
   func receive(_ bytes: Data) {
-    lastActivity = Date()
-    send(Core.feed(handle, bytes))
+    heard = Date()
+    step { Core.feed(self.handle, bytes) }
   }
 
-  func confirm(_ accept: Bool) { send(Core.confirm(handle, accept: accept)) }
+  func confirm(_ accept: Bool) { step { Core.confirm(self.handle, accept: accept) } }
 
-  private func send(_ out: Data) {
-    if !out.isEmpty { pipe.send(out) }
-    report()
+  private func step(_ run: @escaping () -> Data) {
+    Self.steps.async {
+      let out = run()
+      let next = Core.status(self.handle)
+      DispatchQueue.main.async {
+        guard !self.closed, !self.finished else { return }
+        self.heard = Date()
+        if !out.isEmpty { self.pipe.send(out) }
+        if !next.isEmpty { self.status = next }
+        if let peer = self.status["peer"] as? String, !peer.isEmpty { self.knownPeer = peer }
+        self.onStatus(self)
+      }
+    }
   }
 
   func fail(_ reason: String) {
@@ -47,14 +63,21 @@ final class Exchange {
     onStatus(self)
   }
 
-  private func report() {
-    let next = Core.status(handle)
-    if !next.isEmpty { status = next }
-    if let peer = status["peer"] as? String, !peer.isEmpty { knownPeer = peer }
-    onStatus(self)
+  /// The connection closed: after the steps still running, so a last
+  /// message that finished the session counts.
+  func lost(_ reason: String) {
+    Self.steps.async {
+      DispatchQueue.main.async {
+        self.fail(reason)
+        self.close()
+      }
+    }
   }
 
-  func close() { Core.close(handle) }
+  func close() {
+    closed = true
+    Self.steps.async { Core.close(self.handle) }
+  }
 
   func json() -> [String: Any] {
     var out = status
@@ -194,12 +217,13 @@ final class Nearby: NSObject, LinkListener {
   private func stop() {
     timer?.invalidate()
     timer = nil
-    link?.stop()
     for exchange in exchanges.values {
       exchange.close()
       Background.end(exchange.pipe.key)
     }
     exchanges.removeAll()
+    // after the sessions: the pipes it closes find none left to fail
+    link?.stop()
     changed()
   }
 
@@ -446,8 +470,7 @@ final class Nearby: NSObject, LinkListener {
     if let peer = trying.removeValue(forKey: pipe.key) { attemptFailed(peer) }
     Background.end(pipe.key)
     guard let exchange = exchanges.removeValue(forKey: pipe.key) else { return }
-    exchange.fail(Notices.tr("The connection was lost", "Die Verbindung ist abgebrochen"))
-    exchange.close()
+    exchange.lost(Notices.tr("The connection was lost", "Die Verbindung ist abgebrochen"))
     changed()
   }
 
@@ -475,7 +498,8 @@ final class Nearby: NSObject, LinkListener {
         if shortcutSince != nil { shortcutDone.append(exchange.status) }
       }
       Place.shared.synced()
-      refresh()
+      // a step can end after the search stopped
+      if running { refresh() }
       closeWhenSent(exchange)
     case "failed":
       if exchange.mode == Core.modeSync && !exchange.peer.isEmpty { attemptFailed(exchange.peer) }

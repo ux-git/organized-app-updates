@@ -3,7 +3,10 @@ package com.sws2apps.territories
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import org.json.JSONArray
@@ -20,6 +23,8 @@ object SyncNotices {
   const val CHANNEL = "sync_results"
   private const val RESULT_ID = 1000
   private const val FOUND_ID = 2000
+  private const val EXACT_ID = 3000
+  private const val EXACT = "exact_needed"
   private const val MAX_LINES = 5
   private const val FOUND_AFTER = 3
   private const val FOUND_AGAIN_MS = 30 * 60_000L
@@ -101,6 +106,8 @@ object SyncNotices {
       .setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_STATUS)
       .setContentIntent(openApp(context, "/sync"))
+      .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+      .setPublicVersion(Notify.lockScreen(context, CHANNEL, context.getString(R.string.done_public)))
       .build()
     Notify.post(context, RESULT_ID, notification)
   }
@@ -236,9 +243,50 @@ object SyncNotices {
       .setOnlyAlertOnce(true)
       .setContentIntent(openApp(context, "/sync?now=1"))
       .addAction(0, context.getString(R.string.found_action), syncNow(context))
+      .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+      .setPublicVersion(
+        Notify.lockScreen(context, CHANNEL, context.getString(R.string.found_title, context.getString(R.string.found_someone)))
+      )
       .build()
     Notify.post(context, FOUND_ID, notification)
   }
+
+  /**
+   * A burst couldn't start the search: from the background, Android 12+
+   * allows that after an exact alarm, not an inexact one. Said once, until a
+   * burst gets through again; the page reads it from the status.
+   */
+  fun exactAlarms(context: Context, needed: Boolean) {
+    val prefs = Nearby.prefs(context)
+    if (needed == prefs.getBoolean(EXACT, false)) return
+    prefs.edit().putBoolean(EXACT, needed).apply()
+    if (!needed) {
+      NotificationManagerCompat.from(context).cancel(EXACT_ID)
+      return
+    }
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !Notify.mayNotify(context)) return
+    val settings = PendingIntent.getActivity(
+      context,
+      EXACT_ID,
+      Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")),
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    val text = context.getString(R.string.exact_text)
+    ensureChannel(context)
+    val notification = NotificationCompat.Builder(context, CHANNEL)
+      .setSmallIcon(R.drawable.ic_notification)
+      .setContentTitle(context.getString(R.string.exact_title))
+      .setContentText(text)
+      .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+      .setColor(Notify.accentColor(context))
+      .setAutoCancel(true)
+      .setContentIntent(settings)
+      .build()
+    Notify.post(context, EXACT_ID, notification)
+  }
+
+  fun exactAlarmsNeeded(context: Context) =
+    Nearby.prefs(context).getBoolean(EXACT, false) && !Reminders.canExact(context)
 
   /** A tap on a notification button may start the search from the background. */
   private fun syncNow(context: Context): PendingIntent {

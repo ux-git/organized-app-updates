@@ -20,13 +20,22 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
-/** One Rust session over one Bluetooth connection. */
+/**
+ * One Rust session over one Bluetooth connection. A step can apply a whole
+ * sync to the store, so the steps run on one worker thread, in order, and
+ * what they send and say comes back on the main thread in the same order.
+ */
 class Exchange(val pipe: Pipe, private val handle: Long, val mode: Int, private val onStatus: (Exchange) -> Unit) {
   var status = JSONObject().put("state", "connecting")
     private set
-  var lastActivity = System.currentTimeMillis()
-    private set
+  private var heard = System.currentTimeMillis()
+  private var closed = false
+
+  /** Bytes came in, a step ended, or the other phone took a part. */
+  val lastActivity get() = maxOf(heard, pipe.lastWritten)
 
   /** Known from the beacon or the handshake, and kept when the session fails. */
   var peer = ""
@@ -34,22 +43,28 @@ class Exchange(val pipe: Pipe, private val handle: Long, val mode: Int, private 
   val state get() = status.optString("state")
   val finished get() = state == "done" || state == "failed"
 
-  fun start(preamble: ByteArray?) {
-    val out = Native.sessionStart(handle)
-    pipe.send((preamble ?: ByteArray(0)) + out)
-    report()
-  }
+  fun start(preamble: ByteArray?) = step { (preamble ?: ByteArray(0)) + Native.sessionStart(handle) }
 
   fun receive(bytes: ByteArray) {
-    lastActivity = System.currentTimeMillis()
-    send(Native.sessionFeed(handle, bytes))
+    heard = System.currentTimeMillis()
+    step { Native.sessionFeed(handle, bytes) }
   }
 
-  fun confirm(accept: Boolean) = send(Native.sessionConfirm(handle, accept))
+  fun confirm(accept: Boolean) = step { Native.sessionConfirm(handle, accept) }
 
-  private fun send(out: ByteArray) {
-    if (out.isNotEmpty()) pipe.send(out)
-    report()
+  private fun step(run: () -> ByteArray) {
+    worker.execute {
+      val out = run()
+      val next = runCatching { JSONObject(Native.sessionStatus(handle)) }.getOrNull()
+      main.post {
+        if (closed || finished) return@post
+        heard = System.currentTimeMillis()
+        if (out.isNotEmpty()) pipe.send(out)
+        next?.let { status = it }
+        status.optString("peer").takeIf { it.isNotEmpty() }?.let { peer = it }
+        onStatus(this)
+      }
+    }
   }
 
   fun fail(reason: String) {
@@ -58,15 +73,27 @@ class Exchange(val pipe: Pipe, private val handle: Long, val mode: Int, private 
     onStatus(this)
   }
 
-  private fun report() {
-    status = runCatching { JSONObject(Native.sessionStatus(handle)) }.getOrElse { status }
-    status.optString("peer").takeIf { it.isNotEmpty() }?.let { peer = it }
-    onStatus(this)
+  /** The connection closed: after the steps still running, so a last message that finished the session counts. */
+  fun lost(reason: String) {
+    worker.execute {
+      main.post {
+        fail(reason)
+        close()
+      }
+    }
   }
 
-  fun close() = Native.sessionClose(handle)
+  fun close() {
+    closed = true
+    worker.execute { Native.sessionClose(handle) }
+  }
 
   fun toJson(): JSONObject = JSONObject(status.toString()).put("address", pipe.address).put("mode", mode)
+
+  private companion object {
+    val worker: ExecutorService = Executors.newSingleThreadExecutor()
+    val main = Handler(Looper.getMainLooper())
+  }
 }
 
 /**
@@ -443,12 +470,13 @@ class NearbyService : Service(), Link.Listener {
     // a second connection with the same phone, turned away, leaves the first alone
     val exchange = exchanges[pipe.address]?.takeIf { it.pipe === pipe } ?: return
     exchanges.remove(pipe.address)
-    exchange.fail(getString(R.string.sync_lost))
-    exchange.close()
+    exchange.lost(getString(R.string.sync_lost))
     emitStatus()
   }
 
   private fun onStatus(exchange: Exchange) {
+    // a step that ended after the service stopped must not advertise again
+    if (instance !== this) return
     val status = exchange.status
     when (exchange.state) {
       "done" -> {
@@ -506,6 +534,7 @@ class NearbyService : Service(), Link.Listener {
 
 }
 
+/** Every channel the app posts to, in one place. */
 fun ensureChannel(context: Context) {
   if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
   val manager = context.getSystemService(NotificationManager::class.java)
@@ -534,6 +563,12 @@ fun ensureChannel(context: Context) {
   )
   // everything a person should see now goes through SyncNotices.CHANNEL
   if (manager.getNotificationChannel("reminders") != null) manager.deleteNotificationChannel("reminders")
+  manager.createNotificationChannel(
+    NotificationChannel(FileHandoff.CHANNEL, context.getString(R.string.file_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
+  )
+  manager.createNotificationChannel(
+    NotificationChannel(Backups.CHANNEL, context.getString(R.string.backup_channel), NotificationManager.IMPORTANCE_DEFAULT)
+  )
 }
 
 fun openApp(context: Context, route: String? = null): PendingIntent =

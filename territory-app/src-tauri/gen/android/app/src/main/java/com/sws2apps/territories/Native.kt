@@ -11,7 +11,6 @@ object Native {
 
   const val MODE_SYNC = 0
   const val MODE_PAIR_CODE = 1
-  const val MODE_PAIR_TAP = 2
 
   external fun open(dir: String): Boolean
 

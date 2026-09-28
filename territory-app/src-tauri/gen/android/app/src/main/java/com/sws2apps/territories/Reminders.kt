@@ -138,7 +138,10 @@ object Reminders {
   private fun onBurst(context: Context) {
     val prefs = Nearby.prefs(context)
     prefs.edit().putInt("misses", prefs.getInt("misses", 0) + 1).apply()
-    if (searching(context) && worthIt()) NearbyService.start(context, "burst", BURST_MS)
+    if (searching(context) && worthIt()) {
+      val started = NearbyService.start(context, "burst", BURST_MS)
+      SyncNotices.exactAlarms(context, needed = !started && Nearby.hasBluetooth(context) && !canExact(context))
+    }
     scheduleBurst(context)
   }
 
@@ -231,6 +234,8 @@ object Reminders {
       .setColor(Notify.accentColor(context))
       .setAutoCancel(true)
       .setContentIntent(openApp(context, "/sync?now=1"))
+      .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+      .setPublicVersion(Notify.lockScreen(context, SyncNotices.CHANNEL, context.getString(R.string.reminder_leave_title)))
       .build()
     Notify.post(context, LEAVE_ID, notification)
   }

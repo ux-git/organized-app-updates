@@ -45,6 +45,10 @@ abstract class Pipe(val address: String) {
   var closed = false
     private set
 
+  /** When Android last confirmed a part: a long one-way send is not idle. */
+  var lastWritten = 0L
+    private set
+
   fun send(bytes: ByteArray) {
     var offset = 0
     while (offset < bytes.size) {
@@ -61,6 +65,7 @@ abstract class Pipe(val address: String) {
 
   /** Android confirmed the last part. */
   fun written() {
+    lastWritten = System.currentTimeMillis()
     busy = false
     pump()
   }
@@ -488,6 +493,8 @@ class Link(private val context: Context, private val listener: Listener) {
             return@post
           }
           pipe.ready = true
+          // short connection intervals; asked only now, as some stacks refuse the MTU next to it
+          gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
           listener.onConnected(pipe)
         }
       }

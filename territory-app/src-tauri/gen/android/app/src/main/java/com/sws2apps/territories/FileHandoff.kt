@@ -1,7 +1,5 @@
 package com.sws2apps.territories
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.ContentValues
@@ -9,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.provider.MediaStore
@@ -24,7 +21,7 @@ import java.io.File
  * Downloads, shared, printed or opened, as on any Android app.
  */
 object FileHandoff {
-  private const val CHANNEL = "files"
+  const val CHANNEL = "files"
   const val EXTRA_PATH = "com.sws2apps.territories.FILE_PATH"
   const val EXTRA_TYPE = "com.sws2apps.territories.FILE_TYPE"
   const val EXTRA_ACTION = "com.sws2apps.territories.FILE_ACTION"
@@ -125,10 +122,8 @@ object FileHandoff {
         resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
         uri
       } else {
-        @Suppress("DEPRECATION")
-        val folder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        folder.mkdirs()
-        File(folder, name).apply { writeBytes(bytes) }.let { Uri.fromFile(it) }
+        // before Android 10 that takes the storage permission, which the app doesn't ask for
+        null
       }
     }.getOrNull()
 
@@ -152,6 +147,10 @@ object FileHandoff {
       builder.addAction(0, context.getString(R.string.file_print), action(context, file, type, PRINT))
     }
     if (saved == null) builder.setContentText(context.getString(R.string.file_ready))
+    // the file name can hold a territory number
+    val status = context.getString(if (saved == null) R.string.file_ready else R.string.file_saved)
+    builder.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+      .setPublicVersion(Notify.lockScreen(context, CHANNEL, status))
 
     Notify.post(context, file.path.hashCode(), builder.build())
   }
@@ -168,13 +167,4 @@ object FileHandoff {
         .putExtra(EXTRA_ACTION, what),
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
-
-  private fun ensureChannel(context: Context) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-    val manager = context.getSystemService(NotificationManager::class.java)
-    // renames an existing one after a language change
-    manager.createNotificationChannel(
-      NotificationChannel(CHANNEL, context.getString(R.string.file_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
-    )
-  }
 }

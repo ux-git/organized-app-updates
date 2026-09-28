@@ -21,6 +21,8 @@ class Pipe {
   private var queue: [Data] = []
   private var busy = false
   private(set) var closed = false
+  /// When a part last went out: a long one-way send is not idle.
+  private(set) var lastWritten = Date.distantPast
   /// Bytes per write, at most one attribute value.
   var chunk = 20 {
     didSet { chunk = min(max(chunk, 20), 512) }
@@ -50,6 +52,7 @@ class Pipe {
 
   /// The last part went out, or the stack has room again.
   func written() {
+    lastWritten = Date()
     busy = false
     pump()
   }
@@ -250,6 +253,8 @@ final class Link: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDelegat
     stopScan()
     stopAdvertising()
     outgoing.values.forEach { central.cancelPeripheralConnection($0.peripheral) }
+    // a peripheral can't drop a central; it stops listening to it
+    incoming.values.forEach { close($0) }
   }
 
   // ---- central: the phones this one finds and connects to ----

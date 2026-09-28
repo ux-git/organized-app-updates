@@ -18,6 +18,7 @@ enum Backups {
 
   private static let defaults = UserDefaults.standard
   private static let queue = DispatchQueue(label: "com.sws2apps.territories.backup")
+  // both only on the main queue, where the page is told
   private static var running = false
   /// When the last backup, made or failed, ended; for the page's Back up now.
   private static var ended: Int64 = 0
@@ -72,15 +73,15 @@ enum Backups {
       "last": defaults.dictionary(forKey: "backup.last") ?? NSNull(),
       "error": defaults.string(forKey: "backup.error") ?? NSNull(),
       "next": next().map(ms) ?? NSNull(),
-      "running": running,
-      "ended": ended,
       "approximate": true,
     ]
   }
 
   static func emit() {
     let status = status()
-    DispatchQueue.main.async { Core.emit("backup", status) }
+    DispatchQueue.main.async {
+      Core.emit("backup", status.merging(["running": running, "ended": ended]) { $1 })
+    }
   }
 
   static func setSchedule(_ args: [String: Any]) {
@@ -182,11 +183,14 @@ enum Backups {
   // ---- writing ----
 
   private static func run() -> Bool {
-    running = true
+    DispatchQueue.main.async { running = true }
     emit()
     defer {
-      running = false
-      ended = Int64(Date().timeIntervalSince1970 * 1000)
+      let at = Int64(Date().timeIntervalSince1970 * 1000)
+      DispatchQueue.main.async {
+        running = false
+        ended = at
+      }
       emit()
     }
     guard let url = folder(), url.startAccessingSecurityScopedResource() else {

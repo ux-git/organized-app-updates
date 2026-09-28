@@ -10,6 +10,7 @@
     <string name="sync_looking">Sucht nach gekoppelten Geräten in der Nähe</string>
     <string name="results_channel">Ergebnisse der Synchronisierung</string>
     <string name="done_title">Synchronisiert mit %1$s</string>
+    <string name="done_public">Synchronisierung fertig</string>
     <string name="done_someone">dem anderen Gerät</string>
     <string name="done_sent_only">Deine Änderungen sind jetzt auch auf dem anderen Gerät.</string>
     <string name="done_joined">%1$s ist zu euren Geräten dazugekommen. Du synchronisierst jetzt auch damit.</string>
@@ -47,6 +48,8 @@
     <string name="found_action">Jetzt synchronisieren</string>
     <string name="sync_timeout">Das andere Gerät antwortet nicht mehr</string>
     <string name="sync_lost">Die Verbindung ist abgebrochen</string>
+    <string name="exact_title">Erlaube Wecker und Erinnerungen für die geplante Synchronisierung</string>
+    <string name="exact_text">Ohne sie lässt Android die App nicht im Hintergrund nach deinen gekoppelten Geräten suchen. Tippe hier, um sie zu erlauben.</string>
     <string name="reminder_leave_title">Du bist vor der Synchronisierung gegangen</string>
     <string name="reminder_leave">Deine Änderungen haben %1$s noch nicht erreicht. Öffne die App, wenn du wieder in der Nähe bist.</string>
     <string name="shortcut_sync">Jetzt synchronisieren</string>
