@@ -30,7 +30,7 @@ const TerritoryHistoryPage = () => {
     >
       <PageTitle
         title={tx('Assignment history')}
-        secondaryTitle={tx(parent)}
+        secondaryTitle={parent && tx(parent)}
         onBack={goBack}
         buttons={
           <NavBarButtonGroup>

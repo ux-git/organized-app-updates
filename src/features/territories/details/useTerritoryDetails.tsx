@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import { useAtom } from 'jotai';
 import { territoriesState } from '@states/territories';
 import { Territory } from '@definition/territory';
@@ -22,43 +22,50 @@ const blankTerritory = (): Territory => ({
 const useTerritoryDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [territories, setTerritories] = useAtom(territoriesState);
 
-  const isNew = id === 'new';
-
-  const stored = territories.find((item) => item.id === id);
+  const isNewPage = id === 'new';
 
   const [draft, setDraft] = useState(() => blankTerritory());
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  // once saved, a new territory stays on this page, so nothing remounts under the typing
+  const stored = territories.find(
+    (item) => item.id === (isNewPage ? draft.id : id)
+  );
+
+  const isNew = isNewPage && !stored;
+
   const territory = isNew ? draft : stored;
 
   const handleChange = (next: Territory) => {
-    if (!isNew) {
-      setTerritories((prev) =>
-        prev.map((item) => (item.id === next.id ? next : item))
-      );
-      return;
-    }
-
-    const number = next.number.trim();
-    const isTaken = territories.some((item) => item.number.trim() === number);
-
-    if (!number || isTaken) {
+    if (isNew) {
       setDraft(next);
       return;
     }
 
-    // saved as soon as it has a usable number, like every later change;
-    // it keeps the page it was added from as its parent
-    setTerritories((prev) => [next, ...prev]);
-    navigate(`/territories/${next.id}`, {
-      replace: true,
-      state: location.state,
-    });
+    setTerritories((prev) =>
+      prev.map((item) => (item.id === next.id ? next : item))
+    );
   };
+
+  const latest = useRef({ isNew, draft, territories });
+  latest.current = { isNew, draft, territories };
+
+  // saved when its number is typed in full and usable; every later change saves at once
+  const commitNew = useCallback(() => {
+    const { isNew: pending, draft: next, territories: list } = latest.current;
+    if (!pending) return;
+
+    const number = next.number.trim();
+    if (!number || list.some((item) => item.number.trim() === number)) return;
+
+    setTerritories((prev) => [next, ...prev]);
+  }, [setTerritories]);
+
+  // leaving the page counts as done typing
+  useEffect(() => commitNew, [commitNew]);
 
   const handleDelete = () => {
     if (!territory) return;
@@ -71,7 +78,9 @@ const useTerritoryDetails = () => {
   return {
     territory,
     isNew,
+    isNewPage,
     handleChange,
+    commitNew,
     handleDelete,
     deleteOpen,
     setDeleteOpen,

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { assignmentIssues } from '../assignment_issues';
+import { assignmentIssues, olderOpenAssignments } from '../assignment_issues';
 
 const today = new Date(2026, 8, 27, 15, 30);
 
@@ -66,4 +66,29 @@ test('missing or unreadable dates are not flagged', () => {
     assignmentIssues({ assignedOn: 'soon', returnedOn: '' }, today),
     []
   );
+});
+
+test('one open assignment has no older ones', () => {
+  assert.deepEqual(
+    olderOpenAssignments([
+      { assignedOn: '01.03.2026', returnedOn: '20.06.2026' },
+      { assignedOn: '01.07.2026' },
+    ]),
+    []
+  );
+});
+
+test('two open assignments after a sync: the older one is flagged', () => {
+  const anna = { assignedOn: '01.07.2026', publisher: 'Anna' };
+  const carla = { assignedOn: '02.07.2026', publisher: 'Carla' };
+
+  assert.deepEqual(olderOpenAssignments([carla, anna]), [anna]);
+  assert.deepEqual(olderOpenAssignments([anna, carla]), [anna]);
+});
+
+test('on the same day the later entry counts as the newer one', () => {
+  const first = { assignedOn: '01.07.2026', publisher: 'First' };
+  const second = { assignedOn: '01.07.2026', publisher: 'Second' };
+
+  assert.deepEqual(olderOpenAssignments([first, second]), [first]);
 });

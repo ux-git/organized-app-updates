@@ -40,6 +40,7 @@ import DialogActions from '@components/dialog_actions';
 import dashedBorder from '@utils/dashed_border';
 import TerritoryFilters from '../components/territory_filters';
 import TerritoryTable from '../components/territory_table';
+import UndoSnackbar from '../components/undo_snackbar';
 
 const SearchRow = ({
   search,
@@ -418,6 +419,12 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
           onAssign={assignMany}
         />
       )}
+
+      <UndoSnackbar
+        notice={hub.undo}
+        onUndo={hub.undoLast}
+        onClose={hub.closeUndo}
+      />
 
       {returnTarget && (
         <ReturnDialog

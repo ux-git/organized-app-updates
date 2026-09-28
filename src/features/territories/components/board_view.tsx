@@ -14,6 +14,7 @@ import { territoryLocalModeState } from '@states/territories';
 import AssignButton from './assign_button';
 import { clickableRow } from './table_styles';
 import {
+  AssignedTwiceBadge,
   CardLostBadge,
   CategoryBadges,
   CoveredBadge,
@@ -292,6 +293,7 @@ const BoardView = ({
                         >
                           <DoNotCallBadge territory={territory} />
                           <CoveredBadge days={territory.daysSinceCovered} />
+                          <AssignedTwiceBadge territory={territory} />
                           <CardLostBadge territory={territory} />
                           <CategoryBadges territory={territory} />
                         </Stack>

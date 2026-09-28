@@ -104,7 +104,7 @@ const TerritorySummary = ({
             {description}
           </Typography>
           <CardLostBadge territory={territory} />
-          <CategoryBadges territory={territory} />
+          <CategoryBadges territory={territory} wrap />
         </Stack>
 
         {meta && (

@@ -94,6 +94,12 @@ const useTerritoriesHub = () => {
   const [returnId, setReturnId] = useState<string | undefined>();
   const [assignId, setAssignId] = useState<string | undefined>();
   const [assignManyOpen, setAssignManyOpen] = useState(false);
+  // the last assign or return, and the territories as they were before it
+  const [undo, setUndo] = useState<{
+    key: number;
+    header: string;
+    before: Territory[];
+  }>();
   const { desktopUp } = useBreakpoints();
 
   // in the URL, so the device back gesture closes the filters on small screens
@@ -201,7 +207,28 @@ const useTerritoriesHub = () => {
       )
     );
 
-  const handleAssign = (id: string, publisher: string, assignedOn?: Date) => {
+  const remember = (ids: string[], header: string) =>
+    ids.length > 0 &&
+    setUndo({
+      key: Date.now(),
+      header,
+      before: territories.filter((territory) => ids.includes(territory.id)),
+    });
+
+  const undoLast = () => {
+    if (!undo) return;
+
+    const before = new Map(undo.before.map((item) => [item.id, item]));
+    setTerritories((prev) => prev.map((item) => before.get(item.id) ?? item));
+    setUndo(undefined);
+  };
+
+  const closeUndo = useCallback(() => setUndo(undefined), []);
+
+  const numberOf = (id: string) =>
+    territories.find((territory) => territory.id === id)?.number ?? '';
+
+  const assign = (id: string, publisher: string, assignedOn?: Date) => {
     const start = assignedOn ?? new Date();
     const days = Math.max(
       0,
@@ -243,10 +270,21 @@ const useTerritoriesHub = () => {
     }));
   };
 
+  const handleAssign = (id: string, publisher: string, assignedOn?: Date) => {
+    assign(id, publisher, assignedOn);
+    remember(
+      [id],
+      tx('{{number}} assigned to {{name}}', {
+        number: numberOf(id),
+        name: publisher,
+      })
+    );
+  };
+
   const handleDecline = (id: string) =>
     patch(id, () => ({ requestedBy: undefined }));
 
-  const handleReturn = (id: string, households?: number, returnedOn?: Date) => {
+  const giveBack = (id: string, households?: number, returnedOn?: Date) => {
     const end = returnedOn ?? new Date();
     const days = Math.max(
       0,
@@ -271,6 +309,11 @@ const useTerritoriesHub = () => {
             )
       ),
     }));
+  };
+
+  const handleReturn = (id: string, households?: number, returnedOn?: Date) => {
+    giveBack(id, households, returnedOn);
+    remember([id], tx('{{number}} returned', { number: numberOf(id) }));
   };
 
   const handleDrop = (id: string, status: TerritoryStatus) => {
@@ -312,23 +355,45 @@ const useTerritoriesHub = () => {
   };
 
   const assignMany = (publisher: string, assignedOn?: Date) => {
-    selected
+    const ids = selected
       .filter((territory) => territory.status === 'available')
-      .forEach((territory) =>
-        handleAssign(territory.id, publisher, assignedOn)
-      );
+      .map((territory) => territory.id);
+
+    ids.forEach((id) => assign(id, publisher, assignedOn));
+
+    remember(
+      ids,
+      ids.length === 1
+        ? tx('{{number}} assigned to {{name}}', {
+            number: numberOf(ids[0]),
+            name: publisher,
+          })
+        : tx('{{n}} territories assigned to {{name}}', {
+            n: ids.length,
+            name: publisher,
+          })
+    );
 
     setAssignManyOpen(false);
     clearChecked();
   };
 
   const returnMany = () => {
-    selected
+    const ids = selected
       .filter(
         (territory) =>
           territory.status === 'in_work' || territory.status === 'overdue'
       )
-      .forEach((territory) => handleReturn(territory.id));
+      .map((territory) => territory.id);
+
+    ids.forEach((id) => giveBack(id));
+
+    remember(
+      ids,
+      ids.length === 1
+        ? tx('{{number}} returned', { number: numberOf(ids[0]) })
+        : tx('{{n}} territories returned', { n: ids.length })
+    );
 
     clearChecked();
   };
@@ -396,6 +461,9 @@ const useTerritoriesHub = () => {
     assignTarget: territories.find((territory) => territory.id === assignId),
     handleDrop,
     returnTarget: territories.find((territory) => territory.id === returnId),
+    undo,
+    undoLast,
+    closeUndo,
   };
 };
 

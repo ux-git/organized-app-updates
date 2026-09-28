@@ -38,7 +38,7 @@ const Territories = () => {
   const mineButtons = hub.canBrowse && (
     <NavBarButtonGroup>
       <NavBarButton
-        text={hub.canRequest ? tx('Request') : tx('Available')}
+        text={hub.canRequest ? tx('Request') : tx('Show available territories')}
         icon={hub.canRequest ? <IconRaiseHand /> : <IconVisibility />}
         textImportant
         onClick={() => navigate('/territories?tab=recommended')}

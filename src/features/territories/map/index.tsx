@@ -1,6 +1,6 @@
-import { useLayoutEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 import { Box, Stack } from '@mui/material';
-import { Button, CustomDivider } from '@components/index';
+import { Button, CustomDivider, Typography } from '@components/index';
 import TabSwitcher from '@components/tab_switcher';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
@@ -21,6 +21,7 @@ import {
   IconVisibility,
 } from '@icons/index';
 import EditToolbar, { IdleToolbar, ViewToolbar } from './edit_toolbar';
+import EditBar from './edit_bar';
 import EditPanel from './edit_panel';
 import LabelDialog from './label_dialog';
 import MapFilters from './map_filters';
@@ -106,6 +107,18 @@ const SWITCH_SHELL = {
   boxShadow: 'var(--hover-shadow)',
 };
 
+// a second row under the buttons along the top
+const SECOND_ROW = {
+  position: 'absolute',
+  top: '66px',
+  right: '12px',
+  zIndex: 2,
+  display: 'flex',
+  justifyContent: 'center',
+  pointerEvents: 'none',
+  '& > *': { pointerEvents: 'auto' },
+} as const;
+
 const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
   const navigate = useNavigate();
 
@@ -115,6 +128,13 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
   const [panelOpen, setPanelOpen] = useState(laptopUp);
 
   const [top, setTop] = useState(130);
+
+  // the attribution moves up above the phone's editing bar
+  const [barHeight, setBarHeight] = useState(0);
+  const measureBar = useCallback(
+    (node: HTMLDivElement | null) => setBarHeight(node?.offsetHeight ?? 0),
+    []
+  );
 
   useLayoutEffect(() => {
     const element = map.wrapper.current;
@@ -146,6 +166,8 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
 
   // on a phone the editing steps sit behind the panel button, so the drawing stays visible
   const showPanel = panelOpen || (editor.editing && !compact);
+
+  const showBar = compact && editor.editing && !showPanel;
 
   // on a wide screen the switch keeps the top left and the panel slides out
   // from under it, so nothing jumps when it opens or closes
@@ -185,6 +207,20 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
         )}
       </MapAction>
     </MapIsland>
+  );
+
+  const viewToolbar = map.selected && (
+    <ViewToolbar
+      compact={compact}
+      fullWidth={compact}
+      selected={map.selected}
+      onDetails={() =>
+        map.selected &&
+        navigate(`/territories/${map.selected.id}`, {
+          state: { parent: tx('Territory coverage map') },
+        })
+      }
+    />
   );
 
   const panelContents = (
@@ -257,6 +293,12 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
           clipPath: 'inset(0 round var(--radius-l))',
           '& .maplibregl-map': { height: '100%', width: '100%' },
           ...ATTRIBUTION_STYLES,
+          ...(showBar && {
+            '& .maplibregl-ctrl-bottom-left': {
+              left: '12px',
+              bottom: `${barHeight + 20}px`,
+            },
+          }),
         }}
       >
         <Box ref={map.container} sx={{ height: '100%', width: '100%' }} />
@@ -363,18 +405,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             />
           )}
 
-          {map.mode === 'view' && map.selected && (
-            <ViewToolbar
-              compact={compact}
-              selected={map.selected}
-              onDetails={() =>
-                map.selected &&
-                navigate(`/territories/${map.selected.id}`, {
-                  state: { parent: tx('Territory coverage map') },
-                })
-              }
-            />
-          )}
+          {!compact && map.mode === 'view' && map.selected && viewToolbar}
 
           {compact && (
             <Box sx={{ marginLeft: 'auto', flexShrink: 0, ...SWITCH_SHELL }}>
@@ -383,9 +414,36 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
           )}
         </Stack>
 
+        {/* on a phone the top row has no room left for the name */}
+        {compact && map.mode === 'view' && map.selected && (
+          <Box sx={{ ...SECOND_ROW, left: '12px' }}>{viewToolbar}</Box>
+        )}
+
+        {map.mode === 'edit' && !editor.editing && (
+          <Box sx={{ ...SECOND_ROW, left: inset }}>
+            <Typography
+              className="body-small-semibold"
+              color="var(--accent-dark)"
+              sx={{
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-max)',
+                backgroundColor: 'var(--white)',
+                border: '1px solid var(--accent-200)',
+                boxShadow: 'var(--hover-shadow)',
+                textAlign: 'center',
+              }}
+            >
+              {compact
+                ? tx('Tap a territory to edit its border.')
+                : tx('Click a territory to edit its border.')}
+            </Typography>
+          </Box>
+        )}
+
         <Box
           sx={{
             position: 'absolute',
+            left: '12px',
             right: '12px',
             bottom: '12px',
             zIndex: 2,
@@ -393,6 +451,8 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             flexDirection: 'column',
             alignItems: 'flex-end',
             gap: '8px',
+            pointerEvents: 'none',
+            '& > *': { pointerEvents: 'auto' },
           }}
         >
           <MapIsland corner="static" vertical>
@@ -448,6 +508,16 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
               )}
             </MapAction>
           </MapIsland>
+
+          {showBar && (
+            <EditBar
+              ref={measureBar}
+              tool={editor.tool}
+              canSave={!!editor.draft.boundary?.length}
+              onCancel={() => map.requestLeave(map.cancelEditing)}
+              onSave={map.save}
+            />
+          )}
         </Box>
       </Box>
 

@@ -12,7 +12,11 @@ import {
   streetTerritories,
   territoryKey,
 } from './street_search';
-import { AssignmentIssue, ISSUE_TEXT } from './assignment_issues';
+import {
+  AssignmentIssue,
+  ISSUE_TEXT,
+  olderOpenAssignments,
+} from './assignment_issues';
 import {
   Territory,
   TerritoryAssignment,
@@ -534,7 +538,7 @@ export const gapBuckets = (territories: Territory[], range?: StatsRange) => {
   }));
 };
 
-export { assignmentIssues } from './assignment_issues';
+export { assignmentIssues, olderOpenAssignments } from './assignment_issues';
 
 export const issuesText = (issues: AssignmentIssue[]) =>
   issues.map((issue) => tx(ISSUE_TEXT[issue])).join(' · ');
@@ -755,6 +759,31 @@ export const withAssignments = (
     holder: open.publisher,
     daysOut: daysAgo(time(open.assignedOn) || Date.now()),
   };
+};
+
+// the older of two open assignments ends on the day the newer one began
+export const closeOlderAssignments = (territory: Territory) => {
+  const older = new Set(olderOpenAssignments(territory.assignments));
+  if (older.size === 0) return territory;
+
+  const newest = territory.assignments.find(
+    (item) => !item.returnedOn && !older.has(item)
+  );
+  const end = parseDate(newest?.assignedOn) ?? new Date();
+
+  return withAssignments(
+    territory,
+    territory.assignments.map((item) =>
+      older.has(item)
+        ? assignmentFromDates(
+            item,
+            item.publisher,
+            parseDate(item.assignedOn) ?? end,
+            end
+          )
+        : item
+    )
+  );
 };
 
 // stored dates are dd.mm.yyyy; on screen they follow the congregation format

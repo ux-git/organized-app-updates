@@ -131,10 +131,13 @@ export const ViewToolbar = ({
   selected,
   onDetails,
   compact = false,
+  fullWidth = false,
 }: {
   selected: Territory;
   onDetails: VoidFunction;
   compact?: boolean;
+  // a row of its own, where the name takes the room it needs
+  fullWidth?: boolean;
 }) => {
   const drawn = !!selected.boundary?.length;
   const center = territoryCenter(selected);
@@ -148,8 +151,23 @@ export const ViewToolbar = ({
     .join(' · ');
 
   return (
-    <Stack direction="row" sx={{ flexShrink: 1, minWidth: 0, ...SHELL }}>
-      <Box sx={{ padding: '0 10px', minWidth: 0, maxWidth: '320px' }}>
+    <Stack
+      direction="row"
+      sx={{
+        flexShrink: 1,
+        minWidth: 0,
+        ...SHELL,
+        ...(fullWidth && { flex: 1 }),
+      }}
+    >
+      <Box
+        sx={{
+          padding: '0 10px',
+          minWidth: 0,
+          maxWidth: '320px',
+          ...(fullWidth && { flex: 1, maxWidth: 'none' }),
+        }}
+      >
         <Typography className="body-small-semibold" color="var(--black)" noWrap>
           {selected.number} · {selected.name}
         </Typography>

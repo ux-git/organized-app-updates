@@ -36,6 +36,24 @@ export const assignmentIssues = (
   return issues;
 };
 
+// two devices apart can each hand out the same territory, and a sync keeps both;
+// these are the open ones besides the newest, which is the one that counts
+export const olderOpenAssignments = <
+  T extends Pick<TerritoryAssignment, 'assignedOn' | 'returnedOn'>,
+>(
+  assignments: T[]
+) =>
+  assignments
+    .map((assignment, index) => ({ assignment, index }))
+    .filter(({ assignment }) => !assignment.returnedOn)
+    .sort(
+      (a, b) =>
+        (dayOf(b.assignment.assignedOn) ?? 0) -
+          (dayOf(a.assignment.assignedOn) ?? 0) || b.index - a.index
+    )
+    .slice(1)
+    .map(({ assignment }) => assignment);
+
 export const ISSUE_TEXT: Record<AssignmentIssue, string> = {
   assigned_future: 'Assigned date is in the future',
   returned_future: 'Returned date is in the future',

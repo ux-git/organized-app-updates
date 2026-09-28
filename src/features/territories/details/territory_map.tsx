@@ -287,7 +287,7 @@ const TerritoryMap = ({
   const small = { minHeight: '28px', padding: '2px 8px', minWidth: 'unset' };
 
   let emptyText = tx('No borders yet.');
-  if (!isSaved) emptyText = tx('Save first to draw borders.');
+  if (!isSaved) emptyText = tx('Enter a number first to draw borders.');
   if (readOnly) emptyText = tx('No map yet.');
 
   return (

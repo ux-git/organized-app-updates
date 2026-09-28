@@ -170,6 +170,39 @@ const PARKING_FROM = 14;
 const sourceLayerOf = (layer: maplibregl.LayerSpecification) =>
   'source-layer' in layer ? layer['source-layer'] : undefined;
 
+// the two schemas share no layer names, so a style's own layers tell which one its tiles carry
+const SCHEMAS = [
+  new Set([
+    'park',
+    'landcover',
+    'water',
+    'building',
+    'housenumber',
+    'poi',
+    'transportation',
+    'transportation_name',
+  ]),
+  new Set([
+    'land',
+    'water_polygons',
+    'buildings',
+    'addresses',
+    'pois',
+    'streets',
+    'street_labels',
+  ]),
+];
+
+// a layer on a source layer the tiles don't have only logs an error on every load
+const tileLayers = (map: maplibregl.Map, source: string) => {
+  const listed = map.getSource(source)?.vectorLayerIds;
+  if (listed?.length) return new Set(listed);
+
+  const used = map.getStyle().layers.map((layer) => sourceLayerOf(layer) ?? '');
+
+  return SCHEMAS.find((schema) => used.some((layer) => schema.has(layer)));
+};
+
 // OpenFreeMap's light style leaves out the house numbers and places its tiles carry
 const addMissingLabels = (map: maplibregl.Map, provider: MapProviderKey) => {
   const style = map.getStyle();
@@ -181,6 +214,9 @@ const addMissingLabels = (map: maplibregl.Map, provider: MapProviderKey) => {
     ([, value]) => value.type === 'vector'
   )?.[0];
   if (!source) return;
+
+  const known = tileLayers(map, source);
+  const has = (sourceLayer: string) => !known || known.has(sourceLayer);
 
   const label = (
     id: string,
@@ -206,7 +242,7 @@ const addMissingLabels = (map: maplibregl.Map, provider: MapProviderKey) => {
       },
     });
 
-  if (!drawn(HOUSE_NUMBER_LAYERS)) {
+  if (!drawn(HOUSE_NUMBER_LAYERS) && has('housenumber')) {
     label(HOUSE_NUMBERS, 'housenumber', HOUSE_NUMBERS_FROM, [
       'get',
       'housenumber',
@@ -216,7 +252,7 @@ const addMissingLabels = (map: maplibregl.Map, provider: MapProviderKey) => {
   for (const overlay of OVERLAYS) {
     overlay.parts.forEach((part, index) => {
       const id = `${overlay.id}-${index}`;
-      if (map.getLayer(id)) return;
+      if (map.getLayer(id) || !has(part.layer)) return;
 
       map.addLayer({
         id,
@@ -229,7 +265,7 @@ const addMissingLabels = (map: maplibregl.Map, provider: MapProviderKey) => {
     });
   }
 
-  if (!drawn(PLACE_LAYERS)) {
+  if (!drawn(PLACE_LAYERS) && has('poi')) {
     label(PLACES, 'poi', 16, [
       'coalesce',
       ['get', 'name:latin'],
@@ -240,7 +276,7 @@ const addMissingLabels = (map: maplibregl.Map, provider: MapProviderKey) => {
   // outlines make each building countable at street level
   for (const [index, layer] of ['building', 'buildings'].entries()) {
     const id = `${BUILDINGS}-${index}`;
-    if (map.getLayer(id)) continue;
+    if (map.getLayer(id) || !has(layer)) continue;
 
     map.addLayer({
       id,
@@ -263,7 +299,7 @@ const addMissingLabels = (map: maplibregl.Map, provider: MapProviderKey) => {
 
   parking.forEach(([layer, filter], index) => {
     const id = `${PARKING}-${index}`;
-    if (map.getLayer(id)) return;
+    if (map.getLayer(id) || !has(layer)) return;
 
     map.addLayer({
       id,

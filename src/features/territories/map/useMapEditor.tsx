@@ -139,6 +139,9 @@ const POINT_FLAGS = {
 
 type Vertex = { id: string | number; index: number };
 
+// corners closer than this on screen get small handles, so the border stays visible
+const DENSE_SPACING = 16;
+
 const PICK_DISTANCE = 12;
 
 type Properties = Record<string, unknown>;
@@ -283,6 +286,17 @@ const useMapEditor = ({
   // what the drawing looked like when editing started, to tell if anything changed
   const [baseline, setBaseline] = useState('');
 
+  const thinHandles = useRef(false);
+
+  // read on every render of the drawing, so a zoom can thin them without restarting
+  const handleStyles = useRef({
+    ...selectStyles,
+    selectionPointWidth: () => (thinHandles.current ? 3 : 5),
+    selectionPointOutlineWidth: () => (thinHandles.current ? 1 : 2),
+    midPointWidth: () => (thinHandles.current ? 1.5 : 3),
+    midPointOutlineWidth: () => (thinHandles.current ? 0 : 1),
+  });
+
   const vertex = useRef<Vertex>(undefined);
   const vertexMarker = useRef<maplibregl.Marker>(null);
 
@@ -354,12 +368,12 @@ const useMapEditor = ({
           }),
           new TerraDrawSelectMode({
             flags: MOVE_FLAGS,
-            styles: selectStyles,
+            styles: handleStyles.current,
           }),
           new TerraDrawSelectMode({
             modeName: 'points',
             flags: POINT_FLAGS,
-            styles: selectStyles,
+            styles: handleStyles.current,
             keyEvents: {
               deselect: 'Escape',
               delete: null,
@@ -912,6 +926,42 @@ const useMapEditor = ({
       window.removeEventListener('keydown', onKey);
     };
   }, [map, editing, tool, selected, clearVertex, deleteVertex]);
+
+  useEffect(() => {
+    const instance = map.current;
+    const terra = draw.current;
+    if (!editing || !instance || !terra || selected === undefined) return;
+
+    const update = () => {
+      const pixels = ringOf(terra.getSnapshotFeature(selected)).map((point) =>
+        instance.project(point as [number, number])
+      );
+
+      const gaps = pixels
+        .slice(1)
+        .map((pixel, index) =>
+          Math.hypot(pixel.x - pixels[index].x, pixel.y - pixels[index].y)
+        )
+        .sort((a, b) => a - b);
+
+      const thin =
+        gaps.length > 0 && gaps[Math.floor(gaps.length / 2)] < DENSE_SPACING;
+      if (thin === thinHandles.current) return;
+
+      thinHandles.current = thin;
+      // setting the styles again redraws the handles with the new widths
+      terra.updateModeOptions(terra.getMode(), {
+        styles: handleStyles.current,
+      });
+    };
+
+    update();
+    instance.on('zoomend', update);
+
+    return () => {
+      instance.off('zoomend', update);
+    };
+  }, [map, editing, selected]);
 
   // with Move items the whole picked drawing goes, as the corner does in points mode
   useEffect(() => {

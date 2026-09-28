@@ -31,6 +31,7 @@ const DoNotCallEditor = ({
   const [date, setDate] = useState<Date | null>(
     parseDate(entry?.date) ?? new Date()
   );
+  const [confirming, setConfirming] = useState(false);
 
   const handleSave = () => {
     onSave({
@@ -42,6 +43,33 @@ const DoNotCallEditor = ({
     });
     onClose();
   };
+
+  if (confirming && onDelete) {
+    return (
+      <Dialog
+        onClose={() => setConfirming(false)}
+        open
+        title={numbers ? tx('Delete number?') : tx('Delete address?')}
+        description={tx('It will be removed on all devices.')}
+      >
+        <DialogActions>
+          <Button variant="secondary" onClick={() => setConfirming(false)}>
+            {tx('Cancel')}
+          </Button>
+          <Button
+            variant="main"
+            color="red"
+            onClick={() => {
+              onDelete();
+              onClose();
+            }}
+          >
+            {tx('Delete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog
@@ -63,14 +91,7 @@ const DoNotCallEditor = ({
               ? tx('A number the publishers should not call, and since when.')
               : tx('An address the publishers should skip, and since when.')
           }
-          onDelete={
-            entry && onDelete
-              ? () => {
-                  onDelete();
-                  onClose();
-                }
-              : undefined
-          }
+          onDelete={entry && onDelete ? () => setConfirming(true) : undefined}
         />
       }
     >

@@ -91,12 +91,14 @@ const AssignButton = ({
         color={color}
         onClick={handleClick}
         startIcon={icon}
-        aria-label={compact ? label : undefined}
+        ariaLabel={label}
         sx={{
           minHeight: '28px',
           padding: compact ? '4px' : '2px 8px',
           minWidth: 'unset',
           '& .MuiButton-startIcon': compact ? { margin: 0 } : {},
+          // 28px to see, 44px to tap
+          '&::after': { content: '""', position: 'absolute', inset: '-8px' },
         }}
       >
         {!compact && label}

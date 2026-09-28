@@ -66,6 +66,7 @@ export const MapAction = ({
 }) => (
   <Tooltip title={title} placement={placement} delaySpeed={delaySpeed}>
     <IconButton
+      aria-label={title}
       onClick={onClick}
       sx={{
         padding: '6px',

@@ -20,7 +20,7 @@ const DoNotCallsPage = () => {
     >
       <PageTitle
         title={tx('Do not call')}
-        secondaryTitle={tx(parent)}
+        secondaryTitle={parent && tx(parent)}
         onBack={goBack}
       />
 

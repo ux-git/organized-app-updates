@@ -1,5 +1,5 @@
 import { tx } from '@services/i18n/translation';
-import { ReactNode, useRef } from 'react';
+import { ReactNode, useRef, useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { ScrollableTabs, Typography } from '@components/index';
 import Card from '@components/card';
@@ -7,6 +7,7 @@ import { useBreakpoints } from '@hooks/index';
 import { DoNotCall, Territory } from '@definition/territory';
 import { daysLabel, withAssignments } from '../helpers';
 import TerritorySummary from '../components/territory_summary';
+import AssignedTwice from './assigned_twice';
 import DetailsForm from './details_form';
 import DoNotCallPanel from './do_not_call_panel';
 import DoNotCallStrip from './do_not_call_strip';
@@ -19,6 +20,10 @@ import TerritoryStreets from './territory_streets';
 type TerritoryDetailsProps = {
   territory: Territory;
   onChange: (territory: Territory) => void;
+  // a new territory is saved once its number is typed in full
+  onCommit?: VoidFunction;
+  // a new territory starts where its number goes
+  openOnDetails?: boolean;
   // publishers see the territory to decide on a request, but don't edit it
   readOnly?: boolean;
   // do-not-call addresses and phone numbers stay with admins and the holder
@@ -29,12 +34,18 @@ type TerritoryDetailsProps = {
 
 type Section = { label: string; badge?: number; Component: ReactNode };
 
-const TabbedSections = ({ sections }: { sections: Section[] }) => (
+const TabbedSections = ({
+  sections,
+  start = 0,
+}: {
+  sections: Section[];
+  start?: number;
+}) => (
   <Box sx={{ '& [role="tabpanel"] > *': { padding: '16px 0 0' } }}>
     <ScrollableTabs
       appearance="plain"
       tabs={sections}
-      value={0}
+      value={start}
       sx={{ borderBottom: '1px solid var(--accent-200)' }}
     />
   </Box>
@@ -43,11 +54,16 @@ const TabbedSections = ({ sections }: { sections: Section[] }) => (
 const TerritoryDetails = ({
   territory,
   onChange,
+  onCommit,
+  openOnDetails = false,
   readOnly = false,
   showPrivate = true,
   heldByMe = false,
 }: TerritoryDetailsProps) => {
   const { desktopUp } = useBreakpoints();
+
+  // kept from the first render, so saving the new territory doesn't switch tabs
+  const [startOnDetails] = useState(openOnDetails);
 
   const doNotCallRef = useRef<HTMLDivElement>(null);
 
@@ -72,11 +88,18 @@ const TerritoryDetails = ({
       />
 
       <TerritoryStats territory={territory} />
+
+      {!readOnly && <AssignedTwice territory={territory} onChange={onChange} />}
     </>
   );
 
   const form = (
-    <DetailsForm key={territory.id} territory={territory} onChange={onChange} />
+    <DetailsForm
+      key={territory.id}
+      territory={territory}
+      onChange={onChange}
+      onCommit={onCommit}
+    />
   );
 
   const isPhone = territory.type === 'phone';
@@ -86,12 +109,7 @@ const TerritoryDetails = ({
 
   // right under the map, so nobody sets out without seeing them
   const doNotCallStrip = showPrivate && (
-    <DoNotCallStrip
-      territory={territory}
-      canAdd={!readOnly || heldByMe}
-      onShow={showDoNotCallList}
-      onChange={changeDoNotCalls}
-    />
+    <DoNotCallStrip territory={territory} onShow={showDoNotCallList} />
   );
 
   const mapContent = isPhone ? (
@@ -178,6 +196,7 @@ const TerritoryDetails = ({
           {summary}
 
           <TabbedSections
+            start={startOnDetails ? 2 : 0}
             sections={[
               {
                 label: isPhone ? tx('Phone numbers') : tx('Map'),

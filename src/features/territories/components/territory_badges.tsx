@@ -2,7 +2,7 @@ import { Box, Stack } from '@mui/material';
 import Tooltip from '@components/tooltip';
 import { Badge } from '@components/index';
 import { IconCancelCicle, IconRaiseHand } from '@icons/index';
-import { daysLabel, doNotCallLabel } from '../helpers';
+import { daysLabel, doNotCallLabel, olderOpenAssignments } from '../helpers';
 import { categoryBadge } from '../category_colors';
 import { useAtomValue } from 'jotai';
 import { territoryCategoriesState } from '@states/territories';
@@ -21,7 +21,8 @@ const shrink = (text: string) => ({
   minWidth: '28px',
   overflow: 'hidden',
   '& > div': { minWidth: 0 },
-  '& p': {
+  // doubled to outrank the badge text's own flex display, which hides the ellipsis
+  '&& p': {
     display: 'block',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -126,6 +127,30 @@ export const DoNotCallBadge = ({
   );
 };
 
+// two devices handed it out while apart; the territory's page closes the older one
+export const AssignedTwiceBadge = ({ territory }: { territory: Territory }) => {
+  if (olderOpenAssignments(territory.assignments).length === 0) return null;
+
+  return (
+    <Tooltip
+      title={tx(
+        'Two open assignments after a sync. Open the territory to end the older one.'
+      )}
+    >
+      {/* the tooltip needs a DOM child to anchor to */}
+      <Box sx={{ width: 'fit-content', minWidth: 0 }}>
+        <Badge
+          size="small"
+          color="orange"
+          filled={false}
+          text={tx('Assigned twice')}
+          sx={{ width: 'fit-content', ...shrink(tx('Assigned twice')) }}
+        />
+      </Box>
+    </Tooltip>
+  );
+};
+
 export const CardLostBadge = ({ territory }: { territory: Territory }) => {
   if (!territory.cardLost) return null;
 
@@ -143,9 +168,12 @@ export const CardLostBadge = ({ territory }: { territory: Territory }) => {
 export const CategoryBadges = ({
   territory,
   max = Infinity,
+  wrap = false,
 }: {
   territory: Territory;
   max?: number;
+  // onto more lines instead of shortening the names
+  wrap?: boolean;
 }) => {
   const categories = useAtomValue(territoryCategoriesState);
 
@@ -161,8 +189,12 @@ export const CategoryBadges = ({
   return (
     <Stack
       direction="row"
-      spacing="4px"
-      sx={{ flexShrink: 1, minWidth: 0, overflow: 'hidden' }}
+      sx={{
+        flexShrink: 1,
+        minWidth: 0,
+        gap: '4px',
+        ...(wrap ? { flexWrap: 'wrap' } : { overflow: 'hidden' }),
+      }}
     >
       {shown.map((category) => {
         const badge = categoryBadge(category.color);

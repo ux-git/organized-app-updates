@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Box, MenuItem, Stack } from '@mui/material';
-import { Button, Select, Typography } from '@components/index';
+import { Box, Stack } from '@mui/material';
+import { Button, Typography } from '@components/index';
+import Autocomplete from '@components/autocomplete';
 import InfoBanner from '@components/info_banner';
 import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
@@ -35,10 +36,13 @@ const AssignDialog = ({
 }: AssignDialogProps) => {
   const { tablet600Up } = useBreakpoints();
 
-  const [publisher, setPublisher] = useState(
-    requestedBy ?? suggestedPublisher(territories)
+  // whoever asked is the choice; anyone else is only offered, never filled in
+  const [publisher, setPublisher] = useState<string | null>(
+    requestedBy ?? null
   );
   const [assignedOn, setAssignedOn] = useState<Date | null>(new Date());
+
+  const suggestion = suggestedPublisher(territories);
 
   const future =
     !!assignedOn &&
@@ -62,27 +66,41 @@ const AssignDialog = ({
         spacing="16px"
         sx={{ width: '100%' }}
       >
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Select
+        <Stack spacing="4px" sx={{ flex: 1, minWidth: 0 }}>
+          <Autocomplete
             label={tx('Publisher')}
+            options={[...GROUPS, ...PUBLISHERS_ONLY]}
+            groupBy={(option: string) =>
+              GROUPS.includes(option) ? tx('Groups') : tx('Publishers')
+            }
+            renderGroup={(params) => (
+              <li key={params.key}>
+                <MenuSubHeader>{params.group}</MenuSubHeader>
+                <Box component="ul" sx={{ padding: 0 }}>
+                  {params.children}
+                </Box>
+              </li>
+            )}
+            renderOption={({ key, ...props }, option: string) => (
+              <Box component="li" key={key} {...props}>
+                <Typography className="body-regular">{option}</Typography>
+              </Box>
+            )}
             value={publisher}
-            onChange={(event) => setPublisher(event.target.value as string)}
-          >
-            <MenuSubHeader>{tx('Groups')}</MenuSubHeader>
-            {GROUPS.map((name) => (
-              <MenuItem key={name} value={name}>
-                <Typography className="body-regular">{name}</Typography>
-              </MenuItem>
-            ))}
+            onChange={(_, value) => setPublisher(value as string | null)}
+          />
 
-            <MenuSubHeader>{tx('Publishers')}</MenuSubHeader>
-            {PUBLISHERS_ONLY.map((name) => (
-              <MenuItem key={name} value={name}>
-                <Typography className="body-regular">{name}</Typography>
-              </MenuItem>
-            ))}
-          </Select>
-        </Box>
+          {!publisher && suggestion && (
+            <Button
+              variant="small"
+              disableAutoStretch
+              onClick={() => setPublisher(suggestion)}
+              sx={{ alignSelf: 'flex-start', minHeight: '32px' }}
+            >
+              {tx('Suggestion: {{name}}', { name: suggestion })}
+            </Button>
+          )}
+        </Stack>
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <DatePicker
@@ -101,7 +119,9 @@ const AssignDialog = ({
         </Button>
         <Button
           variant="main"
+          disabled={!publisher}
           onClick={() => {
+            if (!publisher) return;
             onAssign(publisher, assignedOn ?? new Date());
             onClose();
           }}

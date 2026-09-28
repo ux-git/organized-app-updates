@@ -60,7 +60,9 @@ const TerritoryDetailsPage = () => {
   const {
     territory,
     isNew,
+    isNewPage,
     handleChange,
+    commitNew,
     handleDelete,
     deleteOpen,
     setDeleteOpen,
@@ -163,7 +165,7 @@ const TerritoryDetailsPage = () => {
 
       <PageTitle
         title={titleOf(territory, isNew)}
-        secondaryTitle={tx(parent)}
+        secondaryTitle={parent && tx(parent)}
         onBack={goBack}
         buttons={
           isTerritoryEditor ? editorButtons || undefined : publisherButtons
@@ -177,6 +179,8 @@ const TerritoryDetailsPage = () => {
       <TerritoryDetailsContainer
         territory={territory}
         onChange={handleChange}
+        onCommit={commitNew}
+        openOnDetails={isNewPage}
         readOnly={!isTerritoryEditor}
         showPrivate={isTerritoryEditor || heldByMe}
         heldByMe={heldByMe}

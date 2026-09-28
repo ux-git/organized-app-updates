@@ -22,9 +22,11 @@ import CategoryEditor from './category_editor';
 const DetailsForm = ({
   territory,
   onChange,
+  onCommit,
 }: {
   territory: Territory;
   onChange: (territory: Territory) => void;
+  onCommit?: VoidFunction;
 }) => {
   const [categoryEditor, setCategoryEditor] = useState(false);
 
@@ -100,6 +102,10 @@ const DetailsForm = ({
             error={isDuplicate || isBlank}
             helperText={numberHelp}
             onChange={(event) => handleNumberChange(event.target.value)}
+            onBlur={onCommit}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') onCommit?.();
+            }}
           />
 
           <TextField

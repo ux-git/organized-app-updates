@@ -36,6 +36,7 @@ import AssignButton from './assign_button';
 import { clickableRow, rowStates } from './table_styles';
 import TruncatedText from './truncated_text';
 import {
+  AssignedTwiceBadge,
   CardLostBadge,
   CategoryBadges,
   DoNotCallBadge,
@@ -174,7 +175,7 @@ const StatusLine = ({
           color="var(--green-main)"
           noWrap
         >
-          {returned ? date(returned) : tx('No records yet')}
+          {returned ? date(returned) : tx('Never covered')}
         </Typography>
       </Stack>
     );
@@ -208,6 +209,7 @@ const StatusLine = ({
   );
 };
 
+// they wrap onto another line rather than cut their names short
 const badges = (
   territory: Territory,
   showRequested: boolean,
@@ -218,10 +220,18 @@ const badges = (
       <DoNotCallBadge territory={territory} />
     )}
     {showRequested && <RequestBadge territory={territory} />}
+    <AssignedTwiceBadge territory={territory} />
     <CardLostBadge territory={territory} />
-    <CategoryBadges territory={territory} />
+    <CategoryBadges territory={territory} wrap />
   </>
 );
+
+const BADGE_ROW = {
+  alignItems: 'center',
+  gap: '4px',
+  flexWrap: 'wrap',
+  minWidth: 0,
+} as const;
 
 export const Households = ({
   count,
@@ -468,20 +478,18 @@ const TerritoryTable = ({
               >
                 <StatusLine territory={territory} showHolder={showHolder} />
 
-                {!laptopUp && badges(territory, showRequested, showDoNotCalls)}
+                {!laptopUp && (
+                  <Stack direction="row" sx={BADGE_ROW}>
+                    {badges(territory, showRequested, showDoNotCalls)}
+                  </Stack>
+                )}
               </Stack>
             </Stack>
 
             {laptopUp && (
               <Stack
                 direction="row"
-                sx={{
-                  width: '220px',
-                  flexShrink: 0,
-                  alignItems: 'center',
-                  gap: '4px',
-                  overflow: 'hidden',
-                }}
+                sx={{ ...BADGE_ROW, flexShrink: 0, maxWidth: '45%' }}
               >
                 {badges(territory, showRequested, showDoNotCalls)}
               </Stack>
