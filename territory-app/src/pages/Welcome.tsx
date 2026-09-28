@@ -4,6 +4,7 @@ import { Box, Stack } from '@mui/material';
 import {
   IconCheckCircle,
   IconLocation,
+  IconLock,
   IconNotifications,
   IconSync,
 } from '@icons/index';
@@ -126,7 +127,7 @@ const Access = ({
 const PROMISES = [
   { icon: <IconSync />, text: 'welcome.promiseSync' },
   { icon: <IconBluetooth />, text: 'welcome.promiseDirect' },
-  { icon: <IconLocation />, text: 'welcome.promiseLocal' },
+  { icon: <IconLock />, text: 'welcome.promiseLocal' },
 ];
 
 /** First start: what the app is, your name, and what it needs, in one go. */
@@ -134,6 +135,8 @@ const Welcome = () => {
   const navigate = useNavigate();
   const { status, name: saved } = useNearby();
   const [name, setName] = useState('');
+  const [nameMissing, setNameMissing] = useState(false);
+  const nameField = useRef<HTMLInputElement>(null);
   // leaving the field and then Get started would save the same name twice
   const sent = useRef('');
   const allowed = status.permissions;
@@ -163,11 +166,18 @@ const Welcome = () => {
       await loadIdentity();
     } catch (error) {
       sent.current = '';
-      notify(t('common.somethingWrong'), String(error), 'error');
+      console.error('welcome: saving the name failed', error);
+      notify(t('common.somethingWrong'), t('common.notSaved'), 'error');
     }
   };
 
+  // paired devices show this name, so it comes first
   const finish = async () => {
+    if (!name.trim()) {
+      setNameMissing(true);
+      nameField.current?.focus();
+      return;
+    }
     await saveName();
     try {
       localStorage.setItem(KEY, '1');
@@ -210,6 +220,11 @@ const Welcome = () => {
         <TextField
           label={t('common.fullName')}
           value={name}
+          inputRef={nameField}
+          error={nameMissing && !name.trim()}
+          helperText={
+            nameMissing && !name.trim() ? t('welcome.nameMissing') : undefined
+          }
           onChange={(event) => setName(event.target.value)}
           onBlur={saveName}
           onKeyDown={(event) => event.key === 'Enter' && saveName()}

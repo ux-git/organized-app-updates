@@ -109,46 +109,63 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
                   {territory.number}
                 </Typography>
 
-                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <TruncatedText
-                    className="body-small-regular"
-                    color="var(--black)"
-                    text={territory.name}
-                  />
-                  <TruncatedText
-                    className="label-small-regular"
-                    color="var(--grey-350)"
-                    text={`${territory.city} · ${tx(
-                      '{{households}} households',
-                      {
-                        households: territory.households,
-                      }
-                    )}`}
-                  />
-                </Box>
+                {/* too narrow for both, the badges go under the name */}
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    minWidth: 0,
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    columnGap: '12px',
+                    rowGap: '6px',
+                  }}
+                >
+                  <Box sx={{ flex: '1 1 140px', minWidth: 0 }}>
+                    <TruncatedText
+                      className="body-small-regular"
+                      color="var(--black)"
+                      text={territory.name}
+                    />
+                    <TruncatedText
+                      className="label-small-regular"
+                      color="var(--grey-350)"
+                      text={`${territory.city} · ${tx(
+                        '{{households}} households',
+                        {
+                          households: territory.households,
+                        }
+                      )}`}
+                    />
+                  </Box>
 
-                <Box sx={{ width: 'fit-content', flexShrink: 0 }}>
-                  <StatusBadge status={territory.status} />
-                </Box>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    <StatusBadge status={territory.status} />
 
-                {age.kind === 'never' ? (
-                  <Badge
-                    size="small"
-                    filled={false}
-                    color="red"
-                    text={tx('Never covered')}
-                    sx={{ width: 'fit-content', flexShrink: 0 }}
-                  />
-                ) : (
-                  <CoveredBadge
-                    days={age.days}
-                    label={
-                      age.kind === 'out'
-                        ? tx('Out for {{time}}', { time: daysLabel(age.days) })
-                        : tx('Waiting {{time}}', { time: daysLabel(age.days) })
-                    }
-                  />
-                )}
+                    {age.kind === 'never' ? (
+                      <Badge
+                        size="small"
+                        filled={false}
+                        color="red"
+                        text={tx('Never covered')}
+                        sx={{ width: 'fit-content', flexShrink: 0 }}
+                      />
+                    ) : (
+                      <CoveredBadge
+                        days={age.days}
+                        label={
+                          age.kind === 'out'
+                            ? tx('Out for {{time}}', {
+                                time: daysLabel(age.days),
+                              })
+                            : tx('Waiting {{time}}', {
+                                time: daysLabel(age.days),
+                              })
+                        }
+                      />
+                    )}
+                  </Box>
+                </Box>
               </Stack>
             ))}
           </Stack>,

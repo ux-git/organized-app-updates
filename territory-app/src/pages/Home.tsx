@@ -1,10 +1,14 @@
-import { Box } from '@mui/material';
+import { Box, ListItem } from '@mui/material';
 import { useAtomValue } from 'jotai';
 import { Navigate, useNavigate } from 'react-router';
+import { IconAdd, IconSynced } from '@icons/index';
 import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import Markup from '@components/text_markup';
 import PageTitle from '@components/page_title';
 import Typography from '@components/typography';
+import DashboardCard from '@features/dashboard/card';
+import DashboardMenu from '@features/dashboard/menu';
+import { territoriesState } from '@states/territories';
 import TerritoriesCard from './TerritoriesCard';
 import AppCard from './AppCard';
 import useNearby, { unsynced } from './useNearby';
@@ -14,6 +18,33 @@ import { suggestedLink } from '../persistence';
 import { myLinkState, peopleState } from '../profiles';
 import { t as tr } from '../i18n';
 
+// First run: the territories come from the servant's device, or are added here
+const NoTerritoriesCard = () => (
+  <DashboardCard header={tr('territories.title')} sx={{ height: 'auto' }}>
+    <ListItem sx={{ paddingInline: '16px !important' }}>
+      <Typography className="body-regular" color="var(--grey-400)">
+        {tr('home.empty')}
+      </Typography>
+    </ListItem>
+    <ListItem disablePadding>
+      <DashboardMenu
+        icon={<IconSynced color="var(--black)" />}
+        primaryText={tr('home.pairServant')}
+        secondaryText={tr('home.pairServantText')}
+        path="/settings/sync?pair=nearby"
+      />
+    </ListItem>
+    <ListItem disablePadding>
+      <DashboardMenu
+        icon={<IconAdd color="var(--black)" />}
+        primaryText={tr('home.addTerritory')}
+        secondaryText={tr('home.addTerritoryText')}
+        path="/territories/new"
+      />
+    </ListItem>
+  </DashboardCard>
+);
+
 // The main app's dashboard, with only the territories card and the App card.
 const Home = () => {
   const { t } = useAppTranslation();
@@ -22,6 +53,8 @@ const Home = () => {
   const { peers, name, loaded } = useNearby();
   const link = useAtomValue(myLinkState);
   const people = useAtomValue(peopleState);
+  // loaded before the pages show, so an empty list is really empty
+  const territories = useAtomValue(territoriesState);
   // unlinked, "My territories" goes by this device's name
   const unlinked =
     loaded &&
@@ -95,7 +128,7 @@ const Home = () => {
           gridGap: '24px',
         }}
       >
-        <TerritoriesCard />
+        {territories.length ? <TerritoriesCard /> : <NoTerritoriesCard />}
         <AppCard />
       </Box>
     </Box>

@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
+import i18n from '@services/i18n/index';
+import { store } from '@states/index';
 import { invoke, listen, nearby } from '../native';
 import { adoptProfile, profileToAdopt } from '../persistence';
+import { myIdState } from '../profiles';
 import { play } from '../haptics';
 import { t } from '../i18n';
 import { confirm } from './confirm';
 import { describeItems, notify } from './sync/text';
+import type { Peer } from './useNearby';
 
 export type BackupFrequency = 'off' | 'daily' | 'weekly' | 'monthly';
 
@@ -35,15 +39,59 @@ export const backupName = (date = new Date()) =>
     date.getDate()
   )}-${pad(date.getHours())}${pad(date.getMinutes())}.territories`;
 
+type BackupOrigin = { device: string; name: string; at: number };
+
+// the file is deflated JSON (backup.rs); iOS before 16.4 can't inflate it
+export const backupOrigin = async (
+  text: string
+): Promise<BackupOrigin | undefined> => {
+  try {
+    const body = text.trim().slice(BACKUP_PREFIX.length);
+    const base64 = body.replace(/-/g, '+').replace(/_/g, '/');
+    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+    const stream = new Blob([bytes])
+      .stream()
+      .pipeThrough(new DecompressionStream('deflate-raw'));
+    const { device, name, at } = JSON.parse(await new Response(stream).text());
+    if (typeof device !== 'string' || typeof at !== 'number') return;
+    return { device, name: typeof name === 'string' ? name : '', at };
+  } catch {
+    return undefined;
+  }
+};
+
+const originText = ({ name, at }: BackupOrigin) => {
+  const locale = i18n.language === 'deu' ? 'de' : 'en';
+  const date = new Date(at * 1000).toLocaleString(locale, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+  return name
+    ? t('backup.madeBy', { name, date })
+    : t('backup.madeUnnamed', { date });
+};
+
 /** Asks first: a backup merges into what is here, it doesn't replace it. */
 export const restoreBackup = async (text: string) => {
   if (!text.trim().startsWith(BACKUP_PREFIX)) {
     notify(t('backup.notBackup'), t('backup.notBackupText'), 'error');
     return false;
   }
+  const origin = await backupOrigin(text);
+  const peers = await invoke<Peer[]>('peers').catch(() => []);
+  // an old device of one's own is foreign too, the text says so
+  const foreign =
+    !!origin &&
+    origin.device !== store.get(myIdState) &&
+    !peers.some((peer) => peer.id === origin.device);
   const ok = await confirm({
-    title: t('backup.restoreTitle'),
-    description: t('backup.restoreText'),
+    title: foreign ? t('backup.foreignTitle') : t('backup.restoreTitle'),
+    description: [
+      origin && originText(origin),
+      foreign ? t('backup.foreignText') : t('backup.restoreText'),
+    ]
+      .filter(Boolean)
+      .join(' '),
     action: t('backup.restore'),
   });
   if (!ok) return false;
@@ -75,7 +123,8 @@ export const restoreBackup = async (text: string) => {
     return true;
   } catch (error) {
     play('error');
-    notify(t('common.somethingWrong'), String(error), 'error');
+    console.error('backup: restore failed', error);
+    notify(t('common.somethingWrong'), t('backup.restoreFailed'), 'error');
     return false;
   }
 };

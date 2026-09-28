@@ -40,6 +40,11 @@ import { followSystemState, setFollowSystem, setTheme } from '../theme';
 import useNearby from './useNearby';
 import { notify } from './sync/text';
 
+const failed = (error: unknown) => {
+  console.error('profile: saving failed', error);
+  notify(t('common.somethingWrong'), t('common.notSaved'), 'error');
+};
+
 // My profile: the name and picture paired phones show for this one, the
 // publisher it belongs to, the language and the theme
 const Profile = () => {
@@ -73,7 +78,7 @@ const Profile = () => {
       await loadIdentity();
     } catch (error) {
       sent.current = name;
-      notify(t('common.somethingWrong'), String(error), 'error');
+      failed(error);
     }
   };
 
@@ -92,14 +97,9 @@ const Profile = () => {
   };
 
   const changePicture = (picture: string | null) =>
-    setAvatar(picture).catch((error) =>
-      notify(t('common.somethingWrong'), String(error), 'error')
-    );
+    setAvatar(picture).catch(failed);
 
-  const changeLink = (person: string | null) =>
-    setLink(person).catch((error) =>
-      notify(t('common.somethingWrong'), String(error), 'error')
-    );
+  const changeLink = (person: string | null) => setLink(person).catch(failed);
 
   return (
     <>

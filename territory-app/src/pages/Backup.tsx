@@ -1,10 +1,12 @@
-import { ChangeEvent, useEffect, useRef } from 'react';
+import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Box, Stack } from '@mui/material';
+import InfoNote from '@components/info_note';
 import MenuItem from '@components/menuitem';
 import Select from '@components/select';
 import TimePicker from '@components/time_picker';
 import Typography from '@components/typography';
+import WaitingLoader from '@components/waiting_loader';
 import {
   CardSection,
   CardSectionContent,
@@ -67,6 +69,48 @@ const LastBackup = ({ status }: { status: BackupStatus }) => {
   );
 };
 
+// the device answers at once; this long, it's not going to
+const STATUS_WAIT = 8000;
+
+const NoStatus = () => {
+  const [late, setLate] = useState(false);
+
+  useEffect(() => {
+    if (late) return;
+    const timer = setTimeout(() => setLate(true), STATUS_WAIT);
+    return () => clearTimeout(timer);
+  }, [late]);
+
+  if (!late) {
+    return (
+      <Box sx={{ padding: '48px 0' }}>
+        <WaitingLoader variant="standard" size={56} />
+      </Box>
+    );
+  }
+
+  return (
+    <CardSection>
+      <CardSectionHeader
+        title={t('backup.noStatus')}
+        description={t('backup.noStatusText')}
+      />
+      <Actions
+        actions={[
+          {
+            label: t('common.tryAgain'),
+            kind: 'main',
+            onClick: () => {
+              setLate(false);
+              nearby('backupStatus');
+            },
+          },
+        ]}
+      />
+    </CardSection>
+  );
+};
+
 // Backup: a full copy of what this device holds, by hand or on a schedule,
 // saved to a folder the user picked (Backups.kt, Backups.swift)
 const Backup = () => {
@@ -90,7 +134,7 @@ const Backup = () => {
     }
   }, [status]);
 
-  if (!status) return null;
+  if (!status) return <NoStatus />;
 
   const frequency = status.frequency;
   const time = new Date();
@@ -114,7 +158,8 @@ const Backup = () => {
       const text = await invoke<string>('backup_export');
       nearby('shareFile', { name: backupName(), text });
     } catch (error) {
-      notify(t('common.somethingWrong'), String(error), 'error');
+      console.error('backup: export failed', error);
+      notify(t('common.somethingWrong'), t('backup.exportFailed'), 'error');
     }
   };
 
@@ -198,6 +243,7 @@ const Backup = () => {
               <Typography className="body-regular">{folderText}</Typography>
               <LastBackup status={status} />
             </Box>
+            <InfoNote message={t('backup.plainText')} />
             <Actions
               actions={[
                 {
@@ -205,16 +251,18 @@ const Backup = () => {
                     ? t('backup.changeFolder')
                     : t('backup.chooseFolder'),
                   onClick: () => nearby('backupFolder'),
-                  kind: 'tertiary',
+                  // without a folder, choosing one comes first
+                  kind: status.folder ? 'tertiary' : 'main',
                 },
                 {
                   label: t('backup.export'),
                   onClick: exportFile,
+                  kind: status.folder ? 'secondary' : 'tertiary',
                 },
                 {
                   label: status.running ? t('backup.running') : t('backup.now'),
                   onClick: backUpNow,
-                  kind: 'main',
+                  kind: status.folder ? 'main' : 'secondary',
                   disabled: status.running,
                 },
               ]}

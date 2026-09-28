@@ -34,13 +34,19 @@ import {
 } from './publisher_cards';
 import CoverageCycleCard from './coverage_cycle_card';
 
+// a service year that has just begun has nothing to show yet
+const defaultPeriod = () => {
+  const month = new Date().getMonth();
+  return month === 8 || month === 9 ? `sy${serviceYear() - 1}` : 'last12';
+};
+
 const TerritoriesStatistics = () => {
   const navigate = useNavigate();
 
   const territories = useAtomValue(territoriesWithStatusState);
   const monthNames = useAtomValue(monthShortNamesState);
 
-  const [period, setPeriod] = useState(`sy${serviceYear()}`);
+  const [period, setPeriod] = useState(defaultPeriod);
   const [from, setFrom] = useState<Date | null>(null);
   const [to, setTo] = useState<Date | null>(null);
 
@@ -61,7 +67,7 @@ const TerritoriesStatistics = () => {
             ),
           }
         : undefined
-      : periodWindow(period)) ?? periodWindow(`sy${current}`)!;
+      : periodWindow(period)) ?? periodWindow(defaultPeriod())!;
   const months = rangeMonths(range).map(({ month }) => monthNames[month]);
 
   const rate = coverageRate(territories, range);

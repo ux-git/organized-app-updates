@@ -20,6 +20,7 @@ import {
   CardSection,
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
+import { territoriesState } from '@states/territories';
 import {
   applyImport,
   ImportPlan,
@@ -38,10 +39,15 @@ import {
 import { linkedDevices, linksState } from '../profiles';
 import { play } from '../haptics';
 import { confirm } from './confirm';
-import { t } from '../i18n';
+import { list, t } from '../i18n';
 import { count, notify } from './sync/text';
 import { Actions, Avatar } from './sync/parts';
 import usePeople from './usePeople';
+
+const failed = (error: unknown) => {
+  console.error('publishers: saving failed', error);
+  notify(t('common.somethingWrong'), t('common.notSaved'), 'error');
+};
 
 const ImportDialog = ({
   open,
@@ -75,7 +81,8 @@ const ImportDialog = ({
       setSource('backup');
       setPlan(planImport(people, incoming, skipped));
     } catch (error) {
-      notify(t('common.somethingWrong'), (error as Error).message, 'error');
+      console.error('publishers: reading the backup failed', error);
+      notify(t('common.somethingWrong'), t('publishers.notBackup'), 'error');
     }
   };
 
@@ -93,7 +100,7 @@ const ImportDialog = ({
       );
       close();
     } catch (error) {
-      notify(t('common.somethingWrong'), String(error), 'error');
+      failed(error);
     } finally {
       setBusy(false);
     }
@@ -248,7 +255,7 @@ const NameDialog = ({
       await loadPeople();
       onClose();
     } catch (error) {
-      notify(t('common.somethingWrong'), String(error), 'error');
+      failed(error);
     } finally {
       setBusy(false);
     }
@@ -303,6 +310,7 @@ const NameDialog = ({
 const Publishers = ({ title }: { title: NavBarOptionsType }) => {
   const people = usePeople();
   const links = useAtomValue(linksState);
+  const territories = useAtomValue(territoriesState);
   const [search, setSearch] = useState('');
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Person | 'new' | null>(null);
@@ -322,9 +330,14 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
 
   const remove = async (person: Person) => {
     const linked = person.group ? 0 : linkedDevices(person.id, links);
+    const held = territories
+      .filter((territory) => territory.holder === person.name)
+      .map((territory) => territory.number)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     const ok = await confirm({
       title: t('publishers.removeTitle', { name: person.name }),
       description: [
+        held.length > 0 && t('publishers.holds', { territories: list(held) }),
         t('publishers.removeText'),
         linked > 0 &&
           t('publishers.linkedDevices', { devices: count(linked, 'phones') }),
@@ -339,7 +352,7 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
       await writeRows([{ table: PEOPLE, id: person.id, deleted: true }]);
       await loadPeople();
     } catch (error) {
-      notify(t('common.somethingWrong'), String(error), 'error');
+      failed(error);
     }
   };
 

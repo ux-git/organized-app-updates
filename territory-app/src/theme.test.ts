@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 vi.mock('./native', () => ({ hasNearby: () => false, nearby: vi.fn() }));
 vi.mock('@utils/common', async (original) => ({
@@ -50,6 +50,14 @@ const start = async (saved: Record<string, string> = {}, dark = false) => {
     following: () => store.get(theme.followSystemState),
   };
 };
+
+// the first imports compile the main app's whole state graph, far longer
+// than a test may take; the tests' own imports after a reset reuse it
+beforeAll(async () => {
+  await import('@states/index');
+  await import('@states/app');
+  await import('./theme');
+}, 120_000);
 
 beforeEach(() => {
   delete window.__organizedSystemDark;
