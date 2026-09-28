@@ -1,9 +1,8 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { Stack, TooltipProps } from '@mui/material';
+import { Box, Stack, TooltipProps } from '@mui/material';
 import * as maplibregl from 'maplibre-gl';
 import IconButton from '@components/icon_button';
 import Tooltip from '@components/tooltip';
-import { IconCompassOn } from '@icons/index';
 import { tx } from '@services/i18n/translation';
 
 type Corner =
@@ -81,7 +80,7 @@ export const MapAction = ({
   </Tooltip>
 );
 
-// only there while the map is turned or tilted; the needle follows north
+// always there, like a compass: the needle points north as the map turns
 export const NorthAction = ({
   map,
   placement,
@@ -89,36 +88,36 @@ export const NorthAction = ({
   map?: maplibregl.Map | null;
   placement?: TooltipProps['placement'];
 }) => {
-  const [view, setView] = useState({ bearing: 0, pitch: 0 });
+  const [bearing, setBearing] = useState(0);
 
   useEffect(() => {
     if (!map) return;
 
-    const update = () =>
-      setView({ bearing: map.getBearing(), pitch: map.getPitch() });
+    const update = () => setBearing(map.getBearing());
 
     update();
     map.on('rotate', update);
-    map.on('pitch', update);
 
     return () => {
       map.off('rotate', update);
-      map.off('pitch', update);
     };
   }, [map]);
-
-  if (!map || (Math.abs(view.bearing) < 0.5 && view.pitch < 0.5)) return null;
 
   return (
     <MapAction
       title={tx('Turn to north')}
       placement={placement}
-      onClick={() => map.easeTo({ bearing: 0, pitch: 0 })}
+      onClick={() => map?.easeTo({ bearing: 0, pitch: 0 })}
     >
-      <IconCompassOn
-        color="var(--accent-main)"
-        sx={{ transform: `rotate(${-view.bearing}deg)` }}
-      />
+      {/* the red half points north */}
+      <Box
+        component="svg"
+        viewBox="0 0 24 24"
+        sx={{ width: 24, height: 24, transform: `rotate(${-bearing}deg)` }}
+      >
+        <path d="M12 3.2 15.2 12H8.8Z" fill="var(--red-main)" />
+        <path d="M12 20.8 8.8 12h6.4Z" fill="var(--accent-main)" />
+      </Box>
     </MapAction>
   );
 };
