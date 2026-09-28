@@ -27,6 +27,9 @@ import usePageWidth from '@layouts/usePageWidth';
 import About from './shell/About';
 import AccountMenu from './shell/AccountMenu';
 import logo from './assets/logo.svg?url';
+
+// decoded once up front, so the logo doesn't blink in each time Home opens
+new Image().src = logo;
 import { t } from './i18n';
 import { ConfirmHost } from './pages/confirm';
 import useNearby from './pages/useNearby';

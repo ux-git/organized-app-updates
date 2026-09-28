@@ -80,11 +80,16 @@ export const restoreBackup = async (text: string) => {
   }
 };
 
+// the last status, so a page opened again starts from it instead of empty
+let known: BackupStatus | null = null;
+
 const useBackup = () => {
-  const [status, setStatus] = useState<BackupStatus | null>(null);
+  const [status, setStatus] = useState<BackupStatus | null>(known);
 
   useEffect(() => {
-    const stop = listen<BackupStatus>('backup', setStatus);
+    const stop = listen<BackupStatus>('backup', (next) =>
+      setStatus((known = next))
+    );
     // asked once listening, or the answer can come before the listener
     stop.then(() => nearby('backupStatus'));
     return () => {

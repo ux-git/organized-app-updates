@@ -192,6 +192,14 @@ impl Store {
             }
         }
 
+        // syncs that changed nothing only crowded the history
+        conn.execute(
+            "DELETE FROM log WHERE sent = 0 AND received = 0
+               AND coalesce(json_array_length(detail, '$.removed'), 0) = 0",
+            [],
+        )
+        .map_err(err)?;
+
         let identity = load_identity(&conn)?;
         let last: Option<String> = conn
             .query_row("SELECT max(stamp) FROM cells", [], |r| r.get(0))
@@ -785,6 +793,9 @@ impl Store {
         applied: &Applied,
         removed: &[String],
     ) -> Result<()> {
+        if sent == 0 && applied.cells == 0 && removed.is_empty() {
+            return Ok(());
+        }
         let detail = serde_json::json!({
             "received": applied.territories,
             "sent": sent_territories,
@@ -1738,6 +1749,15 @@ mod tests {
             }
             std::fs::remove_dir_all(dir).unwrap();
         }
+    }
+
+    #[test]
+    fn a_sync_that_changed_nothing_is_not_logged() {
+        let s = Store::in_memory().unwrap();
+        s.log_sync("00000000000000aa", "Ben", 0, &[], &Applied::default(), &[]).unwrap();
+        assert!(s.log().unwrap().is_empty());
+        s.log_sync("00000000000000aa", "Ben", 2, &[], &Applied::default(), &[]).unwrap();
+        assert_eq!(s.log().unwrap().len(), 1);
     }
 
     /// Phones that are all paired with each other.

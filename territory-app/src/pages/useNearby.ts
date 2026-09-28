@@ -77,32 +77,45 @@ export type NearbyStatus = {
 export const unsynced = (peers: Peer[]) =>
   peers.length ? Math.min(...peers.map((peer) => peer.pending)) : 0;
 
+// the last answers, so a page opened again starts from them instead of empty
+const known = {
+  peers: [] as Peer[],
+  status: { running: false, bluetooth: false } as NearbyStatus,
+  name: '',
+  removed: false,
+  /** The identity has been read at least once. */
+  loaded: false,
+};
+
 /** Paired phones from the store, and Bluetooth state from Android. */
 const useNearby = () => {
-  const [peers, setPeers] = useState<Peer[]>([]);
-  const [status, setStatus] = useState<NearbyStatus>({
-    running: false,
-    bluetooth: false,
-  });
-  const [name, setName] = useState('');
-  const [removed, setRemoved] = useState(false);
+  const [peers, setPeers] = useState<Peer[]>(known.peers);
+  const [status, setStatus] = useState<NearbyStatus>(known.status);
+  const [name, setName] = useState(known.name);
+  const [removed, setRemoved] = useState(known.removed);
+  const [loaded, setLoaded] = useState(known.loaded);
 
   const refreshPeers = useCallback(async () => {
-    setPeers(await invoke<Peer[]>('peers').catch(() => []));
+    known.peers = await invoke<Peer[]>('peers').catch(() => []);
+    setPeers(known.peers);
     const me = await invoke<{ name: string; removed?: boolean }>(
       'identity'
     ).catch(() => null);
     if (me) {
-      setName(me.name);
-      setRemoved(!!me.removed);
+      known.name = me.name;
+      known.removed = !!me.removed;
+      setName(known.name);
+      setRemoved(known.removed);
     }
+    known.loaded = true;
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
     refreshPeers();
     const stops = [
       listen<NearbyStatus>('nearby', (next) => {
-        setStatus((previous) => ({ ...previous, ...next }));
+        setStatus((previous) => (known.status = { ...previous, ...next }));
         refreshPeers();
       }),
       listen('store-changed', refreshPeers),
@@ -121,6 +134,8 @@ const useNearby = () => {
     status,
     name,
     setName,
+    /** Peers and name have been read once; until then they are placeholders. */
+    loaded,
     /** This device was removed from its group and not paired since. */
     removed,
     refreshPeers,

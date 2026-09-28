@@ -19,11 +19,12 @@ const Home = () => {
   const { t } = useAppTranslation();
   const { tablet688Up } = useBreakpoints();
   const navigate = useNavigate();
-  const { peers, name } = useNearby();
+  const { peers, name, loaded } = useNearby();
   const link = useAtomValue(myLinkState);
   const people = useAtomValue(peopleState);
   // unlinked, "My territories" goes by this device's name
   const unlinked =
+    loaded &&
     !link.person &&
     people.some((person) => !person.group) &&
     !suggestedLink(name, people);
