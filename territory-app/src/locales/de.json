@@ -69,7 +69,9 @@
     "changes_one": "{{count}} Änderung",
     "changes_other": "{{count}} Änderungen",
     "phones_one": "{{count}} Gerät",
-    "phones_other": "{{count}} Geräte"
+    "phones_other": "{{count}} Geräte",
+    "campaigns_one": "{{count}} Sonderaktion",
+    "campaigns_other": "{{count}} Sonderaktionen"
   },
   "result": {
     "territoriesChanged_one": "Gebiet Nr. {{numbers}} wurde geändert.",
@@ -117,6 +119,7 @@
     "notSynced": "{{devices}} · Noch nicht synchronisiert",
     "automatic": "Automatisch synchronisieren",
     "publishers": "Verkündiger und Gruppen",
+    "campaigns": "Sonderaktionen",
     "language": "Sprache",
     "app": "App",
     "syncTab": "Synchronisieren und koppeln",
@@ -127,6 +130,22 @@
     "dark": "Dunkel",
     "colorScheme": "Farbenschema",
     "lastContact": "{{devices}} · Zuletzt mit {{name}} synchronisiert, {{when}}"
+  },
+  "campaigns": {
+    "title": "Sonderaktionen",
+    "text": "Aktionen wie die Gedächtnismahl-Einladungen. Ein Gebiet, das währenddessen bearbeitet wird, kann beim Zuteilen oder Zurückgeben darunter eingeordnet werden. Sie werden mit deinen gekoppelten Geräten geteilt.",
+    "none": "Noch keine Sonderaktionen",
+    "add": "Sonderaktion hinzufügen",
+    "edit": "Sonderaktion bearbeiten",
+    "addButton": "Hinzufügen",
+    "name": "Name",
+    "namePlaceholder": "z. B. Gedächtnismahl-Einladungen",
+    "from": "Von",
+    "to": "Bis",
+    "endBeforeStart": "Das Ende liegt vor dem Anfang.",
+    "removeTitle": "{{name}} entfernen?",
+    "removeText": "Zuteilungen, die darunter eingeordnet sind, behalten ihren Namen.",
+    "removeLabel": "{{name}} entfernen"
   },
   "nameDialog": {
     "description": "Andere Geräte sehen diesen Namen. „Nicht besuchen“-Adressen, die du hinzufügst, werden damit gespeichert – oder mit dem Namen deines verknüpften Verkündigers, wenn du einen verknüpfst."
@@ -287,6 +306,7 @@
   "decisions": {
     "title": "Deine Entscheidung ist gefragt",
     "text": "Eure Geräte haben synchronisiert, aber das hier wurde vorher auf zwei Geräten geändert. Vorerst gilt die neuere Änderung.",
+    "campaigns": "Sonderaktionen",
     "holder": "Zugeteilt an",
     "publisher": "Verkündiger",
     "assignedOn": "Zugeteilt am",
@@ -381,16 +401,18 @@
   "publishers": {
     "imported": "Verkündiger importiert",
     "importedText": "{{added}} hinzugefügt, {{updated}} aktualisiert.",
+    "importedCampaigns": "{{campaigns}} hinzugefügt.",
     "new": "Neu",
     "updated": "Aktualisiert",
     "unchanged": "Schon vorhanden",
     "skipped": "Archiviert, nicht importiert",
+    "campaigns": "Neue Sonderaktionen",
     "import": "Verkündiger importieren",
     "removeMissingBackup": "{{names}} entfernen, die nicht in der Sicherung sind",
     "removeMissingList": "{{names}} entfernen, die nicht in der Liste sind",
     "removeMissingText": "Zum Beispiel Personen, die weggezogen sind. Ihr Zuteilungsverlauf bleibt.",
     "importButton": "Importieren",
-    "importText": "Übernommen werden nur Namen und Predigtdienstgruppen. Adressen, Telefonnummern und Berichte aus der Sicherung bleiben außerhalb dieser App.",
+    "importText": "Übernommen werden nur Namen, Predigtdienstgruppen und Sonderaktionen. Adressen, Telefonnummern und Berichte aus der Sicherung bleiben außerhalb dieser App.",
     "fromBackup": "Aus einer Organized-Sicherung",
     "fromBackupText": "Öffne in Organized die Versammlungseinstellungen und exportiere eine Sicherung. Eine aus NW Scheduler umgewandelte Sicherung geht auch.",
     "chooseBackup": "Sicherungsdatei wählen",

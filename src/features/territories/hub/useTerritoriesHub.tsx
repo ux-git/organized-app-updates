@@ -18,18 +18,16 @@ import {
   applyFilters,
   EMPTY_FILTERS,
   forTab,
-  groupHolderName,
   withDerivedStatus,
-  assignmentFromDates,
-  parseDate,
 } from '../helpers';
+import { currentPublisherState, territoryAssigneesState } from '../assignees';
 import {
-  Territory,
   TerritoryFilters,
   TerritoryStatus,
   TerritoryTab,
 } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
+import useAssignReturn from '../useAssignReturn';
 
 const TAB_GROUPS: TerritoryTab[][] = [
   ['recommended', 'all'],
@@ -60,7 +58,8 @@ const useTerritoriesHub = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
 
-  const [territories, setTerritories] = useAtom(territoriesState);
+  const territories = useAtomValue(territoriesState);
+  const actions = useAssignReturn();
   const [showHouseholds, setShowHouseholds] = useAtom(
     territoriesShowHouseholdsState
   );
@@ -91,15 +90,7 @@ const useTerritoriesHub = () => {
   const [isBoard, setIsBoard] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [quickSettingsOpen, setQuickSettingsOpen] = useState(false);
-  const [returnId, setReturnId] = useState<string | undefined>();
-  const [assignId, setAssignId] = useState<string | undefined>();
   const [assignManyOpen, setAssignManyOpen] = useState(false);
-  // the last assign or return, and the territories as they were before it
-  const [undo, setUndo] = useState<{
-    key: number;
-    header: string;
-    before: Territory[];
-  }>();
   const { desktopUp } = useBreakpoints();
 
   // in the URL, so the device back gesture closes the filters on small screens
@@ -118,14 +109,17 @@ const useTerritoriesHub = () => {
     fromUrl === 'requests' && !isTerritoryEditor ? 'requested' : fromUrl;
 
   const userUID = useAtomValue(userLocalUIDState);
+  const me = useAtomValue(currentPublisherState);
+  const assignees = useAtomValue(territoryAssigneesState);
 
   const isGroupLead = !!my_group?.group_data.members.some(
     (member) =>
       member.person_uid === userUID && (member.isOverseer || member.isAssistant)
   );
 
-  const groupHolder =
-    isGroupLead && my_group ? groupHolderName(my_group.group_data) : undefined;
+  const groupHolder = isGroupLead
+    ? assignees.find((assignee) => assignee.id === my_group?.group_id)?.name
+    : undefined;
 
   const canBrowse = isTerritoryEditor || access !== 'own';
   const canRequest = !localMode && (isTerritoryEditor || access === 'request');
@@ -157,7 +151,7 @@ const useTerritoriesHub = () => {
     setSearchParams(searchParams, { replace: true, state: location.state });
   };
 
-  const ownRequests = forTab(withStatus, 'requested').length;
+  const ownRequests = forTab(withStatus, 'requested', me).length;
 
   const tabs =
     group.length > 1
@@ -176,6 +170,7 @@ const useTerritoriesHub = () => {
     const list = forTab(
       withStatus,
       tabId,
+      me,
       isTerritoryEditor,
       groupHolder,
       restricted
@@ -185,7 +180,15 @@ const useTerritoriesHub = () => {
     if (OWN_TABS.has(tabId)) return list;
 
     return applyFilters(list, filters);
-  }, [withStatus, tabId, filters, isTerritoryEditor, groupHolder, restricted]);
+  }, [
+    withStatus,
+    tabId,
+    me,
+    filters,
+    isTerritoryEditor,
+    groupHolder,
+    restricted,
+  ]);
 
   const boardTerritories = useMemo(
     () => applyFilters(withStatus, filters),
@@ -194,127 +197,6 @@ const useTerritoriesHub = () => {
 
   // rows hidden by the filters stay out of bulk actions
   const selected = visible.filter((territory) => checked.has(territory.id));
-
-  const patch = (
-    id: string,
-    changes: (territory: Territory) => Partial<Territory>
-  ) =>
-    setTerritories((prev) =>
-      prev.map((territory) =>
-        territory.id === id
-          ? { ...territory, ...changes(territory) }
-          : territory
-      )
-    );
-
-  const remember = (ids: string[], header: string) =>
-    ids.length > 0 &&
-    setUndo({
-      key: Date.now(),
-      header,
-      before: territories.filter((territory) => ids.includes(territory.id)),
-    });
-
-  const undoLast = () => {
-    if (!undo) return;
-
-    const before = new Map(undo.before.map((item) => [item.id, item]));
-    setTerritories((prev) => prev.map((item) => before.get(item.id) ?? item));
-    setUndo(undefined);
-  };
-
-  const closeUndo = useCallback(() => setUndo(undefined), []);
-
-  const numberOf = (id: string) =>
-    territories.find((territory) => territory.id === id)?.number ?? '';
-
-  const assign = (id: string, publisher: string, assignedOn?: Date) => {
-    const start = assignedOn ?? new Date();
-    const days = Math.max(
-      0,
-      Math.round((Date.now() - start.getTime()) / 86400000)
-    );
-
-    patch(id, (territory) => ({
-      status: 'in_work',
-      holder: publisher,
-      daysOut: days,
-      requestedBy: undefined,
-      reviewNeeded: false,
-      assignments: [
-        ...territory.assignments.map((item) =>
-          item.returnedOn
-            ? item
-            : assignmentFromDates(
-                item,
-                item.publisher,
-                parseDate(item.assignedOn) ?? start,
-                start
-              )
-        ),
-        assignmentFromDates(
-          {
-            id: `ta-${Date.now()}-${id}`,
-            publisher,
-            assignedOn: '',
-            serviceYear: 0,
-            months: 0,
-            startMonth: 0,
-            endMonth: 0,
-          },
-          publisher,
-          start,
-          null
-        ),
-      ],
-    }));
-  };
-
-  const handleAssign = (id: string, publisher: string, assignedOn?: Date) => {
-    assign(id, publisher, assignedOn);
-    remember(
-      [id],
-      tx('{{number}} assigned to {{name}}', {
-        number: numberOf(id),
-        name: publisher,
-      })
-    );
-  };
-
-  const handleDecline = (id: string) =>
-    patch(id, () => ({ requestedBy: undefined }));
-
-  const giveBack = (id: string, households?: number, returnedOn?: Date) => {
-    const end = returnedOn ?? new Date();
-    const days = Math.max(
-      0,
-      Math.round((Date.now() - end.getTime()) / 86400000)
-    );
-
-    patch(id, (territory) => ({
-      status: 'available',
-      holder: undefined,
-      daysOut: undefined,
-      daysSinceCovered: days,
-      reviewNeeded: households === undefined,
-      ...(households === undefined ? {} : { households }),
-      assignments: territory.assignments.map((item) =>
-        item.returnedOn
-          ? item
-          : assignmentFromDates(
-              item,
-              item.publisher,
-              parseDate(item.assignedOn) ?? end,
-              end
-            )
-      ),
-    }));
-  };
-
-  const handleReturn = (id: string, households?: number, returnedOn?: Date) => {
-    giveBack(id, households, returnedOn);
-    remember([id], tx('{{number}} returned', { number: numberOf(id) }));
-  };
 
   const handleDrop = (id: string, status: TerritoryStatus) => {
     const current = withStatus.find((territory) => territory.id === id);
@@ -326,11 +208,11 @@ const useTerritoriesHub = () => {
     if (isOut(current.status) && isOut(status)) return;
 
     if (status === 'in_work') {
-      setAssignId(id);
+      actions.openAssign(id);
       return;
     }
 
-    if (status === 'available') setReturnId(id);
+    if (status === 'available') actions.openReturn(id);
   };
 
   const toggleCheck = (id: string) =>
@@ -359,20 +241,7 @@ const useTerritoriesHub = () => {
       .filter((territory) => territory.status === 'available')
       .map((territory) => territory.id);
 
-    ids.forEach((id) => assign(id, publisher, assignedOn));
-
-    remember(
-      ids,
-      ids.length === 1
-        ? tx('{{number}} assigned to {{name}}', {
-            number: numberOf(ids[0]),
-            name: publisher,
-          })
-        : tx('{{n}} territories assigned to {{name}}', {
-            n: ids.length,
-            name: publisher,
-          })
-    );
+    actions.assignMany(ids, publisher, assignedOn);
 
     setAssignManyOpen(false);
     clearChecked();
@@ -386,14 +255,7 @@ const useTerritoriesHub = () => {
       )
       .map((territory) => territory.id);
 
-    ids.forEach((id) => giveBack(id));
-
-    remember(
-      ids,
-      ids.length === 1
-        ? tx('{{number}} returned', { number: numberOf(ids[0]) })
-        : tx('{{n}} territories returned', { n: ids.length })
-    );
+    actions.returnMany(ids);
 
     clearChecked();
   };
@@ -434,9 +296,9 @@ const useTerritoriesHub = () => {
     clearChecked,
     assignMany,
     returnMany,
-    handleAssign,
-    handleDecline,
-    handleReturn,
+    actions,
+    handleAssign: actions.handleAssign,
+    handleDecline: actions.handleDecline,
     handleOpen,
     title,
     isBoard,
@@ -449,21 +311,14 @@ const useTerritoriesHub = () => {
     setShowHouseholds,
     overdueMonths,
     setOverdueMonths,
-    returnId,
-    setReturnId,
-    assignId,
-    setAssignId,
+    setReturnId: actions.openReturn,
+    setAssignId: actions.openAssign,
     assignManyOpen,
     setAssignManyOpen,
     assignableCount: selected.filter(
       (territory) => territory.status === 'available'
     ).length,
-    assignTarget: territories.find((territory) => territory.id === assignId),
     handleDrop,
-    returnTarget: territories.find((territory) => territory.id === returnId),
-    undo,
-    undoLast,
-    closeUndo,
   };
 };
 

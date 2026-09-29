@@ -1,3 +1,4 @@
+import { Getter } from 'jotai';
 import {
   DoNotCall,
   TerritoryBoundary,
@@ -6,12 +7,14 @@ import {
   TerritoryStatus,
   TerritoryType,
 } from '@definition/territory';
+import { isTest } from '@constants/index';
+import { currentPublisherState, territoryAssigneesState } from './assignees';
 
-export const CURRENT_PUBLISHER = 'Mike Wallenter';
+const CURRENT_PUBLISHER = 'Mike Wallenter';
 
-export const GROUPS = ['Group 3 – Kreuzberg', 'Group 5 – Neukölln'];
+const GROUPS = ['Group 3 – Kreuzberg', 'Group 5 – Neukölln'];
 
-export const PUBLISHERS_ONLY = [
+const PUBLISHERS_ONLY = [
   'Mike Wallenter',
   'George Markus',
   'Sandero Schneidertson',
@@ -21,7 +24,7 @@ export const PUBLISHERS_ONLY = [
   'Peter Novak',
 ];
 
-export const PUBLISHERS = [...GROUPS, ...PUBLISHERS_ONLY];
+const PUBLISHERS = [...GROUPS, ...PUBLISHERS_ONLY];
 
 const STREETS = [
   'Oranienstraße',
@@ -339,7 +342,53 @@ const buildTerritories = (count: number): Territory[] => {
   return territories;
 };
 
-export const TERRITORIES = buildTerritories(132);
+const TERRITORIES = buildTerritories(132);
+
+// in test mode the seeded persons and groups hold the samples, the test user
+// in place of the sample "me", so "Mine" and assigning show real people
+export const sampleTerritories = (get: Getter): Territory[] => {
+  const me = get(currentPublisherState);
+  if (!isTest || !me) return TERRITORIES;
+
+  const assignees = get(territoryAssigneesState);
+  const groups = assignees.filter((assignee) => assignee.group);
+  const others = assignees.filter(
+    (assignee) => !assignee.group && assignee.name !== me
+  );
+  const samples = PUBLISHERS_ONLY.filter((name) => name !== CURRENT_PUBLISHER);
+
+  const names = new Map([[CURRENT_PUBLISHER, me]]);
+  if (groups.length) {
+    GROUPS.forEach((name, index) =>
+      names.set(name, groups[index % groups.length].name)
+    );
+  }
+  if (others.length) {
+    // spread over the whole list, not only its first names
+    samples.forEach((name, index) =>
+      names.set(
+        name,
+        others[Math.floor((index * others.length) / samples.length)].name
+      )
+    );
+  }
+
+  const to = (name: string) => names.get(name) ?? name;
+
+  return TERRITORIES.map((territory) => ({
+    ...territory,
+    holder: territory.holder && to(territory.holder),
+    requestedBy: territory.requestedBy && to(territory.requestedBy),
+    assignments: territory.assignments.map((assignment) => ({
+      ...assignment,
+      publisher: to(assignment.publisher),
+    })),
+    doNotCalls: territory.doNotCalls.map((entry) => ({
+      ...entry,
+      addedBy: to(entry.addedBy),
+    })),
+  }));
+};
 
 // street name -> territory numbers; the territory app fills it from its seed
 export const STREET_INDEX: Record<string, string[]> = {};

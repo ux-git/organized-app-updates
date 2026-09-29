@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Box, Stack } from '@mui/material';
+import { Box, ButtonBase, Stack } from '@mui/material';
+import { IconChevronRight } from '@icons/index';
 import {
   Badge,
   Button,
@@ -60,23 +61,37 @@ const PublisherLoad = ({
         {sortedPublishers(entries, sort)
           .slice(0, shown)
           .map((entry, index) => (
-            <Stack
+            <Box
               key={entry.publisher}
-              direction="row"
-              spacing="12px"
-              onClick={
-                entry.count > 0
-                  ? () => openTerritories(entry.publisher)
-                  : undefined
-              }
+              component={entry.count > 0 ? ButtonBase : 'div'}
+              {...(entry.count > 0 && {
+                onClick: () => openTerritories(entry.publisher),
+                'aria-label':
+                  entry.count === 1
+                    ? tx('Show the territory of {{name}}', {
+                        name: entry.publisher,
+                      })
+                    : tx('Show the {{n}} territories of {{name}}', {
+                        n: entry.count,
+                        name: entry.publisher,
+                      }),
+              })}
               sx={{
+                display: 'flex',
+                width: '100%',
+                gap: '12px',
                 alignItems: 'center',
+                justifyContent: 'flex-start',
+                textAlign: 'left',
                 padding: '10px 8px',
                 borderRadius: 'var(--radius-m)',
                 ...(entry.count > 0 && {
-                  cursor: 'pointer',
                   transition: 'background-color 0.15s ease',
                   '&:hover': { backgroundColor: 'var(--accent-100)' },
+                  '&.Mui-focusVisible': {
+                    backgroundColor: 'var(--accent-150)',
+                    outline: 'var(--accent-main) auto 1px',
+                  },
                 }),
               }}
             >
@@ -104,7 +119,18 @@ const PublisherLoad = ({
                   text={String(entry.count)}
                 />
               </Box>
-            </Stack>
+
+              {/* kept empty on rows without territories, so the counts line up */}
+              <Box sx={{ width: '20px', height: '20px', flexShrink: 0 }}>
+                {entry.count > 0 && (
+                  <IconChevronRight
+                    color="var(--accent-dark)"
+                    width={20}
+                    height={20}
+                  />
+                )}
+              </Box>
+            </Box>
           ))}
       </Stack>
 

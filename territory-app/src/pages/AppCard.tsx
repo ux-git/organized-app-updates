@@ -1,12 +1,20 @@
 import { ListItem } from '@mui/material';
+import { useAtomValue } from 'jotai';
 import {
   IconBackupOrganized,
   IconCalendarClock,
+  IconCampaign,
   IconPerson,
   IconSynced,
 } from '@icons/index';
 import DashboardCard from '@features/dashboard/card';
 import DashboardMenu from '@features/dashboard/menu';
+import {
+  campaignLabel,
+  campaignsOn,
+} from '@features/territories/campaign_dates';
+import { appLocaleState } from '@states/app';
+import { territoryCampaignsState } from '../campaigns';
 import { t } from '../i18n';
 import { count, when } from './sync/text';
 import useBackup from './useBackup';
@@ -18,7 +26,10 @@ const AppCard = () => {
   const { peers, android } = useNearby();
   const people = usePeople();
   const backup = useBackup();
+  const campaigns = useAtomValue(territoryCampaignsState);
+  const locale = useAtomValue(appLocaleState);
 
+  const running = campaignsOn(campaigns, new Date())[0];
   const pending = unsynced(peers);
   const last = peers.reduce<(typeof peers)[number] | undefined>(
     (latest, peer) =>
@@ -66,6 +77,16 @@ const AppCard = () => {
           primaryText={t('settings.publishers')}
           badgeText={String(people.length)}
           path="/settings/publishers"
+        />
+      </ListItem>
+      <ListItem disablePadding>
+        <DashboardMenu
+          icon={<IconCampaign color="var(--black)" />}
+          primaryText={t('settings.campaigns')}
+          secondaryText={
+            running ? campaignLabel(running, locale.code) : undefined
+          }
+          path="/settings/campaigns"
         />
       </ListItem>
       {android && (

@@ -84,6 +84,19 @@ export type TerritoryAssignment = {
   months: number;
   startMonth: number;
   endMonth: number;
+  // the special campaign it was worked for; `coverage` when the work counts
+  // as regular coverage too
+  campaign?: { id: string; name: string; coverage?: boolean };
+};
+
+// a "Special campaign" event in Organized, or the territory app's own entry;
+// start and end are calendar days, yyyy-mm-dd
+export type TerritoryCampaign = {
+  id: string;
+  name: string;
+  start: string;
+  end: string;
+  group?: string;
 };
 
 export type Territory = {
@@ -111,6 +124,9 @@ export type Territory = {
   reviewNeeded?: boolean;
 };
 
+// a publisher or a field service group a territory can go to
+export type TerritoryAssignee = { id: string; name: string; group: boolean };
+
 export type TerritoryFilters = {
   search: string;
   status: TerritoryStatus[];
@@ -119,6 +135,8 @@ export type TerritoryFilters = {
   coverage?: { covered: boolean; period: string };
   cardLostOnly: boolean;
   holder?: string;
+  // the holder's earlier territories too, not only the ones held now
+  holderPast?: boolean;
 };
 
 export type TerritoryAccess = 'own' | 'view' | 'request';

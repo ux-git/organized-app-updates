@@ -14,7 +14,7 @@ import { getMessageByCode } from '@services/i18n/translation';
 import { userDataViewState } from '@states/settings';
 
 const useUpcomingEvents = () => {
-  const { isAdmin } = useCurrentUser();
+  const { isUpcomingEventsEditor } = useCurrentUser();
 
   const events = useAtomValue(upcomingEventsByDataViewState);
   const dataView = useAtomValue(userDataViewState);
@@ -75,7 +75,7 @@ const useUpcomingEvents = () => {
   };
 
   return {
-    isAdmin,
+    isUpcomingEventsEditor,
     emptyEvent,
     events,
     addEventBoxShow,

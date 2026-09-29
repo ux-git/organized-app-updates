@@ -1,5 +1,12 @@
 import appDb from '@db/appDb';
-import { UpcomingEventType } from '@definition/upcoming_events';
+import {
+  DEFAULT_EVENT_START_HOUR,
+  UpcomingEventCategory,
+  UpcomingEventDuration,
+  UpcomingEventType,
+} from '@definition/upcoming_events';
+import { addDays } from '@utils/date';
+import { localStorageGetItem } from '@utils/common';
 
 const dbUpdateUpcomingEventMetadata = async () => {
   const metadata = await appDb.metadata.get(1);
@@ -35,6 +42,33 @@ export const dbUpcomingEventsBulkSave = async (events: UpcomingEventType[]) => {
 export const dbUpcomingEventsSave = async (event: UpcomingEventType) => {
   await appDb.upcoming_events.put(event);
   await dbUpdateUpcomingEventMetadata();
+};
+
+// test mode: a Special campaign under way, so a territory can be filed under it
+export const dbUpcomingEventsDummy = async () => {
+  const start = addDays(new Date(), -7);
+  start.setHours(DEFAULT_EVENT_START_HOUR, 0, 0, 0);
+  const end = addDays(new Date(), 14);
+  end.setHours(DEFAULT_EVENT_START_HOUR + 1, 0, 0, 0);
+
+  await dbUpcomingEventsSave({
+    event_uid: crypto.randomUUID(),
+    event_data: {
+      _deleted: false,
+      updatedAt: new Date().toISOString(),
+      start: start.toISOString(),
+      end: end.toISOString(),
+      type: 'main',
+      category: UpcomingEventCategory.SpecialCampaignWeek,
+      duration: UpcomingEventDuration.MultipleDays,
+      description:
+        localStorageGetItem('ui_lang') === 'deu'
+          ? 'Gedächtnismahl-Einladungen'
+          : 'Memorial invitations',
+      custom: '',
+      wholeDay: true,
+    },
+  });
 };
 
 export const dbUpcomingEventsClear = async () => {

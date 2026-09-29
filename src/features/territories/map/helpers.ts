@@ -133,7 +133,11 @@ export const lineCollection = (
         // the dashes show together with the territory's number
         labelZoom:
           (territory.boundary?.length ?? 0) > 2
-            ? labelZoom(territory.boundary!, String(territory.number ?? ''), 0)
+            ? labelZoom(
+                territory.boundary!,
+                numberBox(String(territory.number ?? '')),
+                0
+              )
             : 0,
       },
       geometry: { type: 'LineString' as const, coordinates: line.path },
@@ -172,10 +176,37 @@ export const chip = (item: TerritoryMapMarker) => ({
 
 const EARTH_METRES = 40_075_016.686;
 
+type LabelBox = { width: number; height: number };
+
+const numberBox = (number: string): LabelBox => ({
+  width: 8 + 7 * number.length,
+  height: 18,
+});
+
+const textWidth = (text: string) => 8 + 6.5 * text.length;
+
+const captionBox = (
+  number: string,
+  detail: string,
+  households?: string
+): LabelBox => {
+  const widths: number[] = [];
+  if (detail) widths.push(textWidth(detail));
+  // the house icon is about as wide as three letters
+  if (households) widths.push(textWidth(households) + 20);
+
+  const badge = numberBox(number);
+
+  return {
+    width: Math.max(badge.width, ...widths),
+    height: badge.height + 14 * widths.length,
+  };
+};
+
 // maplibre can't measure a polygon on screen, so each label carries the zoom
-// from which its territory is big enough to hold the number badge
+// from which its territory is big enough to hold the label's box
 // `unknown`: the zoom for a border too thin to measure
-const labelZoom = (ring: GeoJSON.Position[], number: string, unknown = 24) => {
+const labelZoom = (ring: GeoJSON.Position[], box: LabelBox, unknown = 24) => {
   const [west, south, east, north] = boundaryBounds(ring as TerritoryBoundary);
   const scale = Math.cos((((south + north) / 2) * Math.PI) / 180);
   const perDegree = EARTH_METRES / 360;
@@ -202,8 +233,8 @@ const labelZoom = (ring: GeoJSON.Position[], number: string, unknown = 24) => {
     Math.log2((pixels * EARTH_METRES * scale) / (512 * metres));
 
   const zoom = Math.max(
-    zoomFor(8 + 7 * number.length, width * fill),
-    zoomFor(18, height * fill)
+    zoomFor(box.width, width * fill),
+    zoomFor(box.height, height * fill)
   );
 
   return Number.isFinite(zoom) ? Math.min(zoom, 24) : unknown;
@@ -211,7 +242,8 @@ const labelZoom = (ring: GeoJSON.Position[], number: string, unknown = 24) => {
 
 // a label on the polygon itself repeats on every tile the area crosses
 export const labelCollection = (
-  areas: GeoJSON.FeatureCollection<GeoJSON.Polygon>
+  areas: GeoJSON.FeatureCollection<GeoJSON.Polygon>,
+  options: { households?: boolean } = {}
 ): GeoJSON.FeatureCollection<GeoJSON.Point> => ({
   type: 'FeatureCollection',
   features: areas.features.map((feature) => {
@@ -219,11 +251,19 @@ export const labelCollection = (
     const lng = ring.reduce((sum, point) => sum + point[0], 0) / ring.length;
     const lat = ring.reduce((sum, point) => sum + point[1], 0) / ring.length;
 
+    const number = String(feature.properties?.number ?? '');
+    const detail = String(feature.properties?.detail ?? '');
+    const households = options.households
+      ? String(feature.properties?.households ?? '')
+      : undefined;
+
     return {
       type: 'Feature' as const,
       properties: {
         ...feature.properties,
-        labelZoom: labelZoom(ring, String(feature.properties?.number ?? '')),
+        labelZoom: labelZoom(ring, numberBox(number)),
+        // the caption waits until the area has room for it under the badge
+        captionZoom: labelZoom(ring, captionBox(number, detail, households)),
       },
       geometry: { type: 'Point' as const, coordinates: [lng, lat] },
     };
@@ -391,10 +431,26 @@ export const LABEL_TEXT_SIZE: maplibregl.ExpressionSpecification = [
   13,
 ];
 
+// captions only show from LABEL_DETAIL_ZOOM, and keep growing when close in
+export const CAPTION_TEXT_SIZE: maplibregl.ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  13,
+  10,
+  15,
+  12,
+  17,
+  14,
+  19,
+  16,
+];
+
 // a label fades in over half a zoom level once its territory can hold it;
 // zoom stops can't come from a feature, so the ramp is sampled every half level
 export const labelOpacity = (
-  opacity: number
+  opacity: number,
+  from: 'labelZoom' | 'captionZoom' = 'labelZoom'
 ): maplibregl.ExpressionSpecification =>
   [
     'interpolate',
@@ -405,7 +461,7 @@ export const labelOpacity = (
       [
         '*',
         opacity,
-        ['max', 0, ['min', 1, ['*', 2, ['-', zoom, ['get', 'labelZoom']]]]],
+        ['max', 0, ['min', 1, ['*', 2, ['-', zoom, ['get', from]]]]],
       ],
     ]),
   ] as maplibregl.ExpressionSpecification;
@@ -414,5 +470,11 @@ export const labelOpacity = (
 export const LABEL_FILTER: maplibregl.FilterSpecification = [
   '<',
   ['get', 'labelZoom'],
+  ['+', ['zoom'], 1],
+];
+
+export const CAPTION_FILTER: maplibregl.FilterSpecification = [
+  '<',
+  ['get', 'captionZoom'],
   ['+', ['zoom'], 1],
 ];

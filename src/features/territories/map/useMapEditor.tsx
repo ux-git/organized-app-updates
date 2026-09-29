@@ -137,6 +137,9 @@ const POINT_FLAGS = {
   point: { feature: { draggable: true } },
 };
 
+// Esc belongs to the editor's own step back (leaveTool), so terra draw leaves it alone
+const DRAW_KEYS = { cancel: null, finish: 'Enter' };
+
 type Vertex = { id: string | number; index: number };
 
 // corners closer than this on screen get small handles, so the border stays visible
@@ -352,12 +355,14 @@ const useMapEditor = ({
               fillOpacity,
               outlineWidth: 2.5,
             },
+            keyEvents: DRAW_KEYS,
           }),
           new TerraDrawLineStringMode({
             styles: {
               lineStringColor: BLUE,
               lineStringWidth: 3,
             },
+            keyEvents: DRAW_KEYS,
           }),
           new TerraDrawPointMode({
             styles: {
@@ -369,13 +374,19 @@ const useMapEditor = ({
           new TerraDrawSelectMode({
             flags: MOVE_FLAGS,
             styles: handleStyles.current,
+            keyEvents: {
+              deselect: null,
+              delete: 'Delete',
+              rotate: ['Control', 'r'],
+              scale: ['Control', 's'],
+            },
           }),
           new TerraDrawSelectMode({
             modeName: 'points',
             flags: POINT_FLAGS,
             styles: handleStyles.current,
             keyEvents: {
-              deselect: 'Escape',
+              deselect: null,
               delete: null,
               rotate: null,
               scale: null,
@@ -674,32 +685,6 @@ const useMapEditor = ({
     pickTool(removedBorder ? 'border' : options.current.tool);
   }, [selected, selectedKind, clearVertex, readDraft, pickTool]);
 
-  // steps out of the current action only; leaving the editor is the back arrow
-  const cancelAction = useCallback(() => {
-    const terra = draw.current;
-    if (!terra) return;
-
-    if (EXTRA_TOOLS.has(tool)) {
-      pickTool('points');
-      return;
-    }
-
-    if (tool === 'border') {
-      // switching modes drops the unfinished outline
-      terra.setMode(MODE_FOR.move);
-      pickTool('border');
-      return;
-    }
-
-    if (selected !== undefined) {
-      clearVertex();
-      terra.deselectFeature(selected);
-    }
-  }, [tool, selected, pickTool, clearVertex]);
-
-  const canCancel =
-    EXTRA_TOOLS.has(tool) || tool === 'border' || selected !== undefined;
-
   const redrawBorder = useCallback(() => {
     const terra = draw.current;
     if (!terra) return;
@@ -735,6 +720,32 @@ const useMapEditor = ({
       setTimeout(() => terra.selectFeature(border.id!, 'points'));
     }
   }, [pickTool]);
+
+  // Abbrechen and Esc go back one level and drop only what that level added:
+  //   placing (a note tool, or a border half drawn) → the territory, as it opened
+  //   the territory → edit mode with nothing picked, asking first if changes would be lost
+  //   edit mode → view mode
+  // Picking a drawing or a corner is no level of its own; a click beside it lets go.
+  // Speichern keeps the drawing and leaves the territory in one step.
+  // This takes the first step and says false when there is no tool to leave.
+  const leaveTool = useCallback(() => {
+    const terra = draw.current;
+    if (!terra) return false;
+
+    if (EXTRA_TOOLS.has(tool)) {
+      adjustBorder();
+      return true;
+    }
+
+    if (tool === 'border' && terra.getModeState() === 'drawing') {
+      // switching modes drops the unfinished outline
+      terra.setMode(MODE_FOR.move);
+      pickTool('border');
+      return true;
+    }
+
+    return false;
+  }, [tool, pickTool, adjustBorder]);
 
   const finish = useCallback(() => {
     stop();
@@ -993,8 +1004,7 @@ const useMapEditor = ({
       selected,
       selectedKind,
       deleteSelected,
-      cancelAction,
-      canCancel,
+      leaveTool,
       cornerPicked,
       deleteVertex,
       redrawBorder,
@@ -1025,8 +1035,7 @@ const useMapEditor = ({
       selected,
       selectedKind,
       deleteSelected,
-      cancelAction,
-      canCancel,
+      leaveTool,
       cornerPicked,
       deleteVertex,
       redrawBorder,

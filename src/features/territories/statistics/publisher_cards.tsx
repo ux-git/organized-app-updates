@@ -4,12 +4,14 @@ import { useAtomValue } from 'jotai';
 import { Typography } from '@components/index';
 import Tooltip from '@components/tooltip';
 import {
+  chartsCut,
   publisherCoverage,
   PublisherSort,
   publishersPerMonth,
   rangeMonths,
   StatsRange,
 } from '../helpers';
+import { territoryAssigneesState } from '../assignees';
 import { ChartCard, ColumnChart } from '../components/charts';
 import PublisherLoad, {
   PublisherSortButton,
@@ -23,7 +25,11 @@ export const PublisherSplit = ({
 }: {
   territories: Territory[];
 }) => {
-  const { withTerritory, without, never } = publisherCoverage(territories);
+  const assignees = useAtomValue(territoryAssigneesState);
+  const { withTerritory, without, never } = publisherCoverage(
+    territories,
+    assignees
+  );
 
   const [open, setOpen] = useState<string>();
   const [sort, setSort] = useState<PublisherSort>('count');
@@ -60,6 +66,7 @@ export const PublisherSplit = ({
       hint={tx('{{share}}% of publishers and groups hold at least one', {
         share,
       })}
+      note={tx('As of today')}
       span={4}
       action={opened && <PublisherSortButton sort={sort} onChange={setSort} />}
     >
@@ -131,6 +138,7 @@ export const PublisherLoadCard = ({
 }: {
   territories: Territory[];
 }) => {
+  const assignees = useAtomValue(territoryAssigneesState);
   const [sort, setSort] = useState<PublisherSort>('count');
 
   return (
@@ -141,11 +149,12 @@ export const PublisherLoadCard = ({
           ? tx('Most territories held')
           : tx('Territories held, by name')
       }
+      note={tx('As of today')}
       span={4}
       action={<PublisherSortButton sort={sort} onChange={setSort} />}
     >
       <PublisherLoad
-        entries={publisherCoverage(territories).withTerritory}
+        entries={publisherCoverage(territories, assignees).withTerritory}
         sort={sort}
         limit={9}
       />
@@ -168,7 +177,11 @@ export const PublisherTrend = ({
   return (
     <ChartCard
       title={tx('Publishers holding a territory')}
-      hint={tx('Each month of the period')}
+      hint={
+        chartsCut(range)
+          ? tx('Each of the last 24 months of the period')
+          : tx('Each month of the period')
+      }
       span={8}
     >
       <ColumnChart values={values} labels={months} />

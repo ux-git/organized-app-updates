@@ -1,5 +1,6 @@
 import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { Box } from '@mui/material';
 import { Navigate } from 'react-router';
 import { InfoNote } from '@components/index';
@@ -7,12 +8,14 @@ import {
   IconCheckCircle,
   IconClose,
   IconDelete,
+  IconMoveBack,
+  IconMoveForward,
   IconPrint,
   IconRaiseHand,
 } from '@icons/index';
 import { useBreakpoints, useCurrentUser } from '@hooks/index';
 import { displaySnackNotification } from '@services/states/app';
-import { CURRENT_PUBLISHER } from '@features/territories/helpers';
+import { currentPublisherState } from '@features/territories/assignees';
 import useTerritoryDetails from '@features/territories/details/useTerritoryDetails';
 import PageTitle from '@components/page_title';
 import NavBarButton from '@components/nav_bar_button';
@@ -20,14 +23,16 @@ import NavBarButtonGroup from '@components/nav_bar_button_group';
 import TerritoryDetailsContainer from '@features/territories/details';
 import TerritoryDelete from '@features/territories/details/territory_delete';
 import TerritoryExport from '@features/territories/details/territory_export';
+import AssignReturnDialogs from '@features/territories/components/assign_return_dialogs';
+import useAssignReturn from '@features/territories/useAssignReturn';
 import useParentPage from '@features/territories/useParentPage';
 import { Territory } from '@definition/territory';
 
-const publisherNoteOf = (territory: Territory) => {
-  if (territory.holder === CURRENT_PUBLISHER) {
+const publisherNoteOf = (territory: Territory, me: string) => {
+  if (territory.holder === me) {
     return tx('You are working this territory.');
   }
-  if (territory.requestedBy === CURRENT_PUBLISHER) {
+  if (territory.requestedBy === me) {
     return tx(
       'You asked for this territory. You will hear back when it is assigned.'
     );
@@ -57,6 +62,8 @@ const TerritoryDetailsPage = () => {
   const { isElder, isServiceCommittee } = useCurrentUser();
   const isTerritoryEditor = isElder || isServiceCommittee;
 
+  const me = useAtomValue(currentPublisherState);
+
   const {
     territory,
     isNew,
@@ -68,6 +75,8 @@ const TerritoryDetailsPage = () => {
     setDeleteOpen,
   } = useTerritoryDetails();
 
+  const actions = useAssignReturn();
+
   if (!territory) {
     return <InfoNote message={tx('This territory no longer exists.')} />;
   }
@@ -77,17 +86,29 @@ const TerritoryDetailsPage = () => {
     return <Navigate to="/territories" replace />;
   }
 
-  const requestedByMe = territory.requestedBy === CURRENT_PUBLISHER;
-  const heldByMe = territory.holder === CURRENT_PUBLISHER;
+  const requestedByMe = territory.requestedBy === me;
+  const heldByMe = territory.holder === me;
 
   const canRequest = territory.status === 'available' && !territory.requestedBy;
 
-  const publisherNote = publisherNoteOf(territory);
+  const isOut =
+    territory.status === 'in_work' || territory.status === 'overdue';
+
+  const returnButton = (
+    <NavBarButton
+      text={tx('Return')}
+      icon={<IconMoveBack />}
+      main
+      onClick={() => actions.openReturn(territory.id)}
+    />
+  );
+
+  const publisherNote = publisherNoteOf(territory, me);
 
   const setRequest = (requested: boolean) => {
     handleChange({
       ...territory,
-      requestedBy: requested ? CURRENT_PUBLISHER : undefined,
+      requestedBy: requested ? me : undefined,
     });
 
     displaySnackNotification({
@@ -121,8 +142,12 @@ const TerritoryDetailsPage = () => {
           onClick={() => setRequest(true)}
         />
       )}
+      {heldByMe && returnButton}
     </NavBarButtonGroup>
   );
+
+  // an empty group still draws the bar's backdrop
+  const hasPublisherButtons = requestedByMe || canRequest || heldByMe;
 
   const editorButtons = !isNew && (
     <NavBarButtonGroup>
@@ -137,6 +162,16 @@ const TerritoryDetailsPage = () => {
         icon={<IconPrint />}
         onClick={() => setExportOpen(true)}
       />
+      {isOut ? (
+        returnButton
+      ) : (
+        <NavBarButton
+          text={tx('Assign')}
+          icon={<IconMoveForward />}
+          main
+          onClick={() => actions.openAssign(territory.id)}
+        />
+      )}
     </NavBarButtonGroup>
   );
 
@@ -156,6 +191,8 @@ const TerritoryDetailsPage = () => {
         />
       )}
 
+      <AssignReturnDialogs actions={actions} canAssign={isTerritoryEditor} />
+
       <TerritoryDelete
         open={deleteOpen}
         number={territory.number}
@@ -168,7 +205,9 @@ const TerritoryDetailsPage = () => {
         secondaryTitle={parent && tx(parent)}
         onBack={goBack}
         buttons={
-          isTerritoryEditor ? editorButtons || undefined : publisherButtons
+          isTerritoryEditor
+            ? editorButtons || undefined
+            : (hasPublisherButtons && publisherButtons) || undefined
         }
       />
 

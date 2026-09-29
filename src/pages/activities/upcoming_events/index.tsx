@@ -15,7 +15,7 @@ const UpcomingEvents = () => {
   const { tablet688Up } = useBreakpoints();
 
   const {
-    isAdmin,
+    isUpcomingEventsEditor,
     emptyEvent,
     events,
     handleAddEventButtonClick,
@@ -45,9 +45,11 @@ const UpcomingEvents = () => {
 
       <PageTitle
         title={t('tr_upcomingEvents')}
-        quickSettings={isAdmin ? handleOpenQuickSettings : undefined}
+        quickSettings={
+          isUpcomingEventsEditor ? handleOpenQuickSettings : undefined
+        }
         buttons={
-          isAdmin && (
+          isUpcomingEventsEditor && (
             <NavBarButtonGroup>
               <ExportUpcomingEvents />
               <NavBarButton

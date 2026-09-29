@@ -224,10 +224,12 @@ const ExtraTool = ({
 const EditPanel = ({
   editor,
   territory,
+  onCancel,
   onSave,
 }: {
   editor: Editor;
   territory?: Territory;
+  onCancel: VoidFunction;
   onSave: VoidFunction;
 }) => {
   const congregation = editor.scope === 'congregation';
@@ -488,8 +490,7 @@ const EditPanel = ({
         <Button
           variant="secondary"
           startIcon={<IconClose />}
-          disabled={!editor.canCancel}
-          onClick={editor.cancelAction}
+          onClick={onCancel}
           sx={{ flex: 1 }}
         >
           {tx('Cancel')}

@@ -5,9 +5,17 @@ import base from '../vite.config';
 const shared = base as UserConfig;
 
 // The territory pages come from the main app unchanged; only their mock
-// data and the signed-in user are swapped for this app's own.
+// data, the people and the signed-in user are swapped for this app's own.
 const replacements: [RegExp, string][] = [
   [/features\/territories\/mockData\.ts$/, resolve(__dirname, 'src/data.ts')],
+  [
+    /features\/territories\/assignees\.ts$/,
+    resolve(__dirname, 'src/assignees.ts'),
+  ],
+  [
+    /features\/territories\/campaigns\.ts$/,
+    resolve(__dirname, 'src/campaigns.ts'),
+  ],
   [/hooks\/useCurrentUser\.tsx?$/, resolve(__dirname, 'src/currentUser.ts')],
   [/services\/haptics\/index\.ts$/, resolve(__dirname, 'src/haptics.ts')],
   // no account, server, error reporting or feature flags in this app

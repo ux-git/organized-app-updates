@@ -4,11 +4,11 @@ import { groupEventsByYear } from '@services/app/upcoming_events';
 import useCurrentUser from '@hooks/useCurrentUser';
 
 const useUpcomingEventsList = ({ data }: UpcomingEventsListProps) => {
-  const { isAdmin } = useCurrentUser();
+  const { isUpcomingEventsEditor } = useCurrentUser();
 
   const eventsSortedByYear = useMemo(() => groupEventsByYear(data), [data]);
 
-  return { eventsSortedByYear, isAdmin };
+  return { eventsSortedByYear, isUpcomingEventsEditor };
 };
 
 export default useUpcomingEventsList;

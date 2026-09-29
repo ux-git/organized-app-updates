@@ -26,6 +26,7 @@ import EditPanel from './edit_panel';
 import LabelDialog from './label_dialog';
 import MapFilters from './map_filters';
 import MapIsland, { MapAction, NorthAction } from './map_island';
+import { LegendIsland } from './map_legend';
 import TerritoryPicker from './territory_picker';
 import { TerritoriesMapState } from './useTerritoriesMap';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -226,7 +227,12 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
   const panelContents = (
     <>
       {editor.editing && (
-        <EditPanel editor={editor} territory={map.selected} onSave={map.save} />
+        <EditPanel
+          editor={editor}
+          territory={map.selected}
+          onCancel={map.stepBack}
+          onSave={map.save}
+        />
       )}
 
       {!editor.editing && (
@@ -238,6 +244,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             onColorViewChange={map.setColorView}
             heatmapPeriod={map.heatmapPeriod}
             onHeatmapPeriodChange={map.setHeatmapPeriod}
+            legend={map.legend}
             onCollapse={() => setPanelOpen(false)}
           />
 
@@ -440,6 +447,21 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
           </Box>
         )}
 
+        {/* on a wide screen the legend sits in the panel, under the Display select */}
+        {compact && !editor.editing && (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: '12px',
+              // just above the attribution button
+              bottom: '44px',
+              zIndex: 2,
+            }}
+          >
+            <LegendIsland items={map.legend} />
+          </Box>
+        )}
+
         <Box
           sx={{
             position: 'absolute',
@@ -514,7 +536,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
               ref={measureBar}
               tool={editor.tool}
               canSave={!!editor.draft.boundary?.length}
-              onCancel={() => map.requestLeave(map.cancelEditing)}
+              onCancel={map.stepBack}
               onSave={map.save}
             />
           )}

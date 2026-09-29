@@ -19,6 +19,8 @@ const UserAdditionalRights = () => {
     handleToggleAttendance,
     isWeekend,
     handleToggleWeekend,
+    isUpcomingEvents,
+    handleToggleUpcomingEvents,
   } = useUserAdditionalRights();
 
   return (
@@ -68,6 +70,25 @@ const UserAdditionalRights = () => {
           readOnly={isProcessing}
           checked={isAttendance}
           onChange={handleToggleAttendance}
+        />
+      </SwitchContainer>
+
+      <Typography
+        className="body-small-semibold"
+        sx={{
+          color: 'var(--grey-400)',
+        }}
+      >
+        {t('tr_events')}
+      </Typography>
+
+      <SwitchContainer>
+        <SwitchWithLabel
+          label={t('tr_upcomingEventsManagement')}
+          helper={t('tr_upcomingEventsManagementDesc')}
+          readOnly={isProcessing}
+          checked={isUpcomingEvents}
+          onChange={handleToggleUpcomingEvents}
         />
       </SwitchContainer>
     </>

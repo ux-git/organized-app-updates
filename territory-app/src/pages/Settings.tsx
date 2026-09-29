@@ -5,6 +5,7 @@ import { useBreakpoints } from '@hooks/index';
 import { t } from '../i18n';
 import AutomaticSection from './sync/AutomaticSection';
 import Backup from './Backup';
+import Campaigns from './Campaigns';
 import KingdomHall from './KingdomHall';
 import Profile from './Profile';
 import Publishers from './Publishers';
@@ -22,6 +23,7 @@ const Settings = () => {
     profile: t('account.profile'),
     sync: t('settings.syncTab'),
     publishers: t('settings.publishers'),
+    campaigns: t('settings.campaigns'),
     ...(android
       ? { automatic: t('settings.automatic'), backup: t('backup.title') }
       : {}),
@@ -31,7 +33,7 @@ const Settings = () => {
 
   const title = { title: titles[tab], onBack: () => navigate('/') };
 
-  if (tab === 'publishers') {
+  if (tab === 'publishers' || tab === 'campaigns') {
     return (
       // the page buttons float over the bottom of a phone screen
       <Box
@@ -42,7 +44,8 @@ const Settings = () => {
           paddingBottom: tablet688Up ? 0 : '120px',
         }}
       >
-        <Publishers title={title} />
+        {tab === 'publishers' && <Publishers title={title} />}
+        {tab === 'campaigns' && <Campaigns title={title} />}
       </Box>
     );
   }

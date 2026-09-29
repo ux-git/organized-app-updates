@@ -145,6 +145,7 @@ const CoverageGrid = ({
       hint={tx(
         'A territory counts in the month it came back · service year runs September to August'
       )}
+      note={tx('Last {{n}} service years', { n: years.length })}
       span={12}
     >
       {grid}

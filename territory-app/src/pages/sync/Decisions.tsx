@@ -180,6 +180,10 @@ const Decisions = () => {
         return t('decisions.doNotCall', { address: show(record.address) });
       case 'people':
         return show(record.name);
+      case 'settings':
+        return conflict.id === 'campaigns'
+          ? t('decisions.campaigns')
+          : t('decisions.setting');
       default:
         return t('decisions.setting');
     }
@@ -392,7 +396,12 @@ const Decisions = () => {
           return (
             <Card
               key={`${conflict.table}/${conflict.id}/${conflict.field}`}
-              title={`${label(conflict)}: ${fieldName(conflict.field)}`}
+              title={
+                // a setting is one value, named by its row
+                conflict.table === 'settings'
+                  ? label(conflict)
+                  : `${label(conflict)}: ${fieldName(conflict.field)}`
+              }
               by={conflict.mine ? undefined : device(conflict.by)}
               text={t('decisions.now', {
                 kept: show(conflict.kept),

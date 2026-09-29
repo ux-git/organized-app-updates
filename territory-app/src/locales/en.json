@@ -69,7 +69,9 @@
     "changes_one": "{{count}} change",
     "changes_other": "{{count}} changes",
     "phones_one": "{{count}} device",
-    "phones_other": "{{count}} devices"
+    "phones_other": "{{count}} devices",
+    "campaigns_one": "{{count}} special campaign",
+    "campaigns_other": "{{count}} special campaigns"
   },
   "result": {
     "territoriesChanged_one": "Territory {{numbers}} changed.",
@@ -117,6 +119,7 @@
     "notSynced": "{{devices}} · Not synced yet",
     "automatic": "Automatic sync",
     "publishers": "Publishers and groups",
+    "campaigns": "Special campaigns",
     "language": "Language",
     "app": "App",
     "syncTab": "Sync and pairing",
@@ -127,6 +130,22 @@
     "dark": "Dark",
     "colorScheme": "Color scheme",
     "lastContact": "{{devices}} · Last synced with {{name}} {{when}}"
+  },
+  "campaigns": {
+    "title": "Special campaigns",
+    "text": "Campaigns like the Memorial invitations. A territory worked during one can be filed under it when it is assigned or returned. They are shared with your paired devices.",
+    "none": "No special campaigns yet",
+    "add": "Add special campaign",
+    "edit": "Edit special campaign",
+    "addButton": "Add",
+    "name": "Name",
+    "namePlaceholder": "e.g. Memorial invitations",
+    "from": "From",
+    "to": "To",
+    "endBeforeStart": "The end is before the start.",
+    "removeTitle": "Remove {{name}}?",
+    "removeText": "Assignments filed under it keep its name.",
+    "removeLabel": "Remove {{name}}"
   },
   "nameDialog": {
     "description": "Other devices see this name. Do-not-call addresses you add are saved with it, or with your linked publisher’s name if you link one."
@@ -287,6 +306,7 @@
   "decisions": {
     "title": "Needs your decision",
     "text": "Your devices synced, but these were changed on two devices before that. The newer change is in place for now.",
+    "campaigns": "Special campaigns",
     "holder": "Assigned to",
     "publisher": "Publisher",
     "assignedOn": "Assigned on",
@@ -381,16 +401,18 @@
   "publishers": {
     "imported": "Publishers imported",
     "importedText": "{{added}} added, {{updated}} updated.",
+    "importedCampaigns": "{{campaigns}} added.",
     "new": "New",
     "updated": "Updated",
     "unchanged": "Already here",
     "skipped": "Archived, not imported",
+    "campaigns": "New special campaigns",
     "import": "Import publishers",
     "removeMissingBackup": "Remove {{names}} that aren’t in the backup",
     "removeMissingList": "Remove {{names}} that aren’t in the list",
     "removeMissingText": "For example, people who moved away. Their assignment history stays.",
     "importButton": "Import",
-    "importText": "Only names and field service groups are taken. Addresses, phone numbers and reports in the backup stay out of this app.",
+    "importText": "Only names, field service groups and special campaigns are taken. Addresses, phone numbers and reports in the backup stay out of this app.",
     "fromBackup": "From an Organized backup",
     "fromBackupText": "In Organized, open Congregation settings and export a backup. A backup converted from NW Scheduler works too.",
     "chooseBackup": "Choose backup file",

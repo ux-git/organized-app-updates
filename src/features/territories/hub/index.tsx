@@ -32,15 +32,14 @@ import {
 import Card from '@components/card';
 import BoardView from '../components/board_view';
 import AssignDialog from '../components/assign_dialog';
+import AssignReturnDialogs from '../components/assign_return_dialogs';
 import MyHistory from '../components/my_history';
-import ReturnDialog from '../components/return_dialog';
 import SelectionBar from '../components/selection_bar';
 import StreetResults from '../components/street_results';
 import DialogActions from '@components/dialog_actions';
 import dashedBorder from '@utils/dashed_border';
 import TerritoryFilters from '../components/territory_filters';
 import TerritoryTable from '../components/territory_table';
-import UndoSnackbar from '../components/undo_snackbar';
 
 const SearchRow = ({
   search,
@@ -207,14 +206,11 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     returnMany,
     handleAssign,
     handleDecline,
-    handleReturn,
     handleOpen,
     isBoard,
     showHouseholds,
     setReturnId,
-    returnTarget,
     setAssignId,
-    assignTarget,
     assignManyOpen,
     setAssignManyOpen,
     assignableCount,
@@ -227,11 +223,8 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
   const { desktopUp, tablet688Up } = useBreakpoints();
 
-  const reminder = (
-    count: number,
-    text: (label: string) => string,
-    isPhone = false
-  ) => (count > 0 ? text(doNotCallLabel(count, isPhone)) : undefined);
+  const reminder = (count: number, text: (label: string) => string) =>
+    count > 0 ? text(doNotCallLabel(count)) : undefined;
 
   const manyDoNotCalls = selected
     .filter((territory) => territory.status === 'available')
@@ -300,7 +293,7 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
       showHouseholds={showHouseholds}
       showRequested={tabId !== 'requests' && tabId !== 'requested'}
       actions={isTerritoryEditor || (!isBrowsing && hub.canRequest)}
-      showHolder={isTerritoryEditor}
+      showHolder={isTerritoryEditor && tabId !== 'mine'}
       showDoNotCalls={isTerritoryEditor}
       emptyMessage={emptyMessage}
       title={tx('Territories: {{n}}', { n: visible.length })}
@@ -378,28 +371,10 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
         alignItems: 'start',
       }}
     >
-      {/* both dialogs mount per territory so their fields start from it */}
-      {assignTarget && (
-        <AssignDialog
-          title={tx('Assign {{number}}', { number: assignTarget.number })}
-          subtitle={`${assignTarget.name} · ${assignTarget.city}`}
-          requestedBy={assignTarget.requestedBy}
-          doNotCallNote={reminder(
-            assignTarget.doNotCalls.length,
-            (label) =>
-              tx(
-                '{{label}} in this territory. Remind the publisher to skip them.',
-                { label }
-              ),
-            assignTarget.type === 'phone'
-          )}
-          territories={territories}
-          onClose={() => setAssignId(undefined)}
-          onAssign={(publisher, assignedOn) =>
-            handleAssign(assignTarget.id, publisher, assignedOn)
-          }
-        />
-      )}
+      <AssignReturnDialogs
+        actions={hub.actions}
+        canAssign={isTerritoryEditor}
+      />
 
       {assignManyOpen && (
         <AssignDialog
@@ -417,21 +392,6 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
           territories={territories}
           onClose={() => setAssignManyOpen(false)}
           onAssign={assignMany}
-        />
-      )}
-
-      <UndoSnackbar
-        notice={hub.undo}
-        onUndo={hub.undoLast}
-        onClose={hub.closeUndo}
-      />
-
-      {returnTarget && (
-        <ReturnDialog
-          territory={returnTarget}
-          onClose={() => setReturnId(undefined)}
-          onReturn={handleReturn}
-          onAssignAgain={handleAssign}
         />
       )}
 

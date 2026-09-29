@@ -47,6 +47,7 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
         '{{over}} of {{total}} territories out or waiting for over a year',
         { over: overYear, total: territories.length }
       )}${never ? ` · ${tx('{{never}} never covered', { never })}` : ''}`}
+      note={tx('As of today')}
       span={12}
     >
       <Box

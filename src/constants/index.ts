@@ -425,6 +425,7 @@ export const APP_ROLES: AppRoleType[] = [
   'weekend_schedule',
   'public_talk_schedule',
   'attendance_tracking',
+  'upcoming_events',
   'secretary',
   'service_overseer',
   ...APP_READ_ONLY_ROLES,

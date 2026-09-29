@@ -10,7 +10,9 @@ import {
   TerritoryType,
   TYPE_LABEL,
 } from '@definition/territory';
+import { useCurrentUser } from '@hooks/index';
 import { appliedFilters, clearedFilters, COVERAGE_PERIODS } from '../helpers';
+import HolderPicker from './holder_picker';
 import { tx } from '@services/i18n/translation';
 
 const Group = ({ label, children }: { label: string; children: ReactNode }) => (
@@ -37,6 +39,9 @@ const TerritoryFilters = ({
   showClear?: boolean;
 }) => {
   const categories = useAtomValue(territoryCategoriesState);
+
+  const { isElder, isServiceCommittee } = useCurrentUser();
+  const isTerritoryEditor = isElder || isServiceCommittee;
 
   const periods = COVERAGE_PERIODS();
 
@@ -79,13 +84,40 @@ const TerritoryFilters = ({
         />
       </Stack>
 
-      {filters.holder && (
+      {isTerritoryEditor && (
         <Group label={tx('Publisher')}>
-          <FilterChip
-            label={filters.holder}
-            selected
-            onClick={() => onChange({ ...filters, holder: undefined })}
+          <HolderPicker
+            onPick={(option) =>
+              // someone without a territory now is looked up in the history
+              onChange({
+                ...filters,
+                holder: option.name,
+                holderPast: option.count === 0,
+              })
+            }
           />
+          {filters.holder && (
+            <>
+              <FilterChip
+                label={filters.holder}
+                selected
+                onClick={() =>
+                  onChange({
+                    ...filters,
+                    holder: undefined,
+                    holderPast: undefined,
+                  })
+                }
+              />
+              <FilterChip
+                label={tx('Earlier territories too')}
+                selected={!!filters.holderPast}
+                onClick={() =>
+                  onChange({ ...filters, holderPast: !filters.holderPast })
+                }
+              />
+            </>
+          )}
         </Group>
       )}
 

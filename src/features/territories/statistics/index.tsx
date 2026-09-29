@@ -4,11 +4,13 @@ import { useNavigate } from 'react-router';
 import { Button, Select, Typography } from '@components/index';
 import DatePicker from '@components/date_picker';
 import { useAtomValue } from 'jotai';
-import { monthShortNamesState } from '@states/app';
+import { format } from 'date-fns';
+import { appLocaleState, monthShortNamesState } from '@states/app';
 import { tx } from '@services/i18n/translation';
 import { territoriesWithStatusState } from '@states/territories';
 import {
   averageDuration,
+  chartsCut,
   completionCounts,
   coverageRate,
   durationBuckets,
@@ -34,6 +36,12 @@ import {
 } from './publisher_cards';
 import CoverageCycleCard from './coverage_cycle_card';
 
+const dayStart = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const dayEnd = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+
 // a service year that has just begun has nothing to show yet
 const defaultPeriod = () => {
   const month = new Date().getMonth();
@@ -46,29 +54,62 @@ const TerritoriesStatistics = () => {
   const territories = useAtomValue(territoriesWithStatusState);
   const monthNames = useAtomValue(monthShortNamesState);
 
+  const locale = useAtomValue(appLocaleState);
+
   const [period, setPeriod] = useState(defaultPeriod);
   const [from, setFrom] = useState<Date | null>(null);
   const [to, setTo] = useState<Date | null>(null);
+  // the last complete From–To, kept on screen while a date is being fixed
+  const [customRange, setCustomRange] = useState<StatsRange>();
 
   const current = serviceYear();
+  const today = dayStart(new Date());
   const custom = period === 'custom';
   const range: StatsRange =
-    (custom
-      ? from && to && from <= to
-        ? {
-            start: from,
-            end: new Date(
-              to.getFullYear(),
-              to.getMonth(),
-              to.getDate(),
-              23,
-              59,
-              59
-            ),
-          }
-        : undefined
-      : periodWindow(period)) ?? periodWindow(defaultPeriod())!;
+    (custom ? customRange : periodWindow(period)) ??
+    periodWindow(defaultPeriod())!;
   const months = rangeMonths(range).map(({ month }) => monthNames[month]);
+
+  const fromError = custom && !from ? tx('Pick a date') : '';
+  const toError = !custom
+    ? ''
+    : !to
+      ? tx('Pick a date')
+      : from && from > to
+        ? tx('Before the start date')
+        : '';
+
+  const rangeText = `${format(range.start, 'PP', { locale })} – ${format(
+    range.end,
+    'PP',
+    { locale }
+  )}`;
+
+  // starts from the period on screen, so nothing jumps until a date changes
+  const choosePeriod = (next: string) => {
+    if (next === 'custom') {
+      const start = dayStart(range.start);
+      const end = range.end > today ? today : dayStart(range.end);
+
+      setFrom(start);
+      setTo(end);
+      setCustomRange({ start, end: dayEnd(end) });
+    }
+
+    setPeriod(next);
+  };
+
+  const changeCustom = (nextFrom: Date | null, nextTo: Date | null) => {
+    const start = nextFrom && dayStart(nextFrom);
+    const end = nextTo && dayStart(nextTo);
+
+    setFrom(start);
+    setTo(end);
+
+    if (start && end && start <= end) {
+      setCustomRange({ start, end: dayEnd(end) });
+    }
+  };
 
   const rate = coverageRate(territories, range);
   const ages = doNotCallAges(territories, range);
@@ -92,7 +133,7 @@ const TerritoriesStatistics = () => {
           gridColumn: '1 / -1',
           display: 'flex',
           flexWrap: 'wrap',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           gap: '16px',
         }}
       >
@@ -100,7 +141,7 @@ const TerritoriesStatistics = () => {
           <Select
             label={tx('Period')}
             value={period}
-            onChange={(event) => setPeriod(String(event.target.value))}
+            onChange={(event) => choosePeriod(String(event.target.value))}
           >
             {STATS_PERIODS().map((option) => (
               <MenuItem key={option.id} value={option.id}>
@@ -110,25 +151,53 @@ const TerritoriesStatistics = () => {
           </Select>
         </Box>
         {custom && (
-          <>
-            <Box sx={{ flex: { mobile: '1 1 100%', tablet600: '0 0 220px' } }}>
+          // side by side even on a phone: two halves of one range
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '16px',
+              flex: { mobile: '1 1 100%', tablet600: '0 1 456px' },
+            }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <DatePicker
                 label={tx('From')}
                 value={from}
-                maxDate={to ?? new Date()}
-                onChange={setFrom}
+                maxDate={to ?? today}
+                error={!!fromError}
+                helperText={fromError}
+                onChange={(value) => changeCustom(value, to)}
               />
             </Box>
-            <Box sx={{ flex: { mobile: '1 1 100%', tablet600: '0 0 220px' } }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <DatePicker
                 label={tx('To')}
                 value={to}
                 minDate={from}
-                maxDate={new Date()}
-                onChange={setTo}
+                maxDate={today}
+                error={!!toError}
+                helperText={toError}
+                onChange={(value) => changeCustom(from, value)}
               />
             </Box>
-          </>
+          </Box>
+        )}
+        {/* a complete From–To already says it */}
+        {(!custom || fromError || toError) && (
+          <Box
+            sx={{
+              minHeight: { tablet600: '48px' },
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <Typography className="body-small-regular" color="var(--grey-400)">
+              {custom
+                ? tx('Still showing {{range}}', { range: rangeText })
+                : rangeText}
+            </Typography>
+          </Box>
         )}
       </Box>
 
@@ -137,7 +206,13 @@ const TerritoriesStatistics = () => {
         hint={tx('Territories covered at least once in this period')}
         span={4}
       >
-        <Gauge value={rate} label={tx('Covered')} />
+        <Gauge
+          value={rate.rate}
+          label={tx('{{covered}} of {{total}} covered', {
+            covered: rate.covered,
+            total: rate.total,
+          })}
+        />
 
         <Stack spacing="12px">
           {completionCounts(territories, range).map((entry) => (
@@ -174,7 +249,13 @@ const TerritoriesStatistics = () => {
 
       <ChartCard
         title={tx('Territories in work')}
-        hint={tx('How many were being worked in each month of the period')}
+        hint={
+          chartsCut(range)
+            ? tx(
+                'How many were being worked in each of the last 24 months of the period'
+              )
+            : tx('How many were being worked in each month of the period')
+        }
         span={4}
       >
         <ColumnChart

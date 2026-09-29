@@ -1,4 +1,10 @@
 import { store } from '@states/index';
+import { TerritoryCampaign } from '@definition/territory';
+import {
+  campaignsFromBackup,
+  newCampaigns,
+  territoryCampaignsState,
+} from './campaigns';
 import {
   loadPeople,
   PEOPLE,
@@ -11,7 +17,8 @@ import { t } from './i18n';
 
 // An Organized backup (Congregation settings, Import and export; or one
 // converted from NW Scheduler) holds much more than names: addresses, phone
-// numbers, reports. Only names and field service groups are taken.
+// numbers, reports. Only names, field service groups and the Special
+// campaign events are taken.
 
 type Value<T> = { value: T };
 
@@ -45,6 +52,8 @@ export type ImportPlan = {
   skipped: number;
   /** Names on this phone that the backup doesn't have. */
   missing: Person[];
+  /** Special campaigns in the backup that this phone doesn't have. */
+  campaigns: TerritoryCampaign[];
 };
 
 const nameOf = ({ person_data: data }: BackupPerson) =>
@@ -55,7 +64,6 @@ const nameOf = ({ person_data: data }: BackupPerson) =>
   data.person_display_name?.value?.trim() ||
   '';
 
-// the same label the territory pages give a group holder (groupHolderName)
 const groupName = (group: BackupGroup['group_data']) => {
   const numbered = `Group ${group.sort_index + 1}`;
   return group.name ? `${numbered} – ${group.name}` : numbered;
@@ -90,7 +98,11 @@ export const readBackup = (text: string) => {
       group: true,
     });
   }
-  return { incoming, skipped };
+  return {
+    incoming,
+    skipped,
+    campaigns: campaignsFromBackup(data.upcoming_events),
+  };
 };
 
 /** One name per line, for a few people or a list from elsewhere. */
@@ -108,7 +120,8 @@ const key = (name: string) => name.toLocaleLowerCase().replace(/\s+/g, ' ');
 export const planImport = (
   people: Person[],
   incoming: Incoming[],
-  skipped = 0
+  skipped = 0,
+  campaigns: TerritoryCampaign[] = []
 ): ImportPlan => {
   const byId = new Map(people.map((person) => [person.id, person]));
   const byName = new Map(people.map((person) => [key(person.name), person]));
@@ -119,6 +132,7 @@ export const planImport = (
     unchanged: 0,
     skipped,
     missing: [],
+    campaigns: newCampaigns(store.get(territoryCampaignsState), campaigns),
   };
 
   for (const entry of incoming) {
@@ -164,5 +178,9 @@ export const applyImport = async (plan: ImportPlan, removeMissing: boolean) => {
       })
     )
   );
+  // persistence writes and syncs the setting
+  if (plan.campaigns.length) {
+    store.set(territoryCampaignsState, (list) => [...list, ...plan.campaigns]);
+  }
   return loadPeople();
 };

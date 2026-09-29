@@ -12,7 +12,8 @@ import { store } from '@states/index';
 import { appLocalsState } from '@states/app_locals';
 import { settingsState } from '@states/settings';
 import { territoriesState } from '@states/territories';
-import { CURRENT_PUBLISHER } from './data';
+import { currentPublisherState, territoryAssigneesState } from './assignees';
+import { territoryCampaignsState } from './campaigns';
 import { invoke, listen } from './native';
 import { notify } from './pages/sync/text';
 import {
@@ -238,6 +239,7 @@ describe('linked publisher', () => {
     });
 
   const uid = () => store.get(settingsState).user_settings.user_local_uid;
+  const me = () => store.get(currentPublisherState);
 
   // the loaders tell the pages through window events
   beforeAll(() => vi.stubGlobal('window', new EventTarget()));
@@ -254,12 +256,12 @@ describe('linked publisher', () => {
 
     expect(store.get(linksState)).toEqual({ me: 'p2', anna: 'p1' });
     expect(store.get(myLinkState)).toEqual({ person: people[1] });
-    expect(CURRENT_PUBLISHER).toBe('Ben Beispiel');
+    expect(me()).toBe('Ben Beispiel');
     expect(uid()).toBe('p2');
 
     // a new device name doesn't undo the link
     await loadIdentity();
-    expect(CURRENT_PUBLISHER).toBe('Ben Beispiel');
+    expect(me()).toBe('Ben Beispiel');
   });
 
   test('unlinked, the device name stands in', async () => {
@@ -269,7 +271,7 @@ describe('linked publisher', () => {
     await loadProfiles();
 
     expect(store.get(myLinkState)).toEqual({});
-    expect(CURRENT_PUBLISHER).toBe('Tom’s phone');
+    expect(me()).toBe('Tom’s phone');
     expect(uid()).toBe('');
   });
 
@@ -278,13 +280,24 @@ describe('linked publisher', () => {
     await loadIdentity();
     await loadProfiles();
     await loadPeople();
-    expect(CURRENT_PUBLISHER).toBe('Ben Beispiel');
+    expect(me()).toBe('Ben Beispiel');
 
     fake([{ id: 'me', person: 'p2' }], [people[0]]);
     await loadPeople();
     expect(store.get(myLinkState)).toEqual({ missing: true });
-    expect(CURRENT_PUBLISHER).toBe('Tom’s phone');
+    expect(me()).toBe('Tom’s phone');
     expect(uid()).toBe('');
+  });
+
+  test('the people are offered on the territory pages, groups first', async () => {
+    fake([]);
+    await loadPeople();
+
+    expect(store.get(territoryAssigneesState)).toEqual([
+      { id: 'g1', name: 'Group 1', group: true },
+      { id: 'p1', name: 'Anna Muster', group: false },
+      { id: 'p2', name: 'Ben Beispiel', group: false },
+    ]);
   });
 
   test('a group is never a link, and says so', () => {
@@ -300,7 +313,7 @@ describe('linked publisher', () => {
     await loadIdentity();
     await loadProfiles();
 
-    expect(CURRENT_PUBLISHER).toBe('tom’s  PHONE');
+    expect(me()).toBe('tom’s  PHONE');
     expect(uid()).toBe('p3');
   });
 
@@ -572,6 +585,45 @@ describe('saving', () => {
     edit((territory) => ({ ...territory, name: 'Old town' }));
     await settled();
     expect(fake.sent).toEqual([]);
+  });
+
+  test('the special campaigns are one setting, loaded and written', async () => {
+    const memorial = {
+      id: 'c1',
+      name: 'Memorial invitations',
+      start: '2026-03-01',
+      end: '2026-03-21',
+    };
+    const fake = fakeStore({
+      ...tables(),
+      settings: [{ id: 'campaigns', value: [memorial] }],
+    });
+    await load();
+    persisted();
+    expect(store.get(territoryCampaignsState)).toEqual([memorial]);
+
+    const carts = {
+      id: 'c2',
+      name: 'Carts',
+      start: '2026-05-01',
+      end: '2026-05-31',
+    };
+    store.set(territoryCampaignsState, [memorial, carts]);
+    await settled();
+    expect(fake.sent).toEqual([
+      [
+        {
+          table: 'settings',
+          id: 'campaigns',
+          fields: { value: [memorial, carts] },
+        },
+      ],
+    ]);
+
+    // a phone without the setting has no campaigns
+    fakeStore(tables());
+    await load();
+    expect(store.get(territoryCampaignsState)).toEqual([]);
   });
 });
 

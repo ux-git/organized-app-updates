@@ -2,6 +2,7 @@
 This file holds the source of the truth for congregation territories.
 */
 import { atom } from 'jotai';
+import { atomWithDefault } from 'jotai/utils';
 import {
   DEFAULT_CATEGORIES,
   Territory,
@@ -10,7 +11,7 @@ import {
 } from '@definition/territory';
 import {
   CONGREGATION_BOUNDARY,
-  TERRITORIES,
+  sampleTerritories,
 } from '@features/territories/mockData';
 import {
   withAssignments,
@@ -18,7 +19,8 @@ import {
 } from '@features/territories/helpers';
 import { monthShortNamesState } from './app';
 
-export const territoriesState = atom<Territory[]>(TERRITORIES);
+// the samples follow the people they name until the first edit
+export const territoriesState = atomWithDefault<Territory[]>(sampleTerritories);
 
 export const territoryCategoriesState =
   atom<TerritoryCategoryOption[]>(DEFAULT_CATEGORIES);

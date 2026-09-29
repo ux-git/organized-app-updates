@@ -1845,6 +1845,9 @@ export const dbExportDataBackup = async (backupData: BackupDataType) => {
       languageGroupOverseerRole ||
       userRole.includes('attendance_tracking');
 
+    const upcomingEventsEditor =
+      adminRole || userRole.includes('upcoming_events');
+
     const userBaseSettings = {
       firstname: user_settings.firstname,
       lastname: user_settings.lastname,
@@ -2118,21 +2121,24 @@ export const dbExportDataBackup = async (backupData: BackupDataType) => {
 
             obj.branch_cong_analysis = backupAnalysis;
           }
+        }
 
-          // include upcoming events
-          if (metadata.metadata.upcoming_events?.send_local) {
-            const backupUpcomingEvents = upcoming_events.map((study) => {
-              encryptObject({
-                data: study,
-                table: 'upcoming_events',
-                accessCode,
-              });
-
-              return study;
+        // include upcoming events
+        if (
+          upcomingEventsEditor &&
+          metadata.metadata.upcoming_events?.send_local
+        ) {
+          const backupUpcomingEvents = upcoming_events.map((study) => {
+            encryptObject({
+              data: study,
+              table: 'upcoming_events',
+              accessCode,
             });
 
-            obj.upcoming_events = backupUpcomingEvents;
-          }
+            return study;
+          });
+
+          obj.upcoming_events = backupUpcomingEvents;
         }
 
         // include user role changes

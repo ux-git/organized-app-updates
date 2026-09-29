@@ -21,12 +21,8 @@ import { useAtomValue } from 'jotai';
 import Tooltip from '@components/tooltip';
 import { useBreakpoints } from '@hooks/index';
 import { shortDateFormatState } from '@states/settings';
-import {
-  displayDate,
-  parseDate,
-  emptyListMessage,
-  CURRENT_PUBLISHER,
-} from '../helpers';
+import { displayDate, parseDate, emptyListMessage } from '../helpers';
+import { currentPublisherState } from '../assignees';
 import {
   STATUS_LABEL,
   Territory,
@@ -213,10 +209,11 @@ const StatusLine = ({
 const badges = (
   territory: Territory,
   showRequested: boolean,
-  showDoNotCalls: boolean
+  showDoNotCalls: boolean,
+  me: string
 ) => (
   <>
-    {(showDoNotCalls || territory.holder === CURRENT_PUBLISHER) && (
+    {(showDoNotCalls || territory.holder === me) && (
       <DoNotCallBadge territory={territory} />
     )}
     {showRequested && <RequestBadge territory={territory} />}
@@ -285,6 +282,8 @@ const TerritoryTable = ({
   layoutSwitch,
 }: TerritoryTableProps) => {
   const { tablet688Up, laptopUp } = useBreakpoints();
+
+  const me = useAtomValue(currentPublisherState);
 
   const [sortBy, setSortBy] = useState<SortKey>('number');
   const [reversed, setReversed] = useState(false);
@@ -480,7 +479,7 @@ const TerritoryTable = ({
 
                 {!laptopUp && (
                   <Stack direction="row" sx={BADGE_ROW}>
-                    {badges(territory, showRequested, showDoNotCalls)}
+                    {badges(territory, showRequested, showDoNotCalls, me)}
                   </Stack>
                 )}
               </Stack>
@@ -491,7 +490,7 @@ const TerritoryTable = ({
                 direction="row"
                 sx={{ ...BADGE_ROW, flexShrink: 0, maxWidth: '45%' }}
               >
-                {badges(territory, showRequested, showDoNotCalls)}
+                {badges(territory, showRequested, showDoNotCalls, me)}
               </Stack>
             )}
 

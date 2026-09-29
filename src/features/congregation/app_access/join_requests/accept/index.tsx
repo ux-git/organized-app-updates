@@ -178,6 +178,15 @@ const AcceptRequest = (props: AcceptRequestProps) => {
                   handleRolesChange('attendance_tracking', checked)
                 }
               />
+
+              <SwitchWithLabel
+                label={t('tr_upcomingEventsManagement')}
+                helper={t('tr_upcomingEventsManagementDesc')}
+                checked={roles.includes('upcoming_events')}
+                onChange={(checked) =>
+                  handleRolesChange('upcoming_events', checked)
+                }
+              />
             </SwitchContainer>
           </Stack>
         </ScrollArea>

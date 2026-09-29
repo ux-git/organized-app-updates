@@ -11,6 +11,7 @@ import { useAtomValue } from 'jotai';
 import { useBreakpoints, useCurrentUser } from '@hooks/index';
 import { territoriesState } from '@states/territories';
 import { forTab } from '@features/territories/helpers';
+import { currentPublisherState } from '@features/territories/assignees';
 import DashboardCard from '@features/dashboard/card';
 import DashboardMenu from '@features/dashboard/menu';
 
@@ -19,12 +20,13 @@ const TerritoriesCard = () => {
   const { laptopUp } = useBreakpoints();
 
   const territories = useAtomValue(territoriesState);
+  const me = useAtomValue(currentPublisherState);
 
   const isTerritoryEditor = isElder || isServiceCommittee;
 
-  const mine = forTab(territories, 'mine').length;
-  const requests = forTab(territories, 'requests').length;
-  const recommended = forTab(territories, 'recommended').length;
+  const mine = forTab(territories, 'mine', me).length;
+  const requests = forTab(territories, 'requests', me).length;
+  const recommended = forTab(territories, 'recommended', me).length;
 
   return (
     <DashboardCard header="Territories">

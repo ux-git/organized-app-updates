@@ -14,9 +14,9 @@ import {
   upsertById,
   emptyListMessage,
   isDoNotCallNumber,
-  CURRENT_PUBLISHER,
   openInMaps,
 } from '../helpers';
+import { currentPublisherState } from '../assignees';
 import DoNotCallEditor from './do_not_call_editor';
 
 const newestFirst = (a: DoNotCall, b: DoNotCall) =>
@@ -35,6 +35,7 @@ const DoNotCallPanel = ({
   access?: DoNotCallAccess;
 }) => {
   const format = useAtomValue(shortDateFormatState);
+  const me = useAtomValue(currentPublisherState);
 
   const [editing, setEditing] = useState<DoNotCall | 'new'>();
 
@@ -43,8 +44,7 @@ const DoNotCallPanel = ({
   const isPhone = territory.type === 'phone';
 
   const canEdit = (entry: DoNotCall) =>
-    access === 'all' ||
-    (access === 'own' && entry.addedBy === CURRENT_PUBLISHER);
+    access === 'all' || (access === 'own' && entry.addedBy === me);
 
   const showOnMap = (entry: DoNotCall) =>
     openInMaps([entry.address, territory.city].filter(Boolean).join(', '));

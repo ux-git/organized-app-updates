@@ -5,7 +5,7 @@ import * as maplibregl from 'maplibre-gl';
 import { IconCheckCircle } from '@icons/index';
 import { displaySnackNotification } from '@services/states/app';
 import { tx } from '@services/i18n/translation';
-import { getCSSPropertyValue } from '@utils/common';
+import { getCSSPropertyValue, localStorageGetItem } from '@utils/common';
 import { isDarkThemeState } from '@states/app';
 import {
   congregationBoundaryState,
@@ -38,6 +38,8 @@ import {
   addHouseIcon,
   addLabelBackground,
   LABEL_BACKGROUND,
+  CAPTION_FILTER,
+  CAPTION_TEXT_SIZE,
   captionPlacement,
   captionText,
   LABEL_DETAIL_ZOOM,
@@ -73,6 +75,17 @@ import useFullscreen from './useFullscreen';
 import useMapEditor, { EditScope } from './useMapEditor';
 
 const ZOOM_STEP = 0.5;
+
+// per device, like the theme: another phone may load one provider better
+const PROVIDER_KEY = 'territory_map_provider';
+
+const savedProvider = (): MapProviderKey => {
+  const saved = localStorageGetItem(PROVIDER_KEY);
+
+  return saved && saved in MAP_PROVIDERS
+    ? (saved as MapProviderKey)
+    : DEFAULT_PROVIDER;
+};
 
 // the padding a map keeps around the area it opens on
 const FIT_PADDING = 80;
@@ -110,7 +123,13 @@ const useTerritoriesMap = () => {
     () => colorScheme(colorView, heatmapPeriod),
     [colorView, heatmapPeriod]
   );
-  const [provider, setProvider] = useState<MapProviderKey>(DEFAULT_PROVIDER);
+  const [provider, setProviderState] = useState(savedProvider);
+
+  const setProvider = useCallback((value: MapProviderKey) => {
+    setProviderState(value);
+    localStorage.setItem(PROVIDER_KEY, value);
+  }, []);
+
   const [layers, setLayers] = useState<BasemapOptions>(DEFAULT_BASEMAP);
   const [showNumbers, setShowNumbers] = useState(true);
   const [showHouseholds, setShowHouseholds] = useState(false);
@@ -268,7 +287,9 @@ const useTerritoriesMap = () => {
     instance.addSource(SOURCE_ID, { type: 'geojson', data: current.areas });
     instance.addSource(LABELS_SOURCE, {
       type: 'geojson',
-      data: labelCollection(current.areas),
+      data: labelCollection(current.areas, {
+        households: labelOptions.current.showHouseholds,
+      }),
     });
 
     instance.addLayer({
@@ -308,19 +329,20 @@ const useTerritoriesMap = () => {
       type: 'symbol',
       source: LABELS_SOURCE,
       minzoom: LABEL_DETAIL_ZOOM,
-      filter: LABEL_FILTER,
+      filter: CAPTION_FILTER,
       layout: {
         'text-field': captionText(labelOptions.current, fonts),
         'text-font': [...fonts.regular],
-        'text-size': LABEL_TEXT_SIZE,
+        'text-size': CAPTION_TEXT_SIZE,
         'text-line-height': 1.2,
         'text-anchor': caption.anchor,
         'text-offset': caption.offset,
-        'text-allow-overlap': false,
+        // its own badge would hide it; captionZoom keeps the neighbours clear
+        'text-allow-overlap': true,
         'symbol-sort-key': ['get', 'labelZoom'],
       },
       paint: {
-        'text-opacity': labelOpacity(1),
+        'text-opacity': labelOpacity(1, 'captionZoom'),
         'text-color': getCSSPropertyValue('--black'),
         // a thin, softened halo keeps small text readable over any tile
         'text-halo-color': getCSSPropertyValue('--white'),
@@ -447,13 +469,15 @@ const useTerritoriesMap = () => {
 
     source(CONGREGATION_SOURCE)?.setData(data.border);
     source(SOURCE_ID)?.setData(data.areas);
-    source(LABELS_SOURCE)?.setData(labelCollection(data.areas));
+    source(LABELS_SOURCE)?.setData(
+      labelCollection(data.areas, { households: showHouseholds })
+    );
     setDrawingData(instance, data.rest, 'drawing', data.selectedId);
     syncMarkers(instance, allMarkers(data.rest), markers.current);
 
     // without this the first frame can stay empty until something else moves
     instance.triggerRepaint();
-  }, [data, ready]);
+  }, [data, ready, showHouseholds]);
 
   // while one territory is edited the rest step back, so the drawing stands out
   useEffect(() => {
@@ -490,7 +514,7 @@ const useTerritoriesMap = () => {
 
     set(LABEL_LAYER, 'text-opacity', labelOpacity(fade));
     set(LABEL_LAYER, 'icon-opacity', labelOpacity(0.92 * fade));
-    set(LABEL_CAPTION_LAYER, 'text-opacity', labelOpacity(fade));
+    set(LABEL_CAPTION_LAYER, 'text-opacity', labelOpacity(fade, 'captionZoom'));
   }, [editor.editing, styleVersion]);
 
   useEffect(() => {
@@ -627,6 +651,39 @@ const useTerritoriesMap = () => {
     [editor.editing, cancelEditing, requestLeave]
   );
 
+  // Abbrechen and Esc, one level at a time; the model is written up in useMapEditor
+  const leaveTerritory = useCallback(
+    () =>
+      requestLeave(() => {
+        editor.finish();
+        if (!goBack()) setSelectedId(undefined);
+      }),
+    [editor, goBack, requestLeave, setSelectedId]
+  );
+
+  const stepBack = useCallback(() => {
+    if (!editor.editing) setEditMode(false);
+    else if (!editor.leaveTool()) leaveTerritory();
+  }, [editor, leaveTerritory]);
+
+  // an open dialog, or full screen, takes Esc first
+  useEffect(() => {
+    if (!isEditMode || pendingLeave || editor.labelling !== undefined) return;
+    if (fullscreen) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+
+      const target = event.target as HTMLElement;
+      if (target.closest('input, textarea, [contenteditable="true"]')) return;
+
+      stepBack();
+    };
+
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isEditMode, pendingLeave, editor.labelling, fullscreen, stepBack]);
+
   const save = useCallback(() => {
     const { draft, scope } = editor;
 
@@ -669,8 +726,15 @@ const useTerritoriesMap = () => {
 
     editor.finish();
 
-    goBack();
-  }, [editor, selected, setTerritories, setCongregationBoundary, goBack]);
+    if (!goBack()) setSelectedId(undefined);
+  }, [
+    editor,
+    selected,
+    setTerritories,
+    setCongregationBoundary,
+    goBack,
+    setSelectedId,
+  ]);
 
   const locate = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -716,6 +780,7 @@ const useTerritoriesMap = () => {
     setSearch,
     colorView,
     setColorView,
+    legend: scheme.buckets,
     heatmapPeriod,
     setHeatmapPeriod,
     provider,
@@ -742,8 +807,8 @@ const useTerritoriesMap = () => {
     fitAll,
     editor,
     startEditing,
-    cancelEditing,
-    requestLeave,
+    leaveTerritory,
+    stepBack,
     pendingLeave: !!pendingLeave,
     confirmLeave,
     keepEditing: () => setPendingLeave(undefined),

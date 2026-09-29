@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
 import { Button, Typography } from '@components/index';
 import Autocomplete from '@components/autocomplete';
@@ -9,7 +10,7 @@ import DialogActions from '@components/dialog_actions';
 import MenuSubHeader from '@components/menu_sub_header';
 import { useBreakpoints } from '@hooks/index';
 import { IconCancelCicle } from '@icons/index';
-import { GROUPS, PUBLISHERS_ONLY } from '../mockData';
+import { territoryAssigneesState } from '../assignees';
 import { assignmentIssues, suggestedPublisher, toStoredDate } from '../helpers';
 import { Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
@@ -42,7 +43,12 @@ const AssignDialog = ({
   );
   const [assignedOn, setAssignedOn] = useState<Date | null>(new Date());
 
-  const suggestion = suggestedPublisher(territories);
+  const assignees = useAtomValue(territoryAssigneesState);
+  const groups = new Set(
+    assignees.filter((assignee) => assignee.group).map(({ name }) => name)
+  );
+
+  const suggestion = suggestedPublisher(territories, assignees);
 
   const future =
     !!assignedOn &&
@@ -69,9 +75,9 @@ const AssignDialog = ({
         <Stack spacing="4px" sx={{ flex: 1, minWidth: 0 }}>
           <Autocomplete
             label={tx('Publisher')}
-            options={[...GROUPS, ...PUBLISHERS_ONLY]}
+            options={assignees.map(({ name }) => name)}
             groupBy={(option: string) =>
-              GROUPS.includes(option) ? tx('Groups') : tx('Publishers')
+              groups.has(option) ? tx('Groups') : tx('Publishers')
             }
             renderGroup={(params) => (
               <li key={params.key}>

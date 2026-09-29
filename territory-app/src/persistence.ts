@@ -3,6 +3,7 @@ import {
   Territory,
   TerritoryAssignment,
   TerritoryBoundary,
+  TerritoryCampaign,
   TerritoryCategoryOption,
 } from '@definition/territory';
 import {
@@ -17,7 +18,9 @@ import { appLocalsState } from '@states/app_locals';
 import { settingsState } from '@states/settings';
 import { Atom } from 'jotai';
 import { invoke, listen, nearby } from './native';
-import { setCurrentPublisher, setMapCenter, setPeople } from './data';
+import { setMapCenter } from './data';
+import { currentPublisherState } from './assignees';
+import { territoryCampaignsState } from './campaigns';
 import { seedBoundaries, seedDoNotCalls, seedPeople } from './seed';
 import {
   avatarsFrom,
@@ -195,7 +198,7 @@ const applyMe = () => {
   const person =
     store.get(myLinkState).person ??
     suggestedLink(deviceName, store.get(peopleState));
-  setCurrentPublisher(person?.name ?? deviceName);
+  store.set(currentPublisherState, person?.name ?? deviceName);
   const uid = person?.id ?? '';
   store.set(settingsState, (settings) =>
     settings.user_settings.user_local_uid === uid
@@ -252,12 +255,6 @@ export const loadPeople = async () => {
     if (links.length) await loadProfiles();
   }
 
-  const names = (group: boolean) =>
-    people
-      .filter((person) => !!person.group === group)
-      .map((person) => person.name)
-      .sort((a, b) => a.localeCompare(b));
-  setPeople(names(true), names(false));
   store.set(peopleState, people);
   applyMe();
   window.dispatchEvent(new CustomEvent('people-changed', { detail: people }));
@@ -347,6 +344,7 @@ type State = {
   categories: TerritoryCategoryOption[];
   boundary?: TerritoryBoundary;
   overdue?: number;
+  campaigns?: TerritoryCampaign[];
 };
 
 const stateOf = (
@@ -365,6 +363,7 @@ const stateOf = (
       .map((row) => without(row, 'order')) as TerritoryCategoryOption[],
     boundary: setting('boundary') as TerritoryBoundary | undefined,
     overdue: setting('overdue_months') as number | undefined,
+    campaigns: setting('campaigns') as TerritoryCampaign[] | undefined,
   };
 };
 
@@ -375,6 +374,7 @@ const recordsOf = (state: State) =>
       ...categoryWrites(state.categories),
       settingWrite('boundary', state.boundary),
       settingWrite('overdue_months', state.overdue),
+      settingWrite('campaigns', state.campaigns),
     ].map((record) => [key(record.table, record.id), record])
   );
 
@@ -423,6 +423,13 @@ const parts: Part[] = [
     atom: territoryOverdueMonthsState,
     records: () => [
       settingWrite('overdue_months', store.get(territoryOverdueMonthsState)),
+    ],
+    tables: [],
+  },
+  {
+    atom: territoryCampaignsState,
+    records: () => [
+      settingWrite('campaigns', store.get(territoryCampaignsState)),
     ],
     tables: [],
   },
@@ -571,6 +578,7 @@ const read = async () => {
     }
     store.set(congregationBoundaryState, state.boundary);
     if (state.overdue) store.set(territoryOverdueMonthsState, state.overdue);
+    store.set(territoryCampaignsState, state.campaigns ?? []);
   } finally {
     applying = false;
   }

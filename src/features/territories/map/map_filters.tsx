@@ -4,7 +4,8 @@ import IconButton from '@components/icon_button';
 import Tooltip from '@components/tooltip';
 import { IconPanelClose } from '@icons/index';
 import { tx } from '@services/i18n/translation';
-import { COLOR_VIEWS, ColorView, HEATMAP_PERIODS } from './views';
+import { Bucket, COLOR_VIEWS, ColorView, HEATMAP_PERIODS } from './views';
+import MapLegend from './map_legend';
 
 type MapFiltersProps = {
   search: string;
@@ -13,6 +14,7 @@ type MapFiltersProps = {
   onColorViewChange: (value: ColorView) => void;
   heatmapPeriod: string;
   onHeatmapPeriodChange: (value: string) => void;
+  legend: Bucket[];
   onCollapse: VoidFunction;
 };
 
@@ -23,6 +25,7 @@ const MapFilters = ({
   onColorViewChange,
   heatmapPeriod,
   onHeatmapPeriodChange,
+  legend,
   onCollapse,
 }: MapFiltersProps) => (
   <Stack
@@ -108,6 +111,8 @@ const MapFilters = ({
           ))}
         </Select>
       )}
+
+      {legend.length > 0 && <MapLegend items={legend} />}
     </Stack>
   </Stack>
 );

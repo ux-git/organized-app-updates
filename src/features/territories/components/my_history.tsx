@@ -14,12 +14,8 @@ import { IconExpand } from '@icons/index';
 import { Territory } from '@definition/territory';
 import { shortDateFormatState } from '@states/settings';
 import { territoriesShowHouseholdsState } from '@states/territories';
-import {
-  CURRENT_PUBLISHER,
-  displayDate,
-  parseDate,
-  emptyListMessage,
-} from '../helpers';
+import { displayDate, parseDate, emptyListMessage } from '../helpers';
+import { currentPublisherState } from '../assignees';
 import { clickableRow, ROW_DIVIDER, rowStates } from './table_styles';
 import { Households } from './territory_table';
 import TruncatedText from './truncated_text';
@@ -38,13 +34,13 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
 
   const format = useAtomValue(shortDateFormatState);
   const showHouseholds = useAtomValue(territoriesShowHouseholdsState);
+  const me = useAtomValue(currentPublisherState);
 
   const rows = territories
     .flatMap((territory) =>
       territory.assignments
         .filter(
-          (assignment) =>
-            assignment.publisher === CURRENT_PUBLISHER && assignment.returnedOn
+          (assignment) => assignment.publisher === me && assignment.returnedOn
         )
         .map((assignment) => ({ territory, assignment }))
     )

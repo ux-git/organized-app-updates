@@ -77,9 +77,9 @@ const ImportDialog = ({
     event.target.value = '';
     if (!file) return;
     try {
-      const { incoming, skipped } = readBackup(await file.text());
+      const { incoming, skipped, campaigns } = readBackup(await file.text());
       setSource('backup');
-      setPlan(planImport(people, incoming, skipped));
+      setPlan(planImport(people, incoming, skipped, campaigns));
     } catch (error) {
       console.error('publishers: reading the backup failed', error);
       notify(t('common.somethingWrong'), t('publishers.notBackup'), 'error');
@@ -93,10 +93,18 @@ const ImportDialog = ({
       await applyImport(plan, removeMissing);
       notify(
         t('publishers.imported'),
-        t('publishers.importedText', {
-          added: count(plan.add.length, 'names'),
-          updated: count(plan.update.length, 'names'),
-        })
+        [
+          t('publishers.importedText', {
+            added: count(plan.add.length, 'names'),
+            updated: count(plan.update.length, 'names'),
+          }),
+          plan.campaigns.length > 0 &&
+            t('publishers.importedCampaigns', {
+              campaigns: count(plan.campaigns.length, 'campaigns'),
+            }),
+        ]
+          .filter(Boolean)
+          .join(' ')
       );
       close();
     } catch (error) {
@@ -117,7 +125,10 @@ const ImportDialog = ({
       [t('publishers.updated'), plan.update.length],
       [t('publishers.unchanged'), plan.unchanged],
       ...(source === 'backup'
-        ? ([[t('publishers.skipped'), plan.skipped]] as const)
+        ? ([
+            [t('publishers.skipped'), plan.skipped],
+            [t('publishers.campaigns'), plan.campaigns.length],
+          ] as const)
         : []),
     ] as const;
     return (

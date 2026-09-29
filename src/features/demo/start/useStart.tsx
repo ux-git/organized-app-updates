@@ -14,6 +14,7 @@ import { setIsAppLoad } from '@services/states/app';
 import { loadApp, runUpdater } from '@services/app';
 import { dbSpeakersCongregationsDummy } from '@services/dexie/speakers_congregations';
 import { dbVisitingSpeakersDummy } from '@services/dexie/visiting_speakers';
+import { dbUpcomingEventsDummy } from '@services/dexie/upcoming_events';
 import { apiFetchSources } from '@services/api/sources';
 import { sourcesImportJW } from '@services/app/sources';
 import { dbSongUpdate } from '@services/dexie/songs';
@@ -50,6 +51,7 @@ const useStart = () => {
       await dbMeetingAttendanceFill();
       await dbBranchS1ReportsFill();
       await dbPersonsAssignFamilyHeads();
+      await dbUpcomingEventsDummy();
 
       if (isNavigatorOnline) {
         const { data, status } = await apiFetchSources();

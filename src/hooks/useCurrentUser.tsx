@@ -265,6 +265,12 @@ const useCurrentUser = () => {
     return userRole.includes('secretary');
   }, [isAdmin, userRole]);
 
+  const isUpcomingEventsEditor = useMemo(() => {
+    if (isAdmin) return true;
+
+    return userRole.includes('upcoming_events');
+  }, [isAdmin, userRole]);
+
   const isPublicTalkCoordinator = useMemo(() => {
     if (isAdmin) return true;
 
@@ -313,6 +319,7 @@ const useCurrentUser = () => {
     accountType,
     isMeetingEditor,
     isSecretary,
+    isUpcomingEventsEditor,
     isPersonViewer,
     isPublicTalkCoordinator,
     isGroupOverseer,

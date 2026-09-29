@@ -51,7 +51,7 @@ export const COLOR_VIEWS = [
   },
 ];
 
-type Bucket = { key: string; label: string; color: string };
+export type Bucket = { key: string; label: string; color: string };
 
 const DAY = 86400000;
 

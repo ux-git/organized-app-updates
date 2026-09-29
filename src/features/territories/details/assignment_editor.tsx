@@ -1,5 +1,6 @@
 import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { Box, MenuItem, Stack } from '@mui/material';
 import { Button, InfoNote, Select, Typography } from '@components/index';
 import DatePicker from '@components/date_picker';
@@ -7,7 +8,7 @@ import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import MenuSubHeader from '@components/menu_sub_header';
 import { useBreakpoints } from '@hooks/index';
-import { GROUPS, PUBLISHERS_ONLY } from '../mockData';
+import { territoryAssigneesState } from '../assignees';
 import {
   assignmentFromDates,
   assignmentIssues,
@@ -36,6 +37,8 @@ const AssignmentEditor = ({
   onDelete?: VoidFunction;
 }) => {
   const { tablet600Up } = useBreakpoints();
+
+  const assignees = useAtomValue(territoryAssigneesState);
 
   const [publisher, setPublisher] = useState(assignment.publisher);
   const [assignedOn, setAssignedOn] = useState<Date | null>(
@@ -85,18 +88,22 @@ const AssignmentEditor = ({
         onChange={(event) => setPublisher(event.target.value as string)}
       >
         <MenuSubHeader>{tx('Groups')}</MenuSubHeader>
-        {GROUPS.map((name) => (
-          <MenuItem key={name} value={name}>
-            <Typography className="body-regular">{name}</Typography>
-          </MenuItem>
-        ))}
+        {assignees
+          .filter((assignee) => assignee.group)
+          .map(({ id, name }) => (
+            <MenuItem key={id} value={name}>
+              <Typography className="body-regular">{name}</Typography>
+            </MenuItem>
+          ))}
 
         <MenuSubHeader>{tx('Publishers')}</MenuSubHeader>
-        {PUBLISHERS_ONLY.map((name) => (
-          <MenuItem key={name} value={name}>
-            <Typography className="body-regular">{name}</Typography>
-          </MenuItem>
-        ))}
+        {assignees
+          .filter((assignee) => !assignee.group)
+          .map(({ id, name }) => (
+            <MenuItem key={id} value={name}>
+              <Typography className="body-regular">{name}</Typography>
+            </MenuItem>
+          ))}
       </Select>
 
       <Stack

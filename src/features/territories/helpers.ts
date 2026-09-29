@@ -1,11 +1,6 @@
 import { formatDate } from '@utils/date';
 import { getTranslation, tx } from '@services/i18n/translation';
-import {
-  CURRENT_PUBLISHER,
-  GROUPS,
-  PUBLISHERS,
-  STREET_INDEX,
-} from './mockData';
+import { STREET_INDEX } from './mockData';
 import {
   matchStreets,
   streetsOf,
@@ -17,12 +12,13 @@ import {
   ISSUE_TEXT,
   olderOpenAssignments,
 } from './assignment_issues';
+import { returnedWithin } from './coverage_rate';
+import { matchesHolder } from './holder_filter';
 import {
   Territory,
+  TerritoryAssignee,
   TerritoryAssignment,
   TerritoryFilters,
-  TerritoryRestrictions,
-  TerritoryTab,
 } from '@definition/territory';
 
 export const EMPTY_FILTERS: TerritoryFilters = {
@@ -100,6 +96,12 @@ export const rangeMonths = ({ start, end }: StatsRange) => {
   return months.slice(-24);
 };
 
+export const chartsCut = ({ start, end }: StatsRange) =>
+  (end.getFullYear() - start.getFullYear()) * 12 +
+    end.getMonth() -
+    start.getMonth() >=
+  24;
+
 // last6 and last12 are calendar months: this month and the ones before it
 export const periodWindow = (period: string) => {
   const now = new Date();
@@ -117,13 +119,6 @@ export const periodWindow = (period: string) => {
 
   return serviceYearBounds(year);
 };
-
-const returnedWithin = (territory: Territory, start: Date, end: Date) =>
-  territory.assignments.some((assignment) => {
-    const returned = parseDate(assignment.returnedOn);
-
-    return !!returned && returned >= start && returned <= end;
-  });
 
 const matchesCoverage = (
   territory: Territory,
@@ -206,7 +201,9 @@ export const applyFilters = (
 
     if (filters.cardLostOnly && !territory.cardLost) return false;
 
-    if (filters.holder && territory.holder !== filters.holder) return false;
+    if (!matchesHolder(territory, filters.holder, filters.holderPast)) {
+      return false;
+    }
 
     if (filters.search.length) {
       const haystack =
@@ -224,33 +221,7 @@ export const applyFilters = (
   });
 };
 
-export const NO_RESTRICTIONS: TerritoryRestrictions = {
-  categories: [],
-  types: [],
-};
-
-// territories the congregation keeps out of the pool are never offered on their own;
-// an elder still assigns them by hand, after speaking with the publisher
-const isOffered = (territory: Territory, restricted: TerritoryRestrictions) =>
-  !restricted.types.includes(territory.type) &&
-  !territory.categories.some((category) =>
-    restricted.categories.includes(category)
-  );
-
-const recommendedTerritories = (
-  territories: Territory[],
-  restricted: TerritoryRestrictions
-) =>
-  territories
-    .filter(
-      (territory) =>
-        territory.status === 'available' &&
-        !territory.requestedBy &&
-        isOffered(territory, restricted)
-    )
-    .sort((a, b) => b.daysSinceCovered - a.daysSinceCovered);
-
-export { CURRENT_PUBLISHER };
+export { forTab, NO_RESTRICTIONS } from './tabs';
 
 // Apple devices open Apple Maps, everything else Google Maps (the app, where installed)
 export const openInMaps = (query: string) => {
@@ -278,69 +249,13 @@ export const emptyListMessage = () =>
   getTranslation({ key: 'tr_noRecordsYet' });
 export const NO_MATCHES = 'Nothing matches your search or filters.';
 
-export const groupHolderName = (group: {
-  name: string;
-  sort_index: number;
-}) => {
-  const numbered = `Group ${group.sort_index + 1}`;
-
-  return (
-    GROUPS.find((label) => label.startsWith(`${numbered} `)) ||
-    group.name ||
-    numbered
-  );
-};
-
-export const forTab = (
+export const publisherLoad = (
   territories: Territory[],
-  tab: TerritoryTab,
-  isEditor = true,
-  groupHolder?: string,
-  restricted: TerritoryRestrictions = NO_RESTRICTIONS
+  assignees: TerritoryAssignee[]
 ) => {
-  if (tab === 'group') {
-    return groupHolder
-      ? territories.filter((territory) => territory.holder === groupHolder)
-      : [];
-  }
-
-  if (tab === 'requests') {
-    return territories.filter((territory) => territory.requestedBy);
-  }
-
-  if (tab === 'requested') {
-    return territories.filter(
-      (territory) => territory.requestedBy === CURRENT_PUBLISHER
-    );
-  }
-
-  if (tab === 'recommended') {
-    return recommendedTerritories(
-      territories,
-      isEditor ? NO_RESTRICTIONS : restricted
-    );
-  }
-
-  if (tab === 'all' && !isEditor) {
-    return territories.filter(
-      (territory) =>
-        territory.status === 'available' && isOffered(territory, restricted)
-    );
-  }
-
-  if (tab === 'mine') {
-    return territories.filter(
-      (territory) => territory.holder === CURRENT_PUBLISHER
-    );
-  }
-
-  return territories;
-};
-
-export const publisherLoad = (territories: Territory[]) => {
   const load = new Map<string, number>();
 
-  for (const publisher of PUBLISHERS) load.set(publisher, 0);
+  for (const { name } of assignees) load.set(name, 0);
 
   for (const territory of territories) {
     if (!territory.holder) continue;
@@ -352,21 +267,12 @@ export const publisherLoad = (territories: Territory[]) => {
     .sort((a, b) => b.count - a.count);
 };
 
-export const suggestedPublisher = (territories: Territory[]) =>
-  publisherLoad(territories).at(-1)?.publisher ?? PUBLISHERS[0];
-
-export const coverageRate = (
+export const suggestedPublisher = (
   territories: Territory[],
-  { start, end }: StatsRange
-) => {
-  if (!territories.length) return 0;
+  assignees: TerritoryAssignee[]
+) => publisherLoad(territories, assignees).at(-1)?.publisher;
 
-  const covered = territories.filter((territory) =>
-    returnedWithin(territory, start, end)
-  ).length;
-
-  return Math.round((covered / territories.length) * 100);
-};
+export { coverageRate } from './coverage_rate';
 
 const DURATION_BANDS = [
   { label: '1-2 mo', max: 2 },
@@ -606,8 +512,11 @@ export const coverageGrid = (territories: Territory[], years: number[]) =>
     return { year, months, total: months.reduce((acc, n) => acc + n, 0) };
   });
 
-export const publisherCoverage = (territories: Territory[]) => {
-  const load = publisherLoad(territories);
+export const publisherCoverage = (
+  territories: Territory[],
+  assignees: TerritoryAssignee[]
+) => {
+  const load = publisherLoad(territories, assignees);
 
   const everHeld = new Set(
     territories.flatMap((territory) =>

@@ -169,6 +169,12 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
 
           <TextField
             label={t('tr_eventDescription')}
+            placeholder={
+              localEvent.event_data.category ===
+              UpcomingEventCategory.SpecialCampaignWeek
+                ? t('tr_specialCampaignDescriptionExample')
+                : undefined
+            }
             value={localEvent.event_data.description}
             onChange={handleChangeEventDescription}
           />

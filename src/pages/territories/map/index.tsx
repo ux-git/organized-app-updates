@@ -13,7 +13,6 @@ const TerritoryMapPage = () => {
   const { editor } = map;
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const cancel = () => map.requestLeave(map.cancelEditing);
 
   const { goUp } = useUpNavigation();
 
@@ -34,7 +33,7 @@ const TerritoryMapPage = () => {
         secondaryTitle={
           editor.editing ? tx('Territory coverage map') : undefined
         }
-        onBack={editor.editing ? cancel : () => goUp('/')}
+        onBack={editor.editing ? map.leaveTerritory : () => goUp('/')}
         quickSettings={editor.editing ? undefined : () => setSettingsOpen(true)}
       />
 
