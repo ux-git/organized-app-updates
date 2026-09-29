@@ -15,7 +15,15 @@ export const tabsSharedStyles = (
       textTransform: 'none',
       transition: 'background-color 0.2s',
     },
-    '& .MuiTab-root:hover': {
+    // only while a pointer hovers: on a touch screen the tapped tab would keep
+    // the hover background after it became the selected one
+    '@media (hover: hover)': {
+      '& .MuiTab-root:hover': {
+        backgroundColor:
+          'color-mix(in srgb, var(--accent-150) 38%, transparent)',
+      },
+    },
+    '& .MuiTab-root:active': {
       backgroundColor: 'color-mix(in srgb, var(--accent-150) 38%, transparent)',
     },
     '& button.Mui-selected': {
