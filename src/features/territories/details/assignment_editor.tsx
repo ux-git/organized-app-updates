@@ -24,6 +24,8 @@ import {
   campaignSnapshot,
 } from '../campaign_dates';
 import CampaignField, { CampaignChoice } from '../components/campaign_field';
+import CardField from '../components/card_field';
+import { savedCard } from '../card_choice';
 import {
   assignmentFromDates,
   assignmentIssues,
@@ -31,7 +33,11 @@ import {
   toStoredDate,
 } from '../helpers';
 import EditorHeader from './editor_header';
-import { MAX_NOTE_LENGTH, TerritoryAssignment } from '@definition/territory';
+import {
+  AssignmentCard,
+  MAX_NOTE_LENGTH,
+  TerritoryAssignment,
+} from '@definition/territory';
 
 const startOfDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -64,6 +70,9 @@ const AssignmentEditor = ({
     parseDate(assignment.returnedOn)
   );
   const [note, setNote] = useState(assignment.note ?? '');
+  const [card, setCard] = useState<AssignmentCard | undefined>(
+    assignment.card ?? (isNew ? savedCard() : undefined)
+  );
 
   // a new one starts from the campaign running on its day, like an assignment
   const [campaign, setCampaign] = useState<CampaignChoice>(() => {
@@ -177,6 +186,12 @@ const AssignmentEditor = ({
         </Box>
       </Stack>
 
+      <CardField
+        value={card}
+        helper={tx('Whether a printed card went out with it.')}
+        onChange={setCard}
+      />
+
       <TextField
         label={tx('Note')}
         multiline
@@ -234,6 +249,7 @@ const AssignmentEditor = ({
                   ? campaignSnapshot(campaign.value, coverage)
                   : undefined,
               note: note.trim() || undefined,
+              card,
             });
             onClose();
           }}

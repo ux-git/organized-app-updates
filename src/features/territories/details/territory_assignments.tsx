@@ -4,11 +4,16 @@ import { useAtomValue } from 'jotai';
 import { shortDateFormatState } from '@states/settings';
 import { Box, Stack } from '@mui/material';
 import { Button } from '@components/index';
+import { useBreakpoints } from '@hooks/index';
 import { IconAdd, IconCopy, IconEdit } from '@icons/index';
 import { Territory, TerritoryAssignment } from '@definition/territory';
 import RecordList from '../components/record_list';
 import RowAction from '../components/row_action';
-import { CampaignBadge, StatusBadge } from '../components/territory_badges';
+import {
+  CampaignBadge,
+  CardBadge,
+  StatusBadge,
+} from '../components/territory_badges';
 import {
   assignmentFromDates,
   assignmentIssues,
@@ -50,6 +55,8 @@ const TerritoryAssignments = ({
   // a note worth keeping goes into the territory's notes
   onNotes?: (notes: string) => void;
 }) => {
+  const { tablet688Up } = useBreakpoints();
+
   const format = useAtomValue(shortDateFormatState);
 
   const [editing, setEditing] = useState<TerritoryAssignment>();
@@ -75,9 +82,12 @@ const TerritoryAssignments = ({
                 date: displayDate(assignment.assignedOn, format),
               }),
           warning: issuesText(assignmentIssues(assignment)),
-          badge: (!assignment.returnedOn || assignment.campaign) && (
+          badge: (!assignment.returnedOn ||
+            assignment.campaign ||
+            assignment.card) && (
             <Stack direction="row" spacing="4px" sx={{ flexShrink: 0 }}>
               {!assignment.returnedOn && <StatusBadge status="in_work" />}
+              <CardBadge card={assignment.card} text={tablet688Up} />
               <CampaignBadge assignment={assignment} />
             </Stack>
           ),

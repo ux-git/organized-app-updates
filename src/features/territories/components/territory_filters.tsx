@@ -2,8 +2,13 @@ import { ReactNode } from 'react';
 import { Box, Stack } from '@mui/material';
 import { Badge, Button, FilterChip, Typography } from '@components/index';
 import { useAtomValue } from 'jotai';
-import { territoryCategoriesState } from '@states/territories';
 import {
+  territoriesState,
+  territoryCategoriesState,
+} from '@states/territories';
+import {
+  AssignmentCard,
+  CARD_LABEL,
   STATUS_LABEL,
   TerritoryFilters as Filters,
   TerritoryStatus,
@@ -11,6 +16,7 @@ import {
   TYPE_LABEL,
 } from '@definition/territory';
 import { useCurrentUser } from '@hooks/index';
+import { hasUnknownCard } from '../card_filter';
 import { appliedFilters, clearedFilters, COVERAGE_PERIODS } from '../helpers';
 import HolderPicker from './holder_picker';
 import CampaignChips from './campaign_chips';
@@ -40,6 +46,11 @@ const TerritoryFilters = ({
   showClear?: boolean;
 }) => {
   const categories = useAtomValue(territoryCategoriesState);
+  const territories = useAtomValue(territoriesState);
+
+  // older open records have no card; the chip stays while it is picked
+  const unknownCard =
+    filters.card.includes('unknown') || hasUnknownCard(territories);
 
   const { isElder, isServiceCommittee } = useCurrentUser();
   const isTerritoryEditor = isElder || isServiceCommittee;
@@ -131,6 +142,21 @@ const TerritoryFilters = ({
             onClick={() => toggle('status', status)}
           />
         ))}
+        {(Object.keys(CARD_LABEL) as AssignmentCard[]).map((card) => (
+          <FilterChip
+            key={card}
+            label={tx(CARD_LABEL[card])}
+            selected={filters.card.includes(card)}
+            onClick={() => toggle('card', card)}
+          />
+        ))}
+        {unknownCard && (
+          <FilterChip
+            label={tx('Unknown')}
+            selected={filters.card.includes('unknown')}
+            onClick={() => toggle('card', 'unknown')}
+          />
+        )}
       </Group>
 
       <Group label={tx('Type')}>

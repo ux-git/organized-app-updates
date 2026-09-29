@@ -18,7 +18,7 @@ import { displayDate, parseDate, emptyListMessage } from '../helpers';
 import { noteLine } from '../notes';
 import { currentPublisherState } from '../assignees';
 import { clickableRow, ROW_DIVIDER, rowStates } from './table_styles';
-import { CampaignBadge } from './territory_badges';
+import { CampaignBadge, CardBadge } from './territory_badges';
 import { Households } from './territory_table';
 import TruncatedText from './truncated_text';
 import { tx } from '@services/i18n/translation';
@@ -173,7 +173,12 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
                       text={noteLine(assignment.note)}
                     />
                   )}
-                  <CampaignBadge assignment={assignment} />
+                  {(assignment.card || assignment.campaign) && (
+                    <Stack direction="row" spacing="4px">
+                      <CardBadge card={assignment.card} text={tablet688Up} />
+                      <CampaignBadge assignment={assignment} />
+                    </Stack>
+                  )}
                 </Stack>
               </Stack>
             ))}

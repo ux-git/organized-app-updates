@@ -7,7 +7,7 @@ import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import SwitchWithLabel from '@components/switch_with_label';
 import { useBreakpoints } from '@hooks/index';
-import { IconCampaign } from '@icons/index';
+import { IconCampaign, IconPrint } from '@icons/index';
 import { appLocaleState } from '@states/app';
 import { territoryCampaignsState } from '../campaigns';
 import {
@@ -140,6 +140,16 @@ const ReturnDialog = ({
           />
         </Box>
       </Stack>
+
+      {/* a card went out with it: a nudge to take it back */}
+      {open?.card === 'printed' && (
+        <Stack direction="row" spacing="8px" sx={{ alignItems: 'center' }}>
+          <IconPrint color="var(--grey-400)" width={20} height={20} />
+          <Typography className="body-small-regular" color="var(--grey-400)">
+            {tx('Printed card')}
+          </Typography>
+        </Stack>
+      )}
 
       <TextField
         label={tx('Note')}

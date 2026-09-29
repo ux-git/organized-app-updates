@@ -11,6 +11,7 @@ import {
   StatsRange,
 } from '../helpers';
 import { territoryAssigneesState } from '../assignees';
+import { cardsOut } from '../card_filter';
 import { ChartCard, ColumnChart } from '../components/charts';
 import PublisherLoad, {
   PublisherSortButton,
@@ -58,6 +59,7 @@ export const PublisherSplit = ({
   ].map((row) => ({ ...row, value: row.entries.length }));
 
   const opened = rows.find((row) => row.label === open);
+  const out = cardsOut(territories);
 
   return (
     <ChartCard
@@ -121,6 +123,12 @@ export const PublisherSplit = ({
           </Stack>
         ))}
       </Stack>
+
+      {out.printed + out.digital > 0 && (
+        <Typography className="label-small-regular" color="var(--grey-350)">
+          {tx('Out: {{printed}} printed · {{digital}} digital', out)}
+        </Typography>
+      )}
 
       {opened && (
         <PublisherLoad

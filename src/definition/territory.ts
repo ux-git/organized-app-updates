@@ -74,6 +74,9 @@ export type TerritoryMapDraft = {
   markers: TerritoryMapMarker[];
 };
 
+// how the territory went out: on the phone, or as a printed card to take back
+export type AssignmentCard = 'digital' | 'printed';
+
 export type TerritoryAssignment = {
   id: string;
   publisher: string;
@@ -89,6 +92,8 @@ export type TerritoryAssignment = {
   campaign?: { id: string; name: string; coverage?: boolean };
   // what the publisher found this time, e.g. the languages spoken; never printed
   note?: string;
+  // unset on records from before the choice existed
+  card?: AssignmentCard;
 };
 
 // a "Special campaign" event in Organized, or the territory app's own entry;
@@ -138,6 +143,8 @@ export type TerritoryFilters = {
   categories: string[];
   coverage?: { covered: boolean; period: string };
   cardLostOnly: boolean;
+  // how the territory is out now; `unknown` for open records without the field
+  card: (AssignmentCard | 'unknown')[];
   holder?: string;
   // the holder's earlier territories too, not only the ones held now
   holderPast?: boolean;
@@ -176,6 +183,11 @@ export const TYPE_LABEL: Record<TerritoryType, string> = {
   door_to_door: 'Door to door',
   business: 'Business',
   phone: 'Call',
+};
+
+export const CARD_LABEL: Record<AssignmentCard, string> = {
+  digital: 'Digital',
+  printed: 'Printed card',
 };
 
 export const DEFAULT_CATEGORIES: TerritoryCategoryOption[] = [

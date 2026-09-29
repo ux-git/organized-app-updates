@@ -15,7 +15,7 @@ import {
 } from '../helpers';
 import { noteLine } from '../notes';
 import { clickableRow, rowStates } from './table_styles';
-import { CampaignBadge } from './territory_badges';
+import { CampaignBadge, CardBadge } from './territory_badges';
 import TruncatedText from './truncated_text';
 import { Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
@@ -148,6 +148,7 @@ const AssignmentHistory = ({
                         color="var(--grey-400)"
                         text={assignment.publisher}
                       />
+                      <CardBadge card={assignment.card} text={tablet688Up} />
                       <CampaignBadge assignment={assignment} />
                     </Stack>
 

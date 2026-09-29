@@ -320,6 +320,7 @@
     "address": "Address",
     "households": "Households",
     "cardLost": "Card lost",
+    "card": "Card",
     "group": "Field service group",
     "boundary": "Map",
     "empty": "Empty",

@@ -45,6 +45,7 @@ const FIELDS = [
   'address',
   'households',
   'cardLost',
+  'card',
   'group',
   'boundary',
 ];

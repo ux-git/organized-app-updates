@@ -18,10 +18,13 @@ import {
   campaignSnapshot,
   campaignsOn,
 } from '../campaign_dates';
+import { rememberCard, savedCard } from '../card_choice';
 import { assignmentIssues, displayDate, toStoredDate } from '../helpers';
 import { latestReturnNote } from '../notes';
 import CampaignField, { CampaignChoice } from './campaign_field';
+import CardField from './card_field';
 import {
+  AssignmentCard,
   MAX_NOTE_LENGTH,
   Territory,
   TerritoryAssignment,
@@ -42,6 +45,7 @@ type AssignDialogProps = {
     publisher: string,
     assignedOn: Date,
     campaign: TerritoryAssignment['campaign'] | null,
+    card: AssignmentCard,
     note?: string
   ) => void;
 };
@@ -64,6 +68,7 @@ const AssignDialog = ({
     requestedBy ?? null
   );
   const [assignedOn, setAssignedOn] = useState<Date | null>(new Date());
+  const [card, setCard] = useState<AssignmentCard>(savedCard);
   const [note, setNote] = useState<string>();
 
   const lastNote = territory && latestReturnNote(territory.assignments);
@@ -168,6 +173,14 @@ const AssignDialog = ({
         </Box>
       </Stack>
 
+      <CardField
+        value={card}
+        helper={tx(
+          'Whether a printed card goes out with it; remembered for next time.'
+        )}
+        onChange={setCard}
+      />
+
       {campaigns.length > 0 && (
         <CampaignField
           label={tx('For the campaign')}
@@ -212,12 +225,14 @@ const AssignDialog = ({
           disabled={!publisher}
           onClick={() => {
             if (!publisher) return;
+            rememberCard(card);
             onAssign(
               publisher,
               assignedOn ?? new Date(),
               campaign.checked && campaign.value
                 ? campaignSnapshot(campaign.value)
                 : null,
+              card,
               note?.trim() || undefined
             );
             onClose();

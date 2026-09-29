@@ -1,11 +1,16 @@
 import { useCallback, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { territoriesState } from '@states/territories';
-import { Territory, TerritoryAssignment } from '@definition/territory';
+import {
+  AssignmentCard,
+  Territory,
+  TerritoryAssignment,
+} from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 import { assignmentFromDates, parseDate } from './helpers';
 import { territoryCampaignsState } from './campaigns';
 import { campaignFor, campaignSnapshot } from './campaign_dates';
+import { savedCard } from './card_choice';
 import { isCoverage } from './coverage_rate';
 
 // undefined leaves an assignment's campaign as it is, null clears it
@@ -86,13 +91,15 @@ const useAssignReturn = () => {
   const numberOf = (id: string) =>
     territories.find((territory) => territory.id === id)?.number ?? '';
 
-  // without a say from a dialog, the campaign running on the day applies
+  // without a say from a dialog, the campaign running on the day applies,
+  // and the card goes out the way it did last time on this device
   const assign = (
     id: string,
     publisher: string,
     assignedOn?: Date,
     campaign?: Campaign,
-    note?: string
+    note?: string,
+    card: AssignmentCard = savedCard()
   ) => {
     const start = assignedOn ?? new Date();
     const running = campaignFor(campaigns, start);
@@ -126,6 +133,7 @@ const useAssignReturn = () => {
           ),
           ...(filedUnder ? { campaign: filedUnder } : {}),
           ...(note ? { note } : {}),
+          card,
         },
       ],
     }));
@@ -175,9 +183,10 @@ const useAssignReturn = () => {
     publisher: string,
     assignedOn?: Date,
     campaign?: Campaign,
-    note?: string
+    note?: string,
+    card?: AssignmentCard
   ) => {
-    const flagged = assign(id, publisher, assignedOn, campaign, note);
+    const flagged = assign(id, publisher, assignedOn, campaign, note, card);
     remember([id], assignedText(id, publisher, flagged));
   };
 
@@ -199,10 +208,11 @@ const useAssignReturn = () => {
     ids: string[],
     publisher: string,
     assignedOn?: Date,
-    campaign?: Campaign
+    campaign?: Campaign,
+    card?: AssignmentCard
   ) => {
     const flagged = ids
-      .map((id) => assign(id, publisher, assignedOn, campaign))
+      .map((id) => assign(id, publisher, assignedOn, campaign, undefined, card))
       .some(Boolean);
     const values = { n: ids.length, name: publisher };
 

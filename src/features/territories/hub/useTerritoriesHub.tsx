@@ -25,6 +25,7 @@ import { territoryCampaignsState } from '../campaigns';
 import { campaignsOn } from '../campaign_dates';
 import { inCampaign } from '../campaign_filter';
 import {
+  AssignmentCard,
   TerritoryAssignment,
   TerritoryFilters,
   TerritoryStatus,
@@ -256,13 +257,14 @@ const useTerritoriesHub = () => {
   const assignMany = (
     publisher: string,
     assignedOn?: Date,
-    campaign?: TerritoryAssignment['campaign'] | null
+    campaign?: TerritoryAssignment['campaign'] | null,
+    card?: AssignmentCard
   ) => {
     const ids = selected
       .filter((territory) => territory.status === 'available')
       .map((territory) => territory.id);
 
-    actions.assignMany(ids, publisher, assignedOn, campaign);
+    actions.assignMany(ids, publisher, assignedOn, campaign, card);
 
     setAssignManyOpen(false);
     clearChecked();

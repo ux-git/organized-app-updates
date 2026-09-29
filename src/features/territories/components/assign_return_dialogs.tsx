@@ -31,13 +31,14 @@ const AssignReturnDialogs = ({
           }
           territory={assignTarget}
           onClose={actions.closeAssign}
-          onAssign={(publisher, assignedOn, campaign, note) =>
+          onAssign={(publisher, assignedOn, campaign, card, note) =>
             actions.handleAssign(
               assignTarget.id,
               publisher,
               assignedOn,
               campaign,
-              note
+              note,
+              card
             )
           }
         />

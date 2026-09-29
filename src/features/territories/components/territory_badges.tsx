@@ -1,13 +1,22 @@
 import { Box, Stack } from '@mui/material';
 import Tooltip from '@components/tooltip';
 import { Badge } from '@components/index';
-import { IconCampaign, IconCancelCicle, IconRaiseHand } from '@icons/index';
+import {
+  IconCampaign,
+  IconCancelCicle,
+  IconPhone,
+  IconPrint,
+  IconRaiseHand,
+} from '@icons/index';
 import { daysLabel, doNotCallLabel, olderOpenAssignments } from '../helpers';
 import { hasNewNote } from '../notes';
 import { categoryBadge } from '../category_colors';
+import { openCard } from '../card_filter';
 import { useAtomValue } from 'jotai';
 import { territoryCategoriesState } from '@states/territories';
 import {
+  AssignmentCard,
+  CARD_LABEL,
   STATUS_COLOR,
   STATUS_LABEL,
   Territory,
@@ -186,6 +195,52 @@ export const CampaignBadge = ({
       sx={{ width: 'fit-content', ...shrink(assignment.campaign.name) }}
     />
   );
+};
+
+// how the work went out; the icon alone where a row is tight
+export const CardBadge = ({
+  card,
+  text = false,
+}: {
+  card?: AssignmentCard;
+  text?: boolean;
+}) => {
+  if (!card) return null;
+
+  const label = tx(CARD_LABEL[card]);
+  const Icon = card === 'printed' ? IconPrint : IconPhone;
+
+  const badge = (
+    <Badge
+      size="small"
+      color="grey"
+      filled={false}
+      text={text ? label : ''}
+      icon={<Icon color="var(--grey-400)" />}
+      sx={{
+        width: 'fit-content',
+        ...(text ? shrink(label) : { flexShrink: 0, '& > div': { gap: 0 } }),
+      }}
+    />
+  );
+
+  if (text) return badge;
+
+  return (
+    <Tooltip title={label}>
+      {/* the tooltip needs a DOM child to anchor to */}
+      <Box role="img" aria-label={label} sx={{ width: 'fit-content' }}>
+        {badge}
+      </Box>
+    </Tooltip>
+  );
+};
+
+// a card is out with the holder, so a servant knows what to take back
+export const PrintedCardBadge = ({ territory }: { territory: Territory }) => {
+  if (openCard(territory) !== 'printed') return null;
+
+  return <CardBadge card="printed" text />;
 };
 
 export const CardLostBadge = ({ territory }: { territory: Territory }) => {

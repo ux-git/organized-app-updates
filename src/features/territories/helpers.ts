@@ -15,6 +15,7 @@ import {
 import { isCoverage, returnedWithin } from './coverage_rate';
 import { matchesHolder } from './holder_filter';
 import { campaignOverdue, matchesCampaign } from './campaign_filter';
+import { matchesCard } from './card_filter';
 import { matchesText } from './text_search';
 import {
   Territory,
@@ -30,6 +31,7 @@ export const EMPTY_FILTERS: TerritoryFilters = {
   type: [],
   categories: [],
   cardLostOnly: false,
+  card: [],
 };
 
 export const clearedFilters = (
@@ -208,6 +210,8 @@ export const applyFilters = (
 
     if (filters.cardLostOnly && !territory.cardLost) return false;
 
+    if (!matchesCard(territory, filters.card)) return false;
+
     if (!matchesHolder(territory, filters.holder, filters.holderPast)) {
       return false;
     }
@@ -270,6 +274,26 @@ export const publisherLoad = (
   return [...load.entries()]
     .map(([publisher, count]) => ({ publisher, count }))
     .sort((a, b) => b.count - a.count);
+};
+
+export { coverageRate } from './coverage_rate';
+
+const DURATION_BANDS = [
+  { label: '1-2 mo', max: 2 },
+  { label: '3 mo', max: 3 },
+  { label: '4 mo', max: 4 },
+  { label: '5-6 mo', max: 6 },
+  { label: '7-9 mo', max: 9 },
+  { label: '10-12 mo', max: 12 },
+  { label: '13-16 mo', max: 16 },
+  { label: '17-24 mo', max: Infinity },
+];
+
+const returnedIn = (assignment: TerritoryAssignment, range?: StatsRange) => {
+  const returned = parseDate(assignment.returnedOn);
+  if (!returned || !isCoverage(assignment)) return false;
+
+  return !range || (returned >= range.start && returned <= range.end);
 };
 
 const allDurations = (territories: Territory[], range?: StatsRange) =>
@@ -610,6 +634,7 @@ export const appliedFilters = (filters: TerritoryFilters) =>
   filters.categories.length +
   (filters.coverage ? 1 : 0) +
   (filters.cardLostOnly ? 1 : 0) +
+  filters.card.length +
   (filters.holder ? 1 : 0) +
   (filters.campaign ? 1 : 0);
 
