@@ -69,7 +69,7 @@ struct TerritoriesShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     AppShortcut(
       intent: SyncTerritories(),
-      phrases: ["Sync \(.applicationName)", "Sync territories with \(.applicationName)"]
+      phrases: ["Sync \(.applicationName)"]
     )
   }
 }

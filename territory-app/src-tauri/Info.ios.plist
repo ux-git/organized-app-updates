@@ -2,39 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleLocalizations</key>
-	<array>
-		<string>en</string>
-		<string>de</string>
-	</array>
-	<key>CFBundleDisplayName</key>
-	<string>Territories: Organized</string>
-	<!-- the words iOS shows when it asks; the sync never uses the internet -->
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Finds your paired devices nearby and syncs territories with them directly, without the internet.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Saves where the Kingdom Hall is. The location stays on this device.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Notices when you arrive at the Kingdom Hall or a paired device is near, so your device syncs by itself. The location stays on this device.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Scans the pairing and transfer QR codes of another device.</string>
-	<!-- Bluetooth keeps working with the app in the background; iOS wakes it
-	     when a paired phone shows up -->
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>bluetooth-central</string>
-		<string>bluetooth-peripheral</string>
-		<string>fetch</string>
-		<string>processing</string>
-	</array>
-	<!-- the occasional background refresh (Launch.swift) and the scheduled
-	     backup (Backups.swift) -->
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.sws2apps.territories.refresh</string>
 		<string>com.sws2apps.territories.backup</string>
 	</array>
-	<!-- transfer files from a paired phone open in the app -->
+	<key>CFBundleDisplayName</key>
+	<string>Territories</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -48,17 +22,61 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>de</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>Territories: Organized</string>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Organized</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Territories: Organized</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Gebiete: Organized</string>
+		</dict>
+	</array>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Finds your paired devices nearby and syncs territories with them directly, without the internet.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Scans the pairing and transfer QR codes of another device.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Notices when you arrive at the Kingdom Hall or a paired device is near, so your device syncs by itself. The location stays on this device.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Saves where the Kingdom Hall is. The location stays on this device.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+		<string>bluetooth-peripheral</string>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>com.sws2apps.territories.transfer</string>
-			<key>UTTypeDescription</key>
-			<string>Territories file</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>Territories file</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.sws2apps.territories.transfer</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -68,15 +86,5 @@
 			</dict>
 		</dict>
 	</array>
-	<!-- iOS 27 requires the scene lifecycle; with this key tao (Tauri's
-	     window layer) adopts it. Declaring tao's scene delegate here for one
-	     window instead leaves the screen black. -->
-	<key>UIApplicationSceneManifest</key>
-	<dict>
-		<key>UIApplicationSupportsMultipleScenes</key>
-		<true/>
-	</dict>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<false/>
 </dict>
 </plist>

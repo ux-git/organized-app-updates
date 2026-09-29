@@ -10,7 +10,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Territories: Organized</string>
+	<string>Territories</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -36,13 +36,28 @@
 		<string>de</string>
 	</array>
 	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
+	<string>Territories: Organized</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>0.8.5</string>
 	<key>CFBundleVersion</key>
 	<string>0.8.5</string>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Organized</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Territories: Organized</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Gebiete: Organized</string>
+		</dict>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
@@ -90,14 +105,14 @@
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>com.sws2apps.territories.transfer</string>
-			<key>UTTypeDescription</key>
-			<string>Territories file</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>Territories file</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.sws2apps.territories.transfer</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>

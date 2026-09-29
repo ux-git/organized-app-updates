@@ -1,4 +1,4 @@
-"CFBundleDisplayName" = "Territories: Organized";
+"CFBundleDisplayName" = "Territories";
 "CFBundleName" = "Territories: Organized";
 "NSBluetoothAlwaysUsageDescription" = "Finds your paired devices nearby and syncs territories with them directly, without the internet.";
 "NSLocationWhenInUseUsageDescription" = "Saves where the Kingdom Hall is. The location stays on this device.";

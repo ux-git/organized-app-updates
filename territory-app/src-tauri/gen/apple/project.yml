@@ -55,6 +55,13 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 0.8.5
         CFBundleVersion: "0.8.5"
+        CFBundleDisplayName: Territories
+        CFBundleName: "Territories: Organized"
+        # Siri also understands the full name
+        INAlternativeAppNames:
+          - INAlternativeAppName: Organized
+          - INAlternativeAppName: "Territories: Organized"
+          - INAlternativeAppName: "Gebiete: Organized"
     entitlements:
       path: territories_iOS/territories_iOS.entitlements
     scheme:
