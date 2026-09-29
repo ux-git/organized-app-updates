@@ -10,11 +10,12 @@ import {
   Typography,
 } from '@components/index';
 import { useBreakpoints } from '@hooks/index';
-import { IconExpand } from '@icons/index';
+import { IconExpand, IconTypeText } from '@icons/index';
 import { Territory } from '@definition/territory';
 import { shortDateFormatState } from '@states/settings';
 import { territoriesShowHouseholdsState } from '@states/territories';
 import { displayDate, parseDate, emptyListMessage } from '../helpers';
+import { noteLine } from '../notes';
 import { currentPublisherState } from '../assignees';
 import { clickableRow, ROW_DIVIDER, rowStates } from './table_styles';
 import { CampaignBadge } from './territory_badges';
@@ -158,6 +159,20 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
                     {displayDate(assignment.assignedOn, format)} –{' '}
                     {displayDate(assignment.returnedOn, format)}
                   </Typography>
+                  {assignment.note && (
+                    <TruncatedText
+                      className="label-small-regular"
+                      color="var(--accent-350)"
+                      icon={
+                        <IconTypeText
+                          color="var(--accent-350)"
+                          width={16}
+                          height={16}
+                        />
+                      }
+                      text={noteLine(assignment.note)}
+                    />
+                  )}
                   <CampaignBadge assignment={assignment} />
                 </Stack>
               </Stack>

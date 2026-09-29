@@ -15,6 +15,7 @@ import {
 import { isCoverage, returnedWithin } from './coverage_rate';
 import { matchesHolder } from './holder_filter';
 import { campaignOverdue, matchesCampaign } from './campaign_filter';
+import { matchesText } from './text_search';
 import {
   Territory,
   TerritoryAssignee,
@@ -213,16 +214,12 @@ export const applyFilters = (
 
     if (!matchesCampaign(territory, filters.campaign)) return false;
 
-    if (filters.search.length) {
-      const haystack =
-        `${territory.number} ${territory.name} ${territory.city} ${territory.holder ?? ''} ${territory.categories.join(' ')}`.toLowerCase();
-
-      if (
-        !haystack.includes(filters.search.toLowerCase()) &&
-        !onStreet.has(territoryKey(territory.number))
-      ) {
-        return false;
-      }
+    if (
+      filters.search.length &&
+      !matchesText(territory, filters.search) &&
+      !onStreet.has(territoryKey(territory.number))
+    ) {
+      return false;
     }
 
     return true;
@@ -273,31 +270,6 @@ export const publisherLoad = (
   return [...load.entries()]
     .map(([publisher, count]) => ({ publisher, count }))
     .sort((a, b) => b.count - a.count);
-};
-
-export const suggestedPublisher = (
-  territories: Territory[],
-  assignees: TerritoryAssignee[]
-) => publisherLoad(territories, assignees).at(-1)?.publisher;
-
-export { coverageRate } from './coverage_rate';
-
-const DURATION_BANDS = [
-  { label: '1-2 mo', max: 2 },
-  { label: '3 mo', max: 3 },
-  { label: '4 mo', max: 4 },
-  { label: '5-6 mo', max: 6 },
-  { label: '7-9 mo', max: 9 },
-  { label: '10-12 mo', max: 12 },
-  { label: '13-16 mo', max: 16 },
-  { label: '17-24 mo', max: Infinity },
-];
-
-const returnedIn = (assignment: TerritoryAssignment, range?: StatsRange) => {
-  const returned = parseDate(assignment.returnedOn);
-  if (!returned || !isCoverage(assignment)) return false;
-
-  return !range || (returned >= range.start && returned <= range.end);
 };
 
 const allDurations = (territories: Territory[], range?: StatsRange) =>

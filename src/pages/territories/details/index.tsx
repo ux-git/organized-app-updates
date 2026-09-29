@@ -1,5 +1,5 @@
 import { tx } from '@services/i18n/translation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Box } from '@mui/material';
 import { Navigate } from 'react-router';
@@ -76,6 +76,14 @@ const TerritoryDetailsPage = () => {
   } = useTerritoryDetails();
 
   const actions = useAssignReturn();
+
+  // the "new note" mark is for an editor who has not looked yet
+  const unread = isTerritoryEditor && !!territory?.reviewNeeded;
+  useEffect(() => {
+    if (unread && territory)
+      handleChange({ ...territory, reviewNeeded: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unread, territory?.id]);
 
   if (!territory) {
     return <InfoNote message={tx('This territory no longer exists.')} />;

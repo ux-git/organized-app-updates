@@ -14,6 +14,7 @@ import { invoke, listen } from '../../native';
 import { list, t } from '../../i18n';
 import BorderSketch, { Drawing } from './BorderSketch';
 import { Peer } from '../useNearby';
+import { joinNotes, NOTE_FIELDS, withNote } from './notes';
 import { Actions, Avatar } from './parts';
 import { notify } from './text';
 
@@ -40,6 +41,7 @@ const FIELDS = [
   'number',
   'city',
   'notes',
+  'note',
   'address',
   'households',
   'cardLost',
@@ -263,6 +265,21 @@ const Decisions = () => {
       .catch(() => {});
   };
 
+  // two notes written apart both stay: the joined text is a new edit, so it
+  // wins on every phone, as `keepAssignment` settles a holder
+  const keepBoth = (conflict: Conflict, text: string) => {
+    play('synced');
+    setTerritories(withNote(territories, conflict.table, conflict.id, text));
+    invoke('resolve_conflict', {
+      table: conflict.table,
+      id: conflict.id,
+      field: conflict.field,
+      useOther: false,
+    })
+      .then(refresh)
+      .catch(() => {});
+  };
+
   const shown = conflicts.filter(
     (conflict) =>
       !(
@@ -393,6 +410,9 @@ const Decisions = () => {
             : conflict.by
               ? t('decisions.theirPhone', { name: conflict.by })
               : t('decisions.otherPhone');
+          const both = NOTE_FIELDS.includes(conflict.field)
+            ? joinNotes(conflict.kept, conflict.lost)
+            : undefined;
           return (
             <Card
               key={`${conflict.table}/${conflict.id}/${conflict.field}`}
@@ -420,6 +440,14 @@ const Decisions = () => {
                     label: t('decisions.use', { value: show(conflict.lost) }),
                     onClick: () => resolve(conflict, true),
                   },
+                  ...(both
+                    ? [
+                        {
+                          label: t('decisions.keepBoth'),
+                          onClick: () => keepBoth(conflict, both),
+                        },
+                      ]
+                    : []),
                 ]}
               />
             </Card>

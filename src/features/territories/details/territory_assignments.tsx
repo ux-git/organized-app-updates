@@ -4,7 +4,7 @@ import { useAtomValue } from 'jotai';
 import { shortDateFormatState } from '@states/settings';
 import { Box, Stack } from '@mui/material';
 import { Button } from '@components/index';
-import { IconAdd, IconEdit } from '@icons/index';
+import { IconAdd, IconCopy, IconEdit } from '@icons/index';
 import { Territory, TerritoryAssignment } from '@definition/territory';
 import RecordList from '../components/record_list';
 import RowAction from '../components/row_action';
@@ -17,6 +17,7 @@ import {
   parseDate,
   emptyListMessage,
 } from '../helpers';
+import { appendNote, noteLine } from '../notes';
 import AssignmentEditor from './assignment_editor';
 
 const newestFirst = (a: TerritoryAssignment, b: TerritoryAssignment) =>
@@ -42,9 +43,12 @@ const blankAssignment = (): TerritoryAssignment =>
 const TerritoryAssignments = ({
   territory,
   onChange,
+  onNotes,
 }: {
   territory: Territory;
   onChange?: (assignments: TerritoryAssignment[]) => void;
+  // a note worth keeping goes into the territory's notes
+  onNotes?: (notes: string) => void;
 }) => {
   const format = useAtomValue(shortDateFormatState);
 
@@ -52,6 +56,9 @@ const TerritoryAssignments = ({
   const [adding, setAdding] = useState(false);
 
   const assignments = territory.assignments;
+
+  const adoptable = (note?: string) =>
+    !!onNotes && !!note?.trim() && !territory.notes?.includes(note.trim());
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -61,6 +68,7 @@ const TerritoryAssignments = ({
           id: assignment.id,
           onClick: onChange && (() => setEditing(assignment)),
           title: assignment.publisher,
+          subtitle: assignment.note ? noteLine(assignment.note) : undefined,
           date: assignment.returnedOn
             ? `${displayDate(assignment.assignedOn, format)} – ${displayDate(assignment.returnedOn, format)}`
             : tx('Since: {{date}}', {
@@ -73,13 +81,27 @@ const TerritoryAssignments = ({
               <CampaignBadge assignment={assignment} />
             </Stack>
           ),
-          actions: onChange && (
-            <RowAction
-              title={tx('Edit')}
-              onClick={() => setEditing(assignment)}
-            >
-              <IconEdit color="var(--accent-main)" width={18} height={18} />
-            </RowAction>
+          actions: (onChange || adoptable(assignment.note)) && (
+            <>
+              {adoptable(assignment.note) && (
+                <RowAction
+                  title={tx('Add to territory notes')}
+                  onClick={() =>
+                    onNotes?.(appendNote(territory.notes, assignment.note!))
+                  }
+                >
+                  <IconCopy color="var(--accent-main)" width={18} height={18} />
+                </RowAction>
+              )}
+              {onChange && (
+                <RowAction
+                  title={tx('Edit')}
+                  onClick={() => setEditing(assignment)}
+                >
+                  <IconEdit color="var(--accent-main)" width={18} height={18} />
+                </RowAction>
+              )}
+            </>
           ),
         }))}
       />

@@ -39,6 +39,7 @@ import {
   CardLostBadge,
   CategoryBadges,
   DoNotCallBadge,
+  NewNoteBadge,
   RequestBadge,
 } from './territory_badges';
 import { tx } from '@services/i18n/translation';
@@ -229,6 +230,7 @@ const badges = (
       <DoNotCallBadge territory={territory} />
     )}
     {showRequested && <RequestBadge territory={territory} />}
+    {showDoNotCalls && <NewNoteBadge territory={territory} />}
     <AssignedTwiceBadge territory={territory} />
     <CardLostBadge territory={territory} />
     <CategoryBadges territory={territory} wrap />

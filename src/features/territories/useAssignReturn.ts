@@ -14,7 +14,13 @@ type Campaign = TerritoryAssignment['campaign'] | null;
 const daysSince = (date: Date) =>
   Math.max(0, Math.round((Date.now() - date.getTime()) / 86400000));
 
-const closeOpen = (territory: Territory, end: Date, campaign?: Campaign) =>
+// undefined leaves the note as it is, an empty string clears it
+const closeOpen = (
+  territory: Territory,
+  end: Date,
+  campaign?: Campaign,
+  note?: string
+) =>
   territory.assignments.map((item) =>
     item.returnedOn
       ? item
@@ -28,6 +34,7 @@ const closeOpen = (territory: Territory, end: Date, campaign?: Campaign) =>
           ...(campaign === undefined
             ? {}
             : { campaign: campaign ?? undefined }),
+          ...(note === undefined ? {} : { note: note || undefined }),
         }
   );
 
@@ -84,7 +91,8 @@ const useAssignReturn = () => {
     id: string,
     publisher: string,
     assignedOn?: Date,
-    campaign?: Campaign
+    campaign?: Campaign,
+    note?: string
   ) => {
     const start = assignedOn ?? new Date();
     const running = campaignFor(campaigns, start);
@@ -117,6 +125,7 @@ const useAssignReturn = () => {
             null
           ),
           ...(filedUnder ? { campaign: filedUnder } : {}),
+          ...(note ? { note } : {}),
         },
       ],
     }));
@@ -128,7 +137,8 @@ const useAssignReturn = () => {
     id: string,
     households?: number,
     returnedOn?: Date,
-    campaign?: Campaign
+    campaign?: Campaign,
+    note?: string
   ) => {
     const end = returnedOn ?? new Date();
 
@@ -144,9 +154,10 @@ const useAssignReturn = () => {
         holder: undefined,
         daysOut: undefined,
         ...(covered ? { daysSinceCovered: daysSince(end) } : {}),
-        reviewNeeded: households === undefined,
+        // a note is for the editor to read; the list marks it until they do
+        reviewNeeded: households === undefined || !!note,
         ...(households === undefined ? {} : { households }),
-        assignments: closeOpen(territory, end, campaign),
+        assignments: closeOpen(territory, end, campaign, note),
       };
     });
   };
@@ -163,9 +174,10 @@ const useAssignReturn = () => {
     id: string,
     publisher: string,
     assignedOn?: Date,
-    campaign?: Campaign
+    campaign?: Campaign,
+    note?: string
   ) => {
-    const flagged = assign(id, publisher, assignedOn, campaign);
+    const flagged = assign(id, publisher, assignedOn, campaign, note);
     remember([id], assignedText(id, publisher, flagged));
   };
 
@@ -173,9 +185,10 @@ const useAssignReturn = () => {
     id: string,
     households?: number,
     returnedOn?: Date,
-    campaign?: Campaign
+    campaign?: Campaign,
+    note?: string
   ) => {
-    giveBack(id, households, returnedOn, campaign);
+    giveBack(id, households, returnedOn, campaign, note);
     remember([id], tx('{{number}} returned', { number: numberOf(id) }));
   };
 

@@ -2,7 +2,13 @@ import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Box, MenuItem, Stack } from '@mui/material';
-import { Button, InfoNote, Select, Typography } from '@components/index';
+import {
+  Button,
+  InfoNote,
+  Select,
+  TextField,
+  Typography,
+} from '@components/index';
 import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
@@ -25,7 +31,7 @@ import {
   toStoredDate,
 } from '../helpers';
 import EditorHeader from './editor_header';
-import { TerritoryAssignment } from '@definition/territory';
+import { MAX_NOTE_LENGTH, TerritoryAssignment } from '@definition/territory';
 
 const startOfDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -57,6 +63,7 @@ const AssignmentEditor = ({
   const [returnedOn, setReturnedOn] = useState<Date | null>(
     parseDate(assignment.returnedOn)
   );
+  const [note, setNote] = useState(assignment.note ?? '');
 
   // a new one starts from the campaign running on its day, like an assignment
   const [campaign, setCampaign] = useState<CampaignChoice>(() => {
@@ -170,6 +177,15 @@ const AssignmentEditor = ({
         </Box>
       </Stack>
 
+      <TextField
+        label={tx('Note')}
+        multiline
+        minRows={2}
+        value={note}
+        slotProps={{ htmlInput: { maxLength: MAX_NOTE_LENGTH } }}
+        onChange={(event) => setNote(event.target.value)}
+      />
+
       {(campaigns.length > 0 || campaign.value) && (
         <CampaignField
           label={tx('For the campaign')}
@@ -217,6 +233,7 @@ const AssignmentEditor = ({
                 campaign.checked && campaign.value
                   ? campaignSnapshot(campaign.value, coverage)
                   : undefined,
+              note: note.trim() || undefined,
             });
             onClose();
           }}

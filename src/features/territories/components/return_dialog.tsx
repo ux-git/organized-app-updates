@@ -17,7 +17,11 @@ import {
 } from '../campaign_dates';
 import { assignmentIssues, parseDate, toStoredDate } from '../helpers';
 import CampaignField, { CampaignChoice } from './campaign_field';
-import { Territory, TerritoryAssignment } from '@definition/territory';
+import {
+  MAX_NOTE_LENGTH,
+  Territory,
+  TerritoryAssignment,
+} from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 
 type ReturnDialogProps = {
@@ -29,7 +33,8 @@ type ReturnDialogProps = {
     id: string,
     households: number,
     returnedOn: Date,
-    campaign?: TerritoryAssignment['campaign'] | null
+    campaign?: TerritoryAssignment['campaign'] | null,
+    note?: string
   ) => void;
   onAssignAgain?: (id: string, publisher: string, assignedOn: Date) => void;
 };
@@ -53,6 +58,7 @@ const ReturnDialog = ({
     territory ? String(territory.households) : ''
   );
   const [returnedOn, setReturnedOn] = useState<Date | null>(new Date());
+  const [note, setNote] = useState(open?.note ?? '');
   const [assignAgain, setAssignAgain] = useState(false);
   const [campaign, setCampaign] = useState<CampaignChoice>({
     checked: !!flagged,
@@ -135,6 +141,18 @@ const ReturnDialog = ({
         </Box>
       </Stack>
 
+      <TextField
+        label={tx('Note')}
+        placeholder={tx(
+          'e.g. 5 Russian-speaking, 3 Ukrainian-speaking households'
+        )}
+        multiline
+        minRows={2}
+        value={note}
+        slotProps={{ htmlInput: { maxLength: MAX_NOTE_LENGTH } }}
+        onChange={(event) => setNote(event.target.value)}
+      />
+
       {own && flagged && (
         <Stack direction="row" spacing="8px" sx={{ alignItems: 'center' }}>
           <IconCampaign color="var(--grey-400)" width={20} height={20} />
@@ -183,7 +201,8 @@ const ReturnDialog = ({
               territory.id,
               Number(households) || territory.households,
               date,
-              chosen()
+              chosen(),
+              note.trim()
             );
 
             if (assignAgain && holder)

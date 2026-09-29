@@ -87,6 +87,8 @@ export type TerritoryAssignment = {
   // the special campaign it was worked for; `coverage` when the work counts
   // as regular coverage too
   campaign?: { id: string; name: string; coverage?: boolean };
+  // what the publisher found this time, e.g. the languages spoken; never printed
+  note?: string;
 };
 
 // a "Special campaign" event in Organized, or the territory app's own entry;
@@ -122,6 +124,8 @@ export type Territory = {
   phoneNumbers?: string[];
   requestedBy?: string;
   reviewNeeded?: boolean;
+  // standing information, printed on the card: no names or addresses
+  notes?: string;
 };
 
 // a publisher or a field service group a territory can go to
@@ -193,6 +197,9 @@ export const CATEGORY_COLORS: CategoryColor[] = [
 export const MAX_CATEGORIES = CATEGORY_COLORS.length;
 
 export const MAX_CATEGORY_NAME = 20;
+
+// a territory's notes and an assignment's note alike
+export const MAX_NOTE_LENGTH = 500;
 
 export const CATEGORY_COLOR_LABEL: Record<CategoryColor, string> = {
   blue: 'Blue',

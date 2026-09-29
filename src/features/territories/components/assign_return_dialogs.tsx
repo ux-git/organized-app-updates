@@ -1,5 +1,4 @@
 import { tx } from '@services/i18n/translation';
-import { doNotCallLabel } from '../helpers';
 import { AssignReturn } from '../useAssignReturn';
 import AssignDialog from './assign_dialog';
 import ReturnDialog from './return_dialog';
@@ -27,25 +26,18 @@ const AssignReturnDialogs = ({
           requestedBy={assignTarget.requestedBy}
           doNotCallNote={
             doNotCalls > 0
-              ? tx(
-                  '{{label}} in this territory. Remind the publisher to skip them.',
-                  {
-                    label: doNotCallLabel(
-                      doNotCalls,
-                      assignTarget.type === 'phone'
-                    ),
-                  }
-                )
+              ? tx('Do not call: {{n}}', { n: doNotCalls })
               : undefined
           }
-          territories={actions.territories}
+          territory={assignTarget}
           onClose={actions.closeAssign}
-          onAssign={(publisher, assignedOn, campaign) =>
+          onAssign={(publisher, assignedOn, campaign, note) =>
             actions.handleAssign(
               assignTarget.id,
               publisher,
               assignedOn,
-              campaign
+              campaign,
+              note
             )
           }
         />

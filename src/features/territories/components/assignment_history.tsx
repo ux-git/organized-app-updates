@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { useAtomValue } from 'jotai';
 import { Button, CustomDivider, InfoNote, Typography } from '@components/index';
-import { IconCheck, IconPerson } from '@icons/index';
+import { IconCheck, IconPerson, IconTypeText } from '@icons/index';
 import { useBreakpoints } from '@hooks/index';
 import { monthNamesState } from '@states/app';
 import { shortDateFormatState } from '@states/settings';
@@ -13,6 +13,7 @@ import {
   parseDate,
   emptyListMessage,
 } from '../helpers';
+import { noteLine } from '../notes';
 import { clickableRow, rowStates } from './table_styles';
 import { CampaignBadge } from './territory_badges';
 import TruncatedText from './truncated_text';
@@ -149,6 +150,21 @@ const AssignmentHistory = ({
                       />
                       <CampaignBadge assignment={assignment} />
                     </Stack>
+
+                    {assignment.note && (
+                      <TruncatedText
+                        className="label-small-regular"
+                        color="var(--grey-400)"
+                        icon={
+                          <IconTypeText
+                            color="var(--grey-400)"
+                            width={16}
+                            height={16}
+                          />
+                        }
+                        text={noteLine(assignment.note)}
+                      />
+                    )}
 
                     {warning && (
                       <Typography

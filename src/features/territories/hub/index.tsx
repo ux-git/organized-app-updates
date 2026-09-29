@@ -20,7 +20,6 @@ import { tx } from '@services/i18n/translation';
 import {
   appliedFilters,
   clearedFilters,
-  doNotCallLabel,
   emptyListMessage,
   NO_MATCHES,
 } from '../helpers';
@@ -224,9 +223,6 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
   const { desktopUp, tablet688Up } = useBreakpoints();
 
-  const reminder = (count: number, text: (label: string) => string) =>
-    count > 0 ? text(doNotCallLabel(count)) : undefined;
-
   const manyDoNotCalls = selected
     .filter((territory) => territory.status === 'available')
     .reduce((sum, territory) => sum + territory.doNotCalls.length, 0);
@@ -393,13 +389,11 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
               ? tx('Assign {{n}} territory', { n: assignableCount })
               : tx('Assign {{n}} territories', { n: assignableCount })
           }
-          doNotCallNote={reminder(manyDoNotCalls, (label) =>
-            tx(
-              '{{label}} in these territories. Remind the publisher to skip them.',
-              { label }
-            )
-          )}
-          territories={territories}
+          doNotCallNote={
+            manyDoNotCalls > 0
+              ? tx('Do not call: {{n}}', { n: manyDoNotCalls })
+              : undefined
+          }
           onClose={() => setAssignManyOpen(false)}
           onAssign={assignMany}
         />

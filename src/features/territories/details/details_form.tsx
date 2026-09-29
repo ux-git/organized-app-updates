@@ -15,7 +15,12 @@ import {
   territoriesState,
   territoryCategoriesState,
 } from '@states/territories';
-import { Territory, TYPE_LABEL, TerritoryType } from '@definition/territory';
+import {
+  MAX_NOTE_LENGTH,
+  Territory,
+  TYPE_LABEL,
+  TerritoryType,
+} from '@definition/territory';
 import RowAction from '../components/row_action';
 import CategoryEditor from './category_editor';
 
@@ -154,6 +159,20 @@ const DetailsForm = ({
               </MenuItem>
             ))}
           </Select>
+
+          <TextField
+            label={tx('Notes')}
+            helperText={tx(
+              'No names or addresses – do-not-call addresses belong in their list. Printed on the territory card.'
+            )}
+            multiline
+            minRows={2}
+            value={territory.notes ?? ''}
+            slotProps={{ htmlInput: { maxLength: MAX_NOTE_LENGTH } }}
+            onChange={(event) =>
+              onChange({ ...territory, notes: event.target.value || undefined })
+            }
+          />
         </Box>
       </Box>
 

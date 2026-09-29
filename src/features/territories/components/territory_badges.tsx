@@ -3,6 +3,7 @@ import Tooltip from '@components/tooltip';
 import { Badge } from '@components/index';
 import { IconCampaign, IconCancelCicle, IconRaiseHand } from '@icons/index';
 import { daysLabel, doNotCallLabel, olderOpenAssignments } from '../helpers';
+import { hasNewNote } from '../notes';
 import { categoryBadge } from '../category_colors';
 import { useAtomValue } from 'jotai';
 import { territoryCategoriesState } from '@states/territories';
@@ -61,6 +62,21 @@ export const CoveredBadge = ({
       color={coveredColor(days)}
       text={label}
       sx={{ width: 'fit-content', flexShrink: 0 }}
+    />
+  );
+};
+
+// a return came with a note; the mark goes once an editor opens the territory
+export const NewNoteBadge = ({ territory }: { territory: Territory }) => {
+  if (!hasNewNote(territory)) return null;
+
+  return (
+    <Badge
+      size="small"
+      color="accent"
+      filled={false}
+      text={tx('New note')}
+      sx={{ width: 'fit-content', ...shrink(tx('New note')) }}
     />
   );
 };
