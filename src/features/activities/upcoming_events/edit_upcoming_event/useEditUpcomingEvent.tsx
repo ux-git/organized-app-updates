@@ -1,14 +1,17 @@
-import { ChangeEvent, useCallback, useMemo, useState } from 'react';
+import { ChangeEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { SelectChangeEvent } from '@mui/material';
 import {
   UpcomingEventCategory,
   UpcomingEventDuration,
+  UpcomingEventType,
 } from '@definition/upcoming_events';
 import { hour24FormatState } from '@states/settings';
+import { upcomingEventsState } from '@states/upcoming_events';
 import { isWholeDayEvent } from '@services/app/upcoming_events';
 import {
   addHours,
+  addMonths,
   formatDate,
   stackDatesToOne,
   sundayOfWeek,
@@ -17,12 +20,41 @@ import { decorationsForEvent } from '../decorations_for_event';
 import { EditUpcomingEventProps } from './index.types';
 import { useAppTranslation } from '@hooks/index';
 
-const useEditUpcomingEvent = ({ data, onSave }: EditUpcomingEventProps) => {
+const useEditUpcomingEvent = ({
+  data,
+  type,
+  onSave,
+}: EditUpcomingEventProps) => {
   const { t } = useAppTranslation();
 
   const hour24 = useAtomValue(hour24FormatState);
+  const events = useAtomValue(upcomingEventsState);
 
   const [localEvent, setLocalEvent] = useState(data);
+  const seed = useRef(data.event_data).current;
+
+  const pastCampaigns = useMemo(() => {
+    const now = new Date().toISOString();
+    const seen = new Set<string>();
+
+    return events
+      .filter(
+        ({ event_uid, event_data }) =>
+          event_uid !== data.event_uid &&
+          event_data.category === UpcomingEventCategory.SpecialCampaignWeek &&
+          event_data.end < now &&
+          event_data.description?.trim()
+      )
+      .sort((a, b) => b.event_data.start.localeCompare(a.event_data.start))
+      .filter(({ event_data }) => {
+        const key = event_data.description.trim().toLowerCase();
+        if (seen.has(key)) return false;
+
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 5);
+  }, [events, data.event_uid]);
 
   const [wasSubmitted, setWasSubmitted] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -150,6 +182,39 @@ const useEditUpcomingEvent = ({ data, onSave }: EditUpcomingEventProps) => {
       });
     },
     []
+  );
+
+  const handlePickPastCampaign = useCallback(
+    (source: UpcomingEventType) => {
+      const { description, start, end, duration, wholeDay } = source.event_data;
+
+      setLocalEvent((prev) => {
+        // the add form seeds today's date, so "no dates yet" is "still untouched"
+        const untouched =
+          type === 'add' &&
+          prev.event_data.start === seed.start &&
+          prev.event_data.end === seed.end;
+
+        return {
+          ...prev,
+          event_data: {
+            ...prev.event_data,
+            description: description.trim(),
+            ...(untouched
+              ? {
+                  start: addMonths(start, 12).toISOString(),
+                  end: addMonths(end, 12).toISOString(),
+                  duration,
+                  wholeDay,
+                }
+              : {}),
+          },
+        };
+      });
+
+      setErrors((prev) => ({ ...prev, endTime: false }));
+    },
+    [type, seed]
   );
 
   const handleChangeEventDuration = useCallback(
@@ -326,6 +391,8 @@ const useEditUpcomingEvent = ({ data, onSave }: EditUpcomingEventProps) => {
     handleChangeEventCategory,
     handleChangeEventCustomTitle,
     handleChangeEventDescription,
+    pastCampaigns,
+    handlePickPastCampaign,
     handleChangeEventDuration,
     handleToggleWholeDay,
 

@@ -14,11 +14,16 @@ import { appLocaleState } from '@states/app';
 import { territoryLocalModeState } from '@states/territories';
 import { Territory, TerritoryType, TYPE_LABEL } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
+import { displaySnackNotification } from '@services/states/app';
 import { ChartCard } from '../components/charts';
 import TruncatedText from '../components/truncated_text';
 import UndoSnackbar from '../components/undo_snackbar';
 import { territoryCampaignsState } from '../campaigns';
-import { campaignChoices, campaignLabel } from '../campaign_dates';
+import {
+  campaignChoices,
+  campaignLabel,
+  campaignRange,
+} from '../campaign_dates';
 import {
   campaignEnded,
   campaignProgress,
@@ -92,12 +97,51 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
         : [...types, type]
     );
 
+  const shareSummary = async () => {
+    const text = `${campaign.name} (${campaignRange(campaign, locale.code)}): ${tx(
+      '{{worked}} of {{total}} territories worked, {{out}} out, {{waiting}} not yet assigned',
+      progress
+    )}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ text });
+      } else {
+        await navigator.clipboard.writeText(text);
+
+        displaySnackNotification({
+          header: tx('Summary copied'),
+          message: text,
+          severity: 'success',
+        });
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        displaySnackNotification({
+          header: tx('Sharing failed'),
+          message: (error as Error).message,
+          severity: 'error',
+        });
+      }
+    }
+  };
+
   return (
     <ChartCard
       title={tx('Campaign progress')}
       hint={campaignLabel(campaign, locale.code)}
       note={tx('As of today')}
       span={4}
+      action={
+        <Button
+          variant="small"
+          disableAutoStretch
+          minHeight={32}
+          onClick={shareSummary}
+        >
+          {tx('Share summary')}
+        </Button>
+      }
     >
       {choices.length > 1 && (
         <Select

@@ -13,6 +13,7 @@ import Button from '@components/button';
 import DatePicker from '@components/date_picker';
 import DeleteEvent from '../delete_event';
 import Divider from '@components/divider';
+import FilterChip from '@components/filter_chip';
 import IconButton from '@components/icon_button';
 import MenuItem from '@components/menuitem';
 import Select from '@components/select';
@@ -33,6 +34,8 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
     handleChangeEventCategory,
     handleChangeEventCustomTitle,
     handleChangeEventDescription,
+    pastCampaigns,
+    handlePickPastCampaign,
     handleSaveEvent,
     handleDeleteEvent,
     handleChangeEventDuration,
@@ -179,6 +182,37 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
             onChange={handleChangeEventDescription}
           />
         </Box>
+
+        {localEvent.event_data.category ===
+          UpcomingEventCategory.SpecialCampaignWeek &&
+          pastCampaigns.length > 0 && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <Typography
+                className="body-small-regular"
+                sx={{ color: 'var(--grey-400)' }}
+              >
+                {t('tr_likeLastYear')}
+              </Typography>
+              {pastCampaigns.map((event) => (
+                <FilterChip
+                  key={event.event_uid}
+                  label={event.event_data.description.trim()}
+                  selected={
+                    localEvent.event_data.description ===
+                    event.event_data.description.trim()
+                  }
+                  onClick={() => handlePickPastCampaign(event)}
+                />
+              ))}
+            </Box>
+          )}
 
         <Divider color="var(--accent-200)" />
 
