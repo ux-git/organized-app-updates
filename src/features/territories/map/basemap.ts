@@ -96,7 +96,7 @@ export const DEFAULT_BASEMAP: BasemapOptions = {
 // tinted overlays for both tile schemas; a source layer a provider lacks simply draws nothing
 type Overlay = {
   id: string;
-  option: 'green' | 'water';
+  option: 'green';
   color: string;
   opacity: number;
   parts: { layer: string; filter?: maplibregl.FilterSpecification }[];
@@ -140,14 +140,46 @@ const OVERLAYS: Overlay[] = [
       },
     ],
   },
-  {
-    id: 'basemap-water',
-    option: 'water',
-    color: '#2196F3',
-    opacity: 0.25,
-    parts: [{ layer: 'water' }, { layer: 'water_polygons' }],
-  },
 ];
+
+// water is tinted in the style's own layers: a translucent layer on top drew twice
+// where a tile's water polygons overlap, which showed as darker seams on open sea
+const WATER_LAYERS = new Set(['water', 'water_polygons', 'ocean']);
+const WATER_TINT = '#2196F3';
+const WATER_TINT_AMOUNT = 0.25;
+
+// street names are what a territory map is read by: bigger when close in, repeated
+// along long streets, in the theme's text colour with a halo
+const STREET_NAME_SIZE: maplibregl.ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  14,
+  13,
+  16,
+  14,
+  18,
+  16,
+];
+const STREET_NAME_SPACING: maplibregl.ExpressionSpecification = [
+  'step',
+  ['zoom'],
+  250,
+  15,
+  200,
+  16,
+  160,
+];
+
+// OpenFreeMap's dark style draws its streets almost as dark as the ground around them
+const DARK_ROADS: Record<string, string> = {
+  highway_path: '#2c2c2c',
+  highway_minor: '#343434',
+  highway_major_casing: 'rgba(120,120,120,0.8)',
+  highway_major_inner: '#3c3c3c',
+  highway_motorway_casing: 'rgba(120,120,120,0.8)',
+  highway_motorway_inner: '#3c3c3c',
+};
 
 // the tile layers that carry them, in the OpenMapTiles and Shortbread schemas
 const HOUSE_NUMBER_LAYERS = new Set(['housenumber', 'addresses']);
@@ -218,29 +250,40 @@ const addMissingLabels = (map: maplibregl.Map, provider: MapProviderKey) => {
   const known = tileLayers(map, source);
   const has = (sourceLayer: string) => !known || known.has(sourceLayer);
 
+  // labels are placed from the top layer down, so ours go under the street
+  // names and only take the room the names leave
+  const beforeNames = style.layers.find(
+    (layer) =>
+      layer.type === 'symbol' &&
+      STREET_NAME_LAYERS.has(sourceLayerOf(layer) ?? '')
+  )?.id;
+
   const label = (
     id: string,
     sourceLayer: string,
     minzoom: number,
     text: maplibregl.ExpressionSpecification
   ) =>
-    map.addLayer({
-      id,
-      type: 'symbol',
-      source,
-      'source-layer': sourceLayer,
-      minzoom,
-      layout: {
-        'text-field': text,
-        'text-font': [...MAP_PROVIDERS[provider].fonts.regular],
-        'text-size': 10,
+    map.addLayer(
+      {
+        id,
+        type: 'symbol',
+        source,
+        'source-layer': sourceLayer,
+        minzoom,
+        layout: {
+          'text-field': text,
+          'text-font': [...MAP_PROVIDERS[provider].fonts.regular],
+          'text-size': 10,
+        },
+        paint: {
+          'text-color': getCSSPropertyValue('--grey-350'),
+          'text-halo-color': getCSSPropertyValue('--white'),
+          'text-halo-width': 1,
+        },
       },
-      paint: {
-        'text-color': getCSSPropertyValue('--grey-350'),
-        'text-halo-color': getCSSPropertyValue('--white'),
-        'text-halo-width': 1,
-      },
-    });
+      beforeNames
+    );
 
   if (!drawn(HOUSE_NUMBER_LAYERS) && has('housenumber')) {
     label(HOUSE_NUMBERS, 'housenumber', HOUSE_NUMBERS_FROM, [
@@ -301,27 +344,77 @@ const addMissingLabels = (map: maplibregl.Map, provider: MapProviderKey) => {
     const id = `${PARKING}-${index}`;
     if (map.getLayer(id) || !has(layer)) return;
 
-    map.addLayer({
-      id,
-      type: 'symbol',
-      source,
-      'source-layer': layer,
-      filter,
-      // kerbside strips are mapped as car parks too; the named ones are the real car parks
-      minzoom: PARKING_FROM,
-      layout: {
-        'text-field': 'P',
-        'text-font': [...MAP_PROVIDERS[provider].fonts.bold],
-        'text-size': 12,
-        'symbol-sort-key': ['-', 0, ['coalesce', ['get', 'rank'], 0]],
+    map.addLayer(
+      {
+        id,
+        type: 'symbol',
+        source,
+        'source-layer': layer,
+        filter,
+        // kerbside strips are mapped as car parks too; the named ones are the real car parks
+        minzoom: PARKING_FROM,
+        layout: {
+          'text-field': 'P',
+          'text-font': [...MAP_PROVIDERS[provider].fonts.bold],
+          'text-size': 12,
+          'symbol-sort-key': ['-', 0, ['coalesce', ['get', 'rank'], 0]],
+        },
+        paint: {
+          'text-color': getCSSPropertyValue('--accent-main'),
+          'text-halo-color': getCSSPropertyValue('--white'),
+          'text-halo-width': 2,
+        },
       },
-      paint: {
-        'text-color': getCSSPropertyValue('--accent-main'),
-        'text-halo-color': getCSSPropertyValue('--white'),
-        'text-halo-width': 2,
-      },
-    });
+      beforeNames
+    );
   });
+
+  for (const [id, color] of Object.entries(DARK_ROADS)) {
+    if (map.getLayer(id)) map.setPaintProperty(id, 'line-color', color);
+  }
+};
+
+const isWaterTint = (value: unknown): value is unknown[] =>
+  Array.isArray(value) && value[0] === 'interpolate' && value[6] === WATER_TINT;
+
+// the tint is mixed into the layer's own colour, so it can be taken off again by
+// reading it back; a colour that changes with zoom can't be mixed, since zoom has
+// to stay at the top of a property
+const tintWater = (map: maplibregl.Map, id: string, tinted: boolean) => {
+  const current = map.getPaintProperty(id, 'fill-color');
+  const original = isWaterTint(current) ? current[4] : current;
+  if (typeof original !== 'string') return;
+
+  map.setPaintProperty(
+    id,
+    'fill-color',
+    tinted
+      ? [
+          'interpolate',
+          ['linear'],
+          WATER_TINT_AMOUNT,
+          0,
+          original,
+          1,
+          WATER_TINT,
+        ]
+      : original
+  );
+};
+
+// shields keep their look; only the layers that write the street's name change
+const styleStreetName = (map: maplibregl.Map, id: string) => {
+  const field = map.getLayoutProperty(id, 'text-field');
+  if (!JSON.stringify(field)?.includes('name')) return;
+
+  map.setLayoutProperty(id, 'text-size', STREET_NAME_SIZE);
+  map.setLayoutProperty(id, 'symbol-spacing', STREET_NAME_SPACING);
+  map.setLayoutProperty(id, 'text-max-angle', 45);
+  map.setLayoutProperty(id, 'text-transform', 'none');
+  map.setPaintProperty(id, 'text-color', getCSSPropertyValue('--grey-400'));
+  map.setPaintProperty(id, 'text-halo-color', getCSSPropertyValue('--white'));
+  map.setPaintProperty(id, 'text-halo-width', 1.5);
+  map.setPaintProperty(id, 'text-halo-blur', 0.5);
 };
 
 // older styles still use the legacy filter syntax, which can't be combined with an expression
@@ -439,6 +532,9 @@ export const applyBasemapOptions = (
         layer.maxzoom ?? 24
       );
       setVisible(map, layer.id, options.streetNames);
+      styleStreetName(map, layer.id);
+    } else if (WATER_LAYERS.has(sourceLayer) && layer.type === 'fill') {
+      tintWater(map, layer.id, options.water);
     }
   }
 };

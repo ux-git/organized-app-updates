@@ -6,27 +6,16 @@ import { MapColor, MapStyle, PinType } from '@definition/territory';
  * keeps the download small and lets the style follow the app theme.
  *
  * - openfreemap: unlimited and free forever, fully self-hostable; the default
- * - carto: light and dark siblings of the same design, attribution required
  * - versatiles: community hosted, ships a dark style of its own
  */
 export const MAP_PROVIDERS = {
-  carto: {
-    name: 'CARTO',
-    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-    // a label can only use fonts the provider's glyph server has
-    fonts: {
-      regular: ['Open Sans Regular'],
-      bold: ['Open Sans Bold'],
-      number: ['Open Sans Semibold'],
-    },
-  },
   openfreemap: {
     name: 'OpenFreeMap',
     // the clearest contrast of the free light styles: real colours for streets, water and parks
     light: 'https://tiles.openfreemap.org/styles/liberty',
     dark: 'https://tiles.openfreemap.org/styles/dark',
-    // no medium weight on this glyph server; bold reads too heavy for numbers
+    // a label can only use fonts the provider's glyph server has; no medium
+    // weight on this one, and bold reads too heavy for numbers
     fonts: {
       regular: ['Noto Sans Regular'],
       bold: ['Noto Sans Bold'],
