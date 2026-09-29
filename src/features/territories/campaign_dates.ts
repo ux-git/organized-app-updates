@@ -1,4 +1,7 @@
-import type { TerritoryCampaign } from '@definition/territory';
+import type {
+  TerritoryAssignment,
+  TerritoryCampaign,
+} from '@definition/territory';
 
 // Campaign days are yyyy-mm-dd, so they compare as text; kept free of app
 // imports so the Node test runner can load this file.
@@ -30,6 +33,23 @@ export const campaignsOn = (campaigns: TerritoryCampaign[], date: Date) => {
     .filter((campaign) => isRunning(campaign, day))
     .sort(latestStartFirst);
 };
+
+/**
+ * The pre-selection rule: an assignment made on a day inside a campaign is
+ * filed under it, the latest start when several run; outside one it isn't.
+ */
+export const campaignFor = (campaigns: TerritoryCampaign[], date: Date) =>
+  campaignsOn(campaigns, date).at(0);
+
+/** What an assignment keeps of its campaign, so history survives a rename or deletion. */
+export const campaignSnapshot = (
+  campaign: Pick<TerritoryCampaign, 'id' | 'name'>,
+  coverage = false
+): NonNullable<TerritoryAssignment['campaign']> => ({
+  id: campaign.id,
+  name: campaign.name,
+  ...(coverage ? { coverage } : {}),
+});
 
 /**
  * What an assignment can be filed under: the campaigns running today, the

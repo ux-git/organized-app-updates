@@ -3,8 +3,10 @@ import { test } from 'node:test';
 import type { TerritoryCampaign } from '@definition/territory';
 import {
   campaignChoices,
+  campaignFor,
   campaignLabel,
   campaignOverlaps,
+  campaignSnapshot,
   campaignsOn,
   dateOf,
   dayOf,
@@ -54,6 +56,37 @@ test('campaignsOn lists the latest start first', () => {
     'short',
     'long',
   ]);
+});
+
+test('campaignFor pre-selects the campaign running on the assigned day', () => {
+  const memorial = campaign('memorial', '2026-03-01', '2026-03-21');
+  const convention = campaign('convention', '2026-03-15', '2026-04-15');
+
+  // inside one campaign: that one
+  assert.equal(campaignFor([memorial], new Date(2026, 2, 10))?.id, 'memorial');
+  // inside two: the latest start
+  assert.equal(
+    campaignFor([memorial, convention], new Date(2026, 2, 18))?.id,
+    'convention'
+  );
+  // ended, or not yet started: none, whatever else is on the list
+  assert.equal(campaignFor([memorial], new Date(2026, 2, 22)), undefined);
+  assert.equal(campaignFor([memorial], new Date(2026, 1, 28)), undefined);
+  assert.equal(campaignFor([], new Date(2026, 2, 10)), undefined);
+});
+
+test('campaignSnapshot keeps the id and the name, coverage only when set', () => {
+  const memorial = campaign('memorial', '2026-03-01', '2026-03-21', 'Memorial');
+
+  assert.deepEqual(campaignSnapshot(memorial), {
+    id: 'memorial',
+    name: 'Memorial',
+  });
+  assert.deepEqual(campaignSnapshot(memorial, true), {
+    id: 'memorial',
+    name: 'Memorial',
+    coverage: true,
+  });
 });
 
 test('campaignChoices: running, then upcoming, then recently ended', () => {

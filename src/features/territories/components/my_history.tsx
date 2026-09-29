@@ -17,6 +17,7 @@ import { territoriesShowHouseholdsState } from '@states/territories';
 import { displayDate, parseDate, emptyListMessage } from '../helpers';
 import { currentPublisherState } from '../assignees';
 import { clickableRow, ROW_DIVIDER, rowStates } from './table_styles';
+import { CampaignBadge } from './territory_badges';
 import { Households } from './territory_table';
 import TruncatedText from './truncated_text';
 import { tx } from '@services/i18n/translation';
@@ -157,6 +158,7 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
                     {displayDate(assignment.assignedOn, format)} –{' '}
                     {displayDate(assignment.returnedOn, format)}
                   </Typography>
+                  <CampaignBadge assignment={assignment} />
                 </Stack>
               </Stack>
             ))}

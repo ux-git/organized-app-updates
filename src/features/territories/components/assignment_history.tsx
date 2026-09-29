@@ -14,6 +14,7 @@ import {
   emptyListMessage,
 } from '../helpers';
 import { clickableRow, rowStates } from './table_styles';
+import { CampaignBadge } from './territory_badges';
 import TruncatedText from './truncated_text';
 import { Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
@@ -146,6 +147,7 @@ const AssignmentHistory = ({
                         color="var(--grey-400)"
                         text={assignment.publisher}
                       />
+                      <CampaignBadge assignment={assignment} />
                     </Stack>
 
                     {warning && (

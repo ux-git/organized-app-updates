@@ -12,12 +12,14 @@ import {
   ISSUE_TEXT,
   olderOpenAssignments,
 } from './assignment_issues';
-import { returnedWithin } from './coverage_rate';
+import { isCoverage, returnedWithin } from './coverage_rate';
 import { matchesHolder } from './holder_filter';
+import { campaignOverdue, matchesCampaign } from './campaign_filter';
 import {
   Territory,
   TerritoryAssignee,
   TerritoryAssignment,
+  TerritoryCampaign,
   TerritoryFilters,
 } from '@definition/territory';
 
@@ -150,15 +152,19 @@ export const daysLabel = (days?: number) => {
     : tx('{{years}} y {{rest}} mo', { years, rest });
 };
 
-// overdue is not stored: it follows from how long the territory has been out
+// overdue is not stored: it follows from how long the territory has been out,
+// or from the special campaign it was taken for being over
 export const withDerivedStatus = (
   territories: Territory[],
-  overdueMonths: number
+  overdueMonths: number,
+  campaigns: TerritoryCampaign[] = []
 ) =>
   territories.map((territory) => {
     if (territory.status === 'available') return territory;
 
-    const overdue = (territory.daysOut ?? 0) > overdueMonths * 30;
+    const overdue =
+      (territory.daysOut ?? 0) > overdueMonths * 30 ||
+      campaignOverdue(territory, campaigns);
 
     return {
       ...territory,
@@ -204,6 +210,8 @@ export const applyFilters = (
     if (!matchesHolder(territory, filters.holder, filters.holderPast)) {
       return false;
     }
+
+    if (!matchesCampaign(territory, filters.campaign)) return false;
 
     if (filters.search.length) {
       const haystack =
@@ -287,7 +295,7 @@ const DURATION_BANDS = [
 
 const returnedIn = (assignment: TerritoryAssignment, range?: StatsRange) => {
   const returned = parseDate(assignment.returnedOn);
-  if (!returned) return false;
+  if (!returned || !isCoverage(assignment)) return false;
 
   return !range || (returned >= range.start && returned <= range.end);
 };
@@ -417,6 +425,7 @@ export const gapBuckets = (territories: Territory[], range?: StatsRange) => {
 
   for (const territory of territories) {
     const sorted = territory.assignments
+      .filter(isCoverage)
       .map((assignment) => ({
         assigned: parseDate(assignment.assignedOn),
         returned: parseDate(assignment.returnedOn),
@@ -503,7 +512,12 @@ export const coverageGrid = (territories: Territory[], years: number[]) =>
 
     for (const territory of territories) {
       for (const assignment of territory.assignments) {
-        if (assignment.serviceYear !== year || !assignment.returnedOn) continue;
+        if (
+          assignment.serviceYear !== year ||
+          !assignment.returnedOn ||
+          !isCoverage(assignment)
+        )
+          continue;
 
         months[assignment.endMonth] += 1;
       }
@@ -561,9 +575,9 @@ export const waitingAge = (
 
   const lastReturned = Math.max(
     0,
-    ...territory.assignments.map(
-      (item) => parseDate(item.returnedOn)?.getTime() ?? 0
-    )
+    ...territory.assignments
+      .filter(isCoverage)
+      .map((item) => parseDate(item.returnedOn)?.getTime() ?? 0)
   );
 
   if (lastReturned) return { kind: 'waiting', days: daysAgo(lastReturned) };
@@ -624,7 +638,8 @@ export const appliedFilters = (filters: TerritoryFilters) =>
   filters.categories.length +
   (filters.coverage ? 1 : 0) +
   (filters.cardLostOnly ? 1 : 0) +
-  (filters.holder ? 1 : 0);
+  (filters.holder ? 1 : 0) +
+  (filters.campaign ? 1 : 0);
 
 // holder and status follow the open assignment, so a hand edit never leaves a stale holder
 export const withAssignments = (
@@ -637,7 +652,7 @@ export const withAssignments = (
 
   const lastReturned = Math.max(
     0,
-    ...assignments.map((item) => time(item.returnedOn))
+    ...assignments.filter(isCoverage).map((item) => time(item.returnedOn))
   );
 
   const daysSinceCovered = lastReturned

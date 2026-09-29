@@ -137,6 +137,8 @@ export type TerritoryFilters = {
   holder?: string;
   // the holder's earlier territories too, not only the ones held now
   holderPast?: boolean;
+  // worked for the special campaign, or not yet assigned for it
+  campaign?: { id: string; worked: boolean };
 };
 
 export type TerritoryAccess = 'own' | 'view' | 'request';

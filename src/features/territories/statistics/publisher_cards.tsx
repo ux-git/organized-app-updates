@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { useAtomValue } from 'jotai';
 import { Typography } from '@components/index';
-import Tooltip from '@components/tooltip';
 import {
   chartsCut,
   publisherCoverage,
@@ -72,15 +71,16 @@ export const PublisherSplit = ({
     >
       <Stack direction="row" spacing="4px" sx={{ height: '20px' }}>
         {rows.map((row) => (
-          <Tooltip key={row.label} title={tx(row.tooltip, { n: row.value })}>
-            <Box
-              sx={{
-                flexGrow: row.value || 0.02,
-                borderRadius: 'var(--radius-s)',
-                backgroundColor: row.color,
-              }}
-            />
-          </Tooltip>
+          // a plain title: the Tooltip's wrapper box would swallow the flexGrow
+          <Box
+            key={row.label}
+            title={tx(row.tooltip, { n: row.value })}
+            sx={{
+              flexGrow: row.value || 0.02,
+              borderRadius: 'var(--radius-s)',
+              backgroundColor: row.color,
+            }}
+          />
         ))}
       </Stack>
 

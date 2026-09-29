@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { Territory } from '@definition/territory';
-import { coverageRate } from '../coverage_rate';
+import type { Territory, TerritoryAssignment } from '@definition/territory';
+import { coverageRate, isCoverage, returnedWithin } from '../coverage_rate';
 
 const territory = (
   id: string,
-  assignments: { assignedOn: string; returnedOn?: string }[]
+  assignments: {
+    assignedOn: string;
+    returnedOn?: string;
+    campaign?: TerritoryAssignment['campaign'];
+  }[]
 ) =>
   ({
     id,
@@ -51,6 +55,42 @@ test('the first and the last day of the period both count', () => {
   ];
 
   assert.deepEqual(coverageRate(territories, year2026), {
+    rate: 67,
+    covered: 2,
+    total: 3,
+  });
+});
+
+test('work for a campaign is not coverage unless marked as such', () => {
+  const memorial = { id: 'memorial', name: 'Memorial invitations' };
+
+  assert.equal(isCoverage({}), true);
+  assert.equal(isCoverage({ campaign: memorial }), false);
+  assert.equal(isCoverage({ campaign: { ...memorial, coverage: true } }), true);
+});
+
+test('a campaign-only return does not cover the territory', () => {
+  const memorial = { id: 'memorial', name: 'Memorial invitations' };
+  const campaignOnly = territory('a', [
+    { assignedOn: '01.03.2026', returnedOn: '21.03.2026', campaign: memorial },
+  ]);
+  const counted = territory('b', [
+    {
+      assignedOn: '01.03.2026',
+      returnedOn: '21.03.2026',
+      campaign: { ...memorial, coverage: true },
+    },
+  ]);
+  const regular = territory('c', [
+    { assignedOn: '01.03.2026', returnedOn: '21.03.2026' },
+  ]);
+
+  assert.equal(
+    returnedWithin(campaignOnly, year2026.start, year2026.end),
+    false
+  );
+  assert.equal(returnedWithin(counted, year2026.start, year2026.end), true);
+  assert.deepEqual(coverageRate([campaignOnly, counted, regular], year2026), {
     rate: 67,
     covered: 2,
     total: 3,

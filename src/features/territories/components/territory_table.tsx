@@ -23,6 +23,9 @@ import { useBreakpoints } from '@hooks/index';
 import { shortDateFormatState } from '@states/settings';
 import { displayDate, parseDate, emptyListMessage } from '../helpers';
 import { currentPublisherState } from '../assignees';
+import { isCoverage } from '../coverage_rate';
+import { territoryCampaignsState } from '../campaigns';
+import { campaignEnded } from '../campaign_filter';
 import {
   STATUS_LABEL,
   Territory,
@@ -108,6 +111,7 @@ const openAssignment = (territory: Territory) =>
 
 const lastReturn = (territory: Territory) =>
   territory.assignments
+    .filter(isCoverage)
     .map((assignment) => assignment.returnedOn)
     .filter((value): value is string => !!value)
     .sort((a, b) => time(b) - time(a))
@@ -157,6 +161,7 @@ const StatusLine = ({
   showHolder?: boolean;
 }) => {
   const shortDateFormat = useAtomValue(shortDateFormatState);
+  const campaigns = useAtomValue(territoryCampaignsState);
 
   const date = (value?: string) => displayDate(value, shortDateFormat);
 
@@ -178,7 +183,14 @@ const StatusLine = ({
   }
 
   const overdue = territory.status === 'overdue';
-  const assigned = openAssignment(territory)?.assignedOn;
+  const open = openAssignment(territory);
+  const assigned = open?.assignedOn;
+
+  // the holder's own row asks for the territory back once its campaign is over
+  const status =
+    open && campaignEnded(open, campaigns)
+      ? tx('Campaign over – please return')
+      : tx(STATUS_LABEL[territory.status]);
 
   return (
     <Stack
@@ -195,7 +207,7 @@ const StatusLine = ({
         className="label-small-regular"
         color={overdue ? 'var(--red-main)' : 'var(--grey-400)'}
         text={[
-          showHolder ? territory.holder : tx(STATUS_LABEL[territory.status]),
+          showHolder ? territory.holder : status,
           assigned && date(assigned),
         ]
           .filter(Boolean)

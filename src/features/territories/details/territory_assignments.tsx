@@ -8,7 +8,7 @@ import { IconAdd, IconEdit } from '@icons/index';
 import { Territory, TerritoryAssignment } from '@definition/territory';
 import RecordList from '../components/record_list';
 import RowAction from '../components/row_action';
-import { StatusBadge } from '../components/territory_badges';
+import { CampaignBadge, StatusBadge } from '../components/territory_badges';
 import {
   assignmentFromDates,
   assignmentIssues,
@@ -67,10 +67,11 @@ const TerritoryAssignments = ({
                 date: displayDate(assignment.assignedOn, format),
               }),
           warning: issuesText(assignmentIssues(assignment)),
-          badge: !assignment.returnedOn && (
-            <Box sx={{ flexShrink: 0 }}>
-              <StatusBadge status="in_work" />
-            </Box>
+          badge: (!assignment.returnedOn || assignment.campaign) && (
+            <Stack direction="row" spacing="4px" sx={{ flexShrink: 0 }}>
+              {!assignment.returnedOn && <StatusBadge status="in_work" />}
+              <CampaignBadge assignment={assignment} />
+            </Stack>
           ),
           actions: onChange && (
             <RowAction

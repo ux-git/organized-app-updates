@@ -47,8 +47,8 @@ const TerritoryHistoryPage = () => {
         <ExportS13Dialog
           isProcessing={isProcessing}
           onClose={() => setExportOpen(false)}
-          onExport={async (year) => {
-            await handleExport(year);
+          onExport={async (year, withCampaigns) => {
+            await handleExport(year, withCampaigns);
             setExportOpen(false);
           }}
         />

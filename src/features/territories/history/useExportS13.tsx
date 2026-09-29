@@ -10,14 +10,18 @@ import { formatDate } from '@utils/date';
 import { TemplateS13 } from '@views/index';
 import { S13Row } from '@views/territories/S13';
 import { Territory } from '@definition/territory';
+import { isCoverage } from '../coverage_rate';
 import { displayDate, parseDate, serviceYear } from '../helpers';
 
 const time = (value?: string) => parseDate(value)?.getTime() ?? 0;
 
+// campaign-only work is off the record unless asked for, and then marked "(A)";
+// the last date completed is always a regular covering
 const rowsFor = (
   territory: Territory,
   year: number,
-  format: string
+  format: string,
+  withCampaigns: boolean
 ): S13Row[] => {
   // service year N runs from 1 September of N-1 to 31 August of N
   const yearStart = new Date(year - 1, 8, 1).getTime();
@@ -26,17 +30,21 @@ const rowsFor = (
   const inYear = territory.assignments
     .filter(
       (item) =>
+        (withCampaigns || isCoverage(item)) &&
         time(item.assignedOn) <= yearEnd &&
         (item.returnedOn ? time(item.returnedOn) : Date.now()) >= yearStart
     )
     .sort((a, b) => time(a.assignedOn) - time(b.assignedOn));
 
   const lastCompleted = territory.assignments
-    .filter((item) => item.returnedOn && time(item.returnedOn) < yearStart)
+    .filter(
+      (item) =>
+        isCoverage(item) && item.returnedOn && time(item.returnedOn) < yearStart
+    )
     .sort((a, b) => time(b.returnedOn) - time(a.returnedOn))[0]?.returnedOn;
 
   const entries = inYear.map((item) => ({
-    publisher: item.publisher,
+    publisher: isCoverage(item) ? item.publisher : `${item.publisher} (A)`,
     assignedOn: displayDate(item.assignedOn, format),
     completedOn: item.returnedOn && displayDate(item.returnedOn, format),
   }));
@@ -60,7 +68,7 @@ const useExportS13 = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleExport = async (year = serviceYear()) => {
+  const handleExport = async (year = serviceYear(), withCampaigns = false) => {
     if (isProcessing) return;
 
     try {
@@ -70,7 +78,9 @@ const useExportS13 = () => {
         .sort((a, b) =>
           a.number.localeCompare(b.number, undefined, { numeric: true })
         )
-        .flatMap((territory) => rowsFor(territory, year, dateFormat));
+        .flatMap((territory) =>
+          rowsFor(territory, year, dateFormat, withCampaigns)
+        );
 
       const blob = await pdf(
         <TemplateS13

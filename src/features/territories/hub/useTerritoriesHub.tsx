@@ -21,7 +21,11 @@ import {
   withDerivedStatus,
 } from '../helpers';
 import { currentPublisherState, territoryAssigneesState } from '../assignees';
+import { territoryCampaignsState } from '../campaigns';
+import { campaignsOn } from '../campaign_dates';
+import { inCampaign } from '../campaign_filter';
 import {
+  TerritoryAssignment,
   TerritoryFilters,
   TerritoryStatus,
   TerritoryTab,
@@ -82,9 +86,12 @@ const useTerritoriesHub = () => {
     [restrictedCategories, restrictedTypes]
   );
 
+  const campaigns = useAtomValue(territoryCampaignsState);
+  const running = campaignsOn(campaigns, new Date())[0];
+
   const withStatus = useMemo(
-    () => withDerivedStatus(territories, overdueMonths),
-    [territories, overdueMonths]
+    () => withDerivedStatus(territories, overdueMonths, campaigns),
+    [territories, overdueMonths, campaigns]
   );
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [isBoard, setIsBoard] = useState(false);
@@ -179,7 +186,16 @@ const useTerritoriesHub = () => {
     // own territories have no filters, so none left over from other tabs apply
     if (OWN_TABS.has(tabId)) return list;
 
-    return applyFilters(list, filters);
+    const filtered = applyFilters(list, filters);
+
+    // during a special campaign, the ones it has not reached yet come first
+    return tabId === 'recommended' && running
+      ? filtered.sort(
+          (a, b) =>
+            Number(inCampaign(a, running.id)) -
+            Number(inCampaign(b, running.id))
+        )
+      : filtered;
   }, [
     withStatus,
     tabId,
@@ -188,6 +204,7 @@ const useTerritoriesHub = () => {
     isTerritoryEditor,
     groupHolder,
     restricted,
+    running,
   ]);
 
   const boardTerritories = useMemo(
@@ -236,12 +253,16 @@ const useTerritoriesHub = () => {
     setSelecting(false);
   };
 
-  const assignMany = (publisher: string, assignedOn?: Date) => {
+  const assignMany = (
+    publisher: string,
+    assignedOn?: Date,
+    campaign?: TerritoryAssignment['campaign'] | null
+  ) => {
     const ids = selected
       .filter((territory) => territory.status === 'available')
       .map((territory) => territory.id);
 
-    actions.assignMany(ids, publisher, assignedOn);
+    actions.assignMany(ids, publisher, assignedOn, campaign);
 
     setAssignManyOpen(false);
     clearChecked();
@@ -286,6 +307,7 @@ const useTerritoriesHub = () => {
     setFilters,
     filtersOpen,
     setFiltersOpen,
+    running,
     visible,
     boardTerritories,
     territories,

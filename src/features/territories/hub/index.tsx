@@ -31,6 +31,7 @@ import {
 } from '@definition/territory';
 import Card from '@components/card';
 import BoardView from '../components/board_view';
+import CampaignBanner from '../components/campaign_banner';
 import AssignDialog from '../components/assign_dialog';
 import AssignReturnDialogs from '../components/assign_return_dialogs';
 import MyHistory from '../components/my_history';
@@ -327,6 +328,15 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
           search={filters.search}
           territories={territories}
           onOpen={handleOpen}
+        />
+      )}
+
+      {!isMine && hub.running && (
+        <CampaignBanner
+          campaign={hub.running}
+          territories={territories}
+          filters={filters}
+          onChange={setFilters}
         />
       )}
 

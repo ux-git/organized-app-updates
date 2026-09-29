@@ -7,8 +7,17 @@ import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import MenuSubHeader from '@components/menu_sub_header';
+import SwitchWithLabel from '@components/switch_with_label';
 import { useBreakpoints } from '@hooks/index';
 import { territoryAssigneesState } from '../assignees';
+import { territoryCampaignsState } from '../campaigns';
+import {
+  campaignChoices,
+  campaignFor,
+  campaignOverlaps,
+  campaignSnapshot,
+} from '../campaign_dates';
+import CampaignField, { CampaignChoice } from '../components/campaign_field';
 import {
   assignmentFromDates,
   assignmentIssues,
@@ -39,6 +48,7 @@ const AssignmentEditor = ({
   const { tablet600Up } = useBreakpoints();
 
   const assignees = useAtomValue(territoryAssigneesState);
+  const campaigns = useAtomValue(territoryCampaignsState);
 
   const [publisher, setPublisher] = useState(assignment.publisher);
   const [assignedOn, setAssignedOn] = useState<Date | null>(
@@ -47,6 +57,23 @@ const AssignmentEditor = ({
   const [returnedOn, setReturnedOn] = useState<Date | null>(
     parseDate(assignment.returnedOn)
   );
+
+  // a new one starts from the campaign running on its day, like an assignment
+  const [campaign, setCampaign] = useState<CampaignChoice>(() => {
+    const value =
+      assignment.campaign ??
+      (isNew
+        ? campaignFor(campaigns, parseDate(assignment.assignedOn) ?? new Date())
+        : undefined);
+
+    return { checked: !!value, value };
+  });
+  const [coverage, setCoverage] = useState(!!assignment.campaign?.coverage);
+
+  const overlapping = campaigns.filter((item) =>
+    campaignOverlaps(item, assignedOn ?? new Date(), returnedOn ?? new Date())
+  );
+  const choices = campaignChoices(campaigns, new Date());
 
   const returnedTooEarly =
     !!assignedOn &&
@@ -143,6 +170,26 @@ const AssignmentEditor = ({
         </Box>
       </Stack>
 
+      {(campaigns.length > 0 || campaign.value) && (
+        <CampaignField
+          label={tx('For the campaign')}
+          running={overlapping}
+          choices={choices}
+          checked={campaign.checked}
+          value={campaign.value}
+          onChange={setCampaign}
+        />
+      )}
+
+      {campaign.checked && campaign.value && (
+        <SwitchWithLabel
+          label={tx('Counts as regular coverage')}
+          helper={tx('The territory counts as covered by this work too.')}
+          checked={coverage}
+          onChange={setCoverage}
+        />
+      )}
+
       {secondOpen && (
         <InfoNote
           message={tx(
@@ -159,14 +206,18 @@ const AssignmentEditor = ({
           variant="main"
           disabled={!publisher || returnedTooEarly || secondOpen}
           onClick={() => {
-            onSave(
-              assignmentFromDates(
+            onSave({
+              ...assignmentFromDates(
                 assignment,
                 publisher,
                 assignedOn ?? new Date(),
                 returnedOn
-              )
-            );
+              ),
+              campaign:
+                campaign.checked && campaign.value
+                  ? campaignSnapshot(campaign.value, coverage)
+                  : undefined,
+            });
             onClose();
           }}
         >

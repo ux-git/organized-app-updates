@@ -13,6 +13,7 @@ import {
 import { useCurrentUser } from '@hooks/index';
 import { appliedFilters, clearedFilters, COVERAGE_PERIODS } from '../helpers';
 import HolderPicker from './holder_picker';
+import CampaignChips from './campaign_chips';
 import { tx } from '@services/i18n/translation';
 
 const Group = ({ label, children }: { label: string; children: ReactNode }) => (
@@ -187,6 +188,8 @@ const TerritoryFilters = ({
             ))}
           </Group>
         ))}
+
+        <CampaignChips filters={filters} onChange={onChange} />
       </Box>
 
       {showClear && (

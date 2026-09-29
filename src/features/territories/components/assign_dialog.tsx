@@ -11,8 +11,15 @@ import MenuSubHeader from '@components/menu_sub_header';
 import { useBreakpoints } from '@hooks/index';
 import { IconCancelCicle } from '@icons/index';
 import { territoryAssigneesState } from '../assignees';
+import { territoryCampaignsState } from '../campaigns';
+import {
+  campaignChoices,
+  campaignSnapshot,
+  campaignsOn,
+} from '../campaign_dates';
 import { assignmentIssues, suggestedPublisher, toStoredDate } from '../helpers';
-import { Territory } from '@definition/territory';
+import CampaignField, { CampaignChoice } from './campaign_field';
+import { Territory, TerritoryAssignment } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 
 type AssignDialogProps = {
@@ -23,7 +30,11 @@ type AssignDialogProps = {
   doNotCallNote?: string;
   territories: Territory[];
   onClose: VoidFunction;
-  onAssign: (publisher: string, assignedOn: Date) => void;
+  onAssign: (
+    publisher: string,
+    assignedOn: Date,
+    campaign: TerritoryAssignment['campaign'] | null
+  ) => void;
 };
 
 const AssignDialog = ({
@@ -47,6 +58,14 @@ const AssignDialog = ({
   const groups = new Set(
     assignees.filter((assignee) => assignee.group).map(({ name }) => name)
   );
+
+  const campaigns = useAtomValue(territoryCampaignsState);
+  const running = assignedOn ? campaignsOn(campaigns, assignedOn) : [];
+  const choices = campaignChoices(campaigns, new Date());
+
+  // the assigned-on date decides until the checkbox is touched
+  const [manual, setManual] = useState<CampaignChoice>();
+  const campaign = manual ?? { checked: running.length > 0, value: running[0] };
 
   const suggestion = suggestedPublisher(territories, assignees);
 
@@ -119,6 +138,17 @@ const AssignDialog = ({
         </Box>
       </Stack>
 
+      {campaigns.length > 0 && (
+        <CampaignField
+          label={tx('For the campaign')}
+          running={running}
+          choices={choices}
+          checked={campaign.checked}
+          value={campaign.value}
+          onChange={setManual}
+        />
+      )}
+
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
           {tx('Cancel')}
@@ -128,7 +158,13 @@ const AssignDialog = ({
           disabled={!publisher}
           onClick={() => {
             if (!publisher) return;
-            onAssign(publisher, assignedOn ?? new Date());
+            onAssign(
+              publisher,
+              assignedOn ?? new Date(),
+              campaign.checked && campaign.value
+                ? campaignSnapshot(campaign.value)
+                : null
+            );
             onClose();
           }}
         >

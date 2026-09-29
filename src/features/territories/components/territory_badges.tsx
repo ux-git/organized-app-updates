@@ -1,7 +1,7 @@
 import { Box, Stack } from '@mui/material';
 import Tooltip from '@components/tooltip';
 import { Badge } from '@components/index';
-import { IconCancelCicle, IconRaiseHand } from '@icons/index';
+import { IconCampaign, IconCancelCicle, IconRaiseHand } from '@icons/index';
 import { daysLabel, doNotCallLabel, olderOpenAssignments } from '../helpers';
 import { categoryBadge } from '../category_colors';
 import { useAtomValue } from 'jotai';
@@ -10,6 +10,7 @@ import {
   STATUS_COLOR,
   STATUS_LABEL,
   Territory,
+  TerritoryAssignment,
   TerritoryStatus,
 } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
@@ -148,6 +149,26 @@ export const AssignedTwiceBadge = ({ territory }: { territory: Territory }) => {
         />
       </Box>
     </Tooltip>
+  );
+};
+
+// the campaign the work was filed under, by the name it had at the time
+export const CampaignBadge = ({
+  assignment,
+}: {
+  assignment: TerritoryAssignment;
+}) => {
+  if (!assignment.campaign) return null;
+
+  return (
+    <Badge
+      size="small"
+      color="accent"
+      filled={false}
+      text={assignment.campaign.name}
+      icon={<IconCampaign color="var(--accent-dark)" />}
+      sx={{ width: 'fit-content', ...shrink(assignment.campaign.name) }}
+    />
   );
 };
 

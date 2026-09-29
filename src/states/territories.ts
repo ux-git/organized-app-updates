@@ -17,6 +17,7 @@ import {
   withAssignments,
   withDerivedStatus,
 } from '@features/territories/helpers';
+import { territoryCampaignsState } from '@features/territories/campaigns';
 import { monthShortNamesState } from './app';
 
 // the samples follow the people they name until the first edit
@@ -41,7 +42,8 @@ export const territoriesWithStatusState = atom((get) =>
     get(territoriesState).map((territory) =>
       withAssignments(territory, territory.assignments)
     ),
-    get(territoryOverdueMonthsState)
+    get(territoryOverdueMonthsState),
+    get(territoryCampaignsState)
   )
 );
 

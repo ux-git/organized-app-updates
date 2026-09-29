@@ -1,28 +1,40 @@
 import { useCallback, useState } from 'react';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { territoriesState } from '@states/territories';
-import { Territory } from '@definition/territory';
+import { Territory, TerritoryAssignment } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 import { assignmentFromDates, parseDate } from './helpers';
+import { territoryCampaignsState } from './campaigns';
+import { campaignFor, campaignSnapshot } from './campaign_dates';
+import { isCoverage } from './coverage_rate';
+
+// undefined leaves an assignment's campaign as it is, null clears it
+type Campaign = TerritoryAssignment['campaign'] | null;
 
 const daysSince = (date: Date) =>
   Math.max(0, Math.round((Date.now() - date.getTime()) / 86400000));
 
-const closeOpen = (territory: Territory, end: Date) =>
+const closeOpen = (territory: Territory, end: Date, campaign?: Campaign) =>
   territory.assignments.map((item) =>
     item.returnedOn
       ? item
-      : assignmentFromDates(
-          item,
-          item.publisher,
-          parseDate(item.assignedOn) ?? end,
-          end
-        )
+      : {
+          ...assignmentFromDates(
+            item,
+            item.publisher,
+            parseDate(item.assignedOn) ?? end,
+            end
+          ),
+          ...(campaign === undefined
+            ? {}
+            : { campaign: campaign ?? undefined }),
+        }
   );
 
 // assigning and returning, shared by the list and a territory's own page
 const useAssignReturn = () => {
   const [territories, setTerritories] = useAtom(territoriesState);
+  const campaigns = useAtomValue(territoryCampaignsState);
 
   const [assignId, setAssignId] = useState<string | undefined>();
   const [returnId, setReturnId] = useState<string | undefined>();
@@ -67,8 +79,19 @@ const useAssignReturn = () => {
   const numberOf = (id: string) =>
     territories.find((territory) => territory.id === id)?.number ?? '';
 
-  const assign = (id: string, publisher: string, assignedOn?: Date) => {
+  // without a say from a dialog, the campaign running on the day applies
+  const assign = (
+    id: string,
+    publisher: string,
+    assignedOn?: Date,
+    campaign?: Campaign
+  ) => {
     const start = assignedOn ?? new Date();
+    const running = campaignFor(campaigns, start);
+    const filedUnder =
+      campaign === undefined
+        ? running && campaignSnapshot(running)
+        : (campaign ?? undefined);
 
     patch(id, (territory) => ({
       status: 'in_work',
@@ -78,71 +101,108 @@ const useAssignReturn = () => {
       reviewNeeded: false,
       assignments: [
         ...closeOpen(territory, start),
-        assignmentFromDates(
-          {
-            id: `ta-${Date.now()}-${id}`,
+        {
+          ...assignmentFromDates(
+            {
+              id: `ta-${Date.now()}-${id}`,
+              publisher,
+              assignedOn: '',
+              serviceYear: 0,
+              months: 0,
+              startMonth: 0,
+              endMonth: 0,
+            },
             publisher,
-            assignedOn: '',
-            serviceYear: 0,
-            months: 0,
-            startMonth: 0,
-            endMonth: 0,
-          },
-          publisher,
-          start,
-          null
-        ),
+            start,
+            null
+          ),
+          ...(filedUnder ? { campaign: filedUnder } : {}),
+        },
       ],
     }));
+
+    return !!filedUnder;
   };
 
-  const giveBack = (id: string, households?: number, returnedOn?: Date) => {
+  const giveBack = (
+    id: string,
+    households?: number,
+    returnedOn?: Date,
+    campaign?: Campaign
+  ) => {
     const end = returnedOn ?? new Date();
 
-    patch(id, (territory) => ({
-      status: 'available',
-      holder: undefined,
-      daysOut: undefined,
-      daysSinceCovered: daysSince(end),
-      reviewNeeded: households === undefined,
-      ...(households === undefined ? {} : { households }),
-      assignments: closeOpen(territory, end),
-    }));
+    patch(id, (territory) => {
+      // a campaign-only return leaves the last coverage where it was
+      const open = territory.assignments.find((item) => !item.returnedOn);
+      const filedUnder =
+        campaign === undefined ? open?.campaign : (campaign ?? undefined);
+      const covered = !open || isCoverage({ campaign: filedUnder });
+
+      return {
+        status: 'available',
+        holder: undefined,
+        daysOut: undefined,
+        ...(covered ? { daysSinceCovered: daysSince(end) } : {}),
+        reviewNeeded: households === undefined,
+        ...(households === undefined ? {} : { households }),
+        assignments: closeOpen(territory, end, campaign),
+      };
+    });
   };
 
-  const handleAssign = (id: string, publisher: string, assignedOn?: Date) => {
-    assign(id, publisher, assignedOn);
-    remember(
-      [id],
-      tx('{{number}} assigned to {{name}}', {
-        number: numberOf(id),
-        name: publisher,
-      })
-    );
+  const assignedText = (id: string, publisher: string, flagged: boolean) => {
+    const values = { number: numberOf(id), name: publisher };
+
+    return flagged
+      ? tx('{{number}} assigned to {{name}} for the campaign', values)
+      : tx('{{number}} assigned to {{name}}', values);
   };
 
-  const handleReturn = (id: string, households?: number, returnedOn?: Date) => {
-    giveBack(id, households, returnedOn);
+  const handleAssign = (
+    id: string,
+    publisher: string,
+    assignedOn?: Date,
+    campaign?: Campaign
+  ) => {
+    const flagged = assign(id, publisher, assignedOn, campaign);
+    remember([id], assignedText(id, publisher, flagged));
+  };
+
+  const handleReturn = (
+    id: string,
+    households?: number,
+    returnedOn?: Date,
+    campaign?: Campaign
+  ) => {
+    giveBack(id, households, returnedOn, campaign);
     remember([id], tx('{{number}} returned', { number: numberOf(id) }));
   };
 
   const handleDecline = (id: string) =>
     patch(id, () => ({ requestedBy: undefined }));
 
-  const assignMany = (ids: string[], publisher: string, assignedOn?: Date) => {
-    ids.forEach((id) => assign(id, publisher, assignedOn));
+  const assignMany = (
+    ids: string[],
+    publisher: string,
+    assignedOn?: Date,
+    campaign?: Campaign
+  ) => {
+    const flagged = ids
+      .map((id) => assign(id, publisher, assignedOn, campaign))
+      .some(Boolean);
+    const values = { n: ids.length, name: publisher };
 
     remember(
       ids,
       ids.length === 1
-        ? tx('{{number}} assigned to {{name}}', {
-            number: numberOf(ids[0]),
-            name: publisher,
-          })
-        : tx('{{n}} territories assigned to {{name}}', {
-            n: ids.length,
-            name: publisher,
-          })
+        ? assignedText(ids[0], publisher, flagged)
+        : flagged
+          ? tx(
+              '{{n}} territories assigned to {{name}} for the campaign',
+              values
+            )
+          : tx('{{n}} territories assigned to {{name}}', values)
     );
   };
 

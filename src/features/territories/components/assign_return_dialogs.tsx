@@ -40,8 +40,13 @@ const AssignReturnDialogs = ({
           }
           territories={actions.territories}
           onClose={actions.closeAssign}
-          onAssign={(publisher, assignedOn) =>
-            actions.handleAssign(assignTarget.id, publisher, assignedOn)
+          onAssign={(publisher, assignedOn, campaign) =>
+            actions.handleAssign(
+              assignTarget.id,
+              publisher,
+              assignedOn,
+              campaign
+            )
           }
         />
       )}
@@ -49,6 +54,7 @@ const AssignReturnDialogs = ({
       {returnTarget && (
         <ReturnDialog
           territory={returnTarget}
+          own={!canAssign}
           onClose={actions.closeReturn}
           onReturn={actions.handleReturn}
           onAssignAgain={canAssign ? actions.handleAssign : undefined}

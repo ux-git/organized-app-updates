@@ -8,6 +8,8 @@ import { format } from 'date-fns';
 import { appLocaleState, monthShortNamesState } from '@states/app';
 import { tx } from '@services/i18n/translation';
 import { territoriesWithStatusState } from '@states/territories';
+import { territoryCampaignsState } from '../campaigns';
+import { currentCampaign } from '../campaign_filter';
 import {
   averageDuration,
   chartsCut,
@@ -35,6 +37,7 @@ import {
   PublisherTrend,
 } from './publisher_cards';
 import CoverageCycleCard from './coverage_cycle_card';
+import CampaignCard from './campaign_card';
 
 const dayStart = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -53,6 +56,7 @@ const TerritoriesStatistics = () => {
 
   const territories = useAtomValue(territoriesWithStatusState);
   const monthNames = useAtomValue(monthShortNamesState);
+  const campaigns = useAtomValue(territoryCampaignsState);
 
   const locale = useAtomValue(appLocaleState);
 
@@ -115,6 +119,10 @@ const TerritoriesStatistics = () => {
   const ages = doNotCallAges(territories, range);
   const buckets = trimEmptyBands(durationBuckets(territories, range));
   const maxBucket = Math.max(...buckets.map((bucket) => bucket.value), 1);
+
+  // first while a campaign runs or has just ended, otherwise down with the rest
+  const campaignCard = <CampaignCard territories={territories} />;
+  const campaignFirst = !!currentCampaign(campaigns);
 
   return (
     <Box
@@ -200,6 +208,8 @@ const TerritoriesStatistics = () => {
           </Box>
         )}
       </Box>
+
+      {campaignFirst && campaignCard}
 
       <ChartCard
         title={tx('Coverage')}
@@ -324,6 +334,8 @@ const TerritoriesStatistics = () => {
       <PublisherSplit territories={territories} />
 
       <PublisherTrend territories={territories} range={range} />
+
+      {!campaignFirst && campaignCard}
 
       <AttentionCard territories={territories} />
     </Box>
