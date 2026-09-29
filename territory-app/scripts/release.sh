@@ -15,13 +15,21 @@ export PATH="$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin:$PATH"
 BT=$ANDROID_HOME/build-tools/35.0.0
 V=$(node -p "require('./src-tauri/tauri.conf.json').version")
 UNSIGNED=src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+KS=$HOME/.android/territories-release.jks
+LINEAGE=$HOME/.android/territories-release.lineage
+KS_ENV=$HOME/.android/territories-release.env
+for f in $KS $LINEAGE $KS_ENV; do [[ -f $f ]] || { echo "FAIL $f missing: see docs/signing.md"; exit 1; }; done
+source $KS_ENV; export TERRITORIES_KS_PASS
 
 apk() { # $1 = output name
   rm -rf dist
   npm run tauri -- android build --apk --target aarch64 > $LOGS/android-$1.log 2>&1 || { echo "FAIL android $1"; tail -30 $LOGS/android-$1.log; return 1; }
   rm -f $LOGS/aligned.apk
+  # the old debug key still signs v1/v2 for Android 7-8; Android 9+ follow the v3 lineage to the release key
   $BT/zipalign -p -f 4 $UNSIGNED $LOGS/aligned.apk && \
-  $BT/apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android --ks-key-alias androiddebugkey --out ~/Downloads/$1 $LOGS/aligned.apk && echo "OK $1"
+  $BT/apksigner sign --ks $KS --ks-key-alias androiddebugkey --ks-pass env:TERRITORIES_KS_PASS \
+    --next-signer --ks $KS --ks-key-alias territories --ks-pass env:TERRITORIES_KS_PASS \
+    --lineage $LINEAGE --rotation-min-sdk-version 28 --out ~/Downloads/$1 $LOGS/aligned.apk && echo "OK $1"
   rm -f $LOGS/aligned.apk
 }
 
