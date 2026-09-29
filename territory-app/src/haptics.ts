@@ -1,6 +1,6 @@
 import { WebHaptics, type Vibration } from 'web-haptics';
 import { store } from '@states/index';
-import { hapticsEnabledState } from '@states/settings';
+import { hapticsEnabledState, settingsState } from '@states/settings';
 import { HAPTIC_PATTERNS, type HapticIntent } from '@services/haptics/patterns';
 
 export type { HapticIntent } from '@services/haptics/patterns';
@@ -9,6 +9,25 @@ declare global {
   interface Window {
     OrganizedHaptics?: { perform: (intent: string) => boolean };
   }
+}
+
+// per device, in localStorage like the theme, not in the synced store
+const ENABLED = 'haptics_enabled';
+
+const apply = (on: boolean) =>
+  store.set(settingsState, (settings) => ({
+    ...settings,
+    user_settings: {
+      ...settings.user_settings,
+      haptics_enabled: { value: on, updatedAt: '' },
+    },
+  }));
+
+// on import: nothing else writes the setting, and only this module reads it
+try {
+  apply(localStorage.getItem(ENABLED) !== 'false');
+} catch {
+  // stays on
 }
 
 // Android's own effects follow the system's touch feedback setting and need
@@ -175,6 +194,18 @@ export const play = (name: SyncHaptic) => {
 export const toggled = (on: boolean) => {
   play(on ? 'toggleOn' : 'toggleOff');
   return on;
+};
+
+export const setHapticsEnabled = (on: boolean) => {
+  // felt while still on: a preview right after turning on, once more before off
+  if (on) apply(true);
+  toggled(on);
+  if (!on) apply(false);
+  try {
+    localStorage.setItem(ENABLED, String(on));
+  } catch {
+    // applies until the app restarts
+  }
 };
 
 /** A choice (a select, radio or tab), felt as a tick; hands it on. */

@@ -21,7 +21,8 @@ import ProfilePictureEntry from '@features/my_profile/user_profile_details/profi
 import PublisherSearch from '@features/territories/components/publisher_search';
 import { useBreakpoints } from '@hooks/index';
 import { isDarkThemeState } from '@states/app';
-import { chosen, pickedRadio, toggled } from '../haptics';
+import { hapticsEnabledState } from '@states/settings';
+import { chosen, pickedRadio, setHapticsEnabled, toggled } from '../haptics';
 import { invoke } from '../native';
 import {
   loadIdentity,
@@ -47,13 +48,14 @@ const failed = (error: unknown) => {
 };
 
 // My profile: the name and picture paired phones show for this one, the
-// publisher it belongs to, the language and the theme
+// publisher it belongs to, the language, the theme and the vibration
 const Profile = () => {
   const { i18n } = useTranslation();
   const { tabletDown } = useBreakpoints();
   const { name } = useNearby();
   const isDark = useAtomValue(isDarkThemeState);
   const followSystem = useAtomValue(followSystemState);
+  const haptics = useAtomValue(hapticsEnabledState);
   const avatar = useAtomValue(myAvatarState);
   const link = useAtomValue(myLinkState);
   const publishers = useAtomValue(peopleState)
@@ -256,6 +258,16 @@ const Profile = () => {
             </Box>
           </Stack>
         </CardSectionContent>
+      </CardSection>
+
+      <CardSection>
+        <CardSectionHeader title={t('settings.vibration')} />
+        <SwitchWithLabel
+          label={t('settings.haptics')}
+          helper={t('settings.hapticsText')}
+          checked={haptics}
+          onChange={setHapticsEnabled}
+        />
       </CardSection>
     </>
   );

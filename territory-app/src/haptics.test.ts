@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import { store } from '@states/index';
-import { settingsState } from '@states/settings';
+import { hapticsEnabledState, settingsState } from '@states/settings';
 import { HAPTIC_PATTERNS } from '@services/haptics/patterns';
 
 const trigger = vi.fn(async () => {});
@@ -18,7 +18,8 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-const { announceFound, chosen, play, toggled } = await import('./haptics');
+const { announceFound, chosen, play, setHapticsEnabled, toggled } =
+  await import('./haptics');
 
 const setEnabled = (value: boolean) =>
   store.set(settingsState, (settings) => ({
@@ -177,5 +178,40 @@ describe('found', () => {
     await settle();
     expect(played()).toEqual(['found', 'found']);
     expect([...announced]).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('the switch in My profile', () => {
+  test('off is felt before, on right after', async () => {
+    setHapticsEnabled(false);
+    expect(store.get(hapticsEnabledState)).toBe(false);
+    await settle();
+    later(1000);
+    play('paired');
+    await settle();
+    later(1000);
+    setHapticsEnabled(true);
+    expect(store.get(hapticsEnabledState)).toBe(true);
+    await settle();
+    expect(played()).toEqual(['toggleOff', 'toggleOn']);
+  });
+
+  // a fresh start of the app, reading what's saved
+  const boot = async () => {
+    vi.resetModules();
+    // MUI takes any document for a browser's, so it comes back after the states
+    Reflect.deleteProperty(globalThis, 'document');
+    const { store } = await import('@states/index');
+    const { hapticsEnabledState } = await import('@states/settings');
+    await import('./haptics');
+    vi.stubGlobal('document', { hidden: false });
+    return store.get(hapticsEnabledState);
+  };
+
+  test('on by default, and what was picked is read on start', async () => {
+    expect(await boot()).toBe(true);
+    setHapticsEnabled(false);
+    expect(localStorage.getItem('haptics_enabled')).toBe('false');
+    expect(await boot()).toBe(false);
   });
 });

@@ -129,6 +129,9 @@
     "light": "Light",
     "dark": "Dark",
     "colorScheme": "Color scheme",
+    "vibration": "Vibration",
+    "haptics": "Haptic feedback",
+    "hapticsText": "Short vibrations on actions, when pairing and in the settings",
     "lastContact": "{{devices}} · Last synced with {{name}} {{when}}"
   },
   "campaigns": {

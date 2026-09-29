@@ -129,6 +129,9 @@
     "light": "Hell",
     "dark": "Dunkel",
     "colorScheme": "Farbenschema",
+    "vibration": "Vibration",
+    "haptics": "Haptisches Feedback",
+    "hapticsText": "Kurze Vibrationen bei Aktionen, beim Koppeln und in den Einstellungen",
     "lastContact": "{{devices}} · Zuletzt mit {{name}} synchronisiert, {{when}}"
   },
   "campaigns": {
