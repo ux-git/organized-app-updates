@@ -1,9 +1,14 @@
-import { PropsWithChildren } from 'react';
+import { ElementType, PropsWithChildren } from 'react';
 import { ListSubheader } from '@mui/material';
 
-const MenuSubHeader = ({ children }: PropsWithChildren) => {
+// a group label inside a list item is a div, not a nested li
+const MenuSubHeader = ({
+  children,
+  component,
+}: PropsWithChildren<{ component?: ElementType }>) => {
   return (
     <ListSubheader
+      component={component ?? 'li'}
       className="body-small-semibold"
       sx={{
         font: 'inherit',

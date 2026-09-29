@@ -67,7 +67,7 @@ const PublisherSearch = <T,>({
     }
     renderGroup={(params) => (
       <li key={params.key}>
-        <MenuSubHeader>{params.group}</MenuSubHeader>
+        <MenuSubHeader component="div">{params.group}</MenuSubHeader>
         <Box component="ul" sx={{ padding: 0 }}>
           {params.children}
         </Box>
