@@ -108,12 +108,13 @@ const useAssignReturn = () => {
         ? running && campaignSnapshot(running)
         : (campaign ?? undefined);
 
+    // handing it out is not reading its last note: the mark stays until an
+    // editor opens the territory, also when the holder takes it straight back
     patch(id, (territory) => ({
       status: 'in_work',
       holder: publisher,
       daysOut: daysSince(start),
       requestedBy: undefined,
-      reviewNeeded: false,
       assignments: [
         ...closeOpen(territory, start),
         {

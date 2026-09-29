@@ -75,6 +75,10 @@ const DoNotCallPanel = ({
           title: entry.address,
           subtitle: isPhone ? undefined : entry.name,
           date: displayDate(entry.date, format),
+          // a tap on a read-only address goes to the map, so it says so
+          trailing: !isPhone && !canEdit(entry) && (
+            <IconLocation color="var(--accent-main)" width={20} height={20} />
+          ),
           actions: (
             <>
               {!isPhone && (
@@ -122,6 +126,9 @@ const DoNotCallPanel = ({
           onDelete={() =>
             editing !== 'new' &&
             onChange(entries.filter((item) => item.id !== editing.id))
+          }
+          onOpenInMaps={(address) =>
+            openInMaps([address, territory.city].filter(Boolean).join(', '))
           }
         />
       )}

@@ -9,6 +9,7 @@ import SwitchWithLabel from '@components/switch_with_label';
 import { useBreakpoints } from '@hooks/index';
 import { IconCampaign, IconPrint } from '@icons/index';
 import { appLocaleState } from '@states/app';
+import { territoriesShowHouseholdsState } from '@states/territories';
 import { territoryCampaignsState } from '../campaigns';
 import {
   campaignLabel,
@@ -26,7 +27,7 @@ import { tx } from '@services/i18n/translation';
 
 type ReturnDialogProps = {
   territory?: Territory;
-  // a publisher giving back their own: no campaign decisions, no reassigning
+  // a publisher giving back their own: no campaign decisions
   own?: boolean;
   onClose: VoidFunction;
   onReturn: (
@@ -50,6 +51,7 @@ const ReturnDialog = ({
 
   const locale = useAtomValue(appLocaleState).code;
   const campaigns = useAtomValue(territoryCampaignsState);
+  const showHouseholds = useAtomValue(territoriesShowHouseholdsState);
 
   const open = territory?.assignments.find((item) => !item.returnedOn);
   const flagged = open?.campaign;
@@ -131,14 +133,16 @@ const ReturnDialog = ({
           />
         </Box>
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <TextField
-            label={tx('Households')}
-            type="number"
-            value={households}
-            onChange={(event) => setHouseholds(event.target.value)}
-          />
-        </Box>
+        {showHouseholds && (
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <TextField
+              label={tx('Households')}
+              type="number"
+              value={households}
+              onChange={(event) => setHouseholds(event.target.value)}
+            />
+          </Box>
+        )}
       </Stack>
 
       {/* a card went out with it: a nudge to take it back */}
@@ -190,7 +194,11 @@ const ReturnDialog = ({
 
       {holder && onAssignAgain && (
         <SwitchWithLabel
-          label={tx('Assign again to {{name}}', { name: holder })}
+          label={
+            own
+              ? tx('Assign again to me')
+              : tx('Assign again to {{name}}', { name: holder })
+          }
           helper={tx('Starts a new assignment on the same date')}
           checked={assignAgain}
           onChange={setAssignAgain}
@@ -209,7 +217,7 @@ const ReturnDialog = ({
 
             onReturn(
               territory.id,
-              Number(households) || territory.households,
+              (showHouseholds && Number(households)) || territory.households,
               date,
               chosen(),
               note.trim()

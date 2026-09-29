@@ -2,7 +2,8 @@ import { ReactNode } from 'react';
 import { Box, Stack } from '@mui/material';
 import { CustomDivider, InfoNote, Typography } from '@components/index';
 import { useBreakpoints } from '@hooks/index';
-import { clickableRow, rowStates } from './table_styles';
+import { IconChevronRight } from '@icons/index';
+import { clickableRow, HOVER_ACTIONS, rowStates } from './table_styles';
 
 type RecordItem = {
   id: string;
@@ -14,7 +15,10 @@ type RecordItem = {
   // a red line under the subtitle, e.g. dates that can't be right
   warning?: string;
   badge?: ReactNode;
+  // icon buttons for a wide screen; on a phone the row itself is the button
   actions?: ReactNode;
+  // what a phone shows at the end of a tappable row instead of the chevron
+  trailing?: ReactNode;
   onClick?: VoidFunction;
 };
 
@@ -47,20 +51,10 @@ const RecordList = ({
               alignItems: 'center',
               gap: '12px',
               padding: '10px 8px',
+              minHeight: tablet688Up ? undefined : '44px',
               borderRadius: 'var(--radius-m)',
               ...rowStates(false, !!item.onClick),
-              // the whole row opens the editor, so a mouse only needs the icon on hover
-              ...(item.onClick && {
-                '@media (hover: hover) and (pointer: fine)': {
-                  '& .row-actions': {
-                    opacity: 0,
-                    transition: 'opacity 0.15s ease',
-                  },
-                  '&:hover .row-actions, &:focus-within .row-actions': {
-                    opacity: 1,
-                  },
-                },
-              }),
+              ...(item.onClick && HOVER_ACTIONS),
             }}
           >
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -105,7 +99,7 @@ const RecordList = ({
               </Typography>
             )}
 
-            {item.actions && (
+            {tablet688Up && item.actions && (
               <Stack
                 direction="row"
                 className="row-actions"
@@ -115,6 +109,17 @@ const RecordList = ({
                 {item.actions}
               </Stack>
             )}
+
+            {!tablet688Up &&
+              item.onClick &&
+              (item.trailing || (
+                <IconChevronRight
+                  color="var(--grey-350)"
+                  width={20}
+                  height={20}
+                  sx={{ flexShrink: 0 }}
+                />
+              ))}
           </Stack>
         );
       })}

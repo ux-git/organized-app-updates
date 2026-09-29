@@ -7,10 +7,11 @@ import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { useBreakpoints } from '@hooks/index';
+import { IconLocation } from '@icons/index';
 import { DoNotCall } from '@definition/territory';
 import { parseDate, toStoredDate } from '../helpers';
 import { currentPublisherState } from '../assignees';
-import EditorHeader from './editor_header';
+import EditorHeader from '../components/editor_header';
 
 const DoNotCallEditor = ({
   entry,
@@ -18,6 +19,7 @@ const DoNotCallEditor = ({
   onClose,
   onSave,
   onDelete,
+  onOpenInMaps,
 }: {
   entry?: DoNotCall;
   // a phone territory marks one of its own numbers instead of an address
@@ -25,6 +27,8 @@ const DoNotCallEditor = ({
   onClose: VoidFunction;
   onSave: (next: DoNotCall) => void;
   onDelete?: VoidFunction;
+  // the address as typed, in the maps app
+  onOpenInMaps?: (address: string) => void;
 }) => {
   const { tablet600Up } = useBreakpoints();
 
@@ -143,6 +147,19 @@ const DoNotCallEditor = ({
           />
         </Box>
       </Stack>
+
+      {onOpenInMaps && !numbers && (
+        <Button
+          variant="small"
+          disableAutoStretch
+          disabled={!address.trim()}
+          startIcon={<IconLocation color="var(--accent-main)" />}
+          onClick={() => onOpenInMaps(address.trim())}
+          sx={{ minHeight: '32px', minWidth: 'unset', marginTop: '-8px' }}
+        >
+          {tx('Open in maps')}
+        </Button>
+      )}
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>

@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Box } from '@mui/material';
 import { useAtomValue } from 'jotai';
-import { IconDelete, IconInfo, IconSync } from '@icons/index';
+import { IconChevronRight, IconDelete, IconInfo, IconSync } from '@icons/index';
+import Button from '@components/button';
+import Dialog from '@components/dialog';
+import DialogActions from '@components/dialog_actions';
 import IconButton from '@components/icon_button';
 import InfoTip from '@components/info_tip';
 import Typography from '@components/typography';
@@ -11,6 +14,8 @@ import {
   CardSectionContent,
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
+import EditorHeader from '@features/territories/components/editor_header';
+import { useBreakpoints } from '@hooks/index';
 import { invoke, listen, nearby } from '../native';
 import { t } from '../i18n';
 import { linkOf, linksState, peopleState } from '../profiles';
@@ -38,6 +43,7 @@ import {
 
 const Sync = () => {
   const READY: MethodState = { text: t('sync.ready'), color: 'green' };
+  const { tablet688Up } = useBreakpoints();
   const [params, setParams] = useSearchParams();
   const { peers, status, name, removed, refreshPeers, android } = useNearby();
   const [pairing, setPairing] = useState<PairMethod | null>(null);
@@ -49,6 +55,8 @@ const Sync = () => {
   // a paired device that no longer knows this one
   const [repair, setRepair] = useState<string | null>(null);
   const [sendTo, setSendTo] = useState<Peer | null>(null);
+  // a tapped device row, with its actions
+  const [device, setDevice] = useState<Peer | null>(null);
   const links = useAtomValue(linksState);
   const people = useAtomValue(peopleState);
   // only when the device goes by another name than the publisher
@@ -152,7 +160,7 @@ const Sync = () => {
       description: t('sync.removeText'),
       action: t('sync.remove'),
     });
-    if (!ok) return;
+    if (!ok) return false;
     try {
       await invoke('remove_peer', { id: peer.id });
       play('remove');
@@ -164,6 +172,7 @@ const Sync = () => {
       notify(t('common.somethingWrong'), String(error), 'error');
     }
     refreshPeers();
+    return true;
   };
 
   const syncNow = () => {
@@ -173,6 +182,19 @@ const Sync = () => {
 
   const nameOf = (id?: string | null) =>
     peers.find((peer) => peer.id === id)?.name || t('common.aPairedPhone');
+
+  const detailOf = (peer: Peer) =>
+    [
+      publisherOf(peer) && t('sync.publisher', { name: publisherOf(peer) }),
+      peer.introduced_by &&
+        t('sync.joinedThrough', { name: nameOf(peer.introduced_by) }),
+      ago(peer.last_sync),
+      peer.last_sync &&
+        peer.pending > 0 &&
+        t('sync.toSend', { count: peer.pending }),
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
   const { title, text } = hero();
 
@@ -255,41 +277,43 @@ const Sync = () => {
                 key={peer.id}
                 id={peer.id}
                 name={peer.name || t('common.unnamedPhone')}
-                detail={[
-                  publisherOf(peer) &&
-                    t('sync.publisher', { name: publisherOf(peer) }),
-                  peer.introduced_by &&
-                    t('sync.joinedThrough', {
-                      name: nameOf(peer.introduced_by),
-                    }),
-                  ago(peer.last_sync),
-                  peer.last_sync &&
-                    peer.pending > 0 &&
-                    t('sync.toSend', { count: peer.pending }),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
+                detail={detailOf(peer)}
+                onClick={() => setDevice(peer)}
                 trailing={
-                  <>
-                    <IconButton
-                      aria-label={t('sync.sendQr', {
-                        name: peer.name || t('common.unnamedPhone'),
-                      })}
-                      onClick={() => setSendTo(peer)}
+                  // on a phone the row is the button; its actions wait in the dialog
+                  tablet688Up ? (
+                    <Box
+                      className="row-actions"
+                      onClick={(event) => event.stopPropagation()}
+                      sx={{ display: 'flex' }}
                     >
-                      <IconQr color="var(--accent-main)" />
-                    </IconButton>
-                    <IconButton
-                      color="error"
-                      edge="end"
-                      aria-label={t('sync.removeLabel', {
-                        name: peer.name || t('common.unnamedPhone'),
-                      })}
-                      onClick={() => removePeer(peer)}
-                    >
-                      <IconDelete color="var(--red-main)" />
-                    </IconButton>
-                  </>
+                      <IconButton
+                        aria-label={t('sync.sendQr', {
+                          name: peer.name || t('common.unnamedPhone'),
+                        })}
+                        onClick={() => setSendTo(peer)}
+                      >
+                        <IconQr color="var(--accent-main)" />
+                      </IconButton>
+                      <IconButton
+                        color="error"
+                        edge="end"
+                        aria-label={t('sync.removeLabel', {
+                          name: peer.name || t('common.unnamedPhone'),
+                        })}
+                        onClick={() => removePeer(peer)}
+                      >
+                        <IconDelete color="var(--red-main)" />
+                      </IconButton>
+                    </Box>
+                  ) : (
+                    <IconChevronRight
+                      color="var(--grey-350)"
+                      width={20}
+                      height={20}
+                      sx={{ flexShrink: 0 }}
+                    />
+                  )
                 }
               />
             ))}
@@ -373,6 +397,37 @@ const Sync = () => {
         }}
       />
       <QrSendDialog peer={sendTo} onClose={() => setSendTo(null)} />
+      {device && (
+        <Dialog
+          open
+          onClose={() => setDevice(null)}
+          header={
+            <EditorHeader
+              title={device.name || t('common.unnamedPhone')}
+              description={detailOf(device)}
+              deleteLabel={t('sync.remove')}
+              onDelete={async () => {
+                if (await removePeer(device)) setDevice(null);
+              }}
+            />
+          }
+        >
+          <DialogActions>
+            <Button variant="secondary" onClick={() => setDevice(null)}>
+              {t('common.done')}
+            </Button>
+            <Button
+              variant="main"
+              onClick={() => {
+                setDevice(null);
+                setSendTo(device);
+              }}
+            >
+              {t('sync.sendQrButton')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </>
   );
 };

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
-import { IconAdd, IconDelete } from '@icons/index';
+import { IconAdd, IconChevronRight, IconDelete } from '@icons/index';
 import Button from '@components/button';
 import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
@@ -16,6 +16,8 @@ import {
   CardSection,
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
+import EditorHeader from '@features/territories/components/editor_header';
+import { HOVER_ACTIONS } from '@features/territories/components/table_styles';
 import { useBreakpoints } from '@hooks/index';
 import { NavBarOptionsType } from '@definition/app';
 import { TerritoryCampaign } from '@definition/territory';
@@ -35,10 +37,12 @@ const CampaignDialog = ({
   campaign,
   onClose,
   onSave,
+  onRemove,
 }: {
   campaign: TerritoryCampaign | 'new' | null;
   onClose: VoidFunction;
   onSave: (campaign: TerritoryCampaign) => void;
+  onRemove?: VoidFunction;
 }) => {
   const { tablet600Up } = useBreakpoints();
   const existing = campaign && campaign !== 'new' ? campaign : null;
@@ -71,7 +75,13 @@ const CampaignDialog = ({
     <Dialog
       open={!!campaign}
       onClose={onClose}
-      title={existing ? t('campaigns.edit') : t('campaigns.add')}
+      header={
+        <EditorHeader
+          title={existing ? t('campaigns.edit') : t('campaigns.add')}
+          onDelete={existing ? onRemove : undefined}
+          deleteLabel={t('common.remove')}
+        />
+      }
     >
       <TextField
         label={t('campaigns.name')}
@@ -121,6 +131,7 @@ const CampaignDialog = ({
 
 // the settings page names it; it adds its own Add button
 const Campaigns = ({ title }: { title: NavBarOptionsType }) => {
+  const { tablet688Up } = useBreakpoints();
   const [campaigns, setCampaigns] = useAtom(territoryCampaignsState);
   const locale = useAtomValue(appLocaleState);
   const [editing, setEditing] = useState<TerritoryCampaign | 'new' | null>(
@@ -138,9 +149,10 @@ const Campaigns = ({ title }: { title: NavBarOptionsType }) => {
       description: t('campaigns.removeText'),
       action: t('common.remove'),
     });
-    if (!ok) return;
+    if (!ok) return false;
     play('remove');
     setCampaigns(campaigns.filter((item) => item.id !== campaign.id));
+    return true;
   };
 
   return (
@@ -188,6 +200,7 @@ const Campaigns = ({ title }: { title: NavBarOptionsType }) => {
                   borderRadius: 'var(--radius-l)',
                   cursor: 'pointer',
                   '&:hover': { backgroundColor: 'var(--accent-150)' },
+                  ...HOVER_ACTIONS,
                 }}
               >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -201,19 +214,30 @@ const Campaigns = ({ title }: { title: NavBarOptionsType }) => {
                     {campaignRange(campaign, locale.code)}
                   </Typography>
                 </Box>
-                <IconButton
-                  color="error"
-                  edge="end"
-                  aria-label={t('campaigns.removeLabel', {
-                    name: campaign.name,
-                  })}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    remove(campaign);
-                  }}
-                >
-                  <IconDelete color="var(--red-main)" />
-                </IconButton>
+                {/* on a phone the row is the button; removing waits in the dialog */}
+                {tablet688Up ? (
+                  <IconButton
+                    className="row-actions"
+                    color="error"
+                    edge="end"
+                    aria-label={t('campaigns.removeLabel', {
+                      name: campaign.name,
+                    })}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      remove(campaign);
+                    }}
+                  >
+                    <IconDelete color="var(--red-main)" />
+                  </IconButton>
+                ) : (
+                  <IconChevronRight
+                    color="var(--grey-350)"
+                    width={20}
+                    height={20}
+                    sx={{ flexShrink: 0 }}
+                  />
+                )}
               </Box>
             ))}
           </Stack>
@@ -227,6 +251,13 @@ const Campaigns = ({ title }: { title: NavBarOptionsType }) => {
           setCampaigns(upsertById(campaigns, campaign));
           setEditing(null);
         }}
+        onRemove={
+          editing && editing !== 'new'
+            ? async () => {
+                if (await remove(editing)) setEditing(null);
+              }
+            : undefined
+        }
       />
     </>
   );

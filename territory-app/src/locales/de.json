@@ -216,6 +216,7 @@
     "scan": "QR-Codes scannen",
     "otherWays": "Oder auf anderem Weg koppeln:",
     "sendQr": "Änderungen als QR-Codes an {{name}} senden",
+    "sendQrButton": "Änderungen als QR-Codes senden",
     "publisher": "Verkündiger: {{name}}",
     "outdated": "Aktualisiere die App auf beiden Geräten und versuche es dann noch einmal.",
     "oneSided": "Ein gekoppeltes Gerät kennt dieses nicht mehr. Koppelt die beiden Geräte erneut.",

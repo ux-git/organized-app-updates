@@ -9,7 +9,8 @@ const AssignReturnDialogs = ({
   canAssign,
 }: {
   actions: AssignReturn;
-  // publishers only give back their own, never assign it again
+  // publishers only give back their own; they may take it straight back,
+  // but never file it under a campaign
   canAssign: boolean;
 }) => {
   const { assignTarget, returnTarget } = actions;
@@ -50,7 +51,7 @@ const AssignReturnDialogs = ({
           own={!canAssign}
           onClose={actions.closeReturn}
           onReturn={actions.handleReturn}
-          onAssignAgain={canAssign ? actions.handleAssign : undefined}
+          onAssignAgain={actions.handleAssign}
         />
       )}
 

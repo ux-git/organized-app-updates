@@ -6,6 +6,7 @@ import Button from '@components/button';
 import Typography from '@components/typography';
 import { useBreakpoints } from '@hooks/index';
 import { BadgeColor } from '@definition/app';
+import { HOVER_ACTIONS } from '@features/territories/components/table_styles';
 import { avatarsState } from '../../profiles';
 
 const ripple = keyframes`
@@ -176,6 +177,7 @@ export const PhoneRow = ({
       cursor: onClick ? 'pointer' : 'default',
       transition: 'background-color 0.2s',
       '&:hover': onClick ? { backgroundColor: 'var(--accent-150)' } : {},
+      ...(onClick && HOVER_ACTIONS),
     }}
   >
     <Avatar name={name} id={id} />

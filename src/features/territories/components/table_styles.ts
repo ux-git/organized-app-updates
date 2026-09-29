@@ -42,6 +42,14 @@ export const rowStates = (
   },
 });
 
+// the whole row opens something, so a mouse only needs its icons on hover
+export const HOVER_ACTIONS = {
+  '@media (hover: hover) and (pointer: fine)': {
+    '& .row-actions': { opacity: 0, transition: 'opacity 0.15s ease' },
+    '&:hover .row-actions, &:focus-within .row-actions': { opacity: 1 },
+  },
+};
+
 export const clickableRow = (action: VoidFunction) => ({
   role: 'button',
   tabIndex: 0,

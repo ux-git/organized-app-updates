@@ -1,7 +1,12 @@
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
-import { IconAdd, IconDelete, IconImportExport } from '@icons/index';
+import {
+  IconAdd,
+  IconChevronRight,
+  IconDelete,
+  IconImportExport,
+} from '@icons/index';
 import Button from '@components/button';
 import Checkbox from '@components/checkbox';
 import { NavBarOptionsType } from '@definition/app';
@@ -20,6 +25,9 @@ import {
   CardSection,
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
+import EditorHeader from '@features/territories/components/editor_header';
+import { HOVER_ACTIONS } from '@features/territories/components/table_styles';
+import { useBreakpoints } from '@hooks/index';
 import { territoriesState } from '@states/territories';
 import {
   applyImport,
@@ -220,10 +228,12 @@ const NameDialog = ({
   person,
   people,
   onClose,
+  onRemove,
 }: {
   person: Person | 'new' | null;
   people: Person[];
   onClose: VoidFunction;
+  onRemove?: VoidFunction;
 }) => {
   const existing = person && person !== 'new' ? person : null;
   const links = useAtomValue(linksState);
@@ -276,7 +286,13 @@ const NameDialog = ({
     <Dialog
       open={!!person}
       onClose={onClose}
-      title={existing ? t('publishers.edit') : t('publishers.add')}
+      header={
+        <EditorHeader
+          title={existing ? t('publishers.edit') : t('publishers.add')}
+          onDelete={existing ? onRemove : undefined}
+          deleteLabel={t('common.remove')}
+        />
+      }
     >
       <TextField
         label={t('publishers.name')}
@@ -319,6 +335,7 @@ const NameDialog = ({
 
 // the settings page names it; it adds its own Import and Add buttons
 const Publishers = ({ title }: { title: NavBarOptionsType }) => {
+  const { tablet688Up } = useBreakpoints();
   const people = usePeople();
   const links = useAtomValue(linksState);
   const territories = useAtomValue(territoriesState);
@@ -357,7 +374,7 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
         .join(' '),
       action: t('common.remove'),
     });
-    if (!ok) return;
+    if (!ok) return false;
     play('remove');
     try {
       await writeRows([{ table: PEOPLE, id: person.id, deleted: true }]);
@@ -365,6 +382,7 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
     } catch (error) {
       failed(error);
     }
+    return true;
   };
 
   const section = (title: string, list: Person[]) =>
@@ -388,6 +406,7 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
                 borderRadius: 'var(--radius-l)',
                 cursor: 'pointer',
                 '&:hover': { backgroundColor: 'var(--accent-150)' },
+                ...HOVER_ACTIONS,
               }}
             >
               <Avatar name={person.name} />
@@ -397,17 +416,30 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
               >
                 {person.name}
               </Typography>
-              <IconButton
-                color="error"
-                edge="end"
-                aria-label={t('publishers.removeLabel', { name: person.name })}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  remove(person);
-                }}
-              >
-                <IconDelete color="var(--red-main)" />
-              </IconButton>
+              {/* on a phone the row is the button; removing waits in the dialog */}
+              {tablet688Up ? (
+                <IconButton
+                  className="row-actions"
+                  color="error"
+                  edge="end"
+                  aria-label={t('publishers.removeLabel', {
+                    name: person.name,
+                  })}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    remove(person);
+                  }}
+                >
+                  <IconDelete color="var(--red-main)" />
+                </IconButton>
+              ) : (
+                <IconChevronRight
+                  color="var(--grey-350)"
+                  width={20}
+                  height={20}
+                  sx={{ flexShrink: 0 }}
+                />
+              )}
             </Box>
           ))}
         </Stack>
@@ -477,6 +509,13 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
         person={editing}
         people={people}
         onClose={() => setEditing(null)}
+        onRemove={
+          editing && editing !== 'new'
+            ? async () => {
+                if (await remove(editing)) setEditing(null);
+              }
+            : undefined
+        }
       />
     </>
   );

@@ -523,6 +523,14 @@ const DoNotCalls = () => {
               )
             )
           }
+          onOpenInMaps={
+            editingTerritory.type !== 'phone'
+              ? (address) =>
+                  openInMaps(
+                    [address, editingTerritory.city].filter(Boolean).join(', ')
+                  )
+              : undefined
+          }
         />
       )}
     </Card>

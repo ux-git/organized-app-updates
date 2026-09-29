@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
 import { IconDelete } from '@icons/index';
-import Autocomplete from '@components/autocomplete';
 import Button from '@components/button';
 import MenuItem from '@components/menuitem';
 import Select from '@components/select';
@@ -19,6 +18,7 @@ import {
   CardSubSectionHeader,
 } from '@features/congregation/settings/shared_styles';
 import ProfilePictureEntry from '@features/my_profile/user_profile_details/profile_picture_entry';
+import PublisherSearch from '@features/territories/components/publisher_search';
 import { useBreakpoints } from '@hooks/index';
 import { isDarkThemeState } from '@states/app';
 import { chosen, pickedRadio, toggled } from '../haptics';
@@ -149,32 +149,17 @@ const Profile = () => {
           title={t('account.linked')}
           description={t('account.linkedText')}
         />
-        <Autocomplete
+        <PublisherSearch
           label={t('account.publisher')}
           options={publishers}
-          getOptionLabel={(option) => (option as Person).name}
-          isOptionEqualToValue={(option, value) =>
-            (option as Person).id === (value as Person).id
-          }
           value={link.person ?? null}
-          onChange={(_, value) =>
-            changeLink(chosen((value as Person | null)?.id ?? null))
-          }
+          onChange={(person) => changeLink(chosen(person?.id ?? null))}
+          getName={(person: Person) => person.name}
           noOptionsText={
             <Typography className="body-regular" color="var(--grey-350)">
               {t('account.noPublishers')}
             </Typography>
           }
-          renderOption={(props, option) => (
-            <Box
-              component="li"
-              {...props}
-              sx={{ margin: 0, padding: 0 }}
-              key={option.id}
-            >
-              <Typography>{option.name}</Typography>
-            </Box>
-          )}
         />
         {link.missing && (
           <InfoNote

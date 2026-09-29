@@ -94,6 +94,10 @@ const PhoneNumbersPanel = ({
                 onClick,
                 title: number,
                 titleColor: blocked ? 'var(--red-main)' : undefined,
+                // a tap on a read-only number dials it, so it says so
+                trailing: readOnly && !blocked && (
+                  <IconCall color="var(--accent-main)" width={20} height={20} />
+                ),
                 badge: blocked && (
                   <Badge
                     size="small"
@@ -158,6 +162,11 @@ const PhoneNumbersPanel = ({
           onSave={handleSave}
           onDelete={() =>
             onChange(numbers.filter((_, index) => index !== editing))
+          }
+          onCall={
+            editing !== 'new' && !isDoNotCallNumber(territory, numbers[editing])
+              ? call
+              : undefined
           }
         />
       )}

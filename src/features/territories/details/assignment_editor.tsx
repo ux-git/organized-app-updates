@@ -1,20 +1,14 @@
 import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
-import { Box, MenuItem, Stack } from '@mui/material';
-import {
-  Button,
-  InfoNote,
-  Select,
-  TextField,
-  Typography,
-} from '@components/index';
+import { Box, Stack } from '@mui/material';
+import { Button, InfoNote, TextField } from '@components/index';
 import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
-import MenuSubHeader from '@components/menu_sub_header';
 import SwitchWithLabel from '@components/switch_with_label';
 import { useBreakpoints } from '@hooks/index';
+import { IconCopy } from '@icons/index';
 import { territoryAssigneesState } from '../assignees';
 import { territoryCampaignsState } from '../campaigns';
 import {
@@ -25,6 +19,8 @@ import {
 } from '../campaign_dates';
 import CampaignField, { CampaignChoice } from '../components/campaign_field';
 import CardField from '../components/card_field';
+import EditorHeader from '../components/editor_header';
+import PublisherSearch from '../components/publisher_search';
 import { savedCard } from '../card_choice';
 import {
   assignmentFromDates,
@@ -32,7 +28,6 @@ import {
   parseDate,
   toStoredDate,
 } from '../helpers';
-import EditorHeader from './editor_header';
 import {
   AssignmentCard,
   MAX_NOTE_LENGTH,
@@ -49,6 +44,7 @@ const AssignmentEditor = ({
   onClose,
   onSave,
   onDelete,
+  onAdoptNote,
 }: {
   assignment: TerritoryAssignment;
   isNew?: boolean;
@@ -56,6 +52,8 @@ const AssignmentEditor = ({
   onClose: VoidFunction;
   onSave: (next: TerritoryAssignment) => void;
   onDelete?: VoidFunction;
+  // the note is worth keeping on the territory itself
+  onAdoptNote?: VoidFunction;
 }) => {
   const { tablet600Up } = useBreakpoints();
 
@@ -63,6 +61,14 @@ const AssignmentEditor = ({
   const campaigns = useAtomValue(territoryCampaignsState);
 
   const [publisher, setPublisher] = useState(assignment.publisher);
+
+  const groups = new Set(
+    assignees.filter((assignee) => assignee.group).map(({ name }) => name)
+  );
+  // a name no longer on the list, e.g. someone who moved, stays choosable
+  const names = assignees.map(({ name }) => name);
+  const options =
+    publisher && !names.includes(publisher) ? [...names, publisher] : names;
   const [assignedOn, setAssignedOn] = useState<Date | null>(
     parseDate(assignment.assignedOn) ?? new Date()
   );
@@ -125,29 +131,14 @@ const AssignmentEditor = ({
         />
       }
     >
-      <Select
-        label={tx('Publisher')}
-        value={publisher}
-        onChange={(event) => setPublisher(event.target.value as string)}
-      >
-        <MenuSubHeader>{tx('Groups')}</MenuSubHeader>
-        {assignees
-          .filter((assignee) => assignee.group)
-          .map(({ id, name }) => (
-            <MenuItem key={id} value={name}>
-              <Typography className="body-regular">{name}</Typography>
-            </MenuItem>
-          ))}
-
-        <MenuSubHeader>{tx('Publishers')}</MenuSubHeader>
-        {assignees
-          .filter((assignee) => !assignee.group)
-          .map(({ id, name }) => (
-            <MenuItem key={id} value={name}>
-              <Typography className="body-regular">{name}</Typography>
-            </MenuItem>
-          ))}
-      </Select>
+      <PublisherSearch
+        options={options}
+        value={publisher || null}
+        onChange={(value) => setPublisher(value ?? '')}
+        getName={(name) => name}
+        isGroup={(name) => groups.has(name)}
+        autoFocus={!tablet600Up && !publisher}
+      />
 
       <Stack
         direction={tablet600Up ? 'row' : 'column'}
@@ -200,6 +191,18 @@ const AssignmentEditor = ({
         slotProps={{ htmlInput: { maxLength: MAX_NOTE_LENGTH } }}
         onChange={(event) => setNote(event.target.value)}
       />
+
+      {onAdoptNote && (
+        <Button
+          variant="small"
+          disableAutoStretch
+          startIcon={<IconCopy color="var(--accent-main)" />}
+          onClick={onAdoptNote}
+          sx={{ minHeight: '32px', minWidth: 'unset', marginTop: '-8px' }}
+        >
+          {tx('Add to territory notes')}
+        </Button>
+      )}
 
       {(campaigns.length > 0 || campaign.value) && (
         <CampaignField

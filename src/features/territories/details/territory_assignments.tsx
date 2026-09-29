@@ -147,6 +147,11 @@ const TerritoryAssignments = ({
           onDelete={() =>
             onChange(assignments.filter((item) => item.id !== editing.id))
           }
+          onAdoptNote={
+            adoptable(editing.note)
+              ? () => onNotes?.(appendNote(territory.notes, editing.note!))
+              : undefined
+          }
           onSave={(next) =>
             onChange(
               adding

@@ -3,18 +3,22 @@ import { useState } from 'react';
 import { Button, TextField } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
-import EditorHeader from './editor_header';
+import { IconCall } from '@icons/index';
+import EditorHeader from '../components/editor_header';
 
 const PhoneNumberEditor = ({
   value,
   onClose,
   onSave,
   onDelete,
+  onCall,
 }: {
   value?: string;
   onClose: VoidFunction;
   onSave: (next: string) => void;
   onDelete?: VoidFunction;
+  // dials the number as typed
+  onCall?: (number: string) => void;
 }) => {
   const [number, setNumber] = useState(value ?? '');
 
@@ -50,6 +54,19 @@ const PhoneNumberEditor = ({
         value={number}
         onChange={(event) => setNumber(event.target.value)}
       />
+
+      {onCall && (
+        <Button
+          variant="small"
+          disableAutoStretch
+          disabled={!number.trim()}
+          startIcon={<IconCall color="var(--accent-main)" />}
+          onClick={() => onCall(number.trim())}
+          sx={{ minHeight: '32px', minWidth: 'unset', marginTop: '-8px' }}
+        >
+          {tx('Call', { context: 'action' })}
+        </Button>
+      )}
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>

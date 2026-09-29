@@ -2,12 +2,10 @@ import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
 import { Button, TextField, Typography } from '@components/index';
-import Autocomplete from '@components/autocomplete';
 import InfoBanner from '@components/info_banner';
 import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
-import MenuSubHeader from '@components/menu_sub_header';
 import { useBreakpoints } from '@hooks/index';
 import { IconAdd, IconCancelCicle } from '@icons/index';
 import { shortDateFormatState } from '@states/settings';
@@ -23,6 +21,7 @@ import { assignmentIssues, displayDate, toStoredDate } from '../helpers';
 import { latestReturnNote } from '../notes';
 import CampaignField, { CampaignChoice } from './campaign_field';
 import CardField from './card_field';
+import PublisherSearch from './publisher_search';
 import {
   AssignmentCard,
   MAX_NOTE_LENGTH,
@@ -138,27 +137,13 @@ const AssignDialog = ({
         sx={{ width: '100%' }}
       >
         <Stack spacing="4px" sx={{ flex: 1, minWidth: 0 }}>
-          <Autocomplete
-            label={tx('Publisher')}
+          <PublisherSearch
             options={assignees.map(({ name }) => name)}
-            groupBy={(option: string) =>
-              groups.has(option) ? tx('Groups') : tx('Publishers')
-            }
-            renderGroup={(params) => (
-              <li key={params.key}>
-                <MenuSubHeader>{params.group}</MenuSubHeader>
-                <Box component="ul" sx={{ padding: 0 }}>
-                  {params.children}
-                </Box>
-              </li>
-            )}
-            renderOption={({ key, ...props }, option: string) => (
-              <Box component="li" key={key} {...props}>
-                <Typography className="body-regular">{option}</Typography>
-              </Box>
-            )}
             value={publisher}
-            onChange={(_, value) => setPublisher(value as string | null)}
+            onChange={setPublisher}
+            getName={(name) => name}
+            isGroup={(name) => groups.has(name)}
+            autoFocus={!tablet600Up && !publisher}
           />
         </Stack>
 
