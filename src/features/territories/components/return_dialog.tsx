@@ -18,11 +18,7 @@ import {
 } from '../campaign_dates';
 import { assignmentIssues, parseDate, toStoredDate } from '../helpers';
 import CampaignField, { CampaignChoice } from './campaign_field';
-import {
-  MAX_NOTE_LENGTH,
-  Territory,
-  TerritoryAssignment,
-} from '@definition/territory';
+import { Territory, TerritoryAssignment } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 
 type ReturnDialogProps = {
@@ -60,7 +56,6 @@ const ReturnDialog = ({
     territory ? String(territory.households) : ''
   );
   const [returnedOn, setReturnedOn] = useState<Date | null>(new Date());
-  const [note, setNote] = useState(open?.note ?? '');
   const [assignAgain, setAssignAgain] = useState(false);
   const [campaign, setCampaign] = useState<CampaignChoice>({
     checked: !!flagged,
@@ -155,18 +150,6 @@ const ReturnDialog = ({
         </Stack>
       )}
 
-      <TextField
-        label={tx('Note')}
-        placeholder={tx(
-          'e.g. 5 Russian-speaking, 3 Ukrainian-speaking households'
-        )}
-        multiline
-        minRows={2}
-        value={note}
-        slotProps={{ htmlInput: { maxLength: MAX_NOTE_LENGTH } }}
-        onChange={(event) => setNote(event.target.value)}
-      />
-
       {own && flagged && (
         <Stack direction="row" spacing="8px" sx={{ alignItems: 'center' }}>
           <IconCampaign color="var(--grey-400)" width={20} height={20} />
@@ -219,8 +202,7 @@ const ReturnDialog = ({
               territory.id,
               (showHouseholds && Number(households)) || territory.households,
               date,
-              chosen(),
-              note.trim()
+              chosen()
             );
 
             if (assignAgain && holder)

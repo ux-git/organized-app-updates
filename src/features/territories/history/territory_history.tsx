@@ -1,13 +1,20 @@
 import { Stack } from '@mui/material';
 import { Typography } from '@components/index';
 import Card from '@components/card';
-import { daysLabel } from '../helpers';
+import { daysLabel, withAssignments } from '../helpers';
 import TerritoryAssignments from '../details/territory_assignments';
 import TerritorySummary from '../components/territory_summary';
 import { Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 
-const TerritoryHistory = ({ territory }: { territory: Territory }) => (
+// editors open a record to read and fix it; everyone else only reads
+const TerritoryHistory = ({
+  territory,
+  onChange,
+}: {
+  territory: Territory;
+  onChange?: (territory: Territory) => void;
+}) => (
   <Card>
     <Stack spacing="4px">
       <Typography className="h2" color="var(--black)">
@@ -25,7 +32,13 @@ const TerritoryHistory = ({ territory }: { territory: Territory }) => (
       })}
     />
 
-    <TerritoryAssignments territory={territory} />
+    <TerritoryAssignments
+      territory={territory}
+      onChange={
+        onChange && ((next) => onChange(withAssignments(territory, next)))
+      }
+      onNotes={onChange && ((notes) => onChange({ ...territory, notes }))}
+    />
   </Card>
 );
 

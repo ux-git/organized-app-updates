@@ -177,11 +177,7 @@ const AssignmentEditor = ({
         </Box>
       </Stack>
 
-      <CardField
-        value={card}
-        helper={tx('Whether a printed card went out with it.')}
-        onChange={setCard}
-      />
+      <CardField value={card} onChange={setCard} />
 
       <TextField
         label={tx('Note')}

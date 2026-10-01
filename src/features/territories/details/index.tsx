@@ -1,10 +1,10 @@
 import { tx } from '@services/i18n/translation';
 import { ReactNode, useRef, useState } from 'react';
 import { Box, Stack } from '@mui/material';
-import { ScrollableTabs, TextField, Typography } from '@components/index';
+import { ScrollableTabs, Typography } from '@components/index';
 import Card from '@components/card';
 import { useBreakpoints } from '@hooks/index';
-import { DoNotCall, MAX_NOTE_LENGTH, Territory } from '@definition/territory';
+import { DoNotCall, Territory } from '@definition/territory';
 import { daysLabel, withAssignments } from '../helpers';
 import TerritorySummary from '../components/territory_summary';
 import AssignedTwice from './assigned_twice';
@@ -108,42 +108,6 @@ const TerritoryDetails = ({
     </>
   );
 
-  // what this time brought: the holder writes it while out, editors too
-  const open = territory.assignments.find(
-    (item) => !item.returnedOn && item.publisher === territory.holder
-  );
-
-  const noteCard = open && (heldByMe || !readOnly) && (
-    <Card>
-      <Typography className="h2" color="var(--black)">
-        {tx('Note')}
-      </Typography>
-      <TextField
-        label={tx('Note')}
-        placeholder={tx(
-          'e.g. 5 Russian-speaking, 3 Ukrainian-speaking households'
-        )}
-        helperText={tx(
-          'What was noticed this time. Stays with this assignment and is never printed.'
-        )}
-        multiline
-        minRows={2}
-        value={open.note ?? ''}
-        slotProps={{ htmlInput: { maxLength: MAX_NOTE_LENGTH } }}
-        onChange={(event) =>
-          onChange({
-            ...territory,
-            assignments: territory.assignments.map((item) =>
-              item.id === open.id
-                ? { ...item, note: event.target.value || undefined }
-                : item
-            ),
-          })
-        }
-      />
-    </Card>
-  );
-
   const form = (
     <DetailsForm
       key={territory.id}
@@ -229,8 +193,6 @@ const TerritoryDetails = ({
           </Stack>
         </Card>
 
-        {noteCard}
-
         {showPrivate &&
           doNotCallCard(
             <DoNotCallPanel
@@ -262,8 +224,6 @@ const TerritoryDetails = ({
           />
         </Card>
 
-        {noteCard}
-
         {doNotCallCard(doNotCalls)}
       </Stack>
     );
@@ -285,8 +245,6 @@ const TerritoryDetails = ({
           </Typography>
           {form}
         </Card>
-
-        {noteCard}
 
         {doNotCallCard(doNotCalls)}
       </Stack>

@@ -389,11 +389,7 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
               ? tx('Assign {{n}} territory', { n: assignableCount })
               : tx('Assign {{n}} territories', { n: assignableCount })
           }
-          doNotCallNote={
-            manyDoNotCalls > 0
-              ? tx('Do not call: {{n}}', { n: manyDoNotCalls })
-              : undefined
-          }
+          doNotCalls={manyDoNotCalls}
           onClose={() => setAssignManyOpen(false)}
           onAssign={assignMany}
         />

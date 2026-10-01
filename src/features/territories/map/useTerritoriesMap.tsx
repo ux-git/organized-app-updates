@@ -114,7 +114,6 @@ const useTerritoriesMap = () => {
 
   const [ready, setReady] = useState(false);
   const [styleVersion, setStyleVersion] = useState(0);
-  const [search, setSearch] = useState('');
   const [colorView, setColorView] = useState<ColorView>('status');
 
   const [heatmapPeriod, setHeatmapPeriod] = useState('last12');
@@ -159,18 +158,7 @@ const useTerritoriesMap = () => {
 
   const editor = useMapEditor({ map, onStart: handleEditStart });
 
-  const visible = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    if (!term) return territories;
-
-    return territories.filter(
-      (item) =>
-        item.number.toLowerCase().includes(term) ||
-        item.name.toLowerCase().includes(term) ||
-        item.city.toLowerCase().includes(term)
-    );
-  }, [territories, search]);
+  const visible = territories;
 
   const data = useMemo(() => {
     const hiddenId =
@@ -776,8 +764,6 @@ const useTerritoriesMap = () => {
     pickTerritory,
     mode: isEditMode ? ('edit' as const) : ('view' as const),
     setMode,
-    search,
-    setSearch,
     colorView,
     setColorView,
     legend: scheme.buckets,

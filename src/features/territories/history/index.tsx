@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Box } from '@mui/material';
 import { useNavigate, useParams } from 'react-router';
-import { useAtomValue } from 'jotai';
+import { useAtom } from 'jotai';
 import { InfoNote } from '@components/index';
-import { useBreakpoints } from '@hooks/index';
+import { useBreakpoints, useCurrentUser } from '@hooks/index';
 import { territoriesState } from '@states/territories';
 import Card from '@components/card';
 import AssignmentHistory from '../components/assignment_history';
 import TerritoryHistory from './territory_history';
+import { Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 
 const TerritoriesHistory = () => {
@@ -16,7 +17,16 @@ const TerritoriesHistory = () => {
 
   const { laptopUp } = useBreakpoints();
 
-  const territories = useAtomValue(territoriesState);
+  const { isElder, isServiceCommittee } = useCurrentUser();
+  const [territories, setTerritories] = useAtom(territoriesState);
+
+  const onChange =
+    isElder || isServiceCommittee
+      ? (next: Territory) =>
+          setTerritories((prev) =>
+            prev.map((item) => (item.id === next.id ? next : item))
+          )
+      : undefined;
 
   const [picked, setPicked] = useState<string | undefined>();
 
@@ -36,7 +46,7 @@ const TerritoriesHistory = () => {
 
   if (id && !laptopUp) {
     return selected ? (
-      <TerritoryHistory territory={selected} />
+      <TerritoryHistory territory={selected} onChange={onChange} />
     ) : (
       <InfoNote message={tx('This territory no longer exists.')} />
     );
@@ -62,7 +72,9 @@ const TerritoriesHistory = () => {
         />
       </Card>
 
-      {laptopUp && selected && <TerritoryHistory territory={selected} />}
+      {laptopUp && selected && (
+        <TerritoryHistory territory={selected} onChange={onChange} />
+      )}
     </Box>
   );
 };

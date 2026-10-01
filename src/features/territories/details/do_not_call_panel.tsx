@@ -4,7 +4,7 @@ import { useAtomValue } from 'jotai';
 import { shortDateFormatState } from '@states/settings';
 import { Box, Stack } from '@mui/material';
 import { Button } from '@components/index';
-import { IconAdd, IconEdit, IconLocation } from '@icons/index';
+import { IconAdd, IconEdit } from '@icons/index';
 import { DoNotCall, Territory } from '@definition/territory';
 import RecordList from '../components/record_list';
 import RowAction from '../components/row_action';
@@ -14,7 +14,6 @@ import {
   upsertById,
   emptyListMessage,
   isDoNotCallNumber,
-  openInMaps,
 } from '../helpers';
 import { currentPublisherState } from '../assignees';
 import DoNotCallEditor from './do_not_call_editor';
@@ -46,15 +45,8 @@ const DoNotCallPanel = ({
   const canEdit = (entry: DoNotCall) =>
     access === 'all' || (access === 'own' && entry.addedBy === me);
 
-  const showOnMap = (entry: DoNotCall) =>
-    openInMaps([entry.address, territory.city].filter(Boolean).join(', '));
-
-  // a read-only address opens in the maps app; a number never gets a call from here
-  const openEntry = (entry: DoNotCall) => {
-    if (canEdit(entry)) return () => setEditing(entry);
-    if (!isPhone) return () => showOnMap(entry);
-    return undefined;
-  };
+  const openEntry = (entry: DoNotCall) =>
+    canEdit(entry) ? () => setEditing(entry) : undefined;
 
   // a number already marked is not offered again, except the one being edited
   const numbers = isPhone
@@ -75,30 +67,10 @@ const DoNotCallPanel = ({
           title: entry.address,
           subtitle: isPhone ? undefined : entry.name,
           date: displayDate(entry.date, format),
-          // a tap on a read-only address goes to the map, so it says so
-          trailing: !isPhone && !canEdit(entry) && (
-            <IconLocation color="var(--accent-main)" width={20} height={20} />
-          ),
-          actions: (
-            <>
-              {!isPhone && (
-                <RowAction
-                  title={tx('Open in maps')}
-                  onClick={() => showOnMap(entry)}
-                >
-                  <IconLocation
-                    color="var(--accent-main)"
-                    width={18}
-                    height={18}
-                  />
-                </RowAction>
-              )}
-              {canEdit(entry) && (
-                <RowAction title={tx('Edit')} onClick={() => setEditing(entry)}>
-                  <IconEdit color="var(--accent-main)" width={18} height={18} />
-                </RowAction>
-              )}
-            </>
+          actions: canEdit(entry) && (
+            <RowAction title={tx('Edit')} onClick={() => setEditing(entry)}>
+              <IconEdit color="var(--accent-main)" width={18} height={18} />
+            </RowAction>
           ),
         }))}
       />
@@ -126,9 +98,6 @@ const DoNotCallPanel = ({
           onDelete={() =>
             editing !== 'new' &&
             onChange(entries.filter((item) => item.id !== editing.id))
-          }
-          onOpenInMaps={(address) =>
-            openInMaps([address, territory.city].filter(Boolean).join(', '))
           }
         />
       )}

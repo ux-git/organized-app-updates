@@ -1,5 +1,5 @@
 import { MenuItem, Stack } from '@mui/material';
-import { SearchBar, Select, Typography } from '@components/index';
+import { Select, Typography } from '@components/index';
 import IconButton from '@components/icon_button';
 import Tooltip from '@components/tooltip';
 import { IconPanelClose } from '@icons/index';
@@ -8,8 +8,6 @@ import { Bucket, COLOR_VIEWS, ColorView, HEATMAP_PERIODS } from './views';
 import MapLegend from './map_legend';
 
 type MapFiltersProps = {
-  search: string;
-  onSearch: (value: string) => void;
   colorView: ColorView;
   onColorViewChange: (value: ColorView) => void;
   heatmapPeriod: string;
@@ -19,8 +17,6 @@ type MapFiltersProps = {
 };
 
 const MapFilters = ({
-  search,
-  onSearch,
   colorView,
   onColorViewChange,
   heatmapPeriod,
@@ -60,12 +56,6 @@ const MapFilters = ({
         </IconButton>
       </Tooltip>
     </Stack>
-
-    <SearchBar
-      placeholder={tx('Search territories')}
-      value={search}
-      onSearch={onSearch}
-    />
 
     <Stack spacing="16px">
       <Select

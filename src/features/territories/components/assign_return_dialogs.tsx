@@ -25,20 +25,16 @@ const AssignReturnDialogs = ({
           title={tx('Assign {{number}}', { number: assignTarget.number })}
           subtitle={`${assignTarget.name} · ${assignTarget.city}`}
           requestedBy={assignTarget.requestedBy}
-          doNotCallNote={
-            doNotCalls > 0
-              ? tx('Do not call: {{n}}', { n: doNotCalls })
-              : undefined
-          }
+          doNotCalls={doNotCalls}
           territory={assignTarget}
           onClose={actions.closeAssign}
-          onAssign={(publisher, assignedOn, campaign, card, note) =>
+          onAssign={(publisher, assignedOn, campaign, card) =>
             actions.handleAssign(
               assignTarget.id,
               publisher,
               assignedOn,
               campaign,
-              note,
+              undefined,
               card
             )
           }

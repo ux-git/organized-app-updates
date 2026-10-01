@@ -238,8 +238,6 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
       {!editor.editing && (
         <>
           <MapFilters
-            search={map.search}
-            onSearch={map.setSearch}
             colorView={map.colorView}
             onColorViewChange={map.setColorView}
             heatmapPeriod={map.heatmapPeriod}
