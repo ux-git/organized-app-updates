@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- only for map tiles; the territory data itself never uses the network -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- the local-network sync finds paired devices by mDNS (lan.rs) -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <!-- syncing with paired phones over Bluetooth LE -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />

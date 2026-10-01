@@ -4,8 +4,8 @@ mod pack;
 mod qr;
 mod store;
 
-// the phones and the Mac sync over the air
-#[cfg(any(target_os = "android", target_os = "ios", target_os = "macos", test))]
+// every device syncs: over Bluetooth where it can, over the local network as well
+mod lan;
 mod session;
 // the iPhone reads a tap in Swift, with a plain session
 #[cfg(any(target_os = "android", test))]
@@ -296,6 +296,7 @@ pub fn run() {
             let dir = app.path().app_data_dir()?;
             open_store(&dir)?;
             let _ = APP.set(app.handle().clone());
+            lan::start();
             #[cfg(target_os = "ios")]
             if let Ok(documents) = app.path().document_dir() {
                 read_inbox(&documents);

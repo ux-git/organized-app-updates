@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Finds your paired devices on the same Wi-Fi and syncs territories with them when Bluetooth can’t reach.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_territories._tcp</string>
+	</array>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Finds your paired devices nearby and syncs territories with them directly, without the internet.</string>
 	<key>CFBundleDocumentTypes</key>

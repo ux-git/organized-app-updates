@@ -3,6 +3,7 @@ package com.sws2apps.territories
 import android.Manifest
 import android.content.Intent
 import android.graphics.Color
+import android.net.wifi.WifiManager
 import android.graphics.Outline
 import android.graphics.drawable.ColorDrawable
 import android.os.Build
@@ -40,6 +41,13 @@ class MainActivity : TauriActivity() {
   private val handler = Handler(Looper.getMainLooper())
   private var barColor: Int? = null
   private var webView: WebView? = null
+
+  // Android drops multicast without it, and mDNS finds paired devices on the Wi-Fi
+  private val multicast by lazy {
+    (applicationContext.getSystemService(WIFI_SERVICE) as WifiManager)
+      .createMulticastLock("territories-lan")
+      .apply { setReferenceCounted(false) }
+  }
 
   /** top, right, bottom, left in CSS pixels */
   @Volatile private var insets = listOf(0, 0, 0, 0)
@@ -127,7 +135,13 @@ class MainActivity : TauriActivity() {
   }
 
   // a window over the app (a permission, the shade) must not end a tap
+  override fun onStart() {
+    super.onStart()
+    multicast.acquire()
+  }
+
   override fun onStop() {
+    multicast.release()
     Tap.stop()
     super.onStop()
   }
