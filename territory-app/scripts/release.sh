@@ -5,6 +5,7 @@
 #
 #   scripts/release.sh                       private + public Android, iPhone, Mac
 #   PUBLIC_ONLY=1 NO_MAC=1 scripts/release.sh
+#   NO_ANDROID=1 NO_IOS=1 scripts/release.sh   the Mac alone
 A=${0:a:h:h}
 LOGS=${TMPDIR:-/tmp}/territory-release
 mkdir -p $LOGS
@@ -45,18 +46,22 @@ clean() { # fails when any private name or address made it into dist/
   [[ $hits -eq 0 ]] || { echo "FAIL public bundle holds $hits private words"; return 1; }
 }
 
-[[ -z $PUBLIC_ONLY ]] && { apk Territories-$V-private-arm64.apk || exit 1; }
+[[ -z $PUBLIC_ONLY && -z $NO_ANDROID ]] && { apk Territories-$V-private-arm64.apk || exit 1; }
 mv seed $HOLD || exit 1
 trap 'mv $HOLD $A/seed' EXIT
-apk Territories-$V-arm64.apk || exit 1
-clean || { rm -f ~/Downloads/Territories-$V-arm64.apk; exit 1; }
+if [[ -z $NO_ANDROID ]]; then
+  apk Territories-$V-arm64.apk || exit 1
+  clean || { rm -f ~/Downloads/Territories-$V-arm64.apk; exit 1; }
+fi
 
-rm -rf dist src-tauri/gen/apple/build
-npm run tauri -- ios build --target aarch64 --debug --export-method debugging > $LOGS/ios.log 2>&1 || { echo "FAIL ios"; grep -E "error" $LOGS/ios.log | tail -20; exit 1; }
-clean || exit 1
-IPA=$(find src-tauri/gen/apple/build -name "*.ipa" | head -1)
-[[ -n $IPA ]] || { echo "FAIL ios: no ipa exported"; exit 1; }
-cp "$IPA" ~/Downloads/Territories-$V.ipa && echo "OK ipa"
+if [[ -z $NO_IOS ]]; then
+  rm -rf dist src-tauri/gen/apple/build
+  npm run tauri -- ios build --target aarch64 --debug --export-method debugging > $LOGS/ios.log 2>&1 || { echo "FAIL ios"; grep -E "error" $LOGS/ios.log | tail -20; exit 1; }
+  clean || exit 1
+  IPA=$(find src-tauri/gen/apple/build -name "*.ipa" | head -1)
+  [[ -n $IPA ]] || { echo "FAIL ios: no ipa exported"; exit 1; }
+  cp "$IPA" ~/Downloads/Territories-$V.ipa && echo "OK ipa"
+fi
 
 [[ -n $NO_MAC ]] && exit 0
 # macOS: an app bundle in a disk image, not signed with a Developer ID; Tauri's own dmg step
