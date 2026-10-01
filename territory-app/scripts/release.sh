@@ -72,5 +72,7 @@ clean || exit 1
 STAGE=$LOGS/dmg
 rm -rf $STAGE && mkdir -p $STAGE
 cp -R $CARGO_TARGET_DIR/release/bundle/macos/Territories.app $STAGE/ && ln -s /Applications $STAGE/Applications
+# sealed, Info.plist included: without it macOS ignores the Bluetooth usage text
+codesign --force --deep -s - $STAGE/Territories.app || exit 1
 hdiutil create -volname Territories -srcfolder $STAGE -ov -format UDZO ~/Downloads/Territories-$V-mac.dmg >/dev/null && echo "OK dmg"
 rm -rf $STAGE
