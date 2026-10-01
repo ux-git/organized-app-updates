@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useId, useState } from 'react';
 import { Box, Stack, TooltipProps } from '@mui/material';
 import * as maplibregl from 'maplibre-gl';
 import IconButton from '@components/icon_button';
@@ -80,6 +80,8 @@ export const MapAction = ({
   </Tooltip>
 );
 
+const SOUTH = 'M12 22 8 12h8Z';
+
 // always there, like a compass: the needle points north as the map turns
 export const NorthAction = ({
   map,
@@ -89,6 +91,8 @@ export const NorthAction = ({
   placement?: TooltipProps['placement'];
 }) => {
   const [bearing, setBearing] = useState(0);
+  // useId holds colons, which url(#…) does not accept
+  const clip = `north${useId().replace(/\W/g, '')}`;
 
   useEffect(() => {
     if (!map) return;
@@ -109,14 +113,23 @@ export const NorthAction = ({
       placement={placement}
       onClick={() => map?.easeTo({ bearing: 0, pitch: 0 })}
     >
-      {/* the red half points north */}
+      {/* filled half points north; the south line is clipped to sit inside */}
       <Box
         component="svg"
         viewBox="0 0 24 24"
         sx={{ width: 24, height: 24, transform: `rotate(${-bearing}deg)` }}
       >
-        <path d="M12 3.2 15.2 12H8.8Z" fill="var(--red-main)" />
-        <path d="M12 20.8 8.8 12h6.4Z" fill="var(--accent-main)" />
+        <clipPath id={clip}>
+          <path d={SOUTH} />
+        </clipPath>
+        <path d="M12 2 16 12H8Z" fill="var(--accent-main)" />
+        <path
+          d={SOUTH}
+          fill="none"
+          stroke="var(--accent-main)"
+          strokeWidth={3}
+          clipPath={`url(#${clip})`}
+        />
       </Box>
     </MapAction>
   );
