@@ -1,0 +1,1 @@
+../../../ios/Sources/NearbyPlugin/Link.swift

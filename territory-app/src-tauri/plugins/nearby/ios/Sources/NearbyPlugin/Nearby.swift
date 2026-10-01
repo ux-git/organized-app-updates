@@ -1,6 +1,9 @@
 import CoreBluetooth
 import Foundation
-import UIKit
+
+#if canImport(UIKit)
+  import UIKit
+#endif
 
 /// One Rust session over one Bluetooth connection. A step can apply a whole
 /// sync to the store, so the steps run on one queue of their own, in order,
@@ -237,7 +240,12 @@ final class Nearby: NSObject, LinkListener {
 
   private var meetName: String {
     let name = Core.summary()["name"] as? String ?? ""
-    return name.isEmpty ? UIDevice.current.model : String(name.prefix(20))
+    #if canImport(UIKit)
+      let model = UIDevice.current.model
+    #else
+      let model = Host.current().localizedName ?? "Mac"
+    #endif
+    return name.isEmpty ? model : String(name.prefix(20))
   }
 
   private func tick() {

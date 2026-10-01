@@ -40,7 +40,11 @@ final class Place: NSObject, CLLocationManagerDelegate {
   var authorization: CLAuthorizationStatus { manager.authorizationStatus }
 
   var allowed: Bool {
-    authorization == .authorizedAlways || authorization == .authorizedWhenInUse
+    #if os(iOS)
+      authorization == .authorizedAlways || authorization == .authorizedWhenInUse
+    #else
+      authorization == .authorizedAlways
+    #endif
   }
 
   var allowedAlways: Bool { authorization == .authorizedAlways }
@@ -120,10 +124,12 @@ final class Place: NSObject, CLLocationManagerDelegate {
 
   func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
     if pendingHere != nil, allowed { manager.requestLocation() }
-    if pendingAlways, authorization == .authorizedWhenInUse {
-      pendingAlways = false
-      manager.requestAlwaysAuthorization()
-    }
+    #if os(iOS)
+      if pendingAlways, authorization == .authorizedWhenInUse {
+        pendingAlways = false
+        manager.requestAlwaysAuthorization()
+      }
+    #endif
     Nearby.shared.apply()
     Nearby.shared.onChange?()
   }

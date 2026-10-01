@@ -12,7 +12,7 @@ import {
   CardSectionContent,
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
-import { invoke, nearby } from '../native';
+import { invoke, isMac, nearby } from '../native';
 import { chosen, clockSteps, play } from '../haptics';
 import { t } from '../i18n';
 import { Actions } from './sync/parts';
@@ -111,11 +111,73 @@ const NoStatus = () => {
   );
 };
 
+const Restore = () => {
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const openFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    await restoreBackup(await file.text());
+  };
+
+  return (
+    <CardSection>
+      <CardSectionHeader
+        title={t('backup.restoreSection')}
+        description={t('backup.restoreSectionText')}
+      />
+      <Actions
+        actions={[
+          {
+            label: t('backup.restoreFile'),
+            onClick: () => fileInput.current?.click(),
+          },
+        ]}
+      />
+      <input ref={fileInput} type="file" hidden onChange={openFile} />
+    </CardSection>
+  );
+};
+
+// a Mac has no Bluetooth sync or schedule: files go back and forth by AirDrop
+const MacBackup = () => {
+  const save = async () => {
+    try {
+      await invoke<string>('backup_save', { name: backupName() });
+      play('synced');
+      notify(t('backup.saved'), t('backup.savedText', { folder: 'Downloads' }));
+    } catch (error) {
+      console.error('backup: save failed', error);
+      notify(t('common.somethingWrong'), t('backup.exportFailed'), 'error');
+    }
+  };
+
+  return (
+    <>
+      <CardSection>
+        <CardSectionHeader
+          title={t('backup.title')}
+          description={t('backup.macText')}
+        />
+        <Stack spacing="16px">
+          <InfoNote message={t('backup.plainText')} />
+          <Actions
+            actions={[
+              { label: t('backup.saveMac'), onClick: save, kind: 'main' },
+            ]}
+          />
+        </Stack>
+      </CardSection>
+      <Restore />
+    </>
+  );
+};
+
 // Backup: a full copy of what this device holds, by hand or on a schedule,
 // saved to a folder the user picked (Backups.kt, Backups.swift)
 const Backup = () => {
   const status = useBackup();
-  const fileInput = useRef<HTMLInputElement>(null);
   // Back up now shows how it went once the device is done
   const askedAt = useRef(0);
 
@@ -134,6 +196,7 @@ const Backup = () => {
     }
   }, [status]);
 
+  if (isMac()) return <MacBackup />;
   if (!status) return <NoStatus />;
 
   const frequency = status.frequency;
@@ -161,13 +224,6 @@ const Backup = () => {
       console.error('backup: export failed', error);
       notify(t('common.somethingWrong'), t('backup.exportFailed'), 'error');
     }
-  };
-
-  const openFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    await restoreBackup(await file.text());
   };
 
   const folderText = status.folder
@@ -273,21 +329,7 @@ const Backup = () => {
         </CardSectionContent>
       </CardSection>
 
-      <CardSection>
-        <CardSectionHeader
-          title={t('backup.restoreSection')}
-          description={t('backup.restoreSectionText')}
-        />
-        <Actions
-          actions={[
-            {
-              label: t('backup.restoreFile'),
-              onClick: () => fileInput.current?.click(),
-            },
-          ]}
-        />
-        <input ref={fileInput} type="file" hidden onChange={openFile} />
-      </CardSection>
+      <Restore />
     </>
   );
 };

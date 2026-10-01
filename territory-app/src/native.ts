@@ -55,6 +55,12 @@ export const nearby = (name: string, args: Record<string, unknown> = {}) => {
 
 export const hasNearby = () => !!window.TerritoryNearby;
 
+// an iPad's web view also says Macintosh, but has touch
+export const isMac = () =>
+  isNative() &&
+  /Mac/.test(navigator.userAgent) &&
+  navigator.maxTouchPoints === 0;
+
 // links to websites open in the device's browser, not inside the app
 if (hasNearby()) {
   const open = window.open.bind(window);

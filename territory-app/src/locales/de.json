@@ -505,7 +505,9 @@
     "notBackupText": "Wähle eine .territories-Sicherungsdatei, die mit dieser App erstellt wurde.",
     "cardOff": "Automatische Sicherung ist aus",
     "cardLast": "Letzte Sicherung {{when}}",
-    "cardError": "Die letzte Sicherung ist fehlgeschlagen"
+    "cardError": "Die letzte Sicherung ist fehlgeschlagen",
+    "macText": "Speichert alles auf diesem Mac – Gebiete, Zuteilungen, Nicht-besuchen-Adressen, Namen und Einstellungen – als Datei im Ordner Downloads. Per AirDrop geht sie aufs Handy. Eine Datei vom Handy, hier geöffnet, bringt dessen Änderungen mit; auf beiden Seiten gewinnt die neuere Änderung.",
+    "saveMac": "In Downloads speichern"
   },
   "organized": {
     "tr_themeFollowOSDisable": "Automatischen Designwechsel ausschalten?",

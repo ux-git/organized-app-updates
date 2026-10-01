@@ -505,7 +505,9 @@
     "notBackupText": "Choose a .territories backup file made by this app.",
     "cardOff": "Automatic backup is off",
     "cardLast": "Last backup {{when}}",
-    "cardError": "The last backup failed"
+    "cardError": "The last backup failed",
+    "macText": "Saves everything on this Mac – territories, assignments, do-not-call addresses, names and settings – as a file in Downloads. Send it to a phone with AirDrop. A file from a phone, opened here, brings its changes in; newer changes win on both sides.",
+    "saveMac": "Save to Downloads"
   },
   "organized": {
     "tr_themeFollowOSDisableDesc": "If you want to switch the theme back to automatic, you can do this in My profile"

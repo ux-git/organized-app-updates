@@ -4,20 +4,21 @@ mod pack;
 mod qr;
 mod store;
 
-// only the phones sync over the air
-#[cfg(any(target_os = "android", target_os = "ios", test))]
+// the phones and the Mac sync over the air
+#[cfg(any(target_os = "android", target_os = "ios", target_os = "macos", test))]
 mod session;
 // the iPhone reads a tap in Swift, with a plain session
 #[cfg(any(target_os = "android", test))]
 mod tap;
 
-#[cfg(any(target_os = "android", target_os = "ios", test))]
+#[cfg(any(target_os = "android", target_os = "ios", target_os = "macos", test))]
 mod native;
 
 #[cfg(target_os = "android")]
 mod android;
 
-#[cfg(any(target_os = "ios", test))]
+// the Mac links the same Swift (plugins/nearby/macos)
+#[cfg(any(target_os = "ios", target_os = "macos", test))]
 mod ios;
 
 use std::path::Path;
@@ -36,7 +37,8 @@ static APP: OnceLock<AppHandle> = OnceLock::new();
 
 pub const PLATFORM: &str = if cfg!(target_os = "android") {
     "android"
-} else if cfg!(target_os = "ios") {
+// a Mac advertises with CoreBluetooth's limits, so phones treat it as an iPhone
+} else if cfg!(any(target_os = "ios", target_os = "macos")) {
     "ios"
 } else {
     "desktop"
@@ -278,6 +280,12 @@ fn open_files(app: &AppHandle, urls: Vec<tauri::Url>) {
     });
 }
 
+// Mac.swift: the page's Bluetooth bridge, given the window's WKWebView
+#[cfg(target_os = "macos")]
+extern "C" {
+    fn territory_mac_attach(webview: *mut std::ffi::c_void);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -298,9 +306,11 @@ pub fn run() {
             let config = app.config().app.windows[0].clone();
             let builder = WebviewWindowBuilder::from_config(app.handle(), &config)?
                 .initialization_script(include_str!("system_bars.js"));
-            #[cfg(target_os = "ios")]
+            #[cfg(any(target_os = "ios", target_os = "macos"))]
             let builder = builder.initialization_script(include_str!("ios_bridge.js"));
-            builder.build()?;
+            let _window = builder.build()?;
+            #[cfg(target_os = "macos")]
+            _window.with_webview(|webview| unsafe { territory_mac_attach(webview.inner()) })?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -321,6 +331,8 @@ pub fn run() {
             backup::backup_export,
             backup::backup_info,
             backup::backup_restore,
+            #[cfg(target_os = "macos")]
+            backup::backup_save,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

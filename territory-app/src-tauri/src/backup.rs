@@ -74,6 +74,19 @@ pub fn backup_export() -> Result<String> {
     export(&*crate::store()?)
 }
 
+/// On a Mac, where no share sheet is wired up: the file goes to Downloads and
+/// Finder shows it, ready for AirDrop.
+#[cfg(target_os = "macos")]
+#[tauri::command(async)]
+pub fn backup_save(app: tauri::AppHandle, name: String) -> Result<String> {
+    use tauri::Manager;
+    let name = std::path::Path::new(&name).file_name().ok_or("no file name")?.to_owned();
+    let path = app.path().download_dir().map_err(|e| e.to_string())?.join(name);
+    std::fs::write(&path, export(&*crate::store()?)?).map_err(|e| e.to_string())?;
+    let _ = std::process::Command::new("open").arg("-R").arg(&path).spawn();
+    Ok(path.to_string_lossy().into_owned())
+}
+
 #[tauri::command(async)]
 pub fn backup_info(text: String) -> Result<Info> {
     info(&text)

@@ -1,6 +1,6 @@
 [package]
 name = "territories"
-version = "0.8.7"
+version = "0.8.8"
 description = "Organized Territories"
 edition = "2021"
 rust-version = "1.82"
@@ -10,6 +10,7 @@ name = "territories_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
+swift-rs = { version = "1.0.7", features = ["build"] }
 tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
