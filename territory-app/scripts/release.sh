@@ -6,6 +6,7 @@
 #   scripts/release.sh                       private + public Android, iPhone, Mac
 #   PUBLIC_ONLY=1 NO_MAC=1 scripts/release.sh
 #   NO_ANDROID=1 NO_IOS=1 scripts/release.sh   the Mac alone
+#   WINDOWS=1 adds the Windows installer, cross-built with cargo-xwin
 A=${0:a:h:h}
 LOGS=${TMPDIR:-/tmp}/territory-release
 mkdir -p $LOGS
@@ -63,16 +64,27 @@ if [[ -z $NO_IOS ]]; then
   cp "$IPA" ~/Downloads/Territories-$V.ipa && echo "OK ipa"
 fi
 
-[[ -n $NO_MAC ]] && exit 0
-# macOS: an app bundle in a disk image, not signed with a Developer ID; Tauri's own dmg step
-# fails on this Mac, so the image is made here
+if [[ -z $NO_MAC ]]; then
+  # macOS: an app bundle in a disk image, not signed with a Developer ID; Tauri's own dmg step
+  # fails on this Mac, so the image is made here
+  rm -rf dist
+  npm run tauri -- build --bundles app > $LOGS/mac.log 2>&1 || { echo "FAIL mac"; grep -E "error" $LOGS/mac.log | tail -20; exit 1; }
+  clean || exit 1
+  STAGE=$LOGS/dmg
+  rm -rf $STAGE && mkdir -p $STAGE
+  cp -R $CARGO_TARGET_DIR/release/bundle/macos/Territories.app $STAGE/ && ln -s /Applications $STAGE/Applications
+  # sealed, Info.plist included: without it macOS ignores the Bluetooth usage text
+  codesign --force --deep -s - $STAGE/Territories.app || exit 1
+  hdiutil create -volname Territories -srcfolder $STAGE -ov -format UDZO ~/Downloads/Territories-$V-mac.dmg >/dev/null && echo "OK dmg"
+  rm -rf $STAGE
+fi
+
+[[ -z $WINDOWS ]] && exit 0
+# Windows: an NSIS installer, not code-signed; needs rustup's x86_64-pc-windows-msvc,
+# cargo-xwin, and Homebrew's llvm and nsis
 rm -rf dist
-npm run tauri -- build --bundles app > $LOGS/mac.log 2>&1 || { echo "FAIL mac"; grep -E "error" $LOGS/mac.log | tail -20; exit 1; }
+PATH="/opt/homebrew/opt/llvm/bin:$HOME/.cargo/bin:$PATH" npm run tauri -- build --runner cargo-xwin \
+  --target x86_64-pc-windows-msvc --bundles nsis > $LOGS/windows.log 2>&1 || { echo "FAIL windows"; grep -E "error" $LOGS/windows.log | tail -20; exit 1; }
 clean || exit 1
-STAGE=$LOGS/dmg
-rm -rf $STAGE && mkdir -p $STAGE
-cp -R $CARGO_TARGET_DIR/release/bundle/macos/Territories.app $STAGE/ && ln -s /Applications $STAGE/Applications
-# sealed, Info.plist included: without it macOS ignores the Bluetooth usage text
-codesign --force --deep -s - $STAGE/Territories.app || exit 1
-hdiutil create -volname Territories -srcfolder $STAGE -ov -format UDZO ~/Downloads/Territories-$V-mac.dmg >/dev/null && echo "OK dmg"
-rm -rf $STAGE
+EXE=$(ls $CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe | head -1)
+cp "$EXE" ~/Downloads/Territories-$V-windows-setup.exe && echo "OK exe"
