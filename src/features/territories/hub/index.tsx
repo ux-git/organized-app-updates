@@ -420,12 +420,14 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
         />
       )}
 
-      {desktopUp || isBoard ? (
+      {/* the board keeps the same tree as the list, so the layout switch
+          stays mounted and slides between the two */}
+      {desktopUp ? (
         listCard
       ) : (
         <PaneSwitcher
           fullBleed
-          value={filtersOpen ? 1 : 0}
+          value={filtersOpen && !isBoard ? 1 : 0}
           panes={[
             { key: 'list', content: listCard },
             {
