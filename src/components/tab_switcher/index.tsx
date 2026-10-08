@@ -19,7 +19,7 @@ const STRETCHES = [stretch(0), stretch(1)];
 // a tap on the tab that's already on: a small press and release
 const press = (turn: number) => keyframes`
   0% { transform: scale(1); animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1); }
-  40% { transform: scale(0.94); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  40% { transform: scale(0.96); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
   100% { transform: scale(1); --turn: ${turn}; }
 `;
 const PRESSES = [press(0), press(1)];
