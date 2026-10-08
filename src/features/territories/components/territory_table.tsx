@@ -596,7 +596,7 @@ const TerritoryTable = ({
             )}
 
             {/* on a wide screen the do-not-calls keep a column of their own,
-                and the action one of fixed width, so both line up row by row */}
+                and the action sits at the far end of a fixed one, so both line up row by row */}
             {laptopUp && (
               <Box
                 sx={{
@@ -617,9 +617,9 @@ const TerritoryTable = ({
                 sx={{
                   flexShrink: 0,
                   ...(laptopUp && {
-                    minWidth: '150px',
+                    minWidth: '176px',
                     display: 'flex',
-                    justifyContent: 'flex-start',
+                    justifyContent: 'flex-end',
                   }),
                 }}
               >
