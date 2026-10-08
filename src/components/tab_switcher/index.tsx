@@ -182,7 +182,7 @@ const TabSwitcher = <T extends string = string>({
                     fontWeight: isActive ? 600 : 400,
                     // a regular label spaced a touch wider is about as wide as
                     // its semibold, so the text hardly changes width
-                    letterSpacing: isActive ? 'normal' : '0.025em',
+                    letterSpacing: isActive ? 'normal' : '0.02em',
                     transition:
                       'font-weight 0.2s ease-out, letter-spacing 0.2s ease-out',
                   }}
