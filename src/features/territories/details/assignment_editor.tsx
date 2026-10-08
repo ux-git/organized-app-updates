@@ -182,7 +182,7 @@ const AssignmentEditor = ({
       <CardField value={card} onChange={setCard} />
 
       <TextField
-        label={tx('Note')}
+        label={tx('Assignment notes')}
         multiline
         minRows={2}
         value={note}
