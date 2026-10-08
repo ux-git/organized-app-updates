@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
-import { Badge, Button, InfoNote, Typography } from '@components/index';
+import {
+  Badge,
+  Button,
+  InfoNote,
+  TextField,
+  Typography,
+} from '@components/index';
 import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
@@ -38,6 +44,7 @@ import { HolderModeSwitch, HolderPickers } from './holder_picker';
 import {
   AssignmentCard,
   AssignmentHolder,
+  MAX_NOTE_LENGTH,
   Territory,
   TerritoryAssignment,
 } from '@definition/territory';
@@ -56,7 +63,9 @@ type AssignDialogProps = {
     holder: AssignmentHolder,
     assignedOn: Date,
     campaign: TerritoryAssignment['campaign'] | null,
-    card?: AssignmentCard
+    card?: AssignmentCard,
+    // optional, shown under the name in the assignment history
+    note?: string
   ) => void;
 };
 
@@ -89,6 +98,7 @@ const AssignDialog = ({
   const [tried, setTried] = useState(false);
   const [assignedOn, setAssignedOn] = useState<Date | null>(new Date());
   const [card, setCard] = useState<AssignmentCard | undefined>(savedCard);
+  const [note, setNote] = useState('');
 
   const lastNote = territory && latestReturnNote(territory.assignments);
 
@@ -145,7 +155,12 @@ const AssignDialog = ({
                 size="small"
                 color="red"
                 filled={false}
-                text={String(doNotCalls)}
+                // spelled out where there is room, the count alone on a phone
+                text={
+                  tablet600Up
+                    ? tx('Do not call: {{n}}', { n: doNotCalls })
+                    : String(doNotCalls)
+                }
                 icon={<IconCancelCicle color="var(--red-dark)" />}
                 sx={{ width: 'fit-content' }}
               />
@@ -223,6 +238,15 @@ const AssignDialog = ({
 
       <CardField value={card} onChange={setCard} />
 
+      <TextField
+        label={tx('Note')}
+        multiline
+        minRows={2}
+        value={note}
+        slotProps={{ htmlInput: { maxLength: MAX_NOTE_LENGTH } }}
+        onChange={(event) => setNote(event.target.value)}
+      />
+
       {campaigns.length > 0 && (
         <CampaignField
           label={tx('For the campaign')}
@@ -256,7 +280,8 @@ const AssignDialog = ({
               campaign.checked && campaign.value
                 ? campaignSnapshot(campaign.value)
                 : null,
-              card
+              card,
+              note.trim() || undefined
             );
             onClose();
           }}

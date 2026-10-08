@@ -27,13 +27,13 @@ const AssignReturnDialogs = ({
           doNotCalls={doNotCalls}
           territory={assignTarget}
           onClose={actions.closeAssign}
-          onAssign={(holder, assignedOn, campaign, card) =>
+          onAssign={(holder, assignedOn, campaign, card, note) =>
             actions.handleAssign(
               assignTarget.id,
               holder,
               assignedOn,
               campaign,
-              undefined,
+              note,
               card
             )
           }

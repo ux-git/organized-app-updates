@@ -272,13 +272,14 @@ const useTerritoriesHub = () => {
     holder: AssignmentHolder,
     assignedOn?: Date,
     campaign?: TerritoryAssignment['campaign'] | null,
-    card?: AssignmentCard
+    card?: AssignmentCard,
+    note?: string
   ) => {
     const ids = selected
       .filter((territory) => territory.status === 'available')
       .map((territory) => territory.id);
 
-    actions.assignMany(ids, holder, assignedOn, campaign, card);
+    actions.assignMany(ids, holder, assignedOn, campaign, card, note);
 
     setAssignManyOpen(false);
     clearChecked();

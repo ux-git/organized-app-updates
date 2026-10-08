@@ -233,10 +233,11 @@ const useAssignReturn = () => {
     holder: AssignmentHolder,
     assignedOn?: Date,
     campaign?: Campaign,
-    card?: AssignmentCard
+    card?: AssignmentCard,
+    note?: string
   ) => {
     const results = ids.map((id) =>
-      assign(id, holder, assignedOn, campaign, undefined, card)
+      assign(id, holder, assignedOn, campaign, note, card)
     );
     const flagged = results.some((result) => result.flagged);
     const values = { n: ids.length, name: holderText(holder) };
