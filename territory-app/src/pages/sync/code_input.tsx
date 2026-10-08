@@ -9,7 +9,14 @@ import { t } from '../../i18n';
 
 const LENGTH = 6;
 const CELL = 46;
-const GAP = 8;
+// the cells and gaps shrink together on a narrow phone, up to full size
+const GAP = 'clamp(4px, 2vw, 8px)';
+const cell = {
+  flex: '1 1 0',
+  minWidth: 0,
+  maxWidth: CELL,
+  aspectRatio: '1',
+} as const;
 
 // the app lock's PIN symbols (feat/app-lock), as plain shapes
 const SHAPES = [
@@ -121,8 +128,8 @@ const CodeInput = ({
       onKeyDownCapture={onKeyDownCapture}
       sx={{
         position: 'relative',
-        width: 'fit-content',
-        maxWidth: '100%',
+        width: '100%',
+        maxWidth: CELL * LENGTH + 8 * (LENGTH - 1),
         margin: '0 auto',
         animation: error ? `${shake} 320ms ease-in-out` : 'none',
       }}
@@ -141,7 +148,7 @@ const CodeInput = ({
         length={LENGTH}
         autoFocus
         display="flex"
-        gap={1}
+        gap={GAP}
         validateChar={isDigit}
         TextFieldsProps={(index) => {
           const filled = !!value[index];
@@ -155,16 +162,19 @@ const CodeInput = ({
               'aria-label': t('invite.digit', { position: index + 1 }),
             },
             sx: {
+              ...cell,
               '.MuiOutlinedInput-input': {
                 color: 'transparent',
                 caretColor: 'transparent',
-                width: CELL,
-                height: CELL,
+                width: '100%',
+                height: '100%',
+                boxSizing: 'border-box',
                 padding: 0,
                 textAlign: 'center',
                 '&::selection': { backgroundColor: 'transparent' },
               },
               '.MuiOutlinedInput-root': {
+                height: '100%',
                 animation: filled ? `${pop} 220ms ${SPRING} both` : 'none',
                 '& fieldset, &:hover fieldset': {
                   border: `1px solid ${color(filled)}`,
@@ -185,7 +195,7 @@ const CodeInput = ({
           position: 'absolute',
           inset: 0,
           display: 'flex',
-          gap: `${GAP}px`,
+          gap: GAP,
           pointerEvents: 'none',
         }}
       >
@@ -195,8 +205,7 @@ const CodeInput = ({
             <Box
               key={index}
               sx={{
-                width: CELL,
-                height: CELL,
+                ...cell,
                 display: 'grid',
                 placeItems: 'center',
                 '& > *': { gridArea: '1 / 1' },

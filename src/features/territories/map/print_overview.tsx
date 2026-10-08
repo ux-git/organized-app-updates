@@ -3,10 +3,9 @@ import { useAtomValue } from 'jotai';
 import { JWLangLocaleState } from '@states/settings';
 import * as maplibregl from 'maplibre-gl';
 import { Image, Page, pdf } from '@react-pdf/renderer';
-import { Stack, SvgIcon } from '@mui/material';
+import { FormControlLabel, Radio, RadioGroup, Stack } from '@mui/material';
 import { Button, Checkbox, Typography } from '@components/index';
 import Dialog from '@components/dialog';
-import TabSwitcher from '@components/tab_switcher';
 import DialogActions from '@components/dialog_actions';
 import { Document } from '@views/components';
 import { mapRequest } from '@services/maps/offline';
@@ -320,36 +319,6 @@ const captureOverview = (
     });
   });
 
-// as tall as the map's mode switch
-const SWITCH = { '& button': { minHeight: '36px' } };
-
-// Material Symbols crop_portrait, crop_landscape and crop_square, weight 300
-// at 24 px: the same 1.5 px line as the app's other icons
-const SHEET_PATHS: Record<Format, string> = {
-  portrait:
-    'M707.69-100H252.31Q222-100 201-121q-21-21-21-51.31v-615.38Q180-818 201-839q21-21 51.31-21h455.38Q738-860 759-839q21 21 21 51.31v615.38Q780-142 759-121q-21 21-51.31 21Zm-455.38-60h455.38q5.39 0 8.85-3.46t3.46-8.85v-615.38q0-5.39-3.46-8.85t-8.85-3.46H252.31q-5.39 0-8.85 3.46t-3.46 8.85v615.38q0 5.39 3.46 8.85t8.85 3.46ZM240-160v-640 640Z',
-  landscape:
-    'M172.31-180Q142-180 121-201q-21-21-21-51.31v-455.38Q100-738 121-759q21-21 51.31-21h615.38Q818-780 839-759q21 21 21 51.31v455.38Q860-222 839-201q-21 21-51.31 21H172.31Zm0-60h615.38q4.62 0 8.46-3.85 3.85-3.84 3.85-8.46v-455.38q0-4.62-3.85-8.46-3.84-3.85-8.46-3.85H172.31q-4.62 0-8.46 3.85-3.85 3.84-3.85 8.46v455.38q0 4.62 3.85 8.46 3.84 3.85 8.46 3.85ZM160-240v-480 480Z',
-  square:
-    'M212.31-140Q182-140 161-161q-21-21-21-51.31v-535.38Q140-778 161-799q21-21 51.31-21h535.38Q778-820 799-799q21 21 21 51.31v535.38Q820-182 799-161q-21 21-51.31 21H212.31Zm0-60h535.38q5.39 0 8.85-3.46t3.46-8.85v-535.38q0-5.39-3.46-8.85t-8.85-3.46H212.31q-5.39 0-8.85 3.46t-3.46 8.85v535.38q0 5.39 3.46 8.85t8.85 3.46ZM200-200v-560 560Z',
-};
-
-const IconSheet = ({
-  format,
-  width = 24,
-  height = 24,
-}: {
-  format: Format;
-  width?: number;
-  height?: number;
-}) => (
-  <SvgIcon sx={{ width, height }} viewBox="0 -960 960 960">
-    <g>
-      <path d={SHEET_PATHS[format]} />
-    </g>
-  </SvgIcon>
-);
-
 const OverviewDocument = ({
   image,
   options,
@@ -461,19 +430,22 @@ export const PrintOverviewDialog = ({
           <Typography className="label-small-medium" color="var(--grey-400)">
             {tx('Format')}
           </Typography>
-          <TabSwitcher
-            ariaLabel={tx('Format')}
-            surface="light"
-            collapseBelow={240}
+          <RadioGroup
+            row
+            aria-label={tx('Format')}
             value={options.format}
-            onChange={(format: Format) => set({ format })}
-            options={(Object.keys(FORMATS) as Format[]).map((format) => ({
-              value: format,
-              label: tx(FORMAT_LABEL[format]),
-              icon: <IconSheet format={format} />,
-            }))}
-            sx={SWITCH}
-          />
+            onChange={(event) => set({ format: event.target.value as Format })}
+            sx={{ gap: '0 16px' }}
+          >
+            {(Object.keys(FORMATS) as Format[]).map((format) => (
+              <FormControlLabel
+                key={format}
+                value={format}
+                control={<Radio />}
+                label={<Typography>{tx(FORMAT_LABEL[format])}</Typography>}
+              />
+            ))}
+          </RadioGroup>
         </Stack>
         <Stack spacing="4px">
           <Checkbox
@@ -511,7 +483,7 @@ export const PrintOverviewDialog = ({
           {tx('Cancel')}
         </Button>
         <Button variant="main" disabled={busy || empty} onClick={save}>
-          {busy ? tx('Preparing…') : tx('Export PDF')}
+          {busy ? tx('Preparing…') : tx('Export')}
         </Button>
       </DialogActions>
     </Dialog>
