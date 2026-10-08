@@ -41,7 +41,19 @@ const About = ({
     <Box
       sx={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%' }}
     >
-      <img src={logo} alt="" width={40} height={40} />
+      {/* rounded like the icon on the home screen */}
+      <Box
+        component="img"
+        src={logo}
+        alt=""
+        sx={{
+          width: 56,
+          height: 56,
+          flexShrink: 0,
+          borderRadius: '22.5%',
+          boxShadow: '0 0 0 1px var(--accent-200)',
+        }}
+      />
       <Box>
         <Typography className="h3">{t('common.appName')}</Typography>
         <Typography className="body-regular" color="var(--grey-350)">
