@@ -89,7 +89,6 @@ const TabSwitcher = <T extends string = string>({
           // a quick spring: it overshoots a touch and settles
           transition: 'transform 0.42s cubic-bezier(0.34, 1.45, 0.5, 1)',
           opacity: activeIndex === -1 ? 0 : 1,
-          '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
         }}
       >
         <Box
