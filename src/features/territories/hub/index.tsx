@@ -73,7 +73,28 @@ const SearchRow = ({
         onClick={onToggleFilters}
         endIcon={filtersOpen ? <IconPanelOpen /> : <IconPanelClose />}
       >
-        {applied ? tx('Filters ({{n}})', { n: applied }) : tx('Filters')}
+        {tx('Filters')}
+        {/* how many are on, as the tabs show their counts */}
+        {applied > 0 && (
+          <Box
+            component="span"
+            className="label-small-semibold"
+            sx={{
+              display: 'inline-flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minWidth: '20px',
+              height: '20px',
+              marginLeft: '8px',
+              padding: '0 5px',
+              borderRadius: 'var(--radius-s)',
+              backgroundColor: 'var(--accent-150)',
+              color: 'var(--accent-dark)',
+            }}
+          >
+            {applied}
+          </Box>
+        )}
       </Button>
     )}
   </Stack>

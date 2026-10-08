@@ -1,13 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { AssignmentCard, Territory } from '@definition/territory';
-import {
-  CardFilter,
-  cardsOut,
-  hasUnknownCard,
-  matchesCard,
-  openCard,
-} from '../card_filter';
+import { CardFilter, cardsOut, matchesCard, openCard } from '../card_filter';
 
 const territory = (
   id: string,
@@ -66,11 +60,6 @@ test('a chip finds the territories out that way; past cards do not count', () =>
 
 test('several chips add up', () => {
   assert.deepEqual(matching('printed', 'unknown'), ['printed', 'older']);
-});
-
-test('the unknown chip is only worth showing with older open records', () => {
-  assert.equal(hasUnknownCard(territories), true);
-  assert.equal(hasUnknownCard([territories[0], territories[3]]), false);
 });
 
 test('cards out counts the open assignments that carry the field', () => {

@@ -212,7 +212,9 @@ export const applyFilters = (
 
     if (filters.forGroups && !territory.holderGroup) return false;
 
-    if (!matchesCard(territory, filters.card)) return false;
+    // 'unknown' was once a chip of its own; one left on from then is ignored
+    const cards = filters.card.filter((card) => card !== 'unknown');
+    if (!matchesCard(territory, cards)) return false;
 
     if (!matchesHolder(territory, filters.holder, filters.holderPast)) {
       return false;
@@ -666,7 +668,7 @@ export const appliedFilters = (filters: TerritoryFilters) =>
   (filters.coverage ? 1 : 0) +
   (filters.cardLostOnly ? 1 : 0) +
   (filters.forGroups ? 1 : 0) +
-  filters.card.length +
+  filters.card.filter((card) => card !== 'unknown').length +
   (filters.holder ? 1 : 0) +
   (filters.campaign ? 1 : 0);
 

@@ -2,10 +2,7 @@ import { ReactNode } from 'react';
 import { Box, Stack } from '@mui/material';
 import { Badge, Button, FilterChip, Typography } from '@components/index';
 import { useAtomValue } from 'jotai';
-import {
-  territoriesState,
-  territoryCategoriesState,
-} from '@states/territories';
+import { territoryCategoriesState } from '@states/territories';
 import {
   AssignmentCard,
   CARD_LABEL,
@@ -15,7 +12,6 @@ import {
   TerritoryType,
   TYPE_LABEL,
 } from '@definition/territory';
-import { hasUnknownCard } from '../card_filter';
 import { appliedFilters, clearedFilters, COVERAGE_PERIODS } from '../helpers';
 import CampaignChips from './campaign_chips';
 import { tx } from '@services/i18n/translation';
@@ -44,11 +40,6 @@ const TerritoryFilters = ({
   showClear?: boolean;
 }) => {
   const categories = useAtomValue(territoryCategoriesState);
-  const territories = useAtomValue(territoriesState);
-
-  // older open records have no card; the chip stays while it is picked
-  const unknownCard =
-    filters.card.includes('unknown') || hasUnknownCard(territories);
 
   const periods = COVERAGE_PERIODS();
 
@@ -108,14 +99,6 @@ const TerritoryFilters = ({
             onClick={() => toggle('card', card)}
           />
         ))}
-        {unknownCard && (
-          <FilterChip
-            // out, but with no map type recorded: older or cleared ones
-            label={tx('Map type not recorded')}
-            selected={filters.card.includes('unknown')}
-            onClick={() => toggle('card', 'unknown')}
-          />
-        )}
         <FilterChip
           label={tx('Out for groups')}
           selected={!!filters.forGroups}

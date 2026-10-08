@@ -19,10 +19,6 @@ export const matchesCard = (territory: Territory, cards: CardFilter[]) => {
   return !!card && cards.includes(card);
 };
 
-/** Open assignments from before the choice existed. */
-export const hasUnknownCard = (territories: Territory[]) =>
-  territories.some((territory) => openCard(territory) === 'unknown');
-
 export const cardsOut = (territories: Territory[]) => {
   const out = { digital: 0, printed: 0 };
 
