@@ -103,7 +103,6 @@ const TabSwitcher = <T extends string = string>({
             animation: moves
               ? `${STRETCHES[moves % 2]} 0.42s cubic-bezier(0.22, 1, 0.36, 1)`
               : 'none',
-            '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
           }}
         />
       </Box>
