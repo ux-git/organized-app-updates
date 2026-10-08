@@ -6,12 +6,13 @@ import {
   TabSwitcherSurface,
 } from './index.types';
 
-// the thumb stretches a little mid-way; two names
-// taken in turns restart it on every change
+// the thumb shrinks as it sets off, travels small and grows back in place;
+// two names taken in turns restart it on every change
 const stretch = (turn: number) => keyframes`
-  0% { transform: scaleX(1); }
-  50% { transform: scaleX(1.06); }
-  100% { transform: scaleX(1); --turn: ${turn}; }
+  0% { transform: scale(1); }
+  30% { transform: scale(0.86); }
+  70% { transform: scale(0.86); }
+  100% { transform: scale(1); --turn: ${turn}; }
 `;
 const STRETCHES = [stretch(0), stretch(1)];
 
