@@ -74,7 +74,8 @@ const TabSwitcher = <T extends string = string>({
           backgroundColor: palette.thumb,
           border: `1px solid ${palette.thumbBorder}`,
           transform: `translateX(calc(${Math.max(activeIndex, 0)} * (100% + ${gap}px)))`,
-          transition: 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
+          // a quick spring: it overshoots a touch and settles
+          transition: 'transform 0.36s cubic-bezier(0.34, 1.32, 0.64, 1)',
           opacity: activeIndex === -1 ? 0 : 1,
         }}
       />
@@ -86,7 +87,7 @@ const TabSwitcher = <T extends string = string>({
           <ButtonBase
             key={option.value}
             role="tab"
-            className={isActive ? 'body-small-semibold' : 'body-small-regular'}
+            className="body-small-regular"
             aria-selected={isActive}
             aria-label={iconOnly || collapse ? option.label : undefined}
             disabled={option.disabled}
@@ -106,7 +107,7 @@ const TabSwitcher = <T extends string = string>({
               borderRadius: 'var(--radius-s)',
               fontFamily: 'inherit',
               color: isActive ? 'var(--accent-dark)' : 'var(--accent-400)',
-              transition: 'color 0.16s ease-out',
+              transition: 'color 0.2s ease-out',
               '&.Mui-disabled': { opacity: 0.5 },
               '& svg, & svg g, & svg g path': {
                 fill: isActive ? 'var(--accent-dark)' : 'var(--accent-400)',
@@ -132,16 +133,38 @@ const TabSwitcher = <T extends string = string>({
               </Box>
             )}
             {!iconOnly && (
+              // the bold width is kept free, so the label doesn't jump as its
+              // weight eases from regular to semibold
               <Box
                 component="span"
                 sx={{
+                  display: 'grid',
                   minWidth: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
+                  '& > span': {
+                    gridArea: '1 / 1',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    textAlign: 'center',
+                  },
                 }}
               >
-                {option.label}
+                <Box
+                  component="span"
+                  sx={{
+                    fontWeight: isActive ? 600 : 400,
+                    transition: 'font-weight 0.2s ease-out',
+                  }}
+                >
+                  {option.label}
+                </Box>
+                <Box
+                  component="span"
+                  aria-hidden
+                  sx={{ fontWeight: 600, visibility: 'hidden' }}
+                >
+                  {option.label}
+                </Box>
               </Box>
             )}
           </ButtonBase>
