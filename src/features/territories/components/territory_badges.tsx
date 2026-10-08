@@ -205,7 +205,7 @@ export const CampaignBadge = ({
   );
 };
 
-// how the work went out; the icon alone where a row is tight
+// how the work went out; where a row is tight the name may shorten, so it also sits in a tooltip
 export const CardBadge = ({
   card,
   text = false,
@@ -223,10 +223,7 @@ export const CardBadge = ({
       color="grey"
       filled={false}
       text={label}
-      sx={{
-        width: 'fit-content',
-        ...(text ? shrink(label) : { flexShrink: 0, '& > div': { gap: 0 } }),
-      }}
+      sx={{ width: 'fit-content', ...shrink(label) }}
     />
   );
 
@@ -235,7 +232,11 @@ export const CardBadge = ({
   return (
     <Tooltip title={label}>
       {/* the tooltip needs a DOM child to anchor to */}
-      <Box role="img" aria-label={label} sx={{ width: 'fit-content' }}>
+      <Box
+        role="img"
+        aria-label={label}
+        sx={{ width: 'fit-content', minWidth: 0 }}
+      >
         {badge}
       </Box>
     </Tooltip>

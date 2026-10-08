@@ -323,6 +323,7 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
       showDoNotCalls={isTerritoryEditor}
       emptyMessage={emptyMessage}
       title={tx('Territories: {{n}}', { n: visible.length })}
+      titleOnTop={isMine && tabs.length === 0}
       selectionBar={selectionBar}
     />
   );

@@ -67,6 +67,8 @@ type TerritoryTableProps = {
   showDoNotCalls?: boolean;
   emptyMessage?: string;
   title?: string;
+  // first thing in its card: titled like the other cards, not like a list under tabs
+  titleOnTop?: boolean;
   selectionBar?: ReactNode;
   layoutSwitch?: ReactNode;
   selecting?: boolean;
@@ -297,6 +299,7 @@ const TerritoryTable = ({
   showDoNotCalls = false,
   emptyMessage = emptyListMessage(),
   title,
+  titleOnTop = false,
   selectionBar,
   layoutSwitch,
   selecting = false,
@@ -403,10 +406,12 @@ const TerritoryTable = ({
 
   const someChecked = sorted.some((territory) => checked.has(territory.id));
 
+  const subHeading = actions && !titleOnTop;
+
   const heading = title && (
     <Typography
       component={actions ? 'div' : 'h2'}
-      className={actions ? 'h3' : 'h2'}
+      className={subHeading ? 'h3' : 'h2'}
       noWrap={actions}
     >
       {phone && checked.size > 0
@@ -417,7 +422,7 @@ const TerritoryTable = ({
 
   if (territories.length === 0) {
     return (
-      <Stack spacing="12px" sx={{ paddingTop: actions ? '16px' : 0 }}>
+      <Stack spacing="12px" sx={{ paddingTop: subHeading ? '16px' : 0 }}>
         {heading}
         {actions && selectionBar}
         <InfoNote message={emptyMessage} />
@@ -426,7 +431,7 @@ const TerritoryTable = ({
   }
 
   return (
-    <Stack spacing={actions ? '4px' : '12px'}>
+    <Stack spacing={subHeading ? '4px' : '12px'}>
       <Stack
         direction="row"
         sx={{
@@ -434,7 +439,9 @@ const TerritoryTable = ({
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '12px',
-          padding: actions ? '12px 8px 8px' : 0,
+          padding: subHeading ? '12px 8px 8px' : 0,
+          // as tall as the title; the buttons overhang instead of pushing it down
+          ...(titleOnTop && { height: '24px', alignContent: 'center' }),
         }}
       >
         {actions && showCheckboxes && (
@@ -453,7 +460,7 @@ const TerritoryTable = ({
             gap: '4px',
             flexGrow: 1,
             minWidth: 0,
-            minHeight: actions ? '40px' : undefined,
+            minHeight: subHeading ? '40px' : undefined,
           }}
         >
           {heading}

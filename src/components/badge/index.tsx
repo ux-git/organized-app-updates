@@ -121,6 +121,11 @@ const Badge = (props: BadgePropsType) => {
 
   const textColor = getColor(props);
   const backgroundColor = getBackgroundColor(props);
+  // a single-line badge has a fixed height, so wrapped text would spill out of it
+  const textSx = {
+    color: textColor,
+    ...(!props.multiLine && { whiteSpace: 'nowrap' }),
+  };
 
   return (
     <>
@@ -149,12 +154,7 @@ const Badge = (props: BadgePropsType) => {
             iconWidth={'16px'}
             color={textColor}
           >
-            <BadgeTypography
-              className={className}
-              sx={{
-                color: textColor,
-              }}
-            >
+            <BadgeTypography className={className} sx={textSx}>
               {text}
             </BadgeTypography>
           </BadgeContent>
@@ -186,12 +186,7 @@ const Badge = (props: BadgePropsType) => {
             iconWidth={'18px'}
             color={textColor}
           >
-            <BadgeTypography
-              className={className}
-              sx={{
-                color: textColor,
-              }}
-            >
+            <BadgeTypography className={className} sx={textSx}>
               {text}
             </BadgeTypography>
           </BadgeContent>
@@ -223,12 +218,7 @@ const Badge = (props: BadgePropsType) => {
               iconWidth={'20px'}
               color={textColor}
             >
-              <BadgeTypography
-                className={className}
-                sx={{
-                  color: textColor,
-                }}
-              >
+              <BadgeTypography className={className} sx={textSx}>
                 {text}
               </BadgeTypography>
             </BadgeContent>

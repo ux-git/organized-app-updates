@@ -28,22 +28,9 @@ const IconCancelCicle = ({
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <mask
-          id="mask0_2653_26727"
-          style={{ maskType: 'alpha' }}
-          maskUnits="userSpaceOnUse"
-          x="0"
-          y="0"
-          width="24"
-          height="25"
-        >
-          <rect y="0.000488281" width="24" height="24" fill="#D9D9D9" />
-        </mask>
-        <g mask="url(#mask0_2653_26727)">
-          <path
-            d={CANCEL_CIRCLE_PATH}
-            fill={color}
-          />
+        {/* no mask: a hidden copy elsewhere on the page would blank this one, as they share its id */}
+        <g>
+          <path d={CANCEL_CIRCLE_PATH} fill={color} />
         </g>
       </svg>
     </SvgIcon>

@@ -3,7 +3,7 @@ import { Box } from '@mui/material';
 import {
   IconAdd,
   IconRaiseHand,
-  IconVisibility,
+  IconMapOverview,
   IconAssignmetHistory,
   IconCancelCicle,
 } from '@icons/index';
@@ -39,7 +39,7 @@ const Territories = () => {
     <NavBarButtonGroup>
       <NavBarButton
         text={hub.canRequest ? tx('Request') : tx('Show available territories')}
-        icon={hub.canRequest ? <IconRaiseHand /> : <IconVisibility />}
+        icon={hub.canRequest ? <IconRaiseHand /> : <IconMapOverview />}
         textImportant
         onClick={() => navigate('/territories?tab=recommended')}
       />
