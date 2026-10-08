@@ -56,7 +56,7 @@ type AssignDialogProps = {
     holder: AssignmentHolder,
     assignedOn: Date,
     campaign: TerritoryAssignment['campaign'] | null,
-    card: AssignmentCard
+    card?: AssignmentCard
   ) => void;
 };
 
@@ -88,7 +88,7 @@ const AssignDialog = ({
   );
   const [tried, setTried] = useState(false);
   const [assignedOn, setAssignedOn] = useState<Date | null>(new Date());
-  const [card, setCard] = useState<AssignmentCard>(savedCard);
+  const [card, setCard] = useState<AssignmentCard | undefined>(savedCard);
 
   const lastNote = territory && latestReturnNote(territory.assignments);
 

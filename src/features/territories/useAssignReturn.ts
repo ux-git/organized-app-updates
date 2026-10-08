@@ -99,7 +99,7 @@ const useAssignReturn = () => {
     assignedOn?: Date,
     campaign?: Campaign,
     note?: string,
-    card: AssignmentCard = savedCard()
+    card: AssignmentCard | undefined = savedCard()
   ) => {
     const start = assignedOn ?? new Date();
     const running = campaignFor(campaigns, start);

@@ -9,7 +9,8 @@ const CardField = ({
   onChange,
 }: {
   value?: AssignmentCard;
-  onChange: (next: AssignmentCard) => void;
+  // undefined when the chosen one is clicked again: not recorded
+  onChange: (next?: AssignmentCard) => void;
 }) => (
   <RadioGroup
     row
@@ -22,7 +23,9 @@ const CardField = ({
       <FormControlLabel
         key={card}
         value={card}
-        control={<Radio />}
+        control={
+          <Radio onClick={() => card === value && onChange(undefined)} />
+        }
         label={<Typography>{tx(CARD_LABEL[card])}</Typography>}
       />
     ))}

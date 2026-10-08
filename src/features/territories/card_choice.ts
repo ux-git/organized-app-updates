@@ -4,11 +4,15 @@ import { AssignmentCard, AssignmentHolder } from '@definition/territory';
 // per device, like the map provider: whoever prints the cards keeps printing
 const CARD_KEY = 'territory_assignment_card';
 
-export const savedCard = (): AssignmentCard =>
-  localStorageGetItem(CARD_KEY) === 'printed' ? 'printed' : 'digital';
+// 'none' when it was left unchosen last time; digital until anything is saved
+export const savedCard = (): AssignmentCard | undefined => {
+  const saved = localStorageGetItem(CARD_KEY);
+  if (saved === 'none') return undefined;
+  return saved === 'printed' ? 'printed' : 'digital';
+};
 
-export const rememberCard = (card: AssignmentCard) =>
-  localStorage.setItem(CARD_KEY, card);
+export const rememberCard = (card?: AssignmentCard) =>
+  localStorage.setItem(CARD_KEY, card ?? 'none');
 
 // the last assign went to a group or a publisher; a group stays picked for the next
 const MODE_KEY = 'territory_assignment_mode';
