@@ -92,7 +92,11 @@ const Sync = () => {
   useEffect(() => {
     const stops = [
       listen<{ text: string }>('qr', ({ text }) => {
-        if (text.startsWith(INVITE_PREFIX)) {
+        // the scanner's "Enter code instead"
+        if (text === 'enter-code') {
+          setQrPairOpen(false);
+          setJoin('');
+        } else if (text.startsWith(INVITE_PREFIX)) {
           setQrPairOpen(false);
           setJoin(text);
         } else if (text.startsWith(CARD_PREFIX)) {

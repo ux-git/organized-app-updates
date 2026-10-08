@@ -56,6 +56,11 @@
     <string name="shortcut_meet">Pair a device</string>
     <string name="scan_hint">Point the camera at the other device’s code</string>
     <string name="scan_progress">%1$d of %2$d codes scanned. Keep the camera on the screen.</string>
+    <string name="scan_title">Scan code</string>
+    <string name="scan_enter_code">Enter code instead</string>
+    <string name="scan_close">Close</string>
+    <string name="scan_torch_on">Turn on the flashlight</string>
+    <string name="scan_torch_off">Turn off the flashlight</string>
     <string name="tap_description">Pair with another device by holding them together</string>
     <string name="backup_channel">Backups</string>
     <string name="backup_failed_title">Backup failed</string>

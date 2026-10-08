@@ -238,7 +238,10 @@ class NearbyPlugin: Tauri.Plugin {
       return
     }
     frames = [:]
-    let controller = Scanner { [weak self] text in self?.read(text) }
+    // "enter-code": Sync.tsx opens the code entry instead
+    let controller = Scanner(
+      onCode: { [weak self] text in self?.read(text) },
+      onEnterCode: { [weak self] in self?.finish("enter-code", knock: false) })
     scanner = controller
     top()?.present(controller, animated: true)
   }
@@ -261,13 +264,13 @@ class NearbyPlugin: Tauri.Plugin {
     }
   }
 
-  private func finish(_ text: String) {
+  private func finish(_ text: String, knock: Bool = true) {
     // the camera goes on reading while the scanner slides away
     guard let scanner = scanner else { return }
     self.scanner = nil
     frames = [:]
     // read: a knock now, the outcome on the page
-    _ = Haptics.perform("contact")
+    if knock { _ = Haptics.perform("contact") }
     scanner.dismiss(animated: true)
     Core.emit("qr", ["text": text])
   }

@@ -56,6 +56,11 @@
     <string name="shortcut_meet">Gerät koppeln</string>
     <string name="scan_hint">Richte die Kamera auf den Code des anderen Geräts</string>
     <string name="scan_progress">%1$d von %2$d Codes gescannt. Halte die Kamera weiter auf den Bildschirm.</string>
+    <string name="scan_title">Code scannen</string>
+    <string name="scan_enter_code">Code stattdessen eingeben</string>
+    <string name="scan_close">Schließen</string>
+    <string name="scan_torch_on">Taschenlampe einschalten</string>
+    <string name="scan_torch_off">Taschenlampe ausschalten</string>
     <string name="tap_description">Mit einem anderen Gerät koppeln, indem du beide Geräte aneinanderhältst</string>
     <string name="backup_channel">Sicherungen</string>
     <string name="backup_failed_title">Sicherung fehlgeschlagen</string>
