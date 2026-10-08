@@ -6,12 +6,12 @@ import {
   TabSwitcherSurface,
 } from './index.types';
 
-// the thumb shrinks as it sets off, travels small and grows back in place;
-// two names taken in turns restart it on every change
+// the thumb dips in size as it travels and grows back as it lands, in one
+// smooth wave timed with the slide; two names taken in turns restart it on
+// every change
 const stretch = (turn: number) => keyframes`
-  0% { transform: scale(1); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
-  35% { transform: scale(0.86); }
-  60% { transform: scale(0.86); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  0% { transform: scale(1); animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1); }
+  45% { transform: scale(0.9); animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1); }
   100% { transform: scale(1); --turn: ${turn}; }
 `;
 const STRETCHES = [stretch(0), stretch(1)];
@@ -88,7 +88,7 @@ const TabSwitcher = <T extends string = string>({
           transform: `translateX(calc(${Math.max(activeIndex, 0)} * (100% + ${gap}px)))`,
           // a quick spring: it overshoots a touch and settles
           // eases off gently and lands softly, never past the track's edge
-          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'transform 0.42s cubic-bezier(0.65, 0, 0.35, 1)',
           opacity: activeIndex === -1 ? 0 : 1,
         }}
       >
@@ -101,7 +101,7 @@ const TabSwitcher = <T extends string = string>({
             borderRadius: 'var(--radius-s)',
             backgroundColor: palette.thumb,
             border: `1px solid ${palette.thumbBorder}`,
-            animation: moves ? `${STRETCHES[moves % 2]} 0.4s linear` : 'none',
+            animation: moves ? `${STRETCHES[moves % 2]} 0.42s linear` : 'none',
           }}
         />
       </Box>
