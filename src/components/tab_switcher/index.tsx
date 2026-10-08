@@ -6,13 +6,11 @@ import {
   TabSwitcherSurface,
 } from './index.types';
 
-// the thumb stretches as it sets off and squeezes as it lands; two names
+// the thumb stretches a little mid-way; two names
 // taken in turns restart it on every change
 const stretch = (turn: number) => keyframes`
   0% { transform: scaleX(1); }
-  20% { transform: scaleX(1.04) scaleY(0.98); }
-  50% { transform: scaleX(1.14) scaleY(0.92); }
-  80% { transform: scaleX(0.96) scaleY(1.03); }
+  50% { transform: scaleX(1.06); }
   100% { transform: scaleX(1); --turn: ${turn}; }
 `;
 const STRETCHES = [stretch(0), stretch(1)];
@@ -88,8 +86,8 @@ const TabSwitcher = <T extends string = string>({
           width: `calc((100% - ${(options.length - 1) * gap + 8}px) / ${options.length})`,
           transform: `translateX(calc(${Math.max(activeIndex, 0)} * (100% + ${gap}px)))`,
           // a quick spring: it overshoots a touch and settles
-          // eases off gently, then springs a touch past the tab and settles
-          transition: 'transform 0.5s cubic-bezier(0.45, 0, 0.2, 1.3)',
+          // eases off gently and lands softly, never past the track's edge
+          transition: 'transform 0.42s cubic-bezier(0.65, 0, 0.25, 1)',
           opacity: activeIndex === -1 ? 0 : 1,
         }}
       >
@@ -103,7 +101,7 @@ const TabSwitcher = <T extends string = string>({
             backgroundColor: palette.thumb,
             border: `1px solid ${palette.thumbBorder}`,
             animation: moves
-              ? `${STRETCHES[moves % 2]} 0.5s ease-in-out`
+              ? `${STRETCHES[moves % 2]} 0.42s ease-in-out`
               : 'none',
           }}
         />
