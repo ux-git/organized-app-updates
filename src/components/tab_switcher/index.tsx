@@ -55,7 +55,7 @@ const TabSwitcher = <T extends string = string>({
     setSeen(activeIndex);
     setMoves(moves + 1);
   }
-  const gap = 8;
+  const gap = 4;
   const collapse = collapseBelow
     ? `@container (max-width: ${collapseBelow}px)`
     : undefined;
@@ -87,7 +87,7 @@ const TabSwitcher = <T extends string = string>({
           transform: `translateX(calc(${Math.max(activeIndex, 0)} * (100% + ${gap}px)))`,
           // a quick spring: it overshoots a touch and settles
           // eases off gently and lands softly, never past the track's edge
-          transition: 'transform 0.42s cubic-bezier(0.65, 0, 0.25, 1)',
+          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           opacity: activeIndex === -1 ? 0 : 1,
         }}
       >
@@ -101,7 +101,7 @@ const TabSwitcher = <T extends string = string>({
             backgroundColor: palette.thumb,
             border: `1px solid ${palette.thumbBorder}`,
             animation: moves
-              ? `${STRETCHES[moves % 2]} 0.42s ease-in-out`
+              ? `${STRETCHES[moves % 2]} 0.3s ease-in-out`
               : 'none',
           }}
         />
@@ -134,7 +134,8 @@ const TabSwitcher = <T extends string = string>({
               borderRadius: 'var(--radius-s)',
               fontFamily: 'inherit',
               color: isActive ? 'var(--accent-dark)' : 'var(--accent-400)',
-              transition: 'color 0.2s ease-out, background-color 0.2s ease-out',
+              transition:
+                'color 0.12s ease-out, background-color 0.12s ease-out',
               // an inactive tab lightens a shade under the pointer
               ...(!isActive && {
                 '@media (hover: hover)': {
@@ -192,7 +193,7 @@ const TabSwitcher = <T extends string = string>({
                     // its semibold, so the text hardly changes width
                     letterSpacing: isActive ? 'normal' : '0.02em',
                     transition:
-                      'font-weight 0.2s ease-out, letter-spacing 0.2s ease-out',
+                      'font-weight 0.15s ease-out, letter-spacing 0.15s ease-out',
                   }}
                 >
                   {option.label}
