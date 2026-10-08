@@ -661,5 +661,14 @@
       "cable": "On a cable? It has to be plugged into the router that makes the Wi-Fi."
     },
     "digit": "Digit {{position}}"
+  },
+  "profile": {
+    "you": "You",
+    "youText": "Pick yourself from the publishers, so My territories and do-not-call entries know who you are. Visible to paired devices.",
+    "linked": "Linked publisher",
+    "change": "Change",
+    "pickYourself": "Find yourself in the publishers",
+    "notInList": "I'm not in the list",
+    "fromList": "Choose from the publishers"
   }
 }

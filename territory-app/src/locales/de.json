@@ -698,5 +698,14 @@
       "cable": "Am Kabel? Das Gerät muss am selben Router stecken, der das WLAN macht."
     },
     "digit": "Ziffer {{position}}"
+  },
+  "profile": {
+    "you": "Du",
+    "youText": "Wähle dich aus den Verkündigern, damit Meine Gebiete und Nicht-besuchen-Einträge wissen, wer du bist. Für gekoppelte Geräte sichtbar.",
+    "linked": "Verknüpfter Verkündiger",
+    "change": "Ändern",
+    "pickYourself": "Finde dich in den Verkündigern",
+    "notInList": "Ich bin nicht in der Liste",
+    "fromList": "Aus den Verkündigern wählen"
   }
 }
