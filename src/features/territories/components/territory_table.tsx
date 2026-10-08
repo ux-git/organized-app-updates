@@ -42,7 +42,6 @@ import {
   CategoryBadges,
   ListDoNotCallBadge as DoNotCallBadge,
   NewNoteBadge,
-  PrintedCardBadge,
   RequestBadge,
 } from './territory_badges';
 import { territoryHolderText } from '../group_holder';
@@ -240,7 +239,6 @@ const badges = (
     {showDoNotCalls && <NewNoteBadge territory={territory} />}
     <AssignedTwiceBadge territory={territory} />
     <CardLostBadge territory={territory} />
-    {showDoNotCalls && <PrintedCardBadge territory={territory} />}
     <CategoryBadges territory={territory} wrap />
   </>
 );

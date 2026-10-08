@@ -5,7 +5,6 @@ import { IconCampaign, IconCancelCicle, IconRaiseHand } from '@icons/index';
 import { daysLabel, doNotCallLabel, olderOpenAssignments } from '../helpers';
 import { hasNewNote } from '../notes';
 import { categoryBadge } from '../category_colors';
-import { openCard } from '../card_filter';
 import { useAtomValue } from 'jotai';
 import {
   territoriesShowDoNotCallCountState,
@@ -241,13 +240,6 @@ export const CardBadge = ({
       </Box>
     </Tooltip>
   );
-};
-
-// a card is out with the holder, so a servant knows what to take back
-export const PrintedCardBadge = ({ territory }: { territory: Territory }) => {
-  if (openCard(territory) !== 'printed') return null;
-
-  return <CardBadge card="printed" text />;
 };
 
 export const CardLostBadge = ({ territory }: { territory: Territory }) => {

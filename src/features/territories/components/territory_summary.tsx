@@ -7,7 +7,6 @@ import {
   CardLostBadge,
   CategoryBadges,
   DoNotCallBadge,
-  PrintedCardBadge,
   StatusBadge,
 } from './territory_badges';
 import { tx } from '@services/i18n/translation';
@@ -117,7 +116,6 @@ const TerritorySummary = ({
             {description}
           </Typography>
           <CardLostBadge territory={territory} />
-          <PrintedCardBadge territory={territory} />
           <CategoryBadges territory={territory} wrap />
         </Stack>
 

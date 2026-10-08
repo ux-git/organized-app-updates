@@ -19,7 +19,6 @@ import {
   CategoryBadges,
   CoveredBadge,
   ListDoNotCallBadge as DoNotCallBadge,
-  PrintedCardBadge,
 } from './territory_badges';
 import TruncatedText from './truncated_text';
 import { coveredAge, coveredDays, emptyListMessage } from '../helpers';
@@ -303,7 +302,6 @@ const BoardView = ({
                           />
                           <AssignedTwiceBadge territory={territory} />
                           <CardLostBadge territory={territory} />
-                          <PrintedCardBadge territory={territory} />
                           <CategoryBadges territory={territory} />
                         </Stack>
 
