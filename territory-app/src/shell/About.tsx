@@ -30,6 +30,9 @@ const link = (href: string, text: string) => (
 );
 
 // Organized's About dialog, for this app and the app it comes from
+// both apps' icons at one size, so their titles line up
+const ICON = 48;
+
 const About = ({
   open: isOpen,
   onClose,
@@ -47,8 +50,8 @@ const About = ({
         src={logo}
         alt=""
         sx={{
-          width: 56,
-          height: 56,
+          width: ICON,
+          height: ICON,
           flexShrink: 0,
           borderRadius: '22.5%',
           boxShadow: '0 0 0 1px var(--accent-200)',
@@ -67,7 +70,7 @@ const About = ({
     <Box
       sx={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%' }}
     >
-      <IconLogo width={40} height={40} />
+      <IconLogo width={ICON} height={ICON} />
       <Typography className="h3">{t('about.partOf')}</Typography>
     </Box>
     <Typography className="body-regular">{t('about.partOfText')}</Typography>
