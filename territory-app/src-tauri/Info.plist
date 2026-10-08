@@ -2,8 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocationUsageDescription</key>
+	<string>Shows your current position on the territory map when you tap the location button.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Finds your paired devices on the same Wi-Fi and syncs territories with them when Bluetooth can’t reach.</string>
+	<string>Pairs and syncs with your devices on the same Wi-Fi when Bluetooth can’t reach. Nothing goes over the internet.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_territories._tcp</string>

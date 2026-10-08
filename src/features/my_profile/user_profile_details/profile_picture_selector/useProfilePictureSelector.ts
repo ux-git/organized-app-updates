@@ -55,7 +55,15 @@ const SECTIONS: AvatarSection[] = [
   { titleKey: 'tr_gradient', options: imagesByPrefix('Gradient') },
 ];
 
-const useProfilePictureSelector = (onClose: () => void) => {
+export type ProfilePictureOptions = {
+  onSave?: (type: AvatarType) => Promise<void>;
+  allPictures?: boolean;
+};
+
+const useProfilePictureSelector = (
+  onClose: () => void,
+  { onSave, allPictures = false }: ProfilePictureOptions = {}
+) => {
   const { t } = useAppTranslation();
 
   const { person } = useCurrentUser();
@@ -81,10 +89,11 @@ const useProfilePictureSelector = (onClose: () => void) => {
 
   const sections = useMemo(() => {
     const isVisible = (option: AvatarOption) => {
-      if (option.gender && option.gender !== gender) return false;
+      if (!allPictures && option.gender && option.gender !== gender)
+        return false;
 
       // the account photo can only be shown when there is one
-      if (option.type === 'google' && !hasAvatar) return false;
+      if (option.type === 'google' && (allPictures || !hasAvatar)) return false;
 
       return true;
     };
@@ -93,7 +102,7 @@ const useProfilePictureSelector = (onClose: () => void) => {
       titleKey: section.titleKey,
       options: section.options.filter(isVisible).map((option) => option.type),
     })).filter((section) => section.options.length > 0);
-  }, [gender, hasAvatar]);
+  }, [gender, hasAvatar, allPictures]);
 
   const handleDone = async () => {
     if (savingRef.current) return;
@@ -107,12 +116,14 @@ const useProfilePictureSelector = (onClose: () => void) => {
     setIsProcessing(true);
 
     try {
-      await dbAppSettingsUpdate({
-        'user_settings.user_avatar_type': {
-          value: selectedType,
-          updatedAt: new Date().toISOString(),
-        },
-      });
+      if (onSave) await onSave(selectedType);
+      else
+        await dbAppSettingsUpdate({
+          'user_settings.user_avatar_type': {
+            value: selectedType,
+            updatedAt: new Date().toISOString(),
+          },
+        });
 
       onClose();
     } catch {

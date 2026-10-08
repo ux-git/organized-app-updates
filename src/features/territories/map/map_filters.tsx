@@ -76,7 +76,7 @@ const MapFilters = ({
             <Stack>
               <Typography className="body-regular">{tx(item.label)}</Typography>
               <Typography
-                className="body-small-regular"
+                className="label-small-regular"
                 color="var(--grey-350)"
               >
                 {tx(item.description)}

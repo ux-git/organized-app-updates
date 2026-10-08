@@ -8,9 +8,10 @@ const dayOf = (value?: string) => {
   return new Date(year, month - 1, day);
 };
 
-// worked for a campaign only: not regular coverage, unless marked as such
-export const isCoverage = (assignment: Pick<TerritoryAssignment, 'campaign'>) =>
-  !assignment.campaign || !!assignment.campaign.coverage;
+// A returned, unfinished assignment is retained without counting as coverage.
+export const isCoverage = (
+  assignment: Pick<TerritoryAssignment, 'completed'>
+) => assignment.completed !== false;
 
 export const returnedWithin = (territory: Territory, start: Date, end: Date) =>
   territory.assignments.some((assignment) => {

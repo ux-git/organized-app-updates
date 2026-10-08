@@ -18,10 +18,12 @@ const AccountHeaderIcon = ({
   handleOpenMore,
   isMoreOpen = false,
   sx,
+  label,
 }: {
   handleOpenMore?: (e: unknown) => void;
   isMoreOpen?: boolean;
   sx?: SxProps<Theme>;
+  label?: string;
 }) => {
   const { isOffline } = useAccountHeaderIcon();
 
@@ -30,6 +32,9 @@ const AccountHeaderIcon = ({
   return (
     <Box
       role="button"
+      aria-label={label}
+      aria-haspopup="menu"
+      aria-expanded={isMoreOpen}
       tabIndex={0}
       sx={{
         display: 'flex',
@@ -54,9 +59,12 @@ const AccountHeaderIcon = ({
         ...sx,
       }}
       onClick={handleOpenMore}
-      onKeyDown={(e) =>
-        e.key === 'Enter' || e.key === ' ' ? handleOpenMore?.(e) : null
-      }
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleOpenMore?.(e);
+        }
+      }}
     >
       <Box
         sx={{

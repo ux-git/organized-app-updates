@@ -10,6 +10,7 @@ const AppFeedback = () => {
     snackOpen,
     appMessageHeader,
     appMessageIcon,
+    appMessageAction,
   } = useAppFeedback();
 
   return (
@@ -20,6 +21,14 @@ const AppFeedback = () => {
       messageHeader={appMessageHeader}
       message={appMessage}
       onClose={handleClose}
+      actionText={appMessageAction?.text}
+      actionClick={
+        appMessageAction &&
+        (() => {
+          handleClose();
+          appMessageAction.onClick();
+        })
+      }
       messageIcon={
         appMessageIcon ? (
           appMessageIcon

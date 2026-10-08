@@ -1,3 +1,12 @@
+import { locateMap } from '@services/maps/location';
+import { mapRequest } from '@services/maps/offline';
+import {
+  applyMapTier,
+  downgradeMapTier,
+  mapDetail,
+  mapPerformanceOptions,
+  watchMapPerformance,
+} from '@services/maps/performance';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
@@ -8,7 +17,10 @@ import { tx } from '@services/i18n/translation';
 import { getCSSPropertyValue, localStorageGetItem } from '@utils/common';
 import { isDarkThemeState } from '@states/app';
 import {
+  congregationBorderColorState,
+  congregationBorderDashedState,
   congregationBoundaryState,
+  territoriesShowDoNotCallMapState,
   territoriesState,
   territoriesWithStatusState,
 } from '@states/territories';
@@ -16,6 +28,7 @@ import { TerritoryBoundary } from '@definition/territory';
 import {
   MAP_PROVIDERS,
   CONGREGATION_FILL_LAYER,
+  CONGREGATION_HIT_LAYER,
   CONGREGATION_LINE_LAYER,
   CONGREGATION_SOURCE,
   DEFAULT_BOUNDARY_STYLE,
@@ -48,13 +61,16 @@ import {
   labelOpacity,
   numberText,
   resolveColor,
+  resolveLightColor,
   allMarkers,
+  letterFrames,
   boundaryBounds,
   boundaryCollection,
   congregationBounds,
   drawnColor,
   labelCollection,
   mapLocale,
+  sanitizeBoundary,
 } from './helpers';
 import {
   applyBasemapOptions,
@@ -66,11 +82,13 @@ import {
 } from './basemap';
 import {
   addBoundaryLayers,
+  addDoNotCallLayer,
+  setDoNotCallData,
   addDrawingLayers,
   FILL_OPACITY,
   setDrawingData,
 } from './layers';
-import { MarkerRegistry, syncMarkers } from './markers';
+import { MARKER_ICON_ZOOM, MarkerRegistry, syncMarkers } from './markers';
 import useFullscreen from './useFullscreen';
 import useMapEditor, { EditScope } from './useMapEditor';
 
@@ -90,12 +108,16 @@ const savedProvider = (): MapProviderKey => {
 // the padding a map keeps around the area it opens on
 const FIT_PADDING = 80;
 
+// the congregation's outline stands out from the territories' borders
+const BORDER_LINE = 5;
+
 const useTerritoriesMap = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const setTerritories = useSetAtom(territoriesState);
   const withStatus = useAtomValue(territoriesWithStatusState);
+  const showDoNotCalls = useAtomValue(territoriesShowDoNotCallMapState);
 
   const territories = useMemo(
     () => withStatus.filter((territory) => territory.type !== 'phone'),
@@ -113,8 +135,25 @@ const useTerritoriesMap = () => {
   const style = useRef('');
 
   const [ready, setReady] = useState(false);
+  const [mapError, setMapError] = useState(false);
+  const [generation, setGeneration] = useState(0);
+  const reloadMap = () => {
+    setMapError(false);
+    setReady(false);
+    setGeneration((value) => value + 1);
+  };
   const [styleVersion, setStyleVersion] = useState(0);
   const [colorView, setColorView] = useState<ColorView>('status');
+  const [editMode, setEditMode] = useState(false);
+  const [borderColor, setBorderColor] = useAtom(congregationBorderColorState);
+  const [borderDashed, setBorderDashed] = useAtom(
+    congregationBorderDashedState
+  );
+  const borderDashedRef = useRef(borderDashed);
+  borderDashedRef.current = borderDashed;
+  const borderColorRef = useRef(borderColor);
+  borderColorRef.current = borderColor;
+  const editAreaRef = useRef<VoidFunction>(undefined);
 
   const [heatmapPeriod, setHeatmapPeriod] = useState('last12');
 
@@ -157,30 +196,57 @@ const useTerritoriesMap = () => {
   );
 
   const editor = useMapEditor({ map, onStart: handleEditStart });
+  // editing shows every territory in its own colours, not a status
+  const shownView: ColorView =
+    editMode || editor.editing ? 'original' : colorView;
 
   const visible = territories;
+
+  const areaPaint = (resolve: (color: string) => string) => {
+    const colors = new Map(
+      scheme.buckets.map((entry) => [entry.key, resolve(entry.color)])
+    );
+    return {
+      colorOf: (territory: (typeof territories)[number]) =>
+        shownView === 'original'
+          ? drawnColor(
+              (territory.boundaryStyle ?? DEFAULT_BOUNDARY_STYLE).border
+            ) || MAP_COLORS.blue
+          : (colors.get(scheme.keyOf(territory)) ?? ''),
+      fillOf:
+        shownView === 'original'
+          ? (territory: (typeof territories)[number]) =>
+              drawnColor(
+                (territory.boundaryStyle ?? DEFAULT_BOUNDARY_STYLE).fill
+              )
+          : undefined,
+    };
+  };
 
   const data = useMemo(() => {
     const hiddenId =
       editor.editing && editor.scope === 'territory' ? selectedId : undefined;
 
-    const colors = new Map(
-      scheme.buckets.map((entry) => [entry.key, resolveColor(entry.color)])
-    );
     const rest = territories.filter((item) => item.id !== hiddenId);
+
+    const detail = mapDetail();
+    const borderCoords = congregationBoundary?.length
+      ? detail.sanitizeGeometry
+        ? sanitizeBoundary(congregationBoundary)
+        : congregationBoundary
+      : undefined;
 
     const border: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
       features:
-        congregationBoundary?.length &&
-        !(editor.editing && editor.scope === 'congregation')
+        borderCoords && !(editor.editing && editor.scope === 'congregation')
           ? [
               {
                 type: 'Feature',
                 properties: {},
                 geometry: {
                   type: 'Polygon',
-                  coordinates: [congregationBoundary],
+                  coordinates: [borderCoords],
                 },
               },
             ]
@@ -190,19 +256,7 @@ const useTerritoriesMap = () => {
     return {
       border,
       areas: boundaryCollection(territories, {
-        colorOf: (territory) =>
-          colorView === 'original'
-            ? drawnColor(
-                (territory.boundaryStyle ?? DEFAULT_BOUNDARY_STYLE).border
-              ) || MAP_COLORS.blue
-            : (colors.get(scheme.keyOf(territory)) ?? ''),
-        fillOf:
-          colorView === 'original'
-            ? (territory) =>
-                drawnColor(
-                  (territory.boundaryStyle ?? DEFAULT_BOUNDARY_STYLE).fill
-                )
-            : undefined,
+        ...areaPaint(resolveColor),
         detailOf: scheme.detailOf,
         selectedId,
         hiddenId,
@@ -218,7 +272,7 @@ const useTerritoriesMap = () => {
     editor.scope,
     selectedId,
     scheme,
-    colorView,
+    shownView,
     isDark,
   ]);
 
@@ -237,8 +291,6 @@ const useTerritoriesMap = () => {
     },
     [setSearchParams]
   );
-
-  const [editMode, setEditMode] = useState(false);
 
   // in edit mode a picked territory opens straight in the editor
   const [pendingEdit, setPendingEdit] = useState<string>();
@@ -268,11 +320,22 @@ const useTerritoriesMap = () => {
       getCSSPropertyValue('--accent-200')
     );
 
+    const detail = mapDetail();
+
     instance.addSource(CONGREGATION_SOURCE, {
       type: 'geojson',
       data: current.border,
+      tolerance: detail.tolerance,
+      buffer: detail.buffer,
+      maxzoom: detail.sourceMaxZoom,
     });
-    instance.addSource(SOURCE_ID, { type: 'geojson', data: current.areas });
+    instance.addSource(SOURCE_ID, {
+      type: 'geojson',
+      data: current.areas,
+      tolerance: detail.tolerance,
+      buffer: detail.buffer,
+      maxzoom: detail.sourceMaxZoom,
+    });
     instance.addSource(LABELS_SOURCE, {
       type: 'geojson',
       data: labelCollection(current.areas, {
@@ -294,11 +357,25 @@ const useTerritoriesMap = () => {
       id: CONGREGATION_LINE_LAYER,
       type: 'line',
       source: CONGREGATION_SOURCE,
-      paint: {
-        'line-color': getCSSPropertyValue('--accent-dark'),
-        'line-width': 2,
-        'line-dasharray': [4, 3],
+      layout: {
+        'line-join': detail.lineJoin,
+        'line-cap': detail.lineJoin === 'round' ? 'round' : 'butt',
       },
+      paint: {
+        'line-color': MAP_COLORS[borderColorRef.current],
+        'line-width': BORDER_LINE,
+        // weak devices draw it solid; dashes cost them frames
+        ...(detail.dashedBorder &&
+          borderDashedRef.current && { 'line-dasharray': [4, 3] }),
+      },
+    });
+
+    // a wide, invisible band over the outline, so it's easy to hit in edit mode
+    instance.addLayer({
+      id: CONGREGATION_HIT_LAYER,
+      type: 'line',
+      source: CONGREGATION_SOURCE,
+      paint: { 'line-width': 16, 'line-opacity': 0 },
     });
 
     addBoundaryLayers(instance, SOURCE_ID, {
@@ -307,6 +384,16 @@ const useTerritoriesMap = () => {
     });
 
     addDrawingLayers(instance, current.rest, 'drawing', current.selectedId);
+    addDoNotCallLayer(instance);
+
+    // with 150+ territories the overview keeps to borders and numbers
+    if (detail.drawingZoom) {
+      for (const layer of instance.getStyle().layers) {
+        if (layer.id.startsWith('drawing-')) {
+          instance.setLayerZoomRange(layer.id, detail.drawingZoom, 24);
+        }
+      }
+    }
 
     const fonts = MAP_PROVIDERS[labelOptions.current.provider].fonts;
     const caption = captionPlacement(labelOptions.current.showNumbers);
@@ -316,7 +403,7 @@ const useTerritoriesMap = () => {
       id: LABEL_CAPTION_LAYER,
       type: 'symbol',
       source: LABELS_SOURCE,
-      minzoom: LABEL_DETAIL_ZOOM,
+      minzoom: LABEL_DETAIL_ZOOM + detail.captionDelay,
       filter: CAPTION_FILTER,
       layout: {
         'text-field': captionText(labelOptions.current, fonts),
@@ -376,15 +463,35 @@ const useTerritoriesMap = () => {
     // a map with nothing picked opens on the congregation's own area
     const area = congregationBounds(territories, congregationBoundary);
 
-    const instance = new maplibregl.Map({
-      container: container.current,
-      style: style.current,
-      ...(area
-        ? { bounds: area, fitBoundsOptions: { padding: FIT_PADDING } }
-        : { center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM }),
-      attributionControl: false,
-      locale: mapLocale(),
+    let instance: maplibregl.Map;
+    try {
+      instance = new maplibregl.Map({
+        container: container.current,
+        style: style.current,
+        ...(area
+          ? { bounds: area, fitBoundsOptions: { padding: FIT_PADDING } }
+          : { center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM }),
+        transformRequest: mapRequest,
+        attributionControl: false,
+        locale: mapLocale(),
+        ...mapPerformanceOptions(),
+      });
+    } catch {
+      setMapError(true);
+      return;
+    }
+    // reloading opens the map a step lighter, so it fits the next time
+    instance.on('webglcontextlost', () => {
+      downgradeMapTier();
+      setMapError(true);
+      setReady(false);
     });
+    instance.on('webglcontextrestored', () => {
+      applyMapTier(instance);
+      setMapError(false);
+      setReady(true);
+    });
+    watchMapPerformance(instance);
 
     addAttribution(instance);
 
@@ -408,6 +515,15 @@ const useTerritoriesMap = () => {
 
     instance.on('click', FILL_LAYER, (event: maplibregl.MapLayerMouseEvent) => {
       if (editor.active.current) return;
+      // in edit mode a click on the outline takes the whole area, not the
+      // territory under it
+      if (
+        editAreaRef.current &&
+        instance.queryRenderedFeatures(event.point, {
+          layers: [CONGREGATION_HIT_LAYER],
+        }).length
+      )
+        return;
 
       const id = event.features?.[0]?.properties?.id;
       if (typeof id === 'string') pickRef.current(id);
@@ -415,6 +531,20 @@ const useTerritoriesMap = () => {
 
     instance.on('mouseenter', FILL_LAYER, () => {
       instance.getCanvas().style.cursor = 'pointer';
+    });
+
+    // in edit mode the congregation's outline is something to pick, like a
+    // territory: a click opens it
+    instance.on('click', CONGREGATION_HIT_LAYER, () => {
+      if (editor.active.current) return;
+      editAreaRef.current?.();
+    });
+    instance.on('mouseenter', CONGREGATION_HIT_LAYER, () => {
+      if (!editAreaRef.current || editor.active.current) return;
+      instance.getCanvas().style.cursor = 'pointer';
+    });
+    instance.on('mouseleave', CONGREGATION_HIT_LAYER, () => {
+      instance.getCanvas().style.cursor = '';
     });
 
     instance.on('mouseleave', FILL_LAYER, () => {
@@ -430,7 +560,21 @@ const useTerritoriesMap = () => {
       setReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [generation]);
+
+  useEffect(() => {
+    if (!map.current || !ready) return;
+    map.current.setPaintProperty(
+      CONGREGATION_LINE_LAYER,
+      'line-color',
+      MAP_COLORS[borderColor]
+    );
+    map.current.setPaintProperty(
+      CONGREGATION_LINE_LAYER,
+      'line-dasharray',
+      borderDashed && mapDetail().dashedBorder ? [4, 3] : undefined
+    );
+  }, [borderColor, borderDashed, ready, styleVersion]);
 
   useEffect(() => {
     if (!map.current || !ready) return;
@@ -461,11 +605,48 @@ const useTerritoriesMap = () => {
       labelCollection(data.areas, { households: showHouseholds })
     );
     setDrawingData(instance, data.rest, 'drawing', data.selectedId);
-    syncMarkers(instance, allMarkers(data.rest), markers.current);
+    setDoNotCallData(instance, showDoNotCalls ? territories : []);
+    // the territory being edited is out of data.rest; its notes come from the draft
+    const drafted = editor.editing ? editor.draft.markers : [];
+    instance.getContainer().dataset.editing = editor.editing ? '1' : '';
+    const updateMarkers = () => {
+      const bounds = instance.getBounds();
+      const { markerDelay, maxMarkers } = mapDetail();
+      // the edited territory's own pins and notes show at any zoom, as chips
+      // rather than bare points
+      const others =
+        instance.getZoom() < MARKER_ICON_ZOOM + markerDelay
+          ? []
+          : allMarkers(data.rest);
+      const items = [...others, ...drafted]
+        .filter((item) => bounds.contains(item.position))
+        .slice(0, maxMarkers);
+      syncMarkers(
+        instance,
+        items,
+        markers.current,
+        editor.selected === undefined ? undefined : String(editor.selected),
+        letterFrames(data.rest)
+      );
+    };
+    updateMarkers();
+    instance.on('moveend', updateMarkers);
 
     // without this the first frame can stay empty until something else moves
     instance.triggerRepaint();
-  }, [data, ready, showHouseholds]);
+    return () => {
+      instance.off('moveend', updateMarkers);
+    };
+  }, [
+    data,
+    ready,
+    showHouseholds,
+    showDoNotCalls,
+    territories,
+    editor.editing,
+    editor.draft.markers,
+    editor.selected,
+  ]);
 
   // while one territory is edited the rest step back, so the drawing stands out
   useEffect(() => {
@@ -492,6 +673,7 @@ const useTerritoriesMap = () => {
 
     for (const layer of [
       'drawing-shapes-line',
+      'drawing-shapes-line-dashed',
       'drawing-lines-solid-selected',
       'drawing-lines-dashed-selected',
     ]) {
@@ -563,10 +745,22 @@ const useTerritoriesMap = () => {
     (scope: EditScope = 'territory') => {
       if (scope === 'territory' && !selected) return;
 
-      editor.start(scope, selected, congregationBoundary);
+      editor.start(
+        scope,
+        selected,
+        congregationBoundary,
+        borderColor,
+        borderDashed
+      );
     },
-    [editor, selected, congregationBoundary]
+    [editor, selected, congregationBoundary, borderColor, borderDashed]
   );
+
+  // set while edit mode waits for a pick, so a click on the outline opens it
+  editAreaRef.current =
+    editMode && !editor.editing
+      ? () => startEditing('congregation')
+      : undefined;
 
   const editRequested = searchParams.get('edit') === '1';
 
@@ -606,6 +800,16 @@ const useTerritoriesMap = () => {
       else action();
     },
     [editor.dirty]
+  );
+
+  // the breadcrumb's step up: from a territory to the whole area's outline
+  const editArea = useCallback(
+    () =>
+      requestLeave(() => {
+        editor.finish();
+        startEditing('congregation');
+      }),
+    [requestLeave, editor, startEditing]
   );
 
   const confirmLeave = useCallback(() => {
@@ -679,6 +883,10 @@ const useTerritoriesMap = () => {
 
     if (scope === 'congregation') {
       setCongregationBoundary(draft.boundary);
+      if (editor.boundaryStyle.border !== 'transparent') {
+        setBorderColor(editor.boundaryStyle.border);
+      }
+      setBorderDashed(!!editor.boundaryStyle.dashed);
 
       displaySnackNotification({
         header: tx('Congregation border saved'),
@@ -718,6 +926,8 @@ const useTerritoriesMap = () => {
   }, [
     editor,
     selected,
+    setBorderColor,
+    setBorderDashed,
     setTerritories,
     setCongregationBoundary,
     goBack,
@@ -725,22 +935,17 @@ const useTerritoriesMap = () => {
   ]);
 
   const locate = useCallback(() => {
-    if (!navigator.geolocation) return;
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        map.current?.flyTo({
-          center: [position.coords.longitude, position.coords.latitude],
-          zoom: 15,
-        });
-      },
-      () =>
+    locateMap()
+      .then(({ longitude, latitude }) => {
+        map.current?.flyTo({ center: [longitude, latitude], zoom: 15 });
+      })
+      .catch(() =>
         displaySnackNotification({
           header: tx('Location unavailable'),
           message: tx('The device did not share its position.'),
           severity: 'error',
         })
-    );
+      );
   }, []);
 
   const fitAll = useCallback(() => {
@@ -754,6 +959,8 @@ const useTerritoriesMap = () => {
   }, [territories, congregationBoundary, flyToBoundary]);
 
   return {
+    mapError,
+    reloadMap,
     wrapper,
     container,
     instance: ready ? map.current : null,
@@ -767,6 +974,13 @@ const useTerritoriesMap = () => {
     colorView,
     setColorView,
     legend: scheme.buckets,
+    // the territories in the colours shown, as they look on white paper
+    printAreas: () =>
+      boundaryCollection(territories, {
+        ...areaPaint(resolveLightColor),
+        detailOf: scheme.detailOf,
+        sanitize: false,
+      }),
     heatmapPeriod,
     setHeatmapPeriod,
     provider,
@@ -793,6 +1007,7 @@ const useTerritoriesMap = () => {
     fitAll,
     editor,
     startEditing,
+    editArea,
     leaveTerritory,
     stepBack,
     pendingLeave: !!pendingLeave,

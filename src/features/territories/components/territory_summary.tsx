@@ -1,4 +1,5 @@
 import { Box, Stack } from '@mui/material';
+import { useNavigate } from 'react-router';
 import { Typography } from '@components/index';
 import { IconPerson } from '@icons/index';
 import { Territory, TYPE_LABEL } from '@definition/territory';
@@ -21,16 +22,21 @@ const row = {
 const TerritorySummary = ({
   territory,
   meta,
+  holder,
   heading = false,
   showDoNotCalls = false,
   onDoNotCalls,
 }: {
   territory: Territory;
   meta?: string;
+  // the holder's name in meta, which opens all their territories
+  holder?: string;
   heading?: boolean;
   showDoNotCalls?: boolean;
   onDoNotCalls?: VoidFunction;
 }) => {
+  const navigate = useNavigate();
+
   const description = [
     heading && territory.city,
     tx(TYPE_LABEL[territory.type]),
@@ -112,9 +118,49 @@ const TerritorySummary = ({
         {meta && (
           <Stack direction="row" sx={{ alignItems: 'center', gap: '4px' }}>
             <IconPerson color="var(--grey-400)" width={16} height={16} />
-            <Typography className="label-small-regular" color="var(--grey-400)">
-              {meta}
-            </Typography>
+            {holder && meta.startsWith(holder) ? (
+              <Typography
+                className="label-small-regular"
+                color="var(--grey-400)"
+              >
+                <Box
+                  component="button"
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/territories?tab=all&search=${encodeURIComponent(holder)}`
+                    )
+                  }
+                  sx={{
+                    all: 'unset',
+                    cursor: 'pointer',
+                    borderRadius: 'var(--radius-xs)',
+                    textDecoration: 'underline',
+                    textDecorationColor: 'transparent',
+                    textUnderlineOffset: '2px',
+                    transition: 'color 0.15s, text-decoration-color 0.15s',
+                    '&:hover': {
+                      color: 'var(--accent-main)',
+                      textDecorationColor: 'currentColor',
+                    },
+                    '&:focus-visible': {
+                      outline: '2px solid var(--accent-main)',
+                      outlineOffset: '2px',
+                    },
+                  }}
+                >
+                  {holder}
+                </Box>
+                {meta.slice(holder.length)}
+              </Typography>
+            ) : (
+              <Typography
+                className="label-small-regular"
+                color="var(--grey-400)"
+              >
+                {meta}
+              </Typography>
+            )}
           </Stack>
         )}
       </Stack>

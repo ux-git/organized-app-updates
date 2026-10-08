@@ -364,11 +364,11 @@ class NearbyService : Service(), Link.Listener {
     }
     when (payload[0]) {
       Nearby.KIND_MEET -> if (meet) {
-        val name = String(payload, 1, payload.size - 1, Charsets.UTF_8)
-        val fresh = !seenMeet.containsKey(device.address)
+        val advertisedName = String(payload, 1, payload.size - 1, Charsets.UTF_8)
+        val fresh = seenMeet[device.address]?.optString("name") != advertisedName
         seenMeet[device.address] = JSONObject()
           .put("address", device.address)
-          .put("name", name)
+          .put("name", advertisedName)
           .put("rssi", rssi)
           .put("at", now)
         if (fresh) emitStatus()
@@ -412,7 +412,7 @@ class NearbyService : Service(), Link.Listener {
   private fun seenIphone(device: BluetoothDevice, rssi: Int, name: String?, now: Long) {
     if (name?.startsWith(Nearby.IOS_MEET) == true) {
       if (!meet) return
-      val fresh = !seenMeet.containsKey(device.address)
+      val fresh = seenMeet[device.address]?.optString("name") != name.removePrefix(Nearby.IOS_MEET)
       seenMeet[device.address] = JSONObject()
         .put("address", device.address)
         .put("name", name.removePrefix(Nearby.IOS_MEET))
@@ -490,7 +490,7 @@ class NearbyService : Service(), Link.Listener {
         lastSync[peer] = System.currentTimeMillis()
         needSince.remove(peer)
         SyncNotices.synced(this, peer)
-        lastDone = JSONObject(status.toString()).put("at", System.currentTimeMillis())
+        lastDone = JSONObject(status.toString()).put("at", System.currentTimeMillis()).put("mode", exchange.mode)
         if (exchange.mode == Native.MODE_SYNC) SyncNotices.done(this, status)
         Reminders.synced(this)
         // the beacon now carries the new data version

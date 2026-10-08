@@ -1,17 +1,26 @@
+import { ReactNode } from 'react';
+import OfflineSettings from './offline_settings';
 import { Box, MenuItem, Stack } from '@mui/material';
-import { Checkbox, Select, Typography } from '@components/index';
+import { Checkbox, CustomDivider, Select, Typography } from '@components/index';
 import SwitchWithLabel from '@components/switch_with_label';
 import QuickSettings from '@features/quick_settings';
+import { useAtom } from 'jotai';
+import { useAppTranslation } from '@hooks/index';
+import { territoriesShowDoNotCallMapState } from '@states/territories';
 import { tx } from '@services/i18n/translation';
 import { MAP_PROVIDERS, MapProviderKey } from './constants';
 import { TerritoriesMapState } from './useTerritoriesMap';
 import { LayerSwitch, PLACE_TYPES, PlaceType } from './basemap';
 
-const LAYER_SWITCHES: {
-  key: LayerSwitch;
-  label: string;
-  helper: string;
-}[] = [
+type LayerItem = { key: LayerSwitch; label: string; helper: string };
+
+// what the background map shows, from the streets to the places on them
+const DETAIL_SWITCHES: LayerItem[] = [
+  {
+    key: 'streetNames',
+    label: 'Street names',
+    helper: 'Show street names from further out',
+  },
   {
     key: 'houseNumbers',
     label: 'House numbers',
@@ -23,16 +32,14 @@ const LAYER_SWITCHES: {
     helper: 'Outline every building when zoomed in',
   },
   {
-    key: 'streetNames',
-    label: 'Street names',
-    helper: 'Show street names from further out',
-  },
-  {
     key: 'places',
     label: 'Places',
     helper: 'Show shops, schools and other points of interest',
   },
   { key: 'parking', label: 'Car parks', helper: 'Mark car parks with a P' },
+];
+
+const COLOUR_SWITCHES: LayerItem[] = [
   {
     key: 'green',
     label: 'Green areas',
@@ -45,6 +52,21 @@ const LAYER_SWITCHES: {
   },
 ];
 
+const Section = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) => (
+  <Stack spacing="16px">
+    <Typography className="h4" color="var(--black)">
+      {title}
+    </Typography>
+    {children}
+  </Stack>
+);
+
 const MapQuickSettings = ({
   map,
   open,
@@ -53,70 +75,94 @@ const MapQuickSettings = ({
   map: TerritoriesMapState;
   open: boolean;
   onClose: VoidFunction;
-}) => (
-  <QuickSettings title={tx('Coverage map')} open={open} onClose={onClose}>
-    <Stack spacing="16px" sx={{ width: '100%' }}>
-      <Select
-        label={tx('Map provider')}
-        value={map.provider}
-        onChange={(event) =>
-          map.setProvider(event.target.value as MapProviderKey)
-        }
-      >
-        {Object.entries(MAP_PROVIDERS).map(([key, value]) => (
-          <MenuItem key={key} value={key}>
-            <Typography className="body-regular">{value.name}</Typography>
-          </MenuItem>
-        ))}
-      </Select>
+}) => {
+  const { t } = useAppTranslation();
+  const [doNotCalls, setDoNotCalls] = useAtom(territoriesShowDoNotCallMapState);
 
-      {LAYER_SWITCHES.map((item) => (
-        <Stack key={item.key} spacing="8px">
-          <SwitchWithLabel
-            label={tx(item.label)}
-            helper={tx(item.helper)}
-            checked={map.layers[item.key]}
-            onChange={(value) => map.setLayer(item.key, value)}
-          />
-
-          {/* which kinds of places show, so bins and recycling can stay off */}
-          {item.key === 'places' && map.layers.places && (
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                paddingLeft: '52px',
-              }}
-            >
-              {(Object.keys(PLACE_TYPES) as PlaceType[]).map((type) => (
-                <Checkbox
-                  key={type}
-                  label={tx(PLACE_TYPES[type].label)}
-                  checked={map.layers.placeTypes.includes(type)}
-                  onChange={() => map.togglePlaceType(type)}
-                  className="body-small-regular"
-                />
-              ))}
-            </Box>
-          )}
-        </Stack>
-      ))}
-
+  const layer = (item: LayerItem) => (
+    <Stack key={item.key} spacing="8px">
       <SwitchWithLabel
-        label={tx('Territory numbers')}
-        helper={tx('Show the number in the middle of every territory')}
-        checked={map.showNumbers}
-        onChange={map.setShowNumbers}
+        label={tx(item.label)}
+        helper={tx(item.helper)}
+        checked={map.layers[item.key]}
+        onChange={(value) => map.setLayer(item.key, value)}
       />
 
-      <SwitchWithLabel
-        label={tx('Households count')}
-        helper={tx('Show the households under the number')}
-        checked={map.showHouseholds}
-        onChange={map.setShowHouseholds}
-      />
+      {/* which kinds of places show, so bins and recycling can stay off */}
+      {item.key === 'places' && map.layers.places && (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            paddingLeft: '52px',
+          }}
+        >
+          {(Object.keys(PLACE_TYPES) as PlaceType[]).map((type) => (
+            <Checkbox
+              key={type}
+              label={tx(PLACE_TYPES[type].label)}
+              checked={map.layers.placeTypes.includes(type)}
+              onChange={() => map.togglePlaceType(type)}
+              className="body-small-regular"
+            />
+          ))}
+        </Box>
+      )}
     </Stack>
-  </QuickSettings>
-);
+  );
+
+  return (
+    <QuickSettings title={tx('Coverage map')} open={open} onClose={onClose}>
+      <Stack spacing="24px" sx={{ width: '100%' }}>
+        <Section title={tx('Territories on the map')}>
+          <SwitchWithLabel
+            label={tx('Territory numbers')}
+            helper={tx('Show the number in the middle of every territory')}
+            checked={map.showNumbers}
+            onChange={map.setShowNumbers}
+          />
+          <SwitchWithLabel
+            label={tx('Households count')}
+            helper={tx('Show the households under the number')}
+            checked={map.showHouseholds}
+            onChange={map.setShowHouseholds}
+          />
+          <SwitchWithLabel
+            label={t('tr_showDoNotCallMap')}
+            helper={t('tr_showDoNotCallMapDescription')}
+            checked={doNotCalls}
+            onChange={setDoNotCalls}
+          />
+        </Section>
+
+        {/* what the territories show above, the background map they sit on below */}
+        <CustomDivider color="var(--accent-200)" />
+
+        <Section title={tx('Map')}>
+          <Select
+            label={tx('Map provider')}
+            value={map.provider}
+            onChange={(event) =>
+              map.setProvider(event.target.value as MapProviderKey)
+            }
+          >
+            {Object.entries(MAP_PROVIDERS).map(([key, value]) => (
+              <MenuItem key={key} value={key}>
+                <Typography className="body-regular">{value.name}</Typography>
+              </MenuItem>
+            ))}
+          </Select>
+          <OfflineSettings provider={map.provider} />
+        </Section>
+
+        <Section title={tx('Map details')}>
+          {DETAIL_SWITCHES.map(layer)}
+        </Section>
+
+        <Section title={tx('Colours')}>{COLOUR_SWITCHES.map(layer)}</Section>
+      </Stack>
+    </QuickSettings>
+  );
+};
 
 export default MapQuickSettings;

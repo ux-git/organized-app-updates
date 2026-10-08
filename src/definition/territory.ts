@@ -20,6 +20,8 @@ export type DoNotCall = {
   name?: string;
   date: string;
   addedBy: string;
+  // where the house is on the map, when it could be found
+  position?: [number, number];
 };
 
 // a closed ring of [longitude, latitude] pairs, in GeoJSON order
@@ -58,12 +60,15 @@ export type TerritoryMapShape = MapStyle & {
   id: string;
   path: TerritoryBoundary;
   label?: string;
+  dashed?: boolean;
 };
 
 export type TerritoryMapLine = {
   id: string;
   path: [number, number][];
   style: 'solid' | 'dashed';
+  // drawn before colours existed: solid ones are blue, dashed ones green
+  color?: MapColor;
 };
 
 export type TerritoryMapDraft = {
@@ -82,13 +87,13 @@ export type TerritoryAssignment = {
   publisher: string;
   assignedOn: string;
   returnedOn?: string;
+  completed?: boolean;
   // the service year the work was returned in, e.g. 2026 for Sep 2025 - Aug 2026
   serviceYear: number;
   months: number;
   startMonth: number;
   endMonth: number;
-  // the special campaign it was worked for; `coverage` when the work counts
-  // as regular coverage too
+  // Campaign identity; legacy coverage flags are retained for compatibility.
   campaign?: { id: string; name: string; coverage?: boolean };
   // what the publisher found this time, e.g. the languages spoken; never printed
   note?: string;
@@ -153,6 +158,18 @@ export type TerritoryFilters = {
 };
 
 export type TerritoryAccess = 'own' | 'view' | 'request';
+
+export type TerritoryRecommendations = {
+  cooldownMonths: number;
+  categories: string[];
+  types: TerritoryType[];
+};
+
+export const DEFAULT_RECOMMENDATIONS: TerritoryRecommendations = {
+  cooldownMonths: 0,
+  categories: [],
+  types: [],
+};
 
 export type TerritoryRestrictions = {
   categories: string[];

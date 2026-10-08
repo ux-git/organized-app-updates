@@ -3,7 +3,8 @@ import { useAtomValue } from 'jotai';
 import { getWeeksInMonth, isValid } from 'date-fns';
 import { Box, ClickAwayListener } from '@mui/material';
 import { ArrowDropDown, ArrowLeft, ArrowRight } from '@mui/icons-material';
-import { DesktopDatePicker } from '@mui/x-date-pickers';
+import { DatePicker as ResponsiveDatePicker } from '@mui/x-date-pickers';
+import { useBreakpoints } from '@hooks/index';
 import { IconDate } from '@components/icons';
 import { shortDateFormatState } from '@states/settings';
 import { CustomDatePickerProps } from './index.types';
@@ -37,6 +38,7 @@ const DatePicker = ({
   // Years below this threshold are transient artifacts of typing the year
   // section (e.g. 0002 while entering 2026) and must not be propagated.
   const MIN_VALID_YEAR = 1000;
+  const { tablet688Up } = useBreakpoints();
 
   const poperRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +53,7 @@ const DatePicker = ({
   const slotFieldProps =
     view === 'button' ? { field: ButtonField } : { textField: InputTextField };
 
-  const changeHeight = (event) => {
+  const changeHeight = (event: Date) => {
     if (getWeeksInMonth(new Date(event), { weekStartsOn: 0 }) === 6) {
       setHeight(290);
     } else {
@@ -126,12 +128,15 @@ const DatePicker = ({
   return (
     <ClickAwayListener onClickAway={() => setOpen(false)}>
       <Box sx={{ width: '100%' }}>
-        <DesktopDatePicker
+        <ResponsiveDatePicker
+          desktopModeMediaQuery={tablet688Up ? '@media all' : '@media not all'}
+          onClose={() => setOpen(false)}
           readOnly={readOnly}
-          minDate={minDate}
-          maxDate={maxDate}
+          minDate={minDate ?? undefined}
+          maxDate={maxDate ?? undefined}
           disablePast={disablePast}
           yearsPerRow={3}
+          fixedWeekNumber={tablet688Up ? undefined : 6}
           showDaysOutsideCurrentMonth={true}
           label={label}
           value={valueTmp}
@@ -156,6 +161,52 @@ const DatePicker = ({
             layout: StyleDatePickerLayout,
             day: StyleDatePickerDay,
             desktopPaper: StyleDatePickerDesktopPaper,
+            mobilePaper: {
+              sx: {
+                borderRadius: 'var(--radius-xxl)',
+                border: '1px solid var(--accent-200)',
+                backgroundColor: 'var(--white)',
+                ...StyleDatePickerPopper,
+                width: 'min(360px, calc(100vw - 24px))',
+                maxWidth: 'calc(100vw - 24px)',
+                '&&': { minWidth: 0 },
+                maxHeight: 'calc(100dvh - 24px)',
+                margin: 'var(--radius-xl)',
+                overflowY: 'auto',
+                '.MuiPickersLayout-root': {
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minWidth: 0,
+                },
+                '.MuiDateCalendar-root': {
+                  width: '100%',
+                  height: 'auto',
+                  maxHeight: 'none',
+                  padding: 0,
+                  margin: 0,
+                },
+                '.MuiDayCalendar-header, .MuiDayCalendar-weekContainer': {
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+                  margin: 0,
+                  padding: 0,
+                  height: '44px',
+                },
+                '.MuiDayCalendar-weekDayLabel': {
+                  width: '100%',
+                  margin: 0,
+                  height: '44px',
+                },
+                // a round day, centred in its column however wide it is
+                '.MuiPickersDay-root': {
+                  width: '40px',
+                  height: '40px',
+                  margin: '2px auto',
+                  borderRadius: '50%',
+                },
+                '.MuiDayCalendar-slideTransition': { minHeight: '264px' },
+              },
+            },
             toolbar: StyleDatePickerToolbar,
             actionBar: StyleDatePickerActionBar,
             popper: {

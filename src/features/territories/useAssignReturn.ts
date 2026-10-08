@@ -12,6 +12,7 @@ import { territoryCampaignsState } from './campaigns';
 import { campaignFor, campaignSnapshot } from './campaign_dates';
 import { savedCard } from './card_choice';
 import { isCoverage } from './coverage_rate';
+import { revertAssignment } from './assignment_undo';
 
 // undefined leaves an assignment's campaign as it is, null clears it
 type Campaign = TerritoryAssignment['campaign'] | null;
@@ -51,11 +52,13 @@ const useAssignReturn = () => {
   const [assignId, setAssignId] = useState<string | undefined>();
   const [returnId, setReturnId] = useState<string | undefined>();
 
-  // the last assign or return, and the territories as they were before it
+  // the last assign or return, the territories as they were before it, and
+  // the assignments it added
   const [undo, setUndo] = useState<{
     key: number;
     header: string;
     before: Territory[];
+    added: string[];
   }>();
 
   const patch = (
@@ -70,19 +73,25 @@ const useAssignReturn = () => {
       )
     );
 
-  const remember = (ids: string[], header: string) =>
+  const remember = (ids: string[], header: string, added: string[] = []) =>
     ids.length > 0 &&
     setUndo({
       key: Date.now(),
       header,
       before: territories.filter((territory) => ids.includes(territory.id)),
+      added,
     });
 
   const undoLast = () => {
     if (!undo) return;
 
     const before = new Map(undo.before.map((item) => [item.id, item]));
-    setTerritories((prev) => prev.map((item) => before.get(item.id) ?? item));
+    setTerritories((prev) =>
+      prev.map((item) => {
+        const old = before.get(item.id);
+        return old ? revertAssignment(item, old, undo.added) : item;
+      })
+    );
     setUndo(undefined);
   };
 
@@ -107,6 +116,7 @@ const useAssignReturn = () => {
       campaign === undefined
         ? running && campaignSnapshot(running)
         : (campaign ?? undefined);
+    const assignmentId = `ta-${Date.now()}-${id}`;
 
     // handing it out is not reading its last note: the mark stays until an
     // editor opens the territory, also when the holder takes it straight back
@@ -120,7 +130,7 @@ const useAssignReturn = () => {
         {
           ...assignmentFromDates(
             {
-              id: `ta-${Date.now()}-${id}`,
+              id: assignmentId,
               publisher,
               assignedOn: '',
               serviceYear: 0,
@@ -139,7 +149,7 @@ const useAssignReturn = () => {
       ],
     }));
 
-    return !!filedUnder;
+    return { flagged: !!filedUnder, assignmentId };
   };
 
   const giveBack = (
@@ -152,11 +162,8 @@ const useAssignReturn = () => {
     const end = returnedOn ?? new Date();
 
     patch(id, (territory) => {
-      // a campaign-only return leaves the last coverage where it was
       const open = territory.assignments.find((item) => !item.returnedOn);
-      const filedUnder =
-        campaign === undefined ? open?.campaign : (campaign ?? undefined);
-      const covered = !open || isCoverage({ campaign: filedUnder });
+      const covered = !open || isCoverage(open);
 
       return {
         status: 'available',
@@ -164,7 +171,7 @@ const useAssignReturn = () => {
         daysOut: undefined,
         ...(covered ? { daysSinceCovered: daysSince(end) } : {}),
         // a note is for the editor to read; the list marks it until they do
-        reviewNeeded: households === undefined || !!note,
+        reviewNeeded: !!note,
         ...(households === undefined ? {} : { households }),
         assignments: closeOpen(territory, end, campaign, note),
       };
@@ -187,8 +194,15 @@ const useAssignReturn = () => {
     note?: string,
     card?: AssignmentCard
   ) => {
-    const flagged = assign(id, publisher, assignedOn, campaign, note, card);
-    remember([id], assignedText(id, publisher, flagged));
+    const { flagged, assignmentId } = assign(
+      id,
+      publisher,
+      assignedOn,
+      campaign,
+      note,
+      card
+    );
+    remember([id], assignedText(id, publisher, flagged), [assignmentId]);
   };
 
   const handleReturn = (
@@ -212,9 +226,10 @@ const useAssignReturn = () => {
     campaign?: Campaign,
     card?: AssignmentCard
   ) => {
-    const flagged = ids
-      .map((id) => assign(id, publisher, assignedOn, campaign, undefined, card))
-      .some(Boolean);
+    const results = ids.map((id) =>
+      assign(id, publisher, assignedOn, campaign, undefined, card)
+    );
+    const flagged = results.some((result) => result.flagged);
     const values = { n: ids.length, name: publisher };
 
     remember(
@@ -226,12 +241,13 @@ const useAssignReturn = () => {
               '{{n}} territories assigned to {{name}} for the campaign',
               values
             )
-          : tx('{{n}} territories assigned to {{name}}', values)
+          : tx('{{n}} territories assigned to {{name}}', values),
+      results.map((result) => result.assignmentId)
     );
   };
 
-  const returnMany = (ids: string[]) => {
-    ids.forEach((id) => giveBack(id));
+  const returnMany = (ids: string[], returnedOn?: Date) => {
+    ids.forEach((id) => giveBack(id, undefined, returnedOn));
 
     remember(
       ids,

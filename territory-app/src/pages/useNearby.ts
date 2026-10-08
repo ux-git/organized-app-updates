@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { hasNearby, invoke, listen, nearby } from '../native';
+import { nearbyProfile } from '../profiles';
 
 export type Peer = {
   id: string;
@@ -39,7 +40,7 @@ export type NearbyStatus = {
   meet?: boolean;
   reason?: string;
   until?: number;
-  seen?: { address: string; name: string; rssi: number }[];
+  seen?: { address: string; name: string; rssi: number; avatar?: string }[];
   exchanges?: SessionStatus[];
   lastDone?: (SessionStatus & { at: number }) | null;
   permissions?: {
@@ -72,12 +73,9 @@ export type NearbyStatus = {
   hall?: { lat: number; lng: number; radius: number } | null;
 };
 
-/**
- * Changes no paired phone has yet. Once one has them, they travel on to the
- * rest of the circle.
- */
+/** Changes some paired phone doesn't have yet: all synced only when none. */
 export const unsynced = (peers: Peer[]) =>
-  peers.length ? Math.min(...peers.map((peer) => peer.pending)) : 0;
+  peers.length ? Math.max(...peers.map((peer) => peer.pending)) : 0;
 
 // the last answers, so a page opened again starts from them instead of empty
 const known = {
@@ -117,7 +115,19 @@ const useNearby = () => {
     refreshPeers();
     const stops = [
       listen<NearbyStatus>('nearby', (next) => {
-        setStatus((previous) => (known.status = { ...previous, ...next }));
+        setStatus(
+          (previous) =>
+            (known.status = {
+              ...previous,
+              ...next,
+              ...(next.seen && {
+                seen: next.seen.map((phone) => ({
+                  ...phone,
+                  ...nearbyProfile(phone.name),
+                })),
+              }),
+            })
+        );
         refreshPeers();
       }),
       listen('store-changed', refreshPeers),

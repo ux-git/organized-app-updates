@@ -22,6 +22,8 @@ export type TabSwitcherProps<T extends string = string> = {
   surface?: TabSwitcherSurface;
   /** Only the icons show; each label becomes the option's accessible name. */
   iconOnly?: boolean;
+  /** Below this width (px) only the icons show, before labels clip to a letter or two. */
+  collapseBelow?: number;
   sx?: SxProps<Theme>;
 };
 

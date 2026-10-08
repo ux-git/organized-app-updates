@@ -8,10 +8,18 @@ import {
   vi,
 } from 'vitest';
 import { Territory } from '@definition/territory';
+import { createStore } from 'jotai';
 import { store } from '@states/index';
 import { appLocalsState } from '@states/app_locals';
 import { settingsState } from '@states/settings';
-import { territoriesState } from '@states/territories';
+import {
+  territoriesWithStatusState,
+  territoriesState,
+  territoriesShowHouseholdsState,
+  territoriesShowDoNotCallCountState,
+  territoryOverdueMonthsState,
+  territoryRecommendationsState,
+} from '@states/territories';
 import { currentPublisherState, territoryAssigneesState } from './assignees';
 import { territoryCampaignsState } from './campaigns';
 import { invoke, listen } from './native';
@@ -49,6 +57,7 @@ vi.mock('./seed', () => ({
   seedPeople: async () => {},
   seedBoundaries: async () => {},
   seedDoNotCalls: async () => [],
+  seedCongregation: async () => [],
 }));
 vi.mock('./pages/sync/text', () => ({ notify: vi.fn() }));
 
@@ -421,6 +430,40 @@ describe('saving', () => {
     ],
   });
 
+  test('restores false display preferences and saves changes through the same settings records', async () => {
+    const fake = fakeStore({
+      ...tables(),
+      settings: [
+        { id: 'show_households', value: false },
+        { id: 'show_do_not_call_count', value: false },
+        { id: 'overdue_months', value: 6 },
+        {
+          id: 'recommendations',
+          value: { cooldownMonths: 3, categories: ['rural'], types: ['phone'] },
+        },
+      ],
+    });
+    await load();
+    expect(store.get(territoriesShowHouseholdsState)).toBe(false);
+    expect(store.get(territoriesShowDoNotCallCountState)).toBe(false);
+    expect(store.get(territoryOverdueMonthsState)).toBe(6);
+    expect(store.get(territoryRecommendationsState).cooldownMonths).toBe(3);
+    persisted();
+    store.set(territoriesShowHouseholdsState, true);
+    store.set(territoriesShowDoNotCallCountState, true);
+    await settled();
+    expect(fake.sent.flat()).toEqual(
+      expect.arrayContaining([
+        { table: 'settings', id: 'show_households', fields: { value: true } },
+        {
+          table: 'settings',
+          id: 'show_do_not_call_count',
+          fields: { value: true },
+        },
+      ])
+    );
+  });
+
   test('only the changed fields are written', async () => {
     const fake = fakeStore(tables());
     await load();
@@ -522,6 +565,28 @@ describe('saving', () => {
         fields: { city: 'Xanten', name: 'Harbour' },
       },
     ]);
+  });
+
+  test('a failed write is tried again by itself, later each time', async () => {
+    const fake = fakeStore(tables());
+    await load();
+    persisted();
+    vi.useFakeTimers();
+    try {
+      fake.fail = 2;
+      edit((territory) => ({ ...territory, name: 'Old town' }));
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(fake.sent).toEqual([]);
+      await vi.advanceTimersByTimeAsync(4000);
+      expect(fake.sent).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fake.sent).toEqual([
+        [{ table: 'territories', id: 't1', fields: { name: 'Old town' } }],
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('an edit during a load is kept', async () => {
@@ -689,4 +754,32 @@ describe('territory numbers', () => {
     expect(unpadded('M0')).toBe('M0');
     expect(unpadded('Nord 03')).toBe('Nord 3');
   });
+});
+
+test('overdue preference updates derived territory status without rewriting history', () => {
+  const state = createStore();
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 9, 3, 12));
+  try {
+    const record = territory({
+      id: 'overdue-test',
+      number: '1',
+      status: 'available',
+      assignments: [
+        { id: 'assignment', publisher: 'Alex', assignedOn: '01.05.2026' },
+      ],
+    });
+    state.set(territoriesState, [record]);
+    state.set(territoryCampaignsState, []);
+    state.set(territoryOverdueMonthsState, 4);
+    expect(state.get(territoriesWithStatusState)[0].status).toBe('overdue');
+    state.set(territoryOverdueMonthsState, 6);
+    expect(state.get(territoriesWithStatusState)[0].status).toBe('in_work');
+    expect(state.get(territoriesState)[0]).toBe(record);
+    expect(state.get(territoriesWithStatusState)[0].assignments).toEqual(
+      record.assignments
+    );
+  } finally {
+    vi.useRealTimers();
+  }
 });

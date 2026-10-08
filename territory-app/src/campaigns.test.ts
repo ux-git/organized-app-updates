@@ -1,3 +1,4 @@
+import importExample from './publisher-import-example.json';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { store } from '@states/index';
 import { campaignsFromBackup, territoryCampaignsState } from './campaigns';
@@ -101,4 +102,17 @@ describe('importing a backup', () => {
   test('a pasted list brings no campaigns', () => {
     expect(planImport([], []).campaigns).toEqual([]);
   });
+});
+
+test('downloadable publisher example imports names and a group', () => {
+  const result = readBackup(JSON.stringify(importExample));
+  expect(result.skipped).toBe(0);
+  expect(result.incoming.map((person) => [person.name, person.group])).toEqual([
+    ['Alex Example', false],
+    ['Sam Sample', false],
+    ['Group 1 – Example', true],
+  ]);
+  const plan = planImport([], result.incoming);
+  expect(plan.add).toHaveLength(3);
+  expect(planImport(plan.add, result.incoming).add).toHaveLength(0);
 });

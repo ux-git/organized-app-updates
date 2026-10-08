@@ -4,13 +4,14 @@ import { TerritoryTemplateProps } from '../index.types';
 import CardBack from '../shared/CardBack';
 import CardFront from '../shared/CardFront';
 
-const CUT = '0.5px dashed #BDBDBD';
+import PrintGuides from '../shared/PrintGuides';
+import { A4, S12 } from '../geometry';
 
 // where Figma places the cut areas, front above back
-const WIDTH = 467;
-const HEIGHT = 301;
-const LEFT = 64;
-const TOP = 120;
+const WIDTH = S12.width;
+const HEIGHT = S12.height;
+const LEFT = (A4.width - WIDTH) / 2;
+const TOP = (A4.height - HEIGHT * 2) / 2;
 
 const TemplateTerritoryS12 = ({
   territories,
@@ -27,11 +28,16 @@ const TemplateTerritoryS12 = ({
             marginTop: TOP,
             marginLeft: LEFT,
             width: WIDTH,
-            border: CUT,
+            position: 'relative',
           }}
         >
           {parts.front && (
-            <CardFront territory={territory} width={WIDTH} height={HEIGHT} />
+            <CardFront
+              territory={territory}
+              width={WIDTH}
+              height={HEIGHT}
+              printedOn={printedOn}
+            />
           )}
 
           {parts.back && (
@@ -39,11 +45,15 @@ const TemplateTerritoryS12 = ({
               territory={territory}
               width={WIDTH}
               height={HEIGHT}
-              rowsPerColumn={7}
               notes={territory.notes}
               printedOn={printedOn}
             />
           )}
+          <PrintGuides
+            width={WIDTH}
+            height={HEIGHT * (Number(parts.front) + Number(parts.back))}
+            horizontal={parts.front && parts.back ? HEIGHT : undefined}
+          />
         </View>
       </Page>
     ))}

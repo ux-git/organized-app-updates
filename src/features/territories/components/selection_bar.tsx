@@ -1,109 +1,70 @@
-import { Box, Stack } from '@mui/material';
-import { Button, CustomDivider, Typography } from '@components/index';
-import { IconMoveBack, IconMoveForward } from '@icons/index';
+import { Stack } from '@mui/material';
+import { Button, Typography } from '@components/index';
+import { useBreakpoints } from '@hooks/index';
 import { Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
+import { selectionActions } from './selection_actions';
 
 type SelectionBarProps = {
   selected: Territory[];
   onAssignMany: VoidFunction;
   onReturnMany: VoidFunction;
+  onClear: VoidFunction;
 };
 
 const SelectionBar = ({
   selected,
   onAssignMany,
   onReturnMany,
+  onClear,
 }: SelectionBarProps) => {
-  if (selected.length === 0) return null;
-
-  const assignable = selected.filter(
-    (territory) => territory.status === 'available'
-  ).length;
-
-  const returnable = selected.filter(
-    (territory) =>
-      territory.status === 'in_work' || territory.status === 'overdue'
-  ).length;
-
+  const { tablet600Up } = useBreakpoints();
+  if (!selected.length) return null;
+  const button = {
+    minHeight: tablet600Up ? '32px' : '40px',
+    padding: '0 var(--radius-l)',
+    minWidth: 0,
+    whiteSpace: 'nowrap',
+    fontVariantNumeric: 'tabular-nums',
+  };
   return (
     <Stack
       direction="row"
       sx={{
         alignItems: 'center',
-        justifyContent: 'flex-end',
         flexWrap: 'wrap',
-        gap: '4px',
-        padding: '4px 8px 4px 12px',
+        width: tablet600Up ? 'fit-content' : '100%',
         borderRadius: 'var(--radius-l)',
         backgroundColor: 'var(--accent-100)',
-        border: '1px solid var(--accent-200)',
       }}
     >
-      {/* wide enough that a two-digit count does not resize the island */}
-      <Typography
-        className="button-caps"
-        color="var(--accent-400)"
-        sx={{
-          minWidth: '76px',
-          marginRight: 'auto',
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {tx('Selected: {{n}}', { n: selected.length })}
-      </Typography>
-
-      <CustomDivider
-        orientation="vertical"
-        flexItem
-        color="var(--accent-200)"
-        sx={{ margin: '2px 4px' }}
-      />
-
-      {assignable > 0 && (
-        <Box sx={{ width: 'fit-content' }}>
-          <Button
-            variant="small"
-            disableAutoStretch
-            startIcon={<IconMoveForward color="var(--accent-main)" />}
-            onClick={onAssignMany}
-            sx={{
-              minHeight: '28px',
-              padding: '2px 8px',
-              minWidth: '86px',
-              justifyContent: 'flex-start',
-              '& .MuiButton-startIcon': { marginRight: '6px' },
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {tx('Assign {{n}}', { n: assignable })}
-          </Button>
-        </Box>
+      {tablet600Up && (
+        <Typography
+          className="body-small-semibold"
+          color="var(--accent-400)"
+          sx={{ padding: '0 var(--radius-l)', whiteSpace: 'nowrap' }}
+        >
+          {tx('Selected: {{n}}', { n: selected.length })}
+        </Typography>
       )}
-
-      {returnable > 0 && (
-        <Box sx={{ width: 'fit-content' }}>
-          <Button
-            variant="small"
-            disableAutoStretch
-            color="red"
-            startIcon={<IconMoveBack color="var(--red-main)" />}
-            onClick={onReturnMany}
-            sx={{
-              minHeight: '28px',
-              padding: '2px 8px',
-              minWidth: '86px',
-              justifyContent: 'flex-start',
-              '& .MuiButton-startIcon': { marginRight: '6px' },
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {tx('Return {{n}}', { n: returnable })}
-          </Button>
-        </Box>
-      )}
+      {selectionActions(selected).map(({ kind, count }) => (
+        <Button
+          key={kind}
+          variant="small"
+          disableAutoStretch
+          color={kind === 'return' ? 'red' : undefined}
+          onClick={kind === 'assign' ? onAssignMany : onReturnMany}
+          sx={button}
+        >
+          {tx(kind === 'assign' ? 'Assign: {{n}}' : 'Return: {{n}}', {
+            n: count,
+          })}
+        </Button>
+      ))}
+      <Button variant="small" disableAutoStretch onClick={onClear} sx={button}>
+        {tx('Deselect all')}
+      </Button>
     </Stack>
   );
 };
-
 export default SelectionBar;

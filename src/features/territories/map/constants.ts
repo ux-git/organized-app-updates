@@ -59,6 +59,7 @@ export const LABELS_SOURCE = 'territories-labels';
 export const CONGREGATION_SOURCE = 'congregation-boundary';
 export const CONGREGATION_FILL_LAYER = 'congregation-boundary-fill';
 export const CONGREGATION_LINE_LAYER = 'congregation-boundary-line';
+export const CONGREGATION_HIT_LAYER = 'congregation-boundary-hit';
 
 // drawings get printed, so they keep a fixed palette instead of the theme
 export const MAP_COLORS: Record<MapColor, string> = {
@@ -86,17 +87,17 @@ export const MAP_COLOR_LABEL: Record<MapColor, string> = {
 };
 
 export const PIN_TYPES: { id: PinType; label: string }[] = [
-  { id: 'normal', label: 'Normal pin' },
+  { id: 'normal', label: 'Pin' },
   { id: 'parking', label: 'Parking' },
-  { id: 'restaurant', label: 'Restaurant' },
-  { id: 'transport', label: 'Transportation stop' },
-  { id: 'shop', label: 'Shop' },
+  { id: 'restaurant', label: 'Food' },
+  { id: 'transport', label: 'Stop' },
+  { id: 'shop', label: 'Shopping' },
   { id: 'nature', label: 'Nature' },
-  { id: 'gas', label: 'Gas station' },
-  { id: 'sight', label: 'Sight place' },
-  { id: 'building', label: 'Known building' },
+  { id: 'gas', label: 'Fuel' },
+  { id: 'sight', label: 'Sight' },
+  { id: 'building', label: 'Building' },
   { id: 'school', label: 'School' },
-  { id: 'cart', label: 'Cart point' },
+  { id: 'cart', label: 'Cart' },
 ];
 
 export const pinLabel = (type?: PinType) =>

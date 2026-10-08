@@ -4,8 +4,9 @@ import { list, t } from '../../i18n';
 export const notify = (
   header: string,
   message: string,
-  severity: 'success' | 'error' = 'success'
-) => displaySnackNotification({ header, message, severity });
+  severity: 'success' | 'error' | 'message-with-button' = 'success',
+  action?: { text: string; onClick: VoidFunction }
+) => displaySnackNotification({ header, message, severity, action });
 
 export const time = (date: Date) =>
   date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -51,6 +52,7 @@ export const describeItems = (items?: Record<string, number> | null) => {
 
 export type SyncResult = {
   name?: string;
+  peer?: string;
   sent?: number;
   received?: number;
   items?: Record<string, number> | null;
@@ -122,4 +124,39 @@ export const describeSync = (result: SyncResult) => {
     lines.push(t('result.conflicts', { count: result.conflicts }));
   }
   return lines.join(' ');
+};
+
+const FIELDS = [
+  'holder',
+  'publisher',
+  'assignedOn',
+  'returnedOn',
+  'status',
+  'name',
+  'number',
+  'city',
+  'notes',
+  'note',
+  'address',
+  'households',
+  'cardLost',
+  'card',
+  'group',
+  'boundary',
+];
+
+export const fieldName = (field: string) =>
+  FIELDS.includes(field)
+    ? t(`decisions.${field}`)
+    : field.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+
+export const show = (value: unknown) => {
+  if (value === null || value === undefined || value === '') {
+    return t('decisions.empty');
+  }
+  if (typeof value === 'boolean') {
+    return value ? t('decisions.yes') : t('decisions.no');
+  }
+  if (typeof value === 'object') return t('decisions.changed');
+  return String(value);
 };

@@ -3,6 +3,7 @@ import { ReactNode, useRef, useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { ScrollableTabs, Typography } from '@components/index';
 import Card from '@components/card';
+import { IconCancelCicle } from '@icons/index';
 import { useBreakpoints } from '@hooks/index';
 import { DoNotCall, Territory } from '@definition/territory';
 import { daysLabel, withAssignments } from '../helpers';
@@ -10,7 +11,6 @@ import TerritorySummary from '../components/territory_summary';
 import AssignedTwice from './assigned_twice';
 import DetailsForm from './details_form';
 import DoNotCallPanel from './do_not_call_panel';
-import DoNotCallStrip from './do_not_call_strip';
 import TerritoryAssignments from './territory_assignments';
 import TerritoryMap from './territory_map';
 import PhoneNumbersPanel from './phone_numbers_panel';
@@ -85,6 +85,7 @@ const TerritoryDetails = ({
             ? `${territory.holder} · ${daysLabel(territory.daysOut)}`
             : undefined
         }
+        holder={readOnly ? undefined : territory.holder}
       />
 
       {territory.notes && (
@@ -122,11 +123,6 @@ const TerritoryDetails = ({
   const changeDoNotCalls = (next: DoNotCall[]) =>
     onChange({ ...territory, doNotCalls: next });
 
-  // right under the map, so nobody sets out without seeing them
-  const doNotCallStrip = showPrivate && (
-    <DoNotCallStrip territory={territory} onShow={showDoNotCallList} />
-  );
-
   const mapContent = isPhone ? (
     <PhoneNumbersPanel
       territory={territory}
@@ -139,7 +135,6 @@ const TerritoryDetails = ({
   const map = (
     <Stack spacing="12px">
       {mapContent}
-      {doNotCallStrip}
       {!isPhone && <TerritoryStreets territory={territory} />}
     </Stack>
   );
@@ -159,11 +154,23 @@ const TerritoryDetails = ({
   );
 
   const doNotCallCard = (content: ReactNode) => (
-    // clears the fixed top bar when the strip scrolls here
+    // clears the fixed top bar when the overview badge scrolls here
     <Card ref={doNotCallRef} sx={{ scrollMarginTop: '96px' }}>
-      <Typography className="h2" color="var(--black)">
-        {tx('Do not call')}
-      </Typography>
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: 'center',
+          gap: 'var(--radius-l)',
+          padding: 'var(--radius-xl)',
+          borderRadius: 'var(--radius-l)',
+          backgroundColor: 'var(--red-secondary)',
+        }}
+      >
+        <IconCancelCicle color="var(--red-dark)" />
+        <Typography className="h2" color="var(--red-dark)">
+          {tx('Do not call')}
+        </Typography>
+      </Stack>
       {content}
     </Card>
   );
@@ -188,7 +195,6 @@ const TerritoryDetails = ({
 
           <Stack spacing="12px">
             {content}
-            {doNotCallStrip}
             {!isPhone && <TerritoryStreets territory={territory} />}
           </Stack>
         </Card>

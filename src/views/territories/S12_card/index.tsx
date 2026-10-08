@@ -22,7 +22,12 @@ const TemplateTerritoryS12Card = ({
           size={[WIDTH, HEIGHT]}
           style={{ backgroundColor: '#FFFFFF' }}
         >
-          <CardFront territory={territory} width={WIDTH} height={HEIGHT} />
+          <CardFront
+            territory={territory}
+            width={WIDTH}
+            height={HEIGHT}
+            printedOn={printedOn}
+          />
         </Page>
       ),
       parts.back && (
@@ -35,7 +40,6 @@ const TemplateTerritoryS12Card = ({
             territory={territory}
             width={WIDTH}
             height={HEIGHT}
-            rowsPerColumn={7}
             notes={territory.notes}
             printedOn={printedOn}
           />

@@ -1,50 +1,41 @@
-import { ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { ReactElement, useEffect, useRef, useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import {
-  IconCheckCircle,
   IconLocation,
   IconLock,
   IconNotifications,
   IconSync,
 } from '@icons/index';
+import Button from '@components/button';
+import Switch from '@components/switch';
 import TextField from '@components/textfield';
 import Typography from '@components/typography';
-import { CardSection } from '@features/congregation/settings/shared_styles';
 import { play } from '../haptics';
 import { invoke, nearby } from '../native';
 import { loadIdentity } from '../persistence';
 import { t } from '../i18n';
 import { IconBluetooth, IconQr, IconTap } from './sync/icons';
-import { Actions } from './sync/parts';
 import useNearby from './useNearby';
 import { notify } from './sync/text';
 
-const KEY = 'territories-welcomed';
+import { WELCOME_KEY } from './welcomeState';
 
-export const welcomed = () => {
-  try {
-    return localStorage.getItem(KEY) === '1';
-  } catch {
-    return true;
-  }
-};
+const STEPS = 3;
 
 /** A small round tile with an icon, as on the Sync page. */
-const Tile = ({ icon, done }: { icon: ReactElement; done?: boolean }) => (
+const Tile = ({ icon, small }: { icon: ReactElement; small?: boolean }) => (
   <Box
     sx={{
-      width: 40,
-      height: 40,
+      width: small ? 32 : 40,
+      height: small ? 32 : 40,
       borderRadius: 'var(--radius-m)',
-      backgroundColor: done ? 'var(--green-secondary)' : 'var(--accent-150)',
-      color: done ? 'var(--green-main)' : 'var(--accent-main)',
+      backgroundColor: 'var(--accent-150)',
+      color: 'var(--accent-main)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       flexShrink: 0,
-      transition: 'background-color 0.3s, color 0.3s',
-      '& svg': { width: 22, height: 22 },
+      '& svg': { width: small ? 18 : 22, height: small ? 18 : 22 },
       '& svg path': { fill: 'currentColor' },
     }}
   >
@@ -52,75 +43,68 @@ const Tile = ({ icon, done }: { icon: ReactElement; done?: boolean }) => (
   </Box>
 );
 
-/** A numbered step: its number, title, what it's for, and its content. */
-const Step = ({
-  number,
-  title,
-  text,
-  done,
-  children,
-}: {
-  number: number;
-  title: string;
-  text: string;
-  done: boolean;
-  children: ReactNode;
-}) => (
-  <CardSection sx={{ gap: '16px' }}>
-    <Box sx={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-      <Box
-        sx={{
-          width: 28,
-          height: 28,
-          borderRadius: '50%',
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: done ? 'var(--green-main)' : 'var(--accent-main)',
-          color: 'var(--always-white)',
-          transition: 'background-color 0.3s',
-        }}
-      >
-        {done ? (
-          <IconCheckCircle color="var(--always-white)" width={20} height={20} />
-        ) : (
-          <Typography className="body-small-semibold" color="inherit">
-            {number}
-          </Typography>
-        )}
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography className="h3">{title}</Typography>
-        <Typography className="body-small-regular" color="var(--grey-400)">
-          {text}
-        </Typography>
-      </Box>
+/** Where the person is: one segment per step, the done ones filled. */
+const Progress = ({ step }: { step: number }) => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <Typography className="label-small-medium" color="var(--grey-400)">
+      {t('welcome.stepOf', { step: step + 1, total: STEPS })}
+    </Typography>
+    <Box sx={{ display: 'flex', gap: '6px' }}>
+      {Array.from({ length: STEPS }, (_, index) => (
+        <Box
+          key={index}
+          sx={{
+            flex: 1,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor:
+              index <= step ? 'var(--accent-main)' : 'var(--accent-200)',
+            transition: 'background-color 0.3s',
+          }}
+        />
+      ))}
     </Box>
-    {children}
-  </CardSection>
+  </Box>
 );
 
+/** One permission, settings-style: its name, one line, and a switch. */
 const Access = ({
   icon,
   title,
   text,
   ok,
+  onAsk,
 }: {
   icon: ReactElement;
   title: string;
   text: string;
   ok: boolean;
+  /** Asks the system for this one permission. */
+  onAsk: VoidFunction;
 }) => (
-  <Box sx={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-    <Tile icon={icon} done={ok} />
+  <Box
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '16px',
+      paddingBlock: '12px',
+      '& + &': { borderTop: '1px solid var(--accent-200)' },
+    }}
+  >
+    <Tile icon={icon} small />
     <Box sx={{ flex: 1, minWidth: 0 }}>
       <Typography className="body-regular">{title}</Typography>
-      <Typography className="body-small-regular" color="var(--grey-400)">
+      <Typography className="label-small-regular" color="var(--grey-350)">
         {text}
       </Typography>
     </Box>
-    {ok && <IconCheckCircle color="var(--green-main)" />}
+    {/* on once allowed; the system decides, so it can't be switched off here */}
+    <Switch
+      checked={ok}
+      readOnly={ok}
+      onChange={() => !ok && onAsk()}
+      slotProps={{ input: { 'aria-label': title } }}
+    />
   </Box>
 );
 
@@ -130,14 +114,17 @@ const PROMISES = [
   { icon: <IconLock />, text: 'welcome.promiseLocal' },
 ];
 
-/** First start: what the app is, your name, and what it needs, in one go. */
-const Welcome = () => {
-  const navigate = useNavigate();
+/**
+ * First start, one step at a time, on a card over the dashboard: what the
+ * app is, your name, and what it may use.
+ */
+const Welcome = ({ onDone }: { onDone: VoidFunction }) => {
   const { status, name: saved } = useNearby();
+  const [step, setStep] = useState(0);
+  const [asked, setAsked] = useState(false);
   const [name, setName] = useState('');
-  const [nameMissing, setNameMissing] = useState(false);
   const nameField = useRef<HTMLInputElement>(null);
-  // leaving the field and then Get started would save the same name twice
+  // going back and forth would save the same name twice
   const sent = useRef('');
   const allowed = status.permissions;
   const ios = status.platform === 'ios';
@@ -145,6 +132,10 @@ const Welcome = () => {
   useEffect(() => {
     if (saved) setName(saved);
   }, [saved]);
+
+  useEffect(() => {
+    if (step === 1) nameField.current?.focus();
+  }, [step]);
 
   const all = !!(
     allowed?.bluetooth &&
@@ -157,171 +148,217 @@ const Welcome = () => {
     if (all) play('synced');
   }, [all]);
 
+  // first and last name: a device whose name matches a publisher's counts as
+  // that publisher (suggestedLink), so it finds its territories by itself
+  const full = name.trim().split(/\s+/).length >= 2;
+
   const saveName = async () => {
     const trimmed = name.trim();
-    if (!trimmed || trimmed === saved || trimmed === sent.current) return;
+    if (!trimmed || trimmed === saved || trimmed === sent.current) return true;
     sent.current = trimmed;
     try {
       await invoke('set_name', { name: trimmed });
       await loadIdentity();
+      return true;
     } catch (error) {
       sent.current = '';
       console.error('welcome: saving the name failed', error);
       notify(t('common.somethingWrong'), t('common.notSaved'), 'error');
+      return false;
     }
   };
 
-  // paired devices show this name, so it comes first
-  const finish = async () => {
-    if (!name.trim()) {
-      setNameMissing(true);
-      nameField.current?.focus();
-      return;
-    }
-    await saveName();
+  const next = async () => {
+    if (step === 1 && (!full || !(await saveName()))) return;
+    setStep((current) => Math.min(current + 1, STEPS - 1));
+  };
+
+  const finish = () => {
     try {
-      localStorage.setItem(KEY, '1');
+      localStorage.setItem(WELCOME_KEY, '1');
     } catch {
       // shown again next time, no harm
     }
-    navigate('/', { replace: true });
+    onDone();
   };
 
-  return (
-    <Stack spacing="16px">
-      <CardSection sx={{ gap: '16px' }}>
-        <Box>
-          <Typography className="h1">{t('welcome.title')}</Typography>
-          <Typography className="body-regular" color="var(--grey-400)">
-            {t('welcome.intro')}
+  const intro = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <Box>
+        <Typography className="h1">{t('welcome.title')}</Typography>
+        <Typography className="body-regular" color="var(--grey-400)">
+          {t('welcome.intro')}
+        </Typography>
+      </Box>
+      <Stack spacing="12px">
+        {PROMISES.map((promise) => (
+          <Box
+            key={promise.text}
+            sx={{ display: 'flex', gap: '12px', alignItems: 'center' }}
+          >
+            <Tile icon={promise.icon} />
+            <Typography className="body-regular">{t(promise.text)}</Typography>
+          </Box>
+        ))}
+      </Stack>
+    </Box>
+  );
+
+  const nameStep = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <Box>
+        <Typography className="h2">{t('common.yourName')}</Typography>
+        <Typography className="body-small-regular" color="var(--grey-400)">
+          {t('welcome.nameText')}
+        </Typography>
+      </Box>
+      <TextField
+        label={t('welcome.fullName')}
+        value={name}
+        inputRef={nameField}
+        autoComplete="name"
+        onChange={(event) => setName(event.target.value)}
+        onKeyDown={(event) => event.key === 'Enter' && next()}
+      />
+    </Box>
+  );
+
+  const accessStep = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '16px',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Box sx={{ flex: 1, minWidth: 180 }}>
+          <Typography className="h2">{t('welcome.accessTitle')}</Typography>
+          <Typography className="body-small-regular" color="var(--grey-400)">
+            {t('welcome.accessText')}
           </Typography>
         </Box>
-        <Stack spacing="12px">
-          {PROMISES.map((promise) => (
-            <Box
-              key={promise.text}
-              sx={{ display: 'flex', gap: '12px', alignItems: 'center' }}
-            >
-              <Tile icon={promise.icon} />
-              <Typography className="body-regular">
-                {t(promise.text)}
-              </Typography>
-            </Box>
-          ))}
-        </Stack>
-      </CardSection>
-
-      <Step
-        number={1}
-        title={t('common.yourName')}
-        text={t('welcome.nameText')}
-        done={!!saved}
-      >
-        <TextField
-          label={t('common.fullName')}
-          value={name}
-          inputRef={nameField}
-          error={nameMissing && !name.trim()}
-          helperText={
-            nameMissing && !name.trim() ? t('welcome.nameMissing') : undefined
-          }
-          onChange={(event) => setName(event.target.value)}
-          onBlur={saveName}
-          onKeyDown={(event) => event.key === 'Enter' && saveName()}
+      </Box>
+      <Box>
+        <Access
+          icon={<IconBluetooth />}
+          title={t('common.bluetooth')}
+          text={t('common.bluetoothText')}
+          ok={!!allowed?.bluetooth}
+          onAsk={() => nearby('permissions', { which: 'bluetooth' })}
         />
-      </Step>
-
-      <Step
-        number={2}
-        title={t('welcome.accessTitle')}
-        text={t('welcome.accessText')}
-        done={all}
-      >
-        <Stack spacing="14px">
-          <Access
-            icon={<IconBluetooth />}
-            title={t('common.bluetooth')}
-            text={t('common.bluetoothText')}
-            ok={!!allowed?.bluetooth}
-          />
-          <Access
-            icon={<IconNotifications />}
-            title={t('common.notifications')}
-            text={t('common.notificationsText')}
-            ok={!!allowed?.notifications}
-          />
-          <Access
-            icon={<IconQr />}
-            title={t('welcome.camera')}
-            text={t('welcome.cameraText')}
-            ok={!!allowed?.camera}
-          />
-          {ios ? (
-            <Access
-              icon={<IconLocation />}
-              title={t('welcome.location')}
-              text={t('welcome.locationText')}
-              ok={!!allowed?.backgroundLocation}
-            />
-          ) : (
-            <Access
-              icon={<IconSync />}
-              title={t('common.background')}
-              text={t('welcome.backgroundText')}
-              ok={!!allowed?.battery}
-            />
-          )}
-          {allowed?.nfc && (
-            <Access
-              icon={<IconTap />}
-              title={t('welcome.nfc')}
-              text={allowed.nfcOn ? t('welcome.nfcOn') : t('welcome.nfcOff')}
-              ok={!!allowed.nfcOn}
-            />
-          )}
-        </Stack>
-        <Actions
-          actions={[
-            ...(all
-              ? []
-              : [
-                  {
-                    label: t('welcome.allowAll'),
-                    kind: 'main' as const,
-                    onClick: () => nearby('permissions', { which: 'all' }),
-                  },
-                ]),
-            ...(allowed?.nfc && !allowed.nfcOn
-              ? [
-                  {
-                    label: t('welcome.turnOnNfc'),
-                    onClick: () => nearby('nfcSettings'),
-                  },
-                ]
-              : []),
-          ]}
+        <Access
+          icon={<IconNotifications />}
+          title={t('common.notifications')}
+          text={t('common.notificationsText')}
+          ok={!!allowed?.notifications}
+          onAsk={() => nearby('permissions', { which: 'notifications' })}
         />
-      </Step>
-
+        <Access
+          icon={<IconQr />}
+          title={t('welcome.camera')}
+          text={t('welcome.cameraText')}
+          ok={!!allowed?.camera}
+          onAsk={() => nearby('permissions', { which: 'camera' })}
+        />
+        {ios ? (
+          <Access
+            icon={<IconLocation />}
+            title={t('welcome.location')}
+            text={t('welcome.locationText')}
+            ok={!!allowed?.backgroundLocation}
+            onAsk={() => nearby('permissions', { which: 'backgroundLocation' })}
+          />
+        ) : (
+          <Access
+            icon={<IconSync />}
+            title={t('common.background')}
+            text={t('welcome.backgroundText')}
+            ok={!!allowed?.battery}
+            onAsk={() => nearby('battery')}
+          />
+        )}
+        {allowed?.nfc && (
+          <Access
+            icon={<IconTap />}
+            title={t('welcome.nfc')}
+            text={allowed.nfcOn ? t('welcome.nfcOn') : t('welcome.nfcOff')}
+            ok={!!allowed.nfcOn}
+            onAsk={() => nearby('nfcSettings')}
+          />
+        )}
+      </Box>
       {ios && (
-        <Typography
-          className="body-small-regular"
-          color="var(--grey-400)"
-          sx={{ paddingInline: '4px' }}
-        >
+        <Typography className="label-small-regular" color="var(--grey-400)">
           {t('welcome.iosHint')}
         </Typography>
       )}
+    </Box>
+  );
 
-      <Actions
-        actions={[
-          {
-            label: all ? t('welcome.start') : t('welcome.skip'),
-            kind: all ? 'main' : 'secondary',
-            onClick: finish,
-          },
-        ]}
-      />
+  const last = step === STEPS - 1;
+
+  return (
+    <Stack spacing="16px" sx={{ width: '100%' }}>
+      <Progress step={step} />
+      {[intro, nameStep, accessStep][step]}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+      >
+        {step > 0 ? (
+          <Button
+            key="back"
+            variant="secondary"
+            disableAutoStretch
+            onClick={() => setStep(step - 1)}
+          >
+            {t('welcome.back')}
+          </Button>
+        ) : (
+          <span />
+        )}
+        {/* asked once, the app opens whatever the answers: nothing is forced */}
+        {last && !all && !asked ? (
+          <Button
+            key="all"
+            variant="main"
+            disableAutoStretch
+            onClick={() => {
+              setAsked(true);
+              nearby('permissions', { which: 'all' });
+            }}
+          >
+            {t('welcome.allowAll')}
+          </Button>
+        ) : last ? (
+          <Button
+            key="finish"
+            variant="main"
+            disableAutoStretch
+            onClick={finish}
+          >
+            {t('welcome.start')}
+          </Button>
+        ) : (
+          <Button
+            key="next"
+            variant="main"
+            disableAutoStretch
+            // no error for a first name alone: it waits for the last name
+            disabled={step === 1 && !full}
+            onClick={next}
+          >
+            {step === 0 ? t('welcome.begin') : t('welcome.next')}
+          </Button>
+        )}
+      </Box>
     </Stack>
   );
 };

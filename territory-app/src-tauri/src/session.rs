@@ -5,8 +5,9 @@
 //! Every conversation starts with a Noise XX handshake, so all that follows
 //! is encrypted, and each side learns the other's key. A sync then only goes
 //! on with a paired key. A pairing either shows both people the same 6-digit
-//! code (when the phones may be anywhere in the room) or trusts the link
-//! itself (an NFC tap).
+//! code (when the phones may be anywhere in the room), trusts the link
+//! itself (an NFC tap), or checks a code one device showed and the other
+//! scanned or typed (an invite over the local network).
 
 use std::collections::BTreeMap;
 
@@ -42,8 +43,10 @@ const CIRCLE: u8 = 10;
 /// Sent instead of a hello to a phone removed from the group, with the stamp
 /// of its removal. Older versions take it as an unexpected message.
 const REMOVED: u8 = 11;
+/// Proof of an invite's code, bound to this connection.
+const PROOF: u8 = 12;
 /// Kinds above this come from newer versions and are skipped.
-const LAST_KIND: u8 = REMOVED;
+const LAST_KIND: u8 = PROOF;
 
 /// Why a sync with a phone removed from the group stops, on both phones.
 pub const REMOVED_REASON: &str = "removed from the group";
@@ -53,12 +56,29 @@ pub const OUTDATED_REASON: &str = "update the app on both devices";
 const NOT_PAIRED: &str = "this phone is not paired";
 /// A paired phone answered that: it has to be paired again.
 pub const ONE_SIDED_REASON: &str = "not paired on the other device";
+/// The other side didn't prove it knows the invite's code.
+pub const WRONG_CODE: &str = "wrong pairing code";
+/// The scanned code names another device's key than the one that answered.
+pub const OTHER_DEVICE: &str = "another device answered";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Mode {
     Sync,
     /// `code`: both people compare a code before the phones trust each other.
     Pair { code: bool },
+    /// Both sides prove they know the code of an invite; the one that joins
+    /// knows the host's key too when it scanned it.
+    Invite {
+        secret: [u8; 16],
+        key: Option<[u8; 32]>,
+    },
+}
+
+/// The secret both sides of an invite derive from its 6-digit code.
+pub fn invite_secret(code: &str) -> [u8; 16] {
+    sha256(&[b"organized-invite", code.as_bytes()])[..16]
+        .try_into()
+        .unwrap()
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -71,6 +91,7 @@ pub enum Status {
     },
     Exchanging {
         peer: String,
+        name: String,
     },
     Done {
         peer: String,
@@ -149,6 +170,8 @@ pub struct Session {
     introduced: Vec<String>,
     removed: Vec<String>,
     acked: bool,
+    /// The other side proved it knows the invite's code.
+    proven: bool,
 }
 
 fn frame(out: &mut Vec<u8>, message: &[u8]) {
@@ -205,6 +228,7 @@ impl Session {
             introduced: Vec::new(),
             removed: Vec::new(),
             acked: false,
+            proven: false,
         })
     }
 
@@ -347,12 +371,19 @@ impl Session {
             };
             self.peer = Some(peer.id);
         }
+        if let Mode::Invite { secret, key } = self.mode {
+            if key.is_some_and(|key| key[..] != self.remote_key[..]) {
+                return Err(OTHER_DEVICE.into());
+            }
+            let proof = self.proof(&secret, self.initiator);
+            self.send(out, PROOF, &proof)?;
+        }
         let hello = Hello {
             id: store.identity.id.clone(),
             name: store.identity.name.clone(),
             platform: self.platform.clone(),
             versions: store.versions()?,
-            adv: matches!(self.mode, Mode::Pair { .. })
+            adv: matches!(self.mode, Mode::Pair { .. } | Mode::Invite { .. })
                 .then(|| STANDARD.encode(store.identity.adv_secret)),
             protocol: Some(PROTOCOL),
             oldest: Some(OLDEST),
@@ -367,7 +398,24 @@ impl Session {
         // data only from a phone that is trusted: paired, or a peer already
         let trusted = self.peer.is_some();
         match kind {
+            PROOF if !self.proven => {
+                let Mode::Invite { secret, .. } = self.mode else {
+                    return Err("unexpected message".into());
+                };
+                let expected = self.proof(&secret, !self.initiator);
+                // compared in full, so the time taken tells nothing
+                let differs = body.len() != expected.len()
+                    || body.iter().zip(expected).fold(0, |acc, (x, y)| acc | (x ^ y)) != 0;
+                if differs {
+                    return Err(WRONG_CODE.into());
+                }
+                self.proven = true;
+            }
             HELLO if self.hello.is_none() => {
+                // the proof comes first, so nothing of an unproven side counts
+                if matches!(self.mode, Mode::Invite { .. }) && !self.proven {
+                    return Err(WRONG_CODE.into());
+                }
                 let hello: Hello = serde_json::from_slice(body).map_err(|e| e.to_string())?;
                 if !compatible(&hello) {
                     return Err(OUTDATED_REASON.into());
@@ -390,6 +438,14 @@ impl Session {
                         self.send(out, COMMIT, &commit)?;
                     }
                     Mode::Pair { code: true } => {}
+                    // the one who scanned or typed the code said yes by doing
+                    // so; the host's person still says yes to this device
+                    Mode::Invite { .. } => {
+                        self.status = Status::Confirm { code: None, name };
+                        if self.initiator {
+                            self.answer(store, true, out)?;
+                        }
+                    }
                 }
             }
             COMMIT if code && !self.initiator && self.their_commit.is_none() => {
@@ -476,6 +532,16 @@ impl Session {
         Ok(())
     }
 
+    /// The code's secret bound to this connection and to which side sends it,
+    /// so a proof seen once can't be replayed or reflected.
+    fn proof(&self, secret: &[u8; 16], initiator: bool) -> [u8; 32] {
+        let mut mac = Hmac::<Sha256>::new_from_slice(secret).expect("any key length");
+        mac.update(b"organized-invite-proof");
+        mac.update(&[initiator as u8]);
+        mac.update(&self.handshake_hash);
+        mac.finalize().into_bytes().into()
+    }
+
     /// Both nonces were committed to before either was known, so someone in
     /// the middle can't steer both codes to match.
     fn show_code(&mut self, initiator_nonce: &[u8], responder_nonce: &[u8]) -> Result<()> {
@@ -558,7 +624,10 @@ impl Session {
         }
         let cells = store.changes_since(&theirs)?;
         let mine = store.versions()?;
-        self.status = Status::Exchanging { peer: peer.clone() };
+        self.status = Status::Exchanging {
+            peer: peer.clone(),
+            name: self.hello.as_ref().map(|hello| hello.name.clone()).unwrap_or_default(),
+        };
         self.send(out, CIRCLE, &pack(&store.circle(&peer)?)?)?;
         for chunk in pack(&cells)?.chunks(CHUNK) {
             self.send(out, PART, chunk)?;
@@ -784,6 +853,76 @@ mod tests {
         assert!(matches!(b.status(), Status::Failed { .. }));
         assert!(sa.peers().unwrap().is_empty());
         assert!(sb.peers().unwrap().is_empty());
+    }
+
+    fn invite(secret: [u8; 16], key: Option<[u8; 32]>) -> Mode {
+        Mode::Invite { secret, key }
+    }
+
+    #[test]
+    fn a_scanned_invite_pairs_once_the_host_says_yes_and_syncs() {
+        let mut host = store("Office PC");
+        let mut phone = store("Anna");
+        put(&mut host, "t1", json!({"number": "1"}));
+        let secret = invite_secret("482913");
+        let mut h = Session::new(&host, invite(secret, None), false, "desktop").unwrap();
+        let key = Some(host.identity.public_key);
+        let mut p = Session::new(&phone, invite(secret, key), true, "android").unwrap();
+        run(&mut p, &mut phone, &mut h, &mut host);
+        // the phone said yes by scanning; the computer asks its person
+        assert!(matches!(h.status(), Status::Confirm { code: None, name } if name == "Anna"));
+        let to_p = h.confirm(&mut host, true);
+        let mut to_h = p.feed(&mut phone, &to_p);
+        for _ in 0..20 {
+            let back = h.feed(&mut host, &std::mem::take(&mut to_h));
+            to_h = p.feed(&mut phone, &back);
+        }
+        assert!(matches!(h.status(), Status::Done { .. }), "{:?}", h.status());
+        assert!(matches!(p.status(), Status::Done { received: 1, .. }), "{:?}", p.status());
+        assert_eq!(host.peers().unwrap().len(), 1);
+        assert_eq!(phone.peers().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_wrong_code_pairs_nothing() {
+        let mut host = store("Office PC");
+        let mut phone = store("Anna");
+        let mut h = Session::new(&host, invite(invite_secret("482913"), None), false, "desktop").unwrap();
+        let mut p = Session::new(&phone, invite(invite_secret("482914"), None), true, "ios").unwrap();
+        run(&mut p, &mut phone, &mut h, &mut host);
+        assert!(matches!(h.status(), Status::Failed { reason, .. } if reason == WRONG_CODE));
+        assert!(matches!(p.status(), Status::Failed { .. }));
+        assert!(host.peers().unwrap().is_empty());
+        assert!(phone.peers().unwrap().is_empty());
+    }
+
+    #[test]
+    fn an_invite_answered_by_another_device_is_refused() {
+        let mut host = store("Office PC");
+        let mut phone = store("Anna");
+        let other = store("Someone else");
+        let secret = invite_secret("482913");
+        let mut h = Session::new(&host, invite(secret, None), false, "desktop").unwrap();
+        let key = Some(other.identity.public_key);
+        let mut p = Session::new(&phone, invite(secret, key), true, "ios").unwrap();
+        run(&mut p, &mut phone, &mut h, &mut host);
+        assert!(matches!(p.status(), Status::Failed { reason, .. } if reason == OTHER_DEVICE));
+        assert!(!matches!(h.status(), Status::Confirm { .. }));
+    }
+
+    #[test]
+    fn the_host_saying_no_pairs_nothing() {
+        let mut host = store("Office PC");
+        let mut phone = store("Anna");
+        let secret = invite_secret("482913");
+        let mut h = Session::new(&host, invite(secret, None), false, "desktop").unwrap();
+        let mut p = Session::new(&phone, invite(secret, None), true, "ios").unwrap();
+        run(&mut p, &mut phone, &mut h, &mut host);
+        let to_p = h.confirm(&mut host, false);
+        p.feed(&mut phone, &to_p);
+        assert!(matches!(p.status(), Status::Failed { .. }));
+        assert!(host.peers().unwrap().is_empty());
+        assert!(phone.peers().unwrap().is_empty());
     }
 
     #[test]

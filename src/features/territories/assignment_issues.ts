@@ -36,6 +36,31 @@ export const assignmentIssues = (
   return issues;
 };
 
+// a new assignment returns the open one on its start date, so it can't start before it
+export const startsBeforeOpen = (
+  assignments: Pick<TerritoryAssignment, 'assignedOn' | 'returnedOn'>[],
+  start: string
+) => {
+  const open = assignments.find((item) => !item.returnedOn);
+
+  return (
+    !!open &&
+    assignmentIssues({
+      assignedOn: open.assignedOn,
+      returnedOn: start,
+    }).includes('returned_before_assigned')
+  );
+};
+
+// blank keeps the count it had; null is a count that can't be right
+export const parseHouseholds = (text: string, fallback: number) => {
+  if (!text.trim()) return fallback;
+
+  const value = Number(text);
+
+  return Number.isInteger(value) && value >= 0 ? value : null;
+};
+
 // two devices apart can each hand out the same territory, and a sync keeps both;
 // these are the open ones besides the newest, which is the one that counts
 export const olderOpenAssignments = <

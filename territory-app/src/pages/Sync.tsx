@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Box } from '@mui/material';
 import { useAtomValue } from 'jotai';
@@ -26,13 +26,26 @@ import {
   PairMethod,
   QrPairDialog,
   QrSendDialog,
-  receive,
 } from './sync/dialogs';
 import { confirm } from './confirm';
+import { receive } from './sync/receive';
 import Decisions from './sync/Decisions';
 import History from './sync/History';
 import { ago, CARD_PREFIX, notify, ONE_SIDED_REASON, time } from './sync/text';
-import { IconBluetooth, IconQr, IconTap } from './sync/icons';
+import {
+  IconBluetooth,
+  IconDialpad,
+  IconQr,
+  IconQrScan,
+  IconTap,
+} from './sync/icons';
+import { PhonePairing, Way } from './sync/phone_pairing';
+import {
+  INVITE_PREFIX,
+  InviteHostDialog,
+  InviteJoinDialog,
+  isComputer,
+} from './sync/invite';
 import {
   Actions,
   MethodState,
@@ -48,13 +61,17 @@ const Sync = () => {
   const { peers, status, name, removed, refreshPeers, android } = useNearby();
   const [pairing, setPairing] = useState<PairMethod | null>(null);
   const [qrPairOpen, setQrPairOpen] = useState(false);
-  // a pairing code scanned while the QR pairing dialog is open, to confirm there
+  // a computer's code for a phone to scan, and a phone joining one
+  const [hostOpen, setHostOpen] = useState(false);
+  const [join, setJoin] = useState<string | null>(null);
+  const [network, setNetwork] = useState(false);
+  // a scanned pairing code, to confirm in the QR pairing dialog
   const [card, setCard] = useState<string | null>(null);
-  const pairOpen = useRef(false);
-  pairOpen.current = qrPairOpen;
   // a paired device that no longer knows this one
   const [repair, setRepair] = useState<string | null>(null);
   const [sendTo, setSendTo] = useState<Peer | null>(null);
+  // a sync whose changes a notification asked to review, by its device
+  const [review, setReview] = useState<string | null>(null);
   // a tapped device row, with its actions
   const [device, setDevice] = useState<Peer | null>(null);
   const links = useAtomValue(linksState);
@@ -75,17 +92,29 @@ const Sync = () => {
   useEffect(() => {
     const stops = [
       listen<{ text: string }>('qr', ({ text }) => {
-        if (text.startsWith(CARD_PREFIX) && pairOpen.current) setCard(text);
-        else receive(text).then(refreshPeers);
+        if (text.startsWith(INVITE_PREFIX)) {
+          setQrPairOpen(false);
+          setJoin(text);
+        } else if (text.startsWith(CARD_PREFIX)) {
+          // the hero's Scan too: the QR pairing dialog asks before pairing
+          setQrPairOpen(true);
+          setCard(text);
+        } else receive(text).then(refreshPeers);
       }),
-      listen<{ text: string }>('file', ({ text }) =>
-        receive(text).then(refreshPeers)
-      ),
     ];
-    // asked once listening, or the file can come before the listener
-    Promise.all(stops).then(() => nearby('takeFile'));
     return () => stops.forEach((stop) => stop.then((unlisten) => unlisten()));
   }, [refreshPeers]);
+
+  // Wi-Fi or a cable: checked again whenever the window comes back
+  useEffect(() => {
+    const check = () =>
+      invoke<boolean>('local_network')
+        .then(setNetwork)
+        .catch(() => setNetwork(false));
+    check();
+    window.addEventListener('focus', check);
+    return () => window.removeEventListener('focus', check);
+  }, []);
 
   const oneSided = status.exchanges?.find(
     (exchange) =>
@@ -105,6 +134,7 @@ const Sync = () => {
     if (params.get('now')) nearby('syncNow');
     const pair = params.get('pair');
     if (pair === 'nearby' || pair === 'tap') setPairing(pair);
+    if (params.has('review')) setReview(params.get('review'));
     if (params.size) setParams({}, { replace: true });
   }, [params, setParams]);
 
@@ -117,10 +147,63 @@ const Sync = () => {
         : READY;
   const bluetoothReady = bluetooth === READY;
 
+  const computer = isComputer(android);
+  const NO_NETWORK: MethodState = {
+    text: t('sync.noNetwork'),
+    color: 'orange',
+  };
+
   const camera: MethodState =
     !android || permissions?.camera
       ? READY
       : { text: t('sync.needsCamera'), color: 'orange' };
+
+  // the other ways to pair a phone, after Bluetooth
+  const showCode = () =>
+    camera === READY
+      ? setQrPairOpen(true)
+      : nearby('permissions', { which: 'camera' });
+  // typing and NFC first; the two QR ways share the bottom row
+  const ways: Way[] = [
+    {
+      key: 'type',
+      icon: <IconDialpad />,
+      label: t('sync.wayType'),
+      text: t('sync.wayTypeText'),
+      onClick: () => setJoin(''),
+    },
+    ...(permissions?.nfc
+      ? [
+          {
+            key: 'nfc',
+            icon: <IconTap />,
+            label: t('sync.tap'),
+            text: t('sync.wayNfcText'),
+            onClick: () =>
+              permissions.nfcOn ? setPairing('tap') : nearby('nfcSettings'),
+          },
+        ]
+      : []),
+    {
+      key: 'scan',
+      icon: <IconQrScan />,
+      label: t('sync.wayScan'),
+      text: t('sync.wayScanText'),
+      onClick: () => {
+        if (camera !== READY) return showCode();
+        // open, so a phone's code is taken for pairing too
+        setQrPairOpen(true);
+        nearby('scanQr');
+      },
+    },
+    {
+      key: 'mine',
+      icon: <IconQr />,
+      label: t('sync.wayMine'),
+      text: t('sync.wayMineText'),
+      onClick: showCode,
+    },
+  ];
 
   const fixBluetooth = () =>
     nearby(permissions?.bluetooth ? 'bluetoothOn' : 'permissions');
@@ -326,54 +409,51 @@ const Sync = () => {
       <CardSection>
         <CardSectionHeader
           title={t('common.pairPhone')}
-          description={t('sync.pairText')}
+          description={computer ? t('sync.pairTextComputer') : undefined}
         />
         <CardSectionContent>
-          <PairOptions
-            icon={<IconBluetooth />}
-            title={t('sync.nearby')}
-            description={t('sync.nearbyText')}
-            state={bluetoothReady ? undefined : bluetooth}
-            action={
-              bluetoothReady
-                ? {
-                    label: t('common.pair'),
-                    onClick: () => setPairing('nearby'),
-                  }
-                : {
-                    label: fixBluetoothLabel,
-                    disabled: !android,
-                    onClick: fixBluetooth,
-                  }
-            }
-            othersText={t('sync.otherWays')}
-            others={[
-              ...(permissions?.nfc
-                ? [
-                    {
-                      icon: <IconTap />,
-                      label: t('sync.tap'),
-                      onClick: () =>
-                        permissions.nfcOn
-                          ? setPairing('tap')
-                          : nearby('nfcSettings'),
-                    },
-                  ]
-                : []),
-              {
-                icon: <IconQr />,
-                label: t('sync.qr'),
-                onClick: () =>
-                  camera === READY
-                    ? setQrPairOpen(true)
-                    : nearby('permissions', { which: 'camera' }),
-              },
-            ]}
-          />
+          {/* a computer is paired by a phone scanning its code over the local
+              network; Bluetooth leads only where there is no network */}
+          {computer && (network || !bluetoothReady) ? (
+            <PairOptions
+              icon={<IconQrScan />}
+              title={t('sync.network')}
+              description={t('sync.networkText')}
+              state={network ? undefined : NO_NETWORK}
+              action={{
+                label: t('sync.showCode'),
+                onClick: () => setHostOpen(true),
+              }}
+              othersText={t('sync.otherWays')}
+              others={
+                bluetoothReady
+                  ? [
+                      {
+                        icon: <IconBluetooth />,
+                        label: t('sync.nearby'),
+                        onClick: () => setPairing('nearby'),
+                      },
+                    ]
+                  : []
+              }
+            />
+          ) : (
+            <PhonePairing
+              bluetooth={bluetoothReady ? undefined : bluetooth}
+              ways={ways}
+              status={status}
+              onChoose={(address) => {
+                nearby('pair', { address });
+                setPairing('nearby');
+              }}
+              onFix={fixBluetooth}
+              fixLabel={fixBluetoothLabel}
+            />
+          )}
         </CardSectionContent>
       </CardSection>
 
-      <History />
+      <History review={review} />
 
       <MeetDialog
         open={!!pairing}
@@ -382,6 +462,7 @@ const Sync = () => {
         status={status}
         myName={name}
         onNamed={refreshPeers}
+        searching={!computer && bluetoothReady && pairing === 'nearby'}
       />
       <QrPairDialog
         open={qrPairOpen}
@@ -395,6 +476,16 @@ const Sync = () => {
           setCard(null);
           refreshPeers();
         }}
+      />
+      <InviteHostDialog
+        open={hostOpen}
+        onClose={() => setHostOpen(false)}
+        onPaired={refreshPeers}
+      />
+      <InviteJoinDialog
+        text={join}
+        onClose={() => setJoin(null)}
+        onPaired={refreshPeers}
       />
       <QrSendDialog peer={sendTo} onClose={() => setSendTo(null)} />
       {device && (

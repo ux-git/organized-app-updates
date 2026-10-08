@@ -84,6 +84,28 @@ pub struct Applied {
     pub items: BTreeMap<String, usize>,
     pub territories: Vec<Touched>,
     pub conflicts: usize,
+    /// Each field a sync changed or offered, for `log_sync` to keep.
+    #[serde(skip)]
+    pub changes: Vec<Change>,
+}
+
+/// One incoming field, as it was here before and as it came. `field` is
+/// `RECORD` for a record this phone didn't have. `won` tells which of the
+/// two is in effect after the sync; `base` is the stamp it holds then, to
+/// tell whether anything changed it since.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Change {
+    pub t: String,
+    pub i: String,
+    pub f: String,
+    pub old: Option<String>,
+    pub old_stamp: Option<String>,
+    pub new: String,
+    pub new_stamp: String,
+    pub origin: String,
+    pub conflict: bool,
+    pub won: bool,
+    pub base: String,
 }
 
 /// A territory a sync changed, by its number, and what changed in it, as
@@ -105,6 +127,15 @@ pub struct Identity {
 }
 
 const DELETED: &str = "_deleted";
+/// Synced like the app's tables, so a decision on one phone reaches the
+/// others; older versions don't take its cells in.
+const DECISIONS: &str = "decisions";
+type NewRecord = (Map<String, Value>, String, String);
+/// table, record, field, old, new, won, base, decision, sync
+type Decidable = (String, String, String, Option<String>, String, bool, String, Option<String>, i64);
+
+/// The field of a change that brought a whole new record.
+const RECORD: &str = "*";
 /// The tables the app keeps. Cells for any other are not taken in.
 pub const TABLES: [&str; 7] = [
     "territories",
@@ -186,12 +217,37 @@ impl Store {
              CREATE TABLE IF NOT EXISTS conflicts(
                tbl TEXT NOT NULL, id TEXT NOT NULL, field TEXT NOT NULL,
                kept TEXT NOT NULL, lost TEXT NOT NULL, lost_by TEXT NOT NULL,
-               at INTEGER NOT NULL, PRIMARY KEY(tbl, id, field));
+               at INTEGER NOT NULL, PRIMARY KEY(tbl, id, field, lost_by));
              CREATE TABLE IF NOT EXISTS log(
                at INTEGER NOT NULL, peer TEXT NOT NULL, name TEXT NOT NULL,
-               sent INTEGER NOT NULL, received INTEGER NOT NULL, items TEXT NOT NULL);",
+               sent INTEGER NOT NULL, received INTEGER NOT NULL, items TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS changes(
+               id INTEGER PRIMARY KEY, sync INTEGER NOT NULL,
+               tbl TEXT NOT NULL, rid TEXT NOT NULL, field TEXT NOT NULL,
+               old TEXT, old_stamp TEXT, new TEXT NOT NULL, new_stamp TEXT NOT NULL,
+               origin TEXT NOT NULL, outcome TEXT NOT NULL, won INTEGER NOT NULL,
+               base TEXT NOT NULL, decision TEXT, decided TEXT, decided_by TEXT);
+             CREATE INDEX IF NOT EXISTS changes_sync ON changes(sync);",
         )
         .map_err(err)?;
+        // one losing value per field was kept before; now one per phone
+        let conflicts: String = conn
+            .query_row("SELECT sql FROM sqlite_master WHERE name = 'conflicts'", [], |r| r.get(0))
+            .map_err(err)?;
+        if !conflicts.contains("lost_by)") {
+            conn.execute_batch(
+                "BEGIN;
+                 CREATE TABLE conflicts_new(
+                   tbl TEXT NOT NULL, id TEXT NOT NULL, field TEXT NOT NULL,
+                   kept TEXT NOT NULL, lost TEXT NOT NULL, lost_by TEXT NOT NULL,
+                   at INTEGER NOT NULL, PRIMARY KEY(tbl, id, field, lost_by));
+                 INSERT INTO conflicts_new SELECT tbl, id, field, kept, lost, lost_by, at FROM conflicts;
+                 DROP TABLE conflicts;
+                 ALTER TABLE conflicts_new RENAME TO conflicts;
+                 COMMIT;",
+            )
+            .map_err(err)?;
+        }
         // added later; each fails harmlessly once the column exists
         for column in [
             "ALTER TABLE peers ADD COLUMN introduced_by TEXT",
@@ -201,6 +257,7 @@ impl Store {
             "ALTER TABLE removed ADD COLUMN gone INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE removed ADD COLUMN name TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE removed ADD COLUMN public_key BLOB",
+            "ALTER TABLE changes ADD COLUMN decided_by TEXT",
         ] {
             if let Err(e) = conn.execute(column, []) {
                 if !e.to_string().contains("duplicate column") {
@@ -212,10 +269,13 @@ impl Store {
         // syncs that changed nothing only crowded the history
         conn.execute(
             "DELETE FROM log WHERE sent = 0 AND received = 0
-               AND coalesce(json_array_length(detail, '$.removed'), 0) = 0",
+               AND coalesce(json_array_length(detail, '$.removed'), 0) = 0
+               AND NOT EXISTS (SELECT 1 FROM changes WHERE changes.sync = log.rowid)",
             [],
         )
         .map_err(err)?;
+        conn.execute("DELETE FROM changes WHERE sync NOT IN (SELECT rowid FROM log)", [])
+            .map_err(err)?;
 
         let identity = load_identity(&conn)?;
         // a removal is stamped too, and a later pairing must come after it
@@ -651,8 +711,36 @@ impl Store {
         let mut looked = std::collections::BTreeSet::new();
         let mut new = std::collections::BTreeSet::new();
         let mut revived = std::collections::BTreeSet::new();
+        let mut buried = std::collections::BTreeSet::new();
+        let mut changes: BTreeMap<(String, String, String), Change> = BTreeMap::new();
+        // new records' fields, newest stamp and its phone
+        let mut fresh: BTreeMap<(String, String), NewRecord> = BTreeMap::new();
+        let mut decided = std::collections::BTreeSet::new();
         for cell in cells {
             if !takes(cell, &removals) {
+                continue;
+            }
+            if cell.t == DECISIONS {
+                // the newer decision on a change counts, with no clash to keep
+                let incoming = cell.v.to_string();
+                let stored: Option<(String, String)> = tx
+                    .query_row(
+                        "SELECT stamp, value FROM cells WHERE tbl = ?1 AND id = ?2 AND field = ?3",
+                        params![cell.t, cell.i, cell.f],
+                        |r| Ok((r.get(0)?, r.get(1)?)),
+                    )
+                    .optional()
+                    .map_err(err)?;
+                if stored.is_none_or(|(stamp, value)| (stamp, value) < (cell.s.clone(), incoming.clone())) {
+                    tx.execute(
+                        "INSERT OR REPLACE INTO cells VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                        params![cell.t, cell.i, cell.f, incoming, cell.s, cell.o, cell.q],
+                    )
+                    .map_err(err)?;
+                    self.clock.observe(&cell.s);
+                    applied.cells += 1;
+                    decided.insert(cell.i.clone());
+                }
                 continue;
             }
             let record = (cell.t.clone(), cell.i.clone());
@@ -666,9 +754,11 @@ impl Store {
                     .optional()
                     .map_err(err)?;
                 if stored.is_none() {
-                    new.insert(record);
+                    new.insert(record.clone());
                 }
             }
+            let is_new = new.contains(&record);
+            let key = (cell.t.clone(), cell.i.clone(), cell.f.clone());
             let stored: Option<(String, String, String, i64)> = tx
                 .query_row(
                     "SELECT stamp, value, origin, seq FROM cells
@@ -684,12 +774,15 @@ impl Store {
             let wins = stored
                 .as_ref()
                 .is_none_or(|(stamp, value, ..)| (stamp, value) < (&cell.s, &incoming));
+            // by value, so key order or spacing is no clash
+            let differs = stored.as_ref().is_none_or(|(_, value, ..)| {
+                serde_json::from_str::<Value>(value).map_or(true, |v| v != cell.v)
+            });
 
-            if let Some((_, value, origin, seq)) = &stored {
+            // concurrency is what the version vectors say, never which stamp is newer
+            if let Some((stamp, value, origin, seq)) = &stored {
                 let they_missed_ours = sender.get(origin).copied().unwrap_or(0) < *seq;
                 let we_missed_theirs = mine.get(&cell.o).copied().unwrap_or(0) < cell.q;
-                // by value, so key order or spacing is no clash
-                let differs = serde_json::from_str::<Value>(value).map_or(true, |v| v != cell.v);
                 if they_missed_ours
                     && we_missed_theirs
                     && origin != &cell.o
@@ -701,16 +794,32 @@ impl Store {
                     } else {
                         (value, &incoming, &cell.o)
                     };
+                    if wins {
+                        tx.execute(
+                            "UPDATE conflicts SET kept = ?4 WHERE tbl = ?1 AND id = ?2 AND field = ?3",
+                            params![cell.t, cell.i, cell.f, kept],
+                        )
+                        .map_err(err)?;
+                    }
                     tx.execute(
                         "INSERT OR REPLACE INTO conflicts VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                         params![cell.t, cell.i, cell.f, kept, lost, lost_by, now_secs()],
                     )
                     .map_err(err)?;
                     applied.conflicts += 1;
+                    changes.insert(key.clone(), noted(cell, Some((value, stamp)), true, wins));
                 }
             }
             if !wins {
                 continue;
+            }
+            if is_new && cell.f != "order" {
+                let entry = fresh.entry(record.clone()).or_default();
+                entry.0.insert(cell.f.clone(), cell.v.clone());
+                if cell.s > entry.1 {
+                    entry.1 = cell.s.clone();
+                    entry.2 = cell.o.clone();
+                }
             }
             if applied.conflicts == clashes {
                 // a later edit, made knowing both values, settles an old clash
@@ -719,6 +828,10 @@ impl Store {
                     params![cell.t, cell.i, cell.f],
                 )
                 .map_err(err)?;
+                if !is_new && differs && cell.f != "order" {
+                    let old = stored.as_ref().map(|(stamp, value, ..)| (value.as_str(), stamp.as_str()));
+                    changes.insert(key.clone(), noted(cell, old, false, true));
+                }
             }
             let record_key = (cell.t.clone(), cell.i.clone());
             if !QUIET.contains(&cell.f.as_str()) && !revived.contains(&record_key) {
@@ -739,6 +852,16 @@ impl Store {
                         revived.insert(record_key.clone());
                         deleted_while_edited(&tx, &cell.t, &cell.i, &origin)?;
                         applied.conflicts += 1;
+                        changes.insert(deletion_key(cell), deletion_change(cell, Some(&stamp), true, true));
+                    } else if unseen && origin != cell.o && buried.insert(record_key.clone()) {
+                        // the deletion here is newer, so the record stays gone: still a clash
+                        tx.execute(
+                            "INSERT OR REPLACE INTO conflicts VALUES (?1, ?2, ?3, 'true', 'false', ?4, ?5)",
+                            params![cell.t, cell.i, DELETED, cell.o, now_secs()],
+                        )
+                        .map_err(err)?;
+                        applied.conflicts += 1;
+                        changes.insert(deletion_key(cell), deletion_change(cell, Some(&stamp), true, false));
                     }
                 }
             }
@@ -760,13 +883,28 @@ impl Store {
                     .optional()
                     .map_err(err)?;
                 match edit {
-                    None => settle_record(&tx, &cell.t, &cell.i)?,
+                    None => {
+                        settle_record(&tx, &cell.t, &cell.i)?;
+                        // an earlier edit here it hadn't seen: the deletion wins, but is a clash
+                        if !is_new {
+                            if let Some(by) = unseen_edit(&tx, cell, sender, &mine)? {
+                                tx.execute(
+                                    "INSERT OR REPLACE INTO conflicts VALUES (?1, ?2, ?3, 'true', 'false', ?4, ?5)",
+                                    params![cell.t, cell.i, DELETED, by, now_secs()],
+                                )
+                                .map_err(err)?;
+                                applied.conflicts += 1;
+                                changes.insert(key.clone(), deletion_change(cell, None, false, true));
+                            }
+                        }
+                    }
                     Some((origin, seq)) => {
                         let unseen = sender.get(&origin).copied().unwrap_or(0) < seq
                             && mine.get(&cell.o).copied().unwrap_or(0) < cell.q;
                         if unseen && origin != cell.o && revived.insert(record_key.clone()) {
                             deleted_while_edited(&tx, &cell.t, &cell.i, &cell.o)?;
                             applied.conflicts += 1;
+                            changes.insert(key.clone(), deletion_change(cell, None, false, false));
                         }
                     }
                 }
@@ -778,6 +916,32 @@ impl Store {
             }
             kept.push(cell.clone());
         }
+        for ((t, i), (mut fields, stamp, origin)) in fresh {
+            // made and deleted elsewhere before it ever got here
+            if fields.remove(DELETED) == Some(Value::Bool(true)) {
+                continue;
+            }
+            changes.insert(
+                (t.clone(), i.clone(), RECORD.into()),
+                Change {
+                    t,
+                    i,
+                    f: RECORD.into(),
+                    new: Value::Object(fields).to_string(),
+                    new_stamp: stamp,
+                    origin,
+                    won: true,
+                    ..Change::default()
+                },
+            );
+        }
+        for id in &decided {
+            settled_elsewhere(&tx, &self.identity.id, id)?;
+        }
+        for change in changes.values_mut() {
+            change.base = base_of(&tx, &change.t, &change.i, &change.f)?;
+        }
+        applied.changes = changes.into_values().collect();
         for (origin, seq) in adopt {
             if origin == &self.identity.id {
                 continue;
@@ -945,6 +1109,7 @@ impl Store {
                 "lost": parse(&lost),
                 "mine": lost_by == self.identity.id,
                 "by": names.get(&lost_by).cloned().unwrap_or_default(),
+                "lostBy": lost_by,
                 "at": at,
                 "record": self.record(&table, &id)?,
             }));
@@ -955,31 +1120,359 @@ impl Store {
     /// Settles a clash: with `use_other`, the value that lost is written
     /// again as a new edit, so it wins on every phone.
     pub fn resolve(&mut self, table: &str, id: &str, field: &str, use_other: bool) -> Result<()> {
+        self.resolve_by(table, id, field, use_other, None)
+    }
+
+    /// `resolve`, for the value one phone lost when several did.
+    pub fn resolve_by(
+        &mut self,
+        table: &str,
+        id: &str,
+        field: &str,
+        use_other: bool,
+        by: Option<&str>,
+    ) -> Result<()> {
         let lost: Option<String> = self
             .conn
             .query_row(
-                "SELECT lost FROM conflicts WHERE tbl = ?1 AND id = ?2 AND field = ?3",
-                params![table, id, field],
+                "SELECT lost FROM conflicts WHERE tbl = ?1 AND id = ?2 AND field = ?3
+                   AND (?4 IS NULL OR lost_by = ?4)",
+                params![table, id, field, by],
                 |r| r.get(0),
             )
             .optional()
             .map_err(err)?;
+        let mut wrote = false;
         if let (true, Some(lost)) = (use_other, lost) {
-            // the record is deleted already; only a new deletion outlives the edit
             if field == DELETED {
-                return self.remove(table, id);
+                // a deletion is always stamped anew, so it outlives the edit
+                self.set_deleted(table, id, lost == "true")?;
+            } else {
+                let mut fields = Map::new();
+                fields.insert(field.into(), serde_json::from_str(&lost).map_err(err)?);
+                self.put(table, id, &fields)?;
             }
-            let mut fields = Map::new();
-            fields.insert(field.into(), serde_json::from_str(&lost).map_err(err)?);
-            self.put(table, id, &fields)?;
+            wrote = true;
         }
         self.conn
             .execute(
-                "DELETE FROM conflicts WHERE tbl = ?1 AND id = ?2 AND field = ?3",
-                params![table, id, field],
+                "DELETE FROM conflicts WHERE tbl = ?1 AND id = ?2 AND field = ?3
+                   AND (?4 IS NULL OR lost_by = ?4)",
+                params![table, id, field, by],
             )
             .map_err(err)?;
+        // the same clash on the sync's list is decided with it
+        let pending: Vec<(i64, bool)> = {
+            let mut stmt = self
+                .conn
+                .prepare(
+                    "SELECT id, won FROM changes WHERE tbl = ?1 AND rid = ?2 AND field = ?3
+                       AND outcome = 'conflict' AND decision IS NULL",
+                )
+                .map_err(err)?;
+            let rows = stmt
+                .query_map(params![table, id, field], |r| Ok((r.get(0)?, r.get(1)?)))
+                .map_err(err)?;
+            rows.collect::<std::result::Result<_, _>>().map_err(err)?
+        };
+        for (row, won) in pending {
+            self.conclude(row, use_other != won, wrote)?;
+        }
         Ok(())
+    }
+
+    fn set_deleted(&mut self, table: &str, id: &str, deleted: bool) -> Result<()> {
+        if deleted {
+            return self.remove(table, id);
+        }
+        let mut fields = Map::new();
+        fields.insert(DELETED.into(), Value::Bool(false));
+        self.write(table, id, &fields, true).map(|_| ())
+    }
+
+    /// What a sync brought in, one field each, with the territory it belongs
+    /// to and whether it is still as the sync left it.
+    pub fn sync_changes(&self, sync: i64) -> Result<Vec<Value>> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT c.id, c.tbl, c.rid, c.field, c.old, c.new, c.origin, c.outcome, c.won,
+                   c.base, c.decision, c.new_stamp, l.name, coalesce(c.old_stamp, ''), c.decided_by
+                 FROM changes c JOIN log l ON l.rowid = c.sync
+                 WHERE c.sync = ?1 ORDER BY c.outcome = 'applied', c.tbl, c.rid, c.field",
+            )
+            .map_err(err)?;
+        let rows = stmt
+            .query_map([sync], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    [r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?],
+                    (r.get::<_, Option<String>>(4)?, r.get::<_, String>(5)?),
+                    r.get::<_, String>(6)?,
+                    r.get::<_, String>(7)?,
+                    r.get::<_, bool>(8)?,
+                    r.get::<_, String>(9)?,
+                    r.get::<_, Option<String>>(10)?,
+                    r.get::<_, String>(11)?,
+                    r.get::<_, String>(12)?,
+                    (r.get::<_, String>(13)?, r.get::<_, Option<String>>(14)?),
+                ))
+            })
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)?;
+        let names: BTreeMap<String, String> =
+            self.paired()?.into_iter().map(|p| (p.id, p.name)).collect();
+        let parse = |text: &str| serde_json::from_str::<Value>(text).unwrap_or(Value::Null);
+        let decisions: Vec<Value> = self
+            .list(DECISIONS)?
+            .into_iter()
+            .filter(|d| d["by"].as_str() != Some(self.identity.id.as_str()))
+            .collect();
+        let name_of = |device: &str| {
+            names
+                .get(device)
+                .cloned()
+                .unwrap_or_else(|| if device == self.identity.id { self.identity.name.clone() } else { String::new() })
+        };
+        let mut list = Vec::new();
+        for (id, [table, record, field], (old, new), origin, outcome, won, base, decision, stamp, name, (old_stamp, decided_by)) in rows {
+            // what another phone decided about this change, latest first
+            let remote = decisions
+                .iter()
+                .filter(|d| d["table"] == table.as_str() && d["record"] == record.as_str() && d["field"] == field.as_str())
+                .filter(|d| {
+                    let stamps = d.as_object().map(decision_stamps).unwrap_or_default();
+                    stamps.contains(&stamp) || (!old_stamp.is_empty() && stamps.contains(&old_stamp))
+                })
+                .max_by_key(|d| d["at"].as_i64().unwrap_or(0))
+                .map(|d| {
+                    serde_json::json!({
+                        "kind": d["kind"],
+                        "by": name_of(d["by"].as_str().unwrap_or_default()),
+                    })
+                });
+            let fields = self.record(&table, &record)?;
+            let territory_id = if table == "territories" {
+                Some(record.clone())
+            } else {
+                fields.get("territory").and_then(Value::as_str).map(String::from)
+            };
+            let territory = match &territory_id {
+                Some(tid) => {
+                    let get = |f: &str| self.field("territories", tid, f);
+                    serde_json::json!({ "id": tid, "number": get("number")?, "name": get("name")? })
+                }
+                None => Value::Null,
+            };
+            // a border is drawn with the others' current parts
+            let mut context = Map::new();
+            for (key, value) in fields {
+                let wanted = match table.as_str() {
+                    "territories" => BORDER.contains(&key.as_str()) || key == "number" || key == "name",
+                    _ => !key.starts_with('_') && key != "order",
+                };
+                if wanted {
+                    context.insert(key, value);
+                }
+            }
+            let by = if origin == self.identity.id {
+                self.identity.name.clone()
+            } else {
+                names.get(&origin).cloned().unwrap_or(name)
+            };
+            list.push(serde_json::json!({
+                "id": id,
+                "table": table,
+                "record": record,
+                "field": field,
+                "before": old.as_deref().map_or(Value::Null, parse),
+                "after": parse(&new),
+                "conflict": outcome == "conflict",
+                "won": won,
+                "decision": decision,
+                "decidedBy": decided_by.as_deref().map(name_of),
+                "remote": remote,
+                "current": base_of(&self.conn, &table, &record, &field)? == base,
+                "origin": origin,
+                "by": by,
+                "stamp": stamp,
+                "territory": territory,
+                "context": context,
+            }));
+        }
+        Ok(list)
+    }
+
+    /// Takes the incoming value (`theirs`) or the one this phone had for each
+    /// change. A value not in effect is written as a new edit, so it syncs;
+    /// one already in effect is only marked decided. A change whose field
+    /// was edited since is left alone and reported, unless `force`.
+    pub fn decide(&mut self, ids: &[i64], theirs: bool, force: bool) -> Result<Vec<Value>> {
+        self.batch(|store| {
+            let mut results = Vec::new();
+            let mut queue: Vec<i64> = ids.to_vec();
+            let mut seen = std::collections::BTreeSet::new();
+            let mut next = 0;
+            while next < queue.len() {
+                let id = queue[next];
+                next += 1;
+                if !seen.insert(id) {
+                    continue;
+                }
+                let row: Option<Decidable> = store
+                    .conn
+                    .query_row(
+                        "SELECT tbl, rid, field, old, new, won, base, decision, sync FROM changes WHERE id = ?1",
+                        [id],
+                        |r| {
+                            Ok((
+                                r.get(0)?,
+                                r.get(1)?,
+                                r.get(2)?,
+                                r.get(3)?,
+                                r.get(4)?,
+                                r.get(5)?,
+                                r.get(6)?,
+                                r.get(7)?,
+                                r.get(8)?,
+                            ))
+                        },
+                    )
+                    .optional()
+                    .map_err(err)?;
+                let Some((table, record, field, old, new, won, base, decision, sync)) = row else {
+                    continue;
+                };
+                // what went or came with a territory goes or comes back with it
+                if table == "territories" && (field == DELETED || field == RECORD) {
+                    queue.extend(store.children_in(sync, &record, &field, &new)?);
+                }
+                let in_effect = decision.as_deref().map_or(won, |d| d == "theirs");
+                let mut stale = false;
+                let mut wrote = false;
+                if in_effect != theirs {
+                    if !force && base_of(&store.conn, &table, &record, &field)? != base {
+                        stale = true;
+                    } else if field == RECORD {
+                        store.set_deleted(&table, &record, !theirs)?;
+                        wrote = true;
+                    } else if field == DELETED {
+                        let target = if theirs { new } else { old.unwrap_or_else(|| "false".into()) };
+                        store.set_deleted(&table, &record, target == "true")?;
+                        wrote = true;
+                    } else {
+                        let target = if theirs { Some(new) } else { old };
+                        let value = match target {
+                            Some(text) => serde_json::from_str(&text).map_err(err)?,
+                            None => Value::Null,
+                        };
+                        let mut fields = Map::new();
+                        fields.insert(field.clone(), value);
+                        wrote = store.put(&table, &record, &fields)? > 0;
+                    }
+                }
+                if !stale {
+                    store.conclude(id, theirs, wrote)?;
+                }
+                results.push(serde_json::json!({ "id": id, "done": !stale, "stale": stale }));
+            }
+            Ok(results)
+        })
+    }
+
+    /// The assignment and do-not-call changes of one sync that came with a
+    /// territory's deletion or creation: the same kind of change to a record
+    /// of that territory.
+    fn children_in(&self, sync: i64, territory: &str, field: &str, new: &str) -> Result<Vec<i64>> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT c.id FROM changes c
+                 JOIN cells t ON t.tbl = c.tbl AND t.id = c.rid AND t.field = 'territory'
+                 WHERE c.sync = ?1 AND c.tbl IN ('assignments', 'do_not_calls')
+                   AND c.field = ?2 AND (?2 = ?3 OR c.new = ?4) AND t.value = ?5",
+            )
+            .map_err(err)?;
+        let territory = Value::String(territory.into()).to_string();
+        let rows = stmt
+            .query_map(params![sync, field, RECORD, new, territory], |r| r.get(0))
+            .map_err(err)?;
+        rows.collect::<std::result::Result<_, _>>().map_err(err)
+    }
+
+    /// Marks a change decided and tells the other phones, as a synced
+    /// decision record, which value stays and what was written for it.
+    fn conclude(&mut self, id: i64, theirs: bool, wrote: bool) -> Result<()> {
+        let (table, record, field, old_stamp, new_stamp, conflict): (
+            String,
+            String,
+            String,
+            Option<String>,
+            String,
+            bool,
+        ) = self
+            .conn
+            .query_row(
+                "SELECT tbl, rid, field, old_stamp, new_stamp, outcome = 'conflict' FROM changes WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+            )
+            .map_err(err)?;
+        self.conn
+            .execute(
+                "DELETE FROM conflicts WHERE tbl = ?1 AND id = ?2 AND field = ?3",
+                params![table, record, field],
+            )
+            .map_err(err)?;
+        self.conn
+            .execute(
+                "UPDATE changes SET decision = ?2, decided = ?3, decided_by = NULL, base = ?4 WHERE id = ?1",
+                params![
+                    id,
+                    if theirs { "theirs" } else { "mine" },
+                    now_secs().to_string(),
+                    base_of(&self.conn, &table, &record, &field)?
+                ],
+            )
+            .map_err(err)?;
+        let written = if wrote {
+            let cell = if field == RECORD { DELETED } else { field.as_str() };
+            self.field_stamp(&table, &record, cell)?.unwrap_or_default()
+        } else {
+            String::new()
+        };
+        let kind = match (theirs, conflict) {
+            (true, _) => "applied",
+            (false, true) => "declined",
+            (false, false) => "undone",
+        };
+        let chosen = if theirs { Some(new_stamp.clone()) } else { old_stamp.clone() };
+        let fields = serde_json::json!({
+            "table": table,
+            "record": record,
+            "field": field,
+            "stamps": [new_stamp, old_stamp.unwrap_or_default()],
+            "chosen": chosen.unwrap_or_default(),
+            "written": written,
+            "kind": kind,
+            "by": self.identity.id,
+            "at": now_secs(),
+        });
+        let key = format!("{table}/{record}/{field}/{new_stamp}");
+        self.put(DECISIONS, &key, fields.as_object().expect("an object"))?;
+        Ok(())
+    }
+
+    fn field_stamp(&self, table: &str, id: &str, field: &str) -> Result<Option<String>> {
+        self.conn
+            .query_row(
+                "SELECT stamp FROM cells WHERE tbl = ?1 AND id = ?2 AND field = ?3",
+                params![table, id, field],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(err)
     }
 
     pub fn log_sync(
@@ -990,9 +1483,9 @@ impl Store {
         sent_territories: &[Touched],
         applied: &Applied,
         removed: &[String],
-    ) -> Result<()> {
-        if sent == 0 && applied.cells == 0 && removed.is_empty() {
-            return Ok(());
+    ) -> Result<Option<i64>> {
+        if sent == 0 && applied.cells == 0 && removed.is_empty() && applied.changes.is_empty() {
+            return Ok(None);
         }
         let detail = serde_json::json!({
             "received": applied.territories,
@@ -1014,13 +1507,42 @@ impl Store {
                 ],
             )
             .map_err(err)?;
+        let sync = self.conn.last_insert_rowid();
+        let mut insert = self
+            .conn
+            .prepare(
+                "INSERT INTO changes(sync, tbl, rid, field, old, old_stamp, new, new_stamp,
+                   origin, outcome, won, base) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            )
+            .map_err(err)?;
+        for c in &applied.changes {
+            insert
+                .execute(params![
+                    sync,
+                    c.t,
+                    c.i,
+                    c.f,
+                    c.old,
+                    c.old_stamp,
+                    c.new,
+                    c.new_stamp,
+                    c.origin,
+                    if c.conflict { "conflict" } else { "applied" },
+                    c.won,
+                    c.base
+                ])
+                .map_err(err)?;
+        }
         self.conn
             .execute(
                 "DELETE FROM log WHERE rowid NOT IN (SELECT rowid FROM log ORDER BY at DESC LIMIT 50)",
                 [],
             )
             .map_err(err)?;
-        Ok(())
+        self.conn
+            .execute("DELETE FROM changes WHERE sync NOT IN (SELECT rowid FROM log)", [])
+            .map_err(err)?;
+        Ok(Some(sync))
     }
 
     /// The latest syncs, newest first.
@@ -1028,8 +1550,11 @@ impl Store {
         let mut stmt = self
             .conn
             .prepare(
-                "SELECT at, peer, name, sent, received, items, detail FROM log
-                 ORDER BY at DESC LIMIT 30",
+                "SELECT at, peer, name, sent, received, items, detail, rowid,
+                   (SELECT count(*) FROM changes WHERE sync = log.rowid),
+                   (SELECT count(*) FROM changes WHERE sync = log.rowid
+                      AND outcome = 'conflict' AND decision IS NULL)
+                 FROM log ORDER BY at DESC, rowid DESC LIMIT 30",
             )
             .map_err(err)?;
         let rows = stmt
@@ -1044,6 +1569,9 @@ impl Store {
                         .unwrap_or(Value::Null),
                     "detail": serde_json::from_str::<Value>(&r.get::<_, String>(6)?)
                         .unwrap_or(Value::Null),
+                    "id": r.get::<_, i64>(7)?,
+                    "changes": r.get::<_, i64>(8)?,
+                    "open": r.get::<_, i64>(9)?,
                 }))
             })
             .map_err(err)?;
@@ -1439,6 +1967,157 @@ impl Store {
     }
 }
 
+fn noted(cell: &Cell, old: Option<(&str, &str)>, conflict: bool, won: bool) -> Change {
+    Change {
+        t: cell.t.clone(),
+        i: cell.i.clone(),
+        f: cell.f.clone(),
+        old: old.map(|(value, _)| value.to_string()),
+        old_stamp: old.map(|(_, stamp)| stamp.to_string()),
+        new: cell.v.to_string(),
+        new_stamp: cell.s.clone(),
+        origin: cell.o.clone(),
+        conflict,
+        won,
+        base: String::new(),
+    }
+}
+
+fn deletion_key(cell: &Cell) -> (String, String, String) {
+    (cell.t.clone(), cell.i.clone(), DELETED.into())
+}
+
+/// A record deleted on one phone and edited on the other, as a change of
+/// its deletion: `gone_here` when this phone had it deleted.
+fn deletion_change(cell: &Cell, old_stamp: Option<&str>, gone_here: bool, won: bool) -> Change {
+    let (old, new) = if gone_here { ("true", "false") } else { ("false", "true") };
+    Change {
+        f: DELETED.into(),
+        old: Some(old.into()),
+        old_stamp: old_stamp.map(String::from),
+        new: new.into(),
+        conflict: true,
+        ..noted(cell, None, true, won)
+    }
+}
+
+/// A phone that edited the record of this incoming deletion, unseen by it,
+/// while this phone hadn't seen the deletion either.
+fn unseen_edit(conn: &Connection, cell: &Cell, sender: &Versions, mine: &Versions) -> Result<Option<String>> {
+    if mine.get(&cell.o).copied().unwrap_or(0) >= cell.q {
+        return Ok(None);
+    }
+    let mut stmt = conn
+        .prepare(
+            "SELECT origin, seq FROM cells WHERE tbl = ?1 AND id = ?2
+               AND field NOT IN (?3, 'order') AND origin <> ?4 ORDER BY stamp DESC",
+        )
+        .map_err(err)?;
+    let rows = stmt
+        .query_map(params![cell.t, cell.i, DELETED, cell.o], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+        })
+        .map_err(err)?;
+    for row in rows {
+        let (origin, seq) = row.map_err(err)?;
+        if sender.get(&origin).copied().unwrap_or(0) < seq {
+            return Ok(Some(origin));
+        }
+    }
+    Ok(None)
+}
+
+/// The stamp a change is judged by: its field's, or for a whole record or
+/// its deletion, the record's newest.
+fn base_of(conn: &Connection, table: &str, id: &str, field: &str) -> Result<String> {
+    let sql = if field == RECORD || field == DELETED {
+        "SELECT coalesce(max(stamp), '') FROM cells WHERE tbl = ?1 AND id = ?2 AND field <> 'order' AND ?3 = ?3"
+    } else {
+        "SELECT coalesce(max(stamp), '') FROM cells WHERE tbl = ?1 AND id = ?2 AND field = ?3"
+    };
+    conn.query_row(sql, params![table, id, field], |r| r.get(0)).map_err(err)
+}
+
+/// A decision record's fields, read straight from the cells.
+fn decision_of(conn: &Connection, id: &str) -> Result<Map<String, Value>> {
+    let mut stmt = conn
+        .prepare("SELECT field, value FROM cells WHERE tbl = ?1 AND id = ?2")
+        .map_err(err)?;
+    let rows = stmt
+        .query_map(params![DECISIONS, id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .map_err(err)?;
+    let mut fields = Map::new();
+    for row in rows {
+        let (field, value) = row.map_err(err)?;
+        fields.insert(field, serde_json::from_str(&value).map_err(err)?);
+    }
+    Ok(fields)
+}
+
+/// The stamps a decision speaks about: both values of the clash, and the
+/// edit it wrote.
+fn decision_stamps(decision: &Map<String, Value>) -> Vec<String> {
+    let mut stamps: Vec<String> = decision
+        .get("stamps")
+        .and_then(Value::as_array)
+        .map(|list| list.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+    if let Some(written) = decision.get("written").and_then(Value::as_str) {
+        stamps.push(written.to_string());
+    }
+    stamps.retain(|s| !s.is_empty());
+    stamps
+}
+
+/// Another phone decided a clash this phone has open too: its pick is the
+/// value that stays, so the clash closes here as well.
+fn settled_elsewhere(conn: &Connection, me: &str, id: &str) -> Result<()> {
+    let decision = decision_of(conn, id)?;
+    let text = |key: &str| decision.get(key).and_then(Value::as_str).unwrap_or_default().to_string();
+    let (by, chosen) = (text("by"), text("chosen"));
+    if by == me || chosen.is_empty() {
+        return Ok(());
+    }
+    let stamps = decision_stamps(&decision);
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, coalesce(old_stamp, ''), new_stamp FROM changes
+             WHERE tbl = ?1 AND rid = ?2 AND field = ?3 AND outcome = 'conflict' AND decision IS NULL",
+        )
+        .map_err(err)?;
+    let rows: Vec<(i64, String, String)> = stmt
+        .query_map(params![text("table"), text("record"), text("field")], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })
+        .map_err(err)?
+        .collect::<std::result::Result<_, _>>()
+        .map_err(err)?;
+    for (row, old, new) in rows {
+        if !stamps.contains(&old) && !stamps.contains(&new) {
+            continue;
+        }
+        let theirs = if chosen == new {
+            "theirs"
+        } else if chosen == old {
+            "mine"
+        } else {
+            continue;
+        };
+        let base = base_of(conn, &text("table"), &text("record"), &text("field"))?;
+        conn.execute(
+            "UPDATE changes SET decision = ?2, decided = ?3, decided_by = ?4, base = ?5 WHERE id = ?1",
+            params![row, theirs, now_secs().to_string(), by, base],
+        )
+        .map_err(err)?;
+        conn.execute(
+            "DELETE FROM conflicts WHERE tbl = ?1 AND id = ?2 AND field = ?3",
+            params![text("table"), text("record"), text("field")],
+        )
+        .map_err(err)?;
+    }
+    Ok(())
+}
+
 /// A deleted record's clashes are nobody's concern any more.
 fn settle_record(conn: &Connection, table: &str, id: &str) -> Result<()> {
     conn.execute("DELETE FROM conflicts WHERE tbl = ?1 AND id = ?2", params![table, id])
@@ -1467,7 +2146,7 @@ fn made_by(cell: &Cell) -> bool {
 /// keeps, and not by a removed phone after its removal.
 fn takes(cell: &Cell, removals: &BTreeMap<String, String>) -> bool {
     made_by(cell)
-        && TABLES.contains(&cell.t.as_str())
+        && (TABLES.contains(&cell.t.as_str()) || cell.t == DECISIONS)
         && removals.get(&cell.o).is_none_or(|removal| cell.s <= *removal)
 }
 
@@ -2423,5 +3102,338 @@ mod tests {
         let s = Store::in_memory().unwrap();
         let capped = s.capped(&claims, &cells).unwrap();
         assert_eq!(capped, Versions::from([(a.identity.id.clone(), 1)]));
+    }
+
+    /// `sync`, logged on both phones as a real sync is: each phone's log id.
+    fn sync_logged(a: &mut Store, b: &mut Store) -> (i64, i64) {
+        let to_b = a.changes_since(&b.versions().unwrap()).unwrap();
+        let to_a = b.changes_since(&a.versions().unwrap()).unwrap();
+        let (va, vb) = (a.versions().unwrap(), b.versions().unwrap());
+        let got_b = b.apply(&to_b, &va).unwrap();
+        let got_a = a.apply(&to_a, &vb).unwrap();
+        let (ida, idb) = (a.identity.id.clone(), b.identity.id.clone());
+        let on_a = a.log_sync(&idb, "B", to_b.len(), &[], &got_a, &[]).unwrap().unwrap_or(0);
+        let on_b = b.log_sync(&ida, "A", to_a.len(), &[], &got_b, &[]).unwrap().unwrap_or(0);
+        (on_a, on_b)
+    }
+
+    /// Moves a field's stamp `days` back, as if written then.
+    fn backdate(s: &Store, field: &str, days: u64) {
+        let ms = ms_from_now(0) - days * 24 * 3600 * 1000;
+        let stamp = hlc::encode(ms, 0, &s.identity.id);
+        s.conn
+            .execute("UPDATE cells SET stamp = ?1 WHERE field = ?2", params![stamp, field])
+            .unwrap();
+    }
+
+    fn changes_of(s: &Store, sync: i64, field: &str) -> Vec<Value> {
+        s.sync_changes(sync)
+            .unwrap()
+            .into_iter()
+            .filter(|c| c["field"] == field)
+            .collect()
+    }
+
+    fn ids(changes: &[Value]) -> Vec<i64> {
+        changes.iter().map(|c| c["id"].as_i64().unwrap()).collect()
+    }
+
+    #[test]
+    fn edits_a_week_apart_unseen_by_each_other_clash_whichever_is_newer() {
+        for a_first in [true, false] {
+            let mut a = Store::in_memory().unwrap();
+            let mut b = Store::in_memory().unwrap();
+            a.put("people", "1", &fields(json!({"holder": "Anna"}))).unwrap();
+            backdate(&a, "holder", 14);
+            sync(&mut a, &mut b);
+            a.put("people", "1", &fields(json!({"holder": "Carl"}))).unwrap();
+            b.put("people", "1", &fields(json!({"holder": "Dora"}))).unwrap();
+            // Monday's edit on one phone, Thursday's on the other
+            backdate(if a_first { &a } else { &b }, "holder", 7);
+            let (on_a, on_b) = sync_logged(&mut a, &mut b);
+
+            for (s, sync, newer_here) in [(&a, on_a, !a_first), (&b, on_b, a_first)] {
+                let found = changes_of(s, sync, "holder");
+                assert_eq!(found.len(), 1);
+                assert_eq!(found[0]["conflict"], json!(true));
+                // the incoming value is in effect where it was the newer one
+                assert_eq!(found[0]["won"], json!(!newer_here));
+                assert_eq!(s.conflicts().unwrap().len(), 1);
+            }
+            assert_eq!(a.list("people").unwrap(), b.list("people").unwrap());
+        }
+    }
+
+    #[test]
+    fn a_clean_change_is_logged_with_what_was_there_before() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "4", "city": "Graz", "order": 1})))
+            .unwrap();
+        let (_, first) = sync_logged(&mut a, &mut b);
+        // a new record is one change, not one per field
+        let new = b.sync_changes(first).unwrap();
+        assert_eq!(new.len(), 1);
+        assert_eq!((&new[0]["field"], &new[0]["after"]["city"]), (&json!("*"), &json!("Graz")));
+
+        a.put("territories", "t1", &fields(json!({"city": "Linz", "order": 2}))).unwrap();
+        let (_, on_b) = sync_logged(&mut a, &mut b);
+        let all = b.sync_changes(on_b).unwrap();
+        assert_eq!(all.len(), 1, "a new place in a list is no change to show");
+        let c = &all[0];
+        assert_eq!((&c["before"], &c["after"]), (&json!("Graz"), &json!("Linz")));
+        assert_eq!((&c["conflict"], &c["current"]), (&json!(false), &json!(true)));
+        assert_eq!(c["territory"]["number"], json!("4"));
+    }
+
+    #[test]
+    fn an_undo_syncs_as_a_plain_edit_without_a_clash() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "4", "city": "Graz"}))).unwrap();
+        sync(&mut a, &mut b);
+        a.put("territories", "t1", &fields(json!({"city": "Linz"}))).unwrap();
+        let (_, on_b) = sync_logged(&mut a, &mut b);
+        let change = changes_of(&b, on_b, "city");
+        let done = b.decide(&ids(&change), false, false).unwrap();
+        assert_eq!(done[0]["done"], json!(true));
+        assert_eq!(b.list("territories").unwrap()[0]["city"], json!("Graz"));
+
+        let (on_a, _) = sync_logged(&mut a, &mut b);
+        assert_eq!(a.list("territories").unwrap()[0]["city"], json!("Graz"));
+        assert!(a.conflicts().unwrap().is_empty() && b.conflicts().unwrap().is_empty());
+        let back = changes_of(&a, on_a, "city");
+        assert_eq!(back[0]["conflict"], json!(false));
+        assert_eq!(changes_of(&b, on_b, "city")[0]["decision"], json!("mine"));
+    }
+
+    #[test]
+    fn an_undo_after_a_later_edit_is_refused_unless_forced() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "4", "city": "Graz"}))).unwrap();
+        sync(&mut a, &mut b);
+        a.put("territories", "t1", &fields(json!({"city": "Linz"}))).unwrap();
+        let (_, on_b) = sync_logged(&mut a, &mut b);
+        b.put("territories", "t1", &fields(json!({"city": "Wels"}))).unwrap();
+
+        let change = changes_of(&b, on_b, "city");
+        assert_eq!(change[0]["current"], json!(false));
+        let refused = b.decide(&ids(&change), false, false).unwrap();
+        assert_eq!((&refused[0]["done"], &refused[0]["stale"]), (&json!(false), &json!(true)));
+        assert_eq!(b.list("territories").unwrap()[0]["city"], json!("Wels"));
+        b.decide(&ids(&change), false, true).unwrap();
+        assert_eq!(b.list("territories").unwrap()[0]["city"], json!("Graz"));
+    }
+
+    #[test]
+    fn every_phone_whose_value_lost_on_a_field_is_kept() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        let mut c = Store::in_memory().unwrap();
+        a.put("people", "1", &fields(json!({"holder": "Anna"}))).unwrap();
+        sync(&mut a, &mut b);
+        sync(&mut b, &mut c);
+        a.put("people", "1", &fields(json!({"holder": "A"}))).unwrap();
+        later();
+        b.put("people", "1", &fields(json!({"holder": "B"}))).unwrap();
+        later();
+        c.put("people", "1", &fields(json!({"holder": "C"}))).unwrap();
+        sync(&mut a, &mut b);
+        sync(&mut b, &mut c);
+
+        let clashes = b.conflicts().unwrap();
+        let mut lost: Vec<_> = clashes.iter().map(|c| c["lost"].as_str().unwrap()).collect();
+        lost.sort();
+        assert_eq!(lost, ["A", "B"]);
+        assert!(clashes.iter().all(|c| c["kept"] == json!("C")));
+        // one of them taken back leaves the other
+        let by = a.identity.id.clone();
+        b.resolve_by("people", "1", "holder", false, Some(&by)).unwrap();
+        assert_eq!(b.conflicts().unwrap()[0]["lost"], json!("B"));
+    }
+
+    #[test]
+    fn some_changes_can_be_taken_back_and_others_left() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "4", "city": "Graz", "holder": "Anna"})))
+            .unwrap();
+        sync(&mut a, &mut b);
+        a.put("territories", "t1", &fields(json!({"city": "Linz", "holder": "Carl"}))).unwrap();
+        later();
+        b.put("territories", "t1", &fields(json!({"city": "Wels", "holder": "Dora"}))).unwrap();
+        let (on_a, _) = sync_logged(&mut a, &mut b);
+
+        let both = a.sync_changes(on_a).unwrap();
+        assert_eq!(both.len(), 2);
+        assert!(both.iter().all(|c| c["conflict"] == json!(true) && c["won"] == json!(true)));
+        // keep this phone's holder, leave the city for later
+        a.decide(&ids(&changes_of(&a, on_a, "holder")), false, false).unwrap();
+        let t = &a.list("territories").unwrap()[0];
+        assert_eq!((&t["holder"], &t["city"]), (&json!("Carl"), &json!("Wels")));
+        let entry = &a.log().unwrap()[0];
+        assert_eq!((&entry["changes"], &entry["open"]), (&json!(2), &json!(1)));
+        assert_eq!(changes_of(&a, on_a, "city")[0]["decision"], Value::Null);
+        // and Carl reaches the other phone without a new clash
+        sync(&mut a, &mut b);
+        assert_eq!(b.list("territories").unwrap()[0]["holder"], json!("Carl"));
+        assert_eq!(b.conflicts().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn an_older_edit_lost_to_a_newer_deletion_is_a_clash() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("people", "1", &fields(json!({"name": "Ben"}))).unwrap();
+        backdate(&a, "name", 14);
+        sync(&mut a, &mut b);
+        a.put("people", "1", &fields(json!({"name": "Benno"}))).unwrap();
+        backdate(&a, "name", 7);
+        b.remove("people", "1").unwrap();
+        let (on_a, on_b) = sync_logged(&mut a, &mut b);
+
+        assert!(a.list("people").unwrap().is_empty() && b.list("people").unwrap().is_empty());
+        for (s, sync) in [(&a, on_a), (&b, on_b)] {
+            let found = changes_of(s, sync, "_deleted");
+            assert_eq!(found[0]["conflict"], json!(true), "{found:?}");
+            assert_eq!(s.conflicts().unwrap().len(), 1);
+        }
+        // the edit wins after all: the record comes back everywhere
+        a.decide(&ids(&changes_of(&a, on_a, "_deleted")), false, false).unwrap();
+        sync(&mut a, &mut b);
+        assert_eq!(b.list("people").unwrap()[0]["name"], json!("Benno"));
+    }
+
+    #[test]
+    fn a_new_record_taken_back_is_deleted() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("do_not_calls", "d1", &fields(json!({"address": "Main St 1", "territory": "t1"})))
+            .unwrap();
+        let (_, on_b) = sync_logged(&mut a, &mut b);
+        b.decide(&ids(&b.sync_changes(on_b).unwrap()), false, false).unwrap();
+        sync(&mut a, &mut b);
+        assert!(a.list("do_not_calls").unwrap().is_empty());
+    }
+
+    #[test]
+    fn clashes_kept_one_per_field_before_move_to_one_per_phone() {
+        let dir = scratch("conflicts");
+        let path = dir.join("store.db");
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch(
+                "CREATE TABLE conflicts(tbl TEXT NOT NULL, id TEXT NOT NULL, field TEXT NOT NULL,
+                   kept TEXT NOT NULL, lost TEXT NOT NULL, lost_by TEXT NOT NULL,
+                   at INTEGER NOT NULL, PRIMARY KEY(tbl, id, field));
+                 INSERT INTO conflicts VALUES ('people', '1', 'n', '1', '2', 'aa', 1);",
+            )
+            .unwrap();
+        let s = Store::open(&path).unwrap();
+        assert_eq!(s.conflicts().unwrap().len(), 1);
+        s.conn
+            .execute("INSERT INTO conflicts VALUES ('people', '1', 'n', '1', '3', 'bb', 1)", [])
+            .unwrap();
+        drop(s);
+        assert_eq!(Store::open(&path).unwrap().conflicts().unwrap().len(), 2);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_decision_on_one_phone_closes_the_same_clash_on_the_other() {
+        // whichever value was in effect on the deciding phone
+        for a_newer in [false, true] {
+            let mut a = Store::in_memory().unwrap();
+            let mut b = Store::in_memory().unwrap();
+            a.put("territories", "t1", &fields(json!({"number": "4", "city": "Graz"}))).unwrap();
+            sync(&mut a, &mut b);
+            if a_newer {
+                b.put("territories", "t1", &fields(json!({"city": "Wels"}))).unwrap();
+                later();
+                a.put("territories", "t1", &fields(json!({"city": "Linz"}))).unwrap();
+            } else {
+                a.put("territories", "t1", &fields(json!({"city": "Linz"}))).unwrap();
+                later();
+                b.put("territories", "t1", &fields(json!({"city": "Wels"}))).unwrap();
+            }
+            let (on_a, on_b) = sync_logged(&mut a, &mut b);
+            assert_eq!(changes_of(&b, on_b, "city")[0]["decision"], Value::Null);
+
+            // A keeps its own value, declining B's
+            a.decide(&ids(&changes_of(&a, on_a, "city")), false, false).unwrap();
+            sync_logged(&mut a, &mut b);
+
+            let row = &changes_of(&b, on_b, "city")[0];
+            assert_eq!(row["decision"], json!("theirs"), "a_newer {a_newer}");
+            assert!(!row["decidedBy"].is_null());
+            assert_eq!(row["remote"]["kind"], json!("declined"));
+            assert!(b.conflicts().unwrap().is_empty());
+            assert_eq!(b.log().unwrap()[0]["open"], json!(0));
+            for s in [&a, &b] {
+                assert_eq!(s.list("territories").unwrap()[0]["city"], json!("Linz"));
+            }
+        }
+    }
+
+    #[test]
+    fn an_undo_shows_on_the_phone_whose_change_was_undone() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "4", "city": "Graz"}))).unwrap();
+        sync(&mut a, &mut b);
+        a.put("territories", "t1", &fields(json!({"city": "Linz"}))).unwrap();
+        let (_, on_b) = sync_logged(&mut a, &mut b);
+        b.decide(&ids(&changes_of(&b, on_b, "city")), false, false).unwrap();
+        let (on_a, _) = sync_logged(&mut a, &mut b);
+        let row = &changes_of(&a, on_a, "city")[0];
+        assert_eq!((&row["before"], &row["after"]), (&json!("Linz"), &json!("Graz")));
+        assert_eq!(row["remote"]["kind"], json!("undone"));
+        // a decision is no change of its own to list
+        assert!(a.sync_changes(on_a).unwrap().iter().all(|c| c["table"] != "decisions"));
+    }
+
+    #[test]
+    fn a_territory_comes_back_with_what_was_deleted_with_it() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "4"}))).unwrap();
+        a.put("assignments", "a1", &fields(json!({"territory": "t1", "publisher": "Anna"}))).unwrap();
+        a.put("do_not_calls", "d1", &fields(json!({"territory": "t1", "address": "Main St 1"}))).unwrap();
+        a.put("do_not_calls", "d2", &fields(json!({"territory": "t9", "address": "Elsewhere 2"}))).unwrap();
+        sync(&mut a, &mut b);
+        for (table, id) in [("territories", "t1"), ("assignments", "a1"), ("do_not_calls", "d1"), ("do_not_calls", "d2")] {
+            a.remove(table, id).unwrap();
+        }
+        let (_, on_b) = sync_logged(&mut a, &mut b);
+        let territory: Vec<_> = changes_of(&b, on_b, "_deleted")
+            .into_iter()
+            .filter(|c| c["table"] == "territories")
+            .collect();
+        b.decide(&ids(&territory), false, false).unwrap();
+        assert_eq!(b.list("territories").unwrap().len(), 1);
+        assert_eq!(b.list("assignments").unwrap().len(), 1);
+        // only what belonged to it
+        assert_eq!(b.list("do_not_calls").unwrap(), vec![json!({"id": "d1", "territory": "t1", "address": "Main St 1"})]);
+        sync(&mut a, &mut b);
+        assert_eq!(a.list("assignments").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_territory_taken_back_takes_its_new_records_with_it() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t2", &fields(json!({"number": "5"}))).unwrap();
+        a.put("assignments", "a2", &fields(json!({"territory": "t2", "publisher": "Anna"}))).unwrap();
+        let (_, on_b) = sync_logged(&mut a, &mut b);
+        let created: Vec<_> = b
+            .sync_changes(on_b)
+            .unwrap()
+            .into_iter()
+            .filter(|c| c["table"] == "territories")
+            .collect();
+        b.decide(&ids(&created), false, false).unwrap();
+        assert!(b.list("territories").unwrap().is_empty());
+        assert!(b.list("assignments").unwrap().is_empty());
     }
 }

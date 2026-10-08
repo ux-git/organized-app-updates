@@ -1,4 +1,6 @@
 import { store } from '@states/index';
+import { territoriesState } from '@states/territories';
+import { activeFor } from './publisherChanges';
 import { TerritoryCampaign } from '@definition/territory';
 import {
   campaignsFromBackup,
@@ -164,7 +166,7 @@ export const applyImport = async (plan: ImportPlan, removeMissing: boolean) => {
       id,
       fields: { name, group },
     })),
-    ...(removeMissing ? plan.missing : []).map((person) => ({
+    ...(removeMissing ? plan.missing.filter(person => !store.get(territoriesState).some(territory => activeFor(territory, person.name).length)) : []).map((person) => ({
       table: PEOPLE,
       id: person.id,
       deleted: true,

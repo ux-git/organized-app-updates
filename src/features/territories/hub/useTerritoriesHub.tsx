@@ -11,15 +11,12 @@ import { useBreakpoints, useCurrentUser, useSubpane } from '@hooks/index';
 import {
   territoriesShowHouseholdsState,
   territoriesState,
+  territoriesWithStatusState,
   territoryLocalModeState,
   territoryOverdueMonthsState,
+  territoryRecommendationsState,
 } from '@states/territories';
-import {
-  applyFilters,
-  EMPTY_FILTERS,
-  forTab,
-  withDerivedStatus,
-} from '../helpers';
+import { applyFilters, EMPTY_FILTERS, forTab } from '../helpers';
 import { currentPublisherState, territoryAssigneesState } from '../assignees';
 import { territoryCampaignsState } from '../campaigns';
 import { campaignsOn } from '../campaign_dates';
@@ -79,24 +76,30 @@ const useTerritoriesHub = () => {
   // the statistics open the list for one publisher's territories
   const [filters, setFilters] = useState<TerritoryFilters>(() => ({
     ...EMPTY_FILTERS,
-    holder: (location.state as { holder?: string } | null)?.holder,
+    search: searchParams.get('search') ?? '',
   }));
+
+  const searchFromUrl = searchParams.get('search') ?? '';
+  useEffect(() => {
+    setFilters((previous) => ({ ...previous, search: searchFromUrl }));
+  }, [searchFromUrl]);
 
   const restricted = useMemo(
     () => ({ categories: restrictedCategories, types: restrictedTypes }),
     [restrictedCategories, restrictedTypes]
   );
 
+  const recommendations = useAtomValue(territoryRecommendationsState);
   const campaigns = useAtomValue(territoryCampaignsState);
   const running = campaignsOn(campaigns, new Date())[0];
 
-  const withStatus = useMemo(
-    () => withDerivedStatus(territories, overdueMonths, campaigns),
-    [territories, overdueMonths, campaigns]
-  );
+  const withStatus = useAtomValue(territoriesWithStatusState);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [isBoard, setIsBoard] = useState(false);
   const [selecting, setSelecting] = useState(false);
+  useEffect(() => {
+    if (checked.size > 0) setSelecting(false);
+  }, [checked]);
   const [quickSettingsOpen, setQuickSettingsOpen] = useState(false);
   const [assignManyOpen, setAssignManyOpen] = useState(false);
   const { desktopUp } = useBreakpoints();
@@ -149,10 +152,6 @@ const useTerritoriesHub = () => {
   const isBrowsing = group === tabGroups[0];
   const tab = group.indexOf(tabId);
 
-  useEffect(() => {
-    setChecked(new Set());
-  }, [tabId]);
-
   const setTab = (next: number) => {
     searchParams.set('tab', group[next]);
     // keeps the entry's state, which tells an open pane how to close
@@ -181,7 +180,8 @@ const useTerritoriesHub = () => {
       me,
       isTerritoryEditor,
       groupHolder,
-      restricted
+      restricted,
+      localMode ? recommendations : undefined
     );
 
     // own territories have no filters, so none left over from other tabs apply
@@ -198,6 +198,8 @@ const useTerritoriesHub = () => {
         )
       : filtered;
   }, [
+    recommendations,
+    localMode,
     withStatus,
     tabId,
     me,
@@ -213,8 +215,19 @@ const useTerritoriesHub = () => {
     [withStatus, filters]
   );
 
-  // rows hidden by the filters stay out of bulk actions
-  const selected = visible.filter((territory) => checked.has(territory.id));
+  // a selection made in one view isn't carried, unseen, into another
+  useEffect(() => {
+    setChecked(new Set());
+    setSelecting(false);
+  }, [tabId, isBoard]);
+
+  const byId = new Map(
+    withStatus.map((territory) => [territory.id, territory])
+  );
+  const selected = Array.from(checked).flatMap((id) => {
+    const territory = byId.get(id);
+    return territory ? [territory] : [];
+  });
 
   const handleDrop = (id: string, status: TerritoryStatus) => {
     const current = withStatus.find((territory) => territory.id === id);

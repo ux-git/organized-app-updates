@@ -1,5 +1,7 @@
+import { changedTerritories, PublisherChange } from './publisherChanges';
 import {
   DoNotCall,
+  MapColor,
   Territory,
   TerritoryAssignment,
   TerritoryBoundary,
@@ -7,10 +9,16 @@ import {
   TerritoryCategoryOption,
 } from '@definition/territory';
 import {
+  congregationBorderColorState,
+  congregationBorderDashedState,
   congregationBoundaryState,
   territoriesState,
+  territoriesShowDoNotCallCountState,
+  territoriesShowDoNotCallMapState,
+  territoriesShowHouseholdsState,
   territoryCategoriesState,
   territoryOverdueMonthsState,
+  territoryRecommendationsState,
 } from '@states/territories';
 import { parseDate } from '@features/territories/helpers';
 import { store } from '@states/index';
@@ -21,8 +29,15 @@ import { invoke, listen, nearby } from './native';
 import { setMapCenter } from './data';
 import { currentPublisherState } from './assignees';
 import { territoryCampaignsState } from './campaigns';
-import { seedBoundaries, seedDoNotCalls, seedPeople } from './seed';
 import {
+  seedBoundaries,
+  seedCongregation,
+  seedDoNotCalls,
+  seedPeople,
+} from './seed';
+import { positionOf } from './addresses';
+import {
+  isProfilePicture,
   avatarsFrom,
   avatarsState,
   bufferOf,
@@ -143,6 +158,27 @@ const changes = (record: Write): Write[] => {
   return Object.keys(fields).length ? [{ ...record, fields }] : [];
 };
 
+// a saved position wins; otherwise the house is looked up by its address, near
+// the middle of its territory
+const located =
+  (near: [number, number]) =>
+  (entry: DoNotCall): DoNotCall => {
+    if (entry.position) return entry;
+    const position = positionOf(entry.address, near);
+    return position ? { ...entry, position } : entry;
+  };
+
+const middleOf = (boundary: unknown): [number, number] => {
+  const points = Array.isArray(boundary)
+    ? (boundary as [number, number][])
+    : [];
+  if (!points.length) return [0, 0];
+  return [
+    points.reduce((sum, [lng]) => sum + lng, 0) / points.length,
+    points.reduce((sum, [, lat]) => sum + lat, 0) / points.length,
+  ];
+};
+
 export const assemble = (
   territoryRows: Row[],
   assignmentRows: Row[],
@@ -173,7 +209,9 @@ export const assemble = (
         ({
           ...row,
           assignments: children(assignments, row.id) as TerritoryAssignment[],
-          doNotCalls: children(doNotCalls, row.id) as DoNotCall[],
+          doNotCalls: (children(doNotCalls, row.id) as DoNotCall[]).map(
+            located(middleOf(row.boundary))
+          ),
         }) as unknown as Territory
     )
     .sort((a, b) =>
@@ -200,12 +238,24 @@ const applyMe = () => {
     suggestedLink(deviceName, store.get(peopleState));
   store.set(currentPublisherState, person?.name ?? deviceName);
   const uid = person?.id ?? '';
+  const [firstname = '', ...remaining] = deviceName.trim().split(/\s+/);
+  const lastname = remaining.join(' ');
   store.set(settingsState, (settings) =>
-    settings.user_settings.user_local_uid === uid
+    settings.user_settings.user_local_uid === uid &&
+    settings.user_settings.firstname.value === firstname &&
+    settings.user_settings.lastname.value === lastname
       ? settings
       : {
           ...settings,
-          user_settings: { ...settings.user_settings, user_local_uid: uid },
+          user_settings: {
+            ...settings.user_settings,
+            user_local_uid: uid,
+            firstname: {
+              ...settings.user_settings.firstname,
+              value: firstname,
+            },
+            lastname: { ...settings.user_settings.lastname, value: lastname },
+          },
         }
   );
 };
@@ -284,7 +334,21 @@ export const loadProfiles = async () => {
   const mine = avatars[store.get(myIdState)];
   if (mine === shownAvatar) return;
   shownAvatar = mine;
-  store.set(appLocalsState, mine ? [{ id: 1, avatar: bufferOf(mine) }] : []);
+  const illustration = isProfilePicture(mine);
+  store.set(settingsState, (settings) => ({
+    ...settings,
+    user_settings: {
+      ...settings.user_settings,
+      user_avatar_type: {
+        value: illustration ? mine : mine ? 'google' : 'default',
+        updatedAt: new Date().toISOString(),
+      },
+    },
+  }));
+  store.set(
+    appLocalsState,
+    mine && !illustration ? [{ id: 1, avatar: bufferOf(mine) }] : []
+  );
 };
 
 /** This device's picture for every paired device, or none with null. */
@@ -293,6 +357,7 @@ export const setAvatar = async (avatar: string | null) => {
     { table: PROFILES, id: store.get(myIdState), fields: { avatar } },
   ]);
   await loadProfiles();
+  nearby('changed');
 };
 
 /** Who uses this device, as a publisher's id, for every paired device. */
@@ -343,7 +408,13 @@ type State = {
   territories: Territory[];
   categories: TerritoryCategoryOption[];
   boundary?: TerritoryBoundary;
+  boundaryColor?: MapColor;
+  boundaryDashed?: boolean;
   overdue?: number;
+  showDoNotCallCount?: boolean;
+  showDoNotCallMap?: boolean;
+  showHouseholds?: boolean;
+  recommendations?: import('@definition/territory').TerritoryRecommendations;
   campaigns?: TerritoryCampaign[];
 };
 
@@ -362,7 +433,15 @@ const stateOf = (
       .sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0))
       .map((row) => without(row, 'order')) as TerritoryCategoryOption[],
     boundary: setting('boundary') as TerritoryBoundary | undefined,
+    boundaryColor: setting('boundary_color') as MapColor | undefined,
+    boundaryDashed: setting('boundary_dashed') as boolean | undefined,
     overdue: setting('overdue_months') as number | undefined,
+    showDoNotCallCount: setting('show_do_not_call_count') as
+      | boolean
+      | undefined,
+    showDoNotCallMap: setting('show_do_not_call_map') as boolean | undefined,
+    showHouseholds: setting('show_households') as boolean | undefined,
+    recommendations: setting('recommendations') as State['recommendations'],
     campaigns: setting('campaigns') as TerritoryCampaign[] | undefined,
   };
 };
@@ -373,7 +452,13 @@ const recordsOf = (state: State) =>
       ...state.territories.flatMap(split),
       ...categoryWrites(state.categories),
       settingWrite('boundary', state.boundary),
+      settingWrite('boundary_color', state.boundaryColor),
+      settingWrite('boundary_dashed', state.boundaryDashed),
       settingWrite('overdue_months', state.overdue),
+      settingWrite('show_do_not_call_count', state.showDoNotCallCount),
+      settingWrite('show_do_not_call_map', state.showDoNotCallMap),
+      settingWrite('show_households', state.showHouseholds),
+      settingWrite('recommendations', state.recommendations),
       settingWrite('campaigns', state.campaigns),
     ].map((record) => [key(record.table, record.id), record])
   );
@@ -406,6 +491,43 @@ const byId = (territories: Territory[]) =>
   new Map(territories.map((territory) => [territory.id, territory]));
 
 const parts: Part[] = [
+  {
+    atom: territoriesShowHouseholdsState,
+    records: () => [
+      settingWrite(
+        'show_households',
+        store.get(territoriesShowHouseholdsState)
+      ),
+    ],
+    tables: [],
+  },
+  {
+    atom: territoriesShowDoNotCallCountState,
+    records: () => [
+      settingWrite(
+        'show_do_not_call_count',
+        store.get(territoriesShowDoNotCallCountState)
+      ),
+    ],
+    tables: [],
+  },
+  {
+    atom: territoriesShowDoNotCallMapState,
+    records: () => [
+      settingWrite(
+        'show_do_not_call_map',
+        store.get(territoriesShowDoNotCallMapState)
+      ),
+    ],
+    tables: [],
+  },
+  {
+    atom: territoryRecommendationsState,
+    records: () => [
+      settingWrite('recommendations', store.get(territoryRecommendationsState)),
+    ],
+    tables: [],
+  },
   territoryPart,
   {
     atom: territoryCategoriesState,
@@ -416,6 +538,20 @@ const parts: Part[] = [
     atom: congregationBoundaryState,
     records: () => [
       settingWrite('boundary', store.get(congregationBoundaryState)),
+    ],
+    tables: [],
+  },
+  {
+    atom: congregationBorderDashedState,
+    records: () => [
+      settingWrite('boundary_dashed', store.get(congregationBorderDashedState)),
+    ],
+    tables: [],
+  },
+  {
+    atom: congregationBorderColorState,
+    records: () => [
+      settingWrite('boundary_color', store.get(congregationBorderColorState)),
     ],
     tables: [],
   },
@@ -460,7 +596,13 @@ const enqueue = (task: () => Promise<void>) => {
   return run;
 };
 
+// a failed write is tried again by itself, waiting longer each time
+const RETRY_DELAYS = [2000, 5000, 15000, 60000];
+let failures = 0;
+let retry: ReturnType<typeof setTimeout> | undefined;
+
 const flush = async () => {
+  clearTimeout(retry);
   const pending = [...dirty];
   dirty.clear();
   const territories = store.get(territoriesState);
@@ -470,10 +612,17 @@ const flush = async () => {
     // only once stored; a failed write stays a difference, tried again
     writes.forEach(remember);
     if (pending.includes(territoryPart)) stored = byId(territories);
+    failures = 0;
   } catch (error) {
     pending.forEach((part) => dirty.add(part));
     console.error('territories: saving failed', error);
-    notify(t('common.somethingWrong'), t('territories.notSaved'), 'error');
+    if (!failures)
+      notify(t('common.somethingWrong'), t('territories.notSaved'), 'error');
+    retry = setTimeout(
+      save,
+      RETRY_DELAYS[Math.min(failures, RETRY_DELAYS.length - 1)]
+    );
+    failures += 1;
   }
 };
 
@@ -515,6 +664,7 @@ const read = async () => {
   doNotCallRows.push(
     ...(await seedDoNotCalls(territoryRows, doNotCallRows, settings))
   );
+  settings.push(...(await seedCongregation(settings)));
   await Promise.all([loadPeople(), loadIdentity()]);
   await loadProfiles();
 
@@ -577,7 +727,17 @@ const read = async () => {
       store.set(territoryCategoriesState, state.categories);
     }
     store.set(congregationBoundaryState, state.boundary);
+    store.set(congregationBorderColorState, state.boundaryColor ?? 'red');
+    store.set(congregationBorderDashedState, state.boundaryDashed ?? false);
+    store.set(
+      territoriesShowDoNotCallCountState,
+      state.showDoNotCallCount ?? true
+    );
+    store.set(territoriesShowDoNotCallMapState, state.showDoNotCallMap ?? true);
+    store.set(territoriesShowHouseholdsState, state.showHouseholds ?? true);
     if (state.overdue) store.set(territoryOverdueMonthsState, state.overdue);
+    if (state.recommendations)
+      store.set(territoryRecommendationsState, state.recommendations);
     store.set(territoryCampaignsState, state.campaigns ?? []);
   } finally {
     applying = false;
@@ -623,6 +783,65 @@ export const renameOnTerritories = (renames: Map<string, string>) => {
   );
 };
 
+export const removePublisher = (person: Person, change: PublisherChange) =>
+  enqueue(async () => {
+    await flush();
+    if (dirty.size)
+      throw new Error('Save pending changes before removing a publisher.');
+    const people = store.get(peopleState);
+    if (
+      !people.some((item) => item.id === person.id && item.name === person.name)
+    )
+      throw new Error('This publisher changed. Reopen the dialog.');
+    if (
+      change.mergeInto &&
+      !people.some(
+        (item) =>
+          item.id === change.mergeInto!.id &&
+          item.name === change.mergeInto!.name &&
+          item.id !== person.id &&
+          item.group === person.group
+      )
+    )
+      throw new Error('Choose another publisher of the same kind.');
+    for (const resolution of Object.values(change.resolutions)) {
+      if (
+        resolution.target &&
+        !people.some(
+          (item) => item.id !== person.id && item.name === resolution.target
+        )
+      )
+        throw new Error('The selected publisher no longer exists.');
+    }
+    const before = store.get(territoriesState);
+    const next = changedTerritories(before, person, change);
+    const writes: Write[] = next.flatMap((territory, index) =>
+      territory === before[index] ? [] : split(territory).flatMap(changes)
+    );
+    writes.push({ table: PEOPLE, id: person.id, deleted: true });
+    for (const [id, linked] of Object.entries(store.get(linksState))) {
+      if (linked === person.id)
+        writes.push({
+          table: PROFILES,
+          id,
+          fields: { person: change.mergeInto?.id ?? null },
+        });
+    }
+    await writeRows(writes);
+    writes
+      .filter((write) => write.table !== PEOPLE && write.table !== PROFILES)
+      .forEach(remember);
+    applying = true;
+    try {
+      store.set(territoriesState, next);
+      stored = byId(next);
+    } finally {
+      applying = false;
+    }
+    await loadPeople();
+    await loadProfiles();
+  });
+
 /** Writes every change made on the pages to the store, until stopped. */
 export const persist = () => {
   const stops = parts.map((part) =>
@@ -642,6 +861,7 @@ export const persist = () => {
   });
 
   return () => {
+    clearTimeout(retry);
     stops.forEach((stop) => stop());
     unlisten.then((stop) => stop());
   };

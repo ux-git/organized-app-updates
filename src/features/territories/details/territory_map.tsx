@@ -1,7 +1,13 @@
+import { mapRequest } from '@services/maps/offline';
+import {
+  downgradeMapTier,
+  mapPerformanceOptions,
+  watchMapPerformance,
+} from '@services/maps/performance';
 import { tx } from '@services/i18n/translation';
 import { useEffect, useRef, useState } from 'react';
 import { Box, Dialog as MuiDialog, Stack } from '@mui/material';
-import { saveAs } from 'file-saver';
+import { exportFile } from '@services/files/export';
 import { displaySnackNotification } from '@services/states/app';
 import { useNavigate } from 'react-router';
 import { useAtomValue } from 'jotai';
@@ -20,7 +26,10 @@ import {
 } from '@icons/index';
 import { openInMaps, territoryCenter } from '../helpers';
 import { isDarkThemeState } from '@states/app';
-import { territoriesState } from '@states/territories';
+import {
+  territoriesShowDoNotCallMapState,
+  territoriesState,
+} from '@states/territories';
 import { Territory } from '@definition/territory';
 import { DEFAULT_PROVIDER, MAP_PROVIDER } from '../map/constants';
 import {
@@ -28,11 +37,21 @@ import {
   DEFAULT_BASEMAP,
   hideStylePlaces,
 } from '../map/basemap';
-import { addAttribution, boundaryBounds, mapLocale } from '../map/helpers';
-import { addOutsideVeil, addTerritoryLayers } from '../map/layers';
+import {
+  addAttribution,
+  boundaryBounds,
+  letterFrames,
+  mapLocale,
+} from '../map/helpers';
+import {
+  addDoNotCallLayer,
+  addOutsideVeil,
+  addTerritoryLayers,
+  setDoNotCallData,
+} from '../map/layers';
 import { getCSSPropertyValue } from '@utils/common';
 import { captureTerritoryMap } from '../map/capture';
-import { MarkerRegistry, syncMarkers } from '../map/markers';
+import { frameZoom, MarkerRegistry, syncMarkers } from '../map/markers';
 import MapIsland, { MapAction, NorthAction } from '../map/map_island';
 import Tooltip from '@components/tooltip';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -48,6 +67,7 @@ const BoundaryPreview = ({
   onReady?: (map?: maplibregl.Map) => void;
 }) => {
   const isDark = useAtomValue(isDarkThemeState);
+  const showDoNotCalls = useAtomValue(territoriesShowDoNotCallMapState);
 
   const container = useRef<HTMLDivElement>(null);
 
@@ -83,9 +103,14 @@ const BoundaryPreview = ({
       bounds,
       fitBoundsOptions: { padding: padding() },
       interactive,
+      transformRequest: mapRequest,
       attributionControl: false,
       locale: mapLocale(),
+      ...mapPerformanceOptions(),
     });
+
+    instance.on('webglcontextlost', downgradeMapTier);
+    if (interactive) watchMapPerformance(instance);
 
     // the card settles its size after the map starts, and changes with the window;
     // the small map follows, the full-screen one keeps wherever the user moved it
@@ -106,7 +131,18 @@ const BoundaryPreview = ({
       hideStylePlaces(instance);
       addOutsideVeil(instance, boundary, getCSSPropertyValue('--white'));
       addTerritoryLayers(instance, latest.current);
-      syncMarkers(instance, mapMarkers ?? [], registry);
+      // the marked houses come with the part letters, once the territory fills the view
+      if (showDoNotCalls) {
+        addDoNotCallLayer(instance, frameZoom(instance, boundary) - 0.05);
+        setDoNotCallData(instance, [latest.current]);
+      }
+      syncMarkers(
+        instance,
+        mapMarkers ?? [],
+        registry,
+        undefined,
+        letterFrames([latest.current])
+      );
       instance.triggerRepaint();
     });
 
@@ -116,9 +152,23 @@ const BoundaryPreview = ({
       syncMarkers(instance, [], registry);
       instance.remove();
     };
-  }, [boundary, mapShapes, mapLines, mapMarkers, isDark, interactive, onReady]);
+  }, [
+    boundary,
+    mapShapes,
+    mapLines,
+    mapMarkers,
+    isDark,
+    interactive,
+    onReady,
+    showDoNotCalls,
+  ]);
 
-  return <Box ref={container} sx={{ height: '100%', width: '100%' }} />;
+  return (
+    <Box
+      ref={container}
+      sx={{ height: '100%', width: '100%', minWidth: 0, overflow: 'hidden' }}
+    />
+  );
 };
 
 const FullscreenMap = ({
@@ -259,18 +309,9 @@ const TerritoryMap = ({
         return;
       }
 
-      const name = `Territory-${territory.number}.png`;
+      const name = `${tx('Territory')}-${territory.number}.png`;
       const blob = await (await fetch(image)).blob();
-      const file = new File([blob], name, { type: blob.type || 'image/png' });
-
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: tx('Territory {{number}}', { number: territory.number }),
-        });
-      } else {
-        saveAs(blob, name);
-      }
+      await exportFile(blob, name);
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         displaySnackNotification({
@@ -304,7 +345,8 @@ const TerritoryMap = ({
           position: 'relative',
           // a shape rather than a height, so wide screens don't zoom the territory out
           aspectRatio: '3 / 2',
-          minHeight: '240px',
+          width: '100%',
+          minWidth: 0,
           overflow: 'hidden',
           borderRadius: 'var(--radius-l)',
           clipPath: 'inset(0 round var(--radius-l))',
@@ -317,7 +359,9 @@ const TerritoryMap = ({
           justifyContent: 'center',
         }}
       >
-        {hasBoundary && <BoundaryPreview territory={territory} />}
+        {hasBoundary && !fullscreen && (
+          <BoundaryPreview territory={territory} />
+        )}
 
         {!hasBoundary && (
           <Stack

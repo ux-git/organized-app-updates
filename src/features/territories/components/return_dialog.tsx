@@ -17,8 +17,13 @@ import {
   campaignSnapshot,
 } from '../campaign_dates';
 import { assignmentIssues, parseDate, toStoredDate } from '../helpers';
+import { parseHouseholds } from '../assignment_issues';
 import CampaignField, { CampaignChoice } from './campaign_field';
-import { Territory, TerritoryAssignment } from '@definition/territory';
+import {
+  MAX_NOTE_LENGTH,
+  Territory,
+  TerritoryAssignment,
+} from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 
 type ReturnDialogProps = {
@@ -56,6 +61,7 @@ const ReturnDialog = ({
     territory ? String(territory.households) : ''
   );
   const [returnedOn, setReturnedOn] = useState<Date | null>(new Date());
+  const [note, setNote] = useState('');
   const [assignAgain, setAssignAgain] = useState(false);
   const [campaign, setCampaign] = useState<CampaignChoice>({
     checked: !!flagged,
@@ -74,6 +80,10 @@ const ReturnDialog = ({
     : [];
   const tooEarly = issues.includes('returned_before_assigned');
   const future = issues.includes('returned_future');
+
+  const count = showHouseholds
+    ? parseHouseholds(households, territory.households)
+    : territory.households;
 
   const known = flagged && campaigns.find((item) => item.id === flagged.id);
   const assigned = parseDate(open?.assignedOn);
@@ -99,12 +109,8 @@ const ReturnDialog = ({
       title={tx('Return {{number}}', { number: territory.number })}
       description={
         own
-          ? tx(
-              'Enter when you handed the territory back and how many households you counted.'
-            )
-          : tx(
-              'Confirm when the territory came back and the households count the publisher reported.'
-            )
+          ? tx('Enter the return date and household count.')
+          : tx('Confirm the return date and household count.')
       }
     >
       <Stack
@@ -134,11 +140,25 @@ const ReturnDialog = ({
               label={tx('Households')}
               type="number"
               value={households}
+              error={count === null}
+              helperText={
+                count === null ? tx('Enter a whole number, 0 or more') : ''
+              }
+              slotProps={{ htmlInput: { min: 0, step: 1 } }}
               onChange={(event) => setHouseholds(event.target.value)}
             />
           </Box>
         )}
       </Stack>
+
+      <TextField
+        label={tx('Note')}
+        multiline
+        minRows={2}
+        value={note}
+        slotProps={{ htmlInput: { maxLength: MAX_NOTE_LENGTH } }}
+        onChange={(event) => setNote(event.target.value)}
+      />
 
       {/* a card went out with it: a nudge to take it back */}
       {open?.card === 'printed' && (
@@ -177,12 +197,8 @@ const ReturnDialog = ({
 
       {holder && onAssignAgain && (
         <SwitchWithLabel
-          label={
-            own
-              ? tx('Assign again to me')
-              : tx('Assign again to {{name}}', { name: holder })
-          }
-          helper={tx('Starts a new assignment on the same date')}
+          label={tx('Assign again')}
+          helper={tx('To the same person, from the return date')}
           checked={assignAgain}
           onChange={setAssignAgain}
         />
@@ -194,19 +210,20 @@ const ReturnDialog = ({
         </Button>
         <Button
           variant="main"
-          disabled={tooEarly}
+          disabled={!returnedOn || tooEarly || future || count === null}
           onClick={() => {
-            const date = returnedOn ?? new Date();
+            if (!returnedOn || tooEarly || future || count === null) return;
 
             onReturn(
               territory.id,
-              (showHouseholds && Number(households)) || territory.households,
-              date,
-              chosen()
+              count,
+              returnedOn,
+              chosen(),
+              note.trim() || undefined
             );
 
             if (assignAgain && holder)
-              onAssignAgain?.(territory.id, holder, date);
+              onAssignAgain?.(territory.id, holder, returnedOn);
 
             onClose();
           }}

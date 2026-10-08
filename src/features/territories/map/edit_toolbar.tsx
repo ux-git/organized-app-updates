@@ -1,23 +1,16 @@
 import { cloneElement, ReactElement } from 'react';
 import { Box, ButtonBase, Stack } from '@mui/material';
-import { CustomDivider, Typography } from '@components/index';
+import { Typography } from '@components/index';
 import Tooltip from '@components/tooltip';
 import {
   IconArrowLink,
   IconLocation,
   IconCongregationBorder,
-  IconEditPoints,
-  IconMoveAround,
-  IconRedo,
-  IconUndo,
 } from '@icons/index';
 import { STATUS_LABEL, Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
-import useMapEditor from './useMapEditor';
 import { openInMaps, territoryCenter } from '../helpers';
 import { DoNotCallBadge } from '../components/territory_badges';
-
-type Editor = ReturnType<typeof useMapEditor>;
 
 const ToolButton = ({
   label,
@@ -99,15 +92,6 @@ const SHELL = {
   border: '1px solid var(--accent-200)',
   boxShadow: 'var(--hover-shadow)',
 };
-
-const Divider = () => (
-  <CustomDivider
-    orientation="vertical"
-    flexItem
-    color="var(--accent-200)"
-    sx={{ margin: '6px 2px' }}
-  />
-);
 
 export const IdleToolbar = ({
   onCongregation,
@@ -200,54 +184,3 @@ export const ViewToolbar = ({
     </Stack>
   );
 };
-
-const EditToolbar = ({
-  editor,
-  compact = false,
-}: {
-  editor: Editor;
-  compact?: boolean;
-}) => {
-  const hasBorder = !!editor.draft.boundary?.length;
-
-  return (
-    <Stack direction="row" sx={{ flexShrink: 0, ...SHELL }}>
-      <ToolButton
-        label={tx('Undo')}
-        icon={<IconUndo />}
-        compact={compact}
-        onClick={editor.undo}
-      />
-      <ToolButton
-        label={tx('Redo')}
-        icon={<IconRedo />}
-        compact={compact}
-        onClick={editor.redo}
-      />
-
-      <Divider />
-
-      <ToolButton
-        label={tx('Adjust points')}
-        hint={tx('Drag corners and midpoints of the border, areas and lines')}
-        active={editor.tool === 'points'}
-        disabled={!hasBorder}
-        icon={<IconEditPoints />}
-        compact={compact}
-        onClick={editor.adjustBorder}
-      />
-
-      <ToolButton
-        label={tx('Move items')}
-        hint={tx('Drag whole pins, notes, lines and areas')}
-        active={editor.tool === 'move'}
-        disabled={!hasBorder}
-        icon={<IconMoveAround />}
-        compact={compact}
-        onClick={() => editor.pickTool('move')}
-      />
-    </Stack>
-  );
-};
-
-export default EditToolbar;

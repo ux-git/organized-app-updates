@@ -56,7 +56,11 @@ export const PLACE_TYPES = {
     ],
   },
   // bins, recycling, fuel, charging and everything else without a group
-  other: { label: 'Other', classes: [] as string[] },
+  // every place outside the groups above: recycling points, toilets, bins and the like
+  other: {
+    label: 'Everything else, like recycling and toilets',
+    classes: [] as string[],
+  },
 } as const;
 
 export type PlaceType = keyof typeof PLACE_TYPES;
@@ -106,8 +110,9 @@ const OVERLAYS: Overlay[] = [
   {
     id: 'basemap-green',
     option: 'green',
-    color: '#4CAF50',
-    opacity: 0.22,
+    // a muted sage, so parks stay quieter than the green territory borders
+    color: '#8FAE8B',
+    opacity: 0.16,
     parts: [
       { layer: 'park' },
       {
@@ -154,21 +159,23 @@ const STREET_NAME_SIZE: maplibregl.ExpressionSpecification = [
   'interpolate',
   ['linear'],
   ['zoom'],
-  14,
+  11,
+  11,
   13,
-  16,
-  14,
+  12,
+  15,
+  13,
   18,
   16,
 ];
 const STREET_NAME_SPACING: maplibregl.ExpressionSpecification = [
   'step',
   ['zoom'],
-  250,
+  180,
   15,
-  200,
+  150,
   16,
-  160,
+  130,
 ];
 
 // OpenFreeMap's dark style draws its streets almost as dark as the ground around them
@@ -187,13 +194,23 @@ const PLACE_LAYERS = new Set(['poi', 'pois']);
 
 const STREET_NAME_LAYERS = new Set(['transportation_name', 'street_labels']);
 
+export const isHouseNumber = (layer: maplibregl.LayerSpecification) =>
+  layer.type === 'symbol' &&
+  HOUSE_NUMBER_LAYERS.has(sourceLayerOf(layer) ?? '');
+
+export const isBuildingOutline = (layer: maplibregl.LayerSpecification) =>
+  layer.id.startsWith(BUILDINGS);
+
+export const isStreetName = (layer: maplibregl.LayerSpecification) =>
+  layer.type === 'symbol' && STREET_NAME_LAYERS.has(sourceLayerOf(layer) ?? '');
+
 const HOUSE_NUMBERS = 'basemap-house-numbers';
 const PLACES = 'basemap-places';
 const PARKING = 'basemap-parking';
 const BUILDINGS = 'basemap-buildings';
 
-// street names from zoom 12 instead of only when close, so the way there stays readable
-const STREET_NAMES_FROM = 12;
+// Offer names at wider views whenever the source tiles contain them.
+const STREET_NAMES_FROM = 11;
 
 // the tiles carry both from zoom 14, so big territories can show them before street level
 const HOUSE_NUMBERS_FROM = 15;
@@ -403,18 +420,33 @@ const tintWater = (map: maplibregl.Map, id: string, tinted: boolean) => {
 };
 
 // shields keep their look; only the layers that write the street's name change
-const styleStreetName = (map: maplibregl.Map, id: string) => {
+export const styleStreetName = (
+  map: maplibregl.Map,
+  layer: maplibregl.LayerSpecification
+) => {
+  const id = layer.id;
   const field = map.getLayoutProperty(id, 'text-field');
   if (!JSON.stringify(field)?.includes('name')) return;
+  map.setLayerZoomRange(
+    id,
+    Math.min(layer.minzoom ?? 0, STREET_NAMES_FROM),
+    layer.maxzoom ?? 24
+  );
 
   map.setLayoutProperty(id, 'text-size', STREET_NAME_SIZE);
   map.setLayoutProperty(id, 'symbol-spacing', STREET_NAME_SPACING);
-  map.setLayoutProperty(id, 'text-max-angle', 45);
+  map.setLayoutProperty(id, 'text-max-angle', 60);
+  map.setLayoutProperty(id, 'text-padding', 1);
+  map.setLayoutProperty(id, 'text-allow-overlap', false);
+  map.setLayoutProperty(id, 'text-ignore-placement', false);
+  map.setPaintProperty(id, 'text-opacity', 1);
   map.setLayoutProperty(id, 'text-transform', 'none');
   map.setPaintProperty(id, 'text-color', getCSSPropertyValue('--grey-400'));
   map.setPaintProperty(id, 'text-halo-color', getCSSPropertyValue('--white'));
   map.setPaintProperty(id, 'text-halo-width', 1.5);
   map.setPaintProperty(id, 'text-halo-blur', 0.5);
+  // Names take collision priority over decorative place labels, without overlaps.
+  map.moveLayer(id);
 };
 
 // older styles still use the legacy filter syntax, which can't be combined with an expression
@@ -526,13 +558,8 @@ export const applyBasemapOptions = (
         filterPlaces(map, layer.id, options.placeTypes);
       }
     } else if (STREET_NAME_LAYERS.has(sourceLayer) && layer.type === 'symbol') {
-      map.setLayerZoomRange(
-        layer.id,
-        Math.min(layer.minzoom ?? 0, STREET_NAMES_FROM),
-        layer.maxzoom ?? 24
-      );
       setVisible(map, layer.id, options.streetNames);
-      styleStreetName(map, layer.id);
+      styleStreetName(map, layer);
     } else if (WATER_LAYERS.has(sourceLayer) && layer.type === 'fill') {
       tintWater(map, layer.id, options.water);
     }

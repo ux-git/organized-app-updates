@@ -239,13 +239,18 @@ final class Nearby: NSObject, LinkListener {
   }
 
   private var meetName: String {
-    let name = Core.summary()["name"] as? String ?? ""
+    let profile = Core.summary()
+    let name = profile["name"] as? String ?? ""
+    let code = profile["avatarCode"] as? Int ?? 0
+    let suffix = (1...255).contains(code) ? String(format: "~%02x", code) : ""
     #if canImport(UIKit)
       let model = UIDevice.current.model
     #else
       let model = Host.current().localizedName ?? "Mac"
     #endif
-    return name.isEmpty ? model : String(name.prefix(20))
+    var label = name.isEmpty ? model : name
+    while label.utf8.count > 20 - suffix.utf8.count { label.removeLast() }
+    return label + suffix
   }
 
   private func tick() {
@@ -416,7 +421,7 @@ final class Nearby: NSObject, LinkListener {
 
   private func sawMeet(address: String, name: String, rssi: Int, now: Date) {
     guard meet else { return }
-    let fresh = seenMeet[address] == nil
+    let fresh = seenMeet[address]?["name"] as? String != name
     seenMeet[address] = [
       "address": address, "name": name, "rssi": rssi, "at": now.timeIntervalSince1970,
     ]
@@ -507,6 +512,7 @@ final class Nearby: NSObject, LinkListener {
       Notices.shared.synced(peer: peer, nothingLeft: unsynced == 0)
       var done = exchange.status
       done["at"] = Date().timeIntervalSince1970 * 1000
+      done["mode"] = exchange.mode
       lastDone = done
       if exchange.mode == Core.modeSync {
         Notices.shared.done(exchange.status)

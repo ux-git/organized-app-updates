@@ -100,7 +100,7 @@ pub fn backup_restore(text: String) -> Result<Restored> {
 }
 
 /// For the scheduled backup, with no window open; "" when it fails.
-#[cfg(any(target_os = "android", target_os = "ios", test))]
+#[cfg(any(target_os = "android", target_os = "ios", target_os = "macos", test))]
 fn native_export() -> String {
     crate::store().and_then(|s| export(&s)).unwrap_or_default()
 }
@@ -117,7 +117,7 @@ pub extern "system" fn Java_com_sws2apps_territories_Native_backup(
 }
 
 /// Freed with `territory_free_string`.
-#[cfg(any(target_os = "ios", test))]
+#[cfg(any(target_os = "ios", target_os = "macos", test))]
 #[no_mangle]
 pub extern "C" fn territory_backup() -> *mut std::ffi::c_char {
     std::ffi::CString::new(native_export())

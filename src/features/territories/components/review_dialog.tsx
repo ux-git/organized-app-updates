@@ -3,7 +3,7 @@ import { Button } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { IconMoveForward, IconReject } from '@icons/index';
-import { daysLabel } from '../helpers';
+import { coveredText } from '../helpers';
 import {
   CategoryBadges,
   DoNotCallBadge,
@@ -65,10 +65,7 @@ const ReviewDialog = ({
         }}
       >
         <StatTile label={tx('Requested by')} value={publisher} />
-        <StatTile
-          label={tx('Last covered')}
-          value={daysLabel(territory.daysSinceCovered)}
-        />
+        <StatTile label={tx('Last covered')} value={coveredText(territory)} />
         <StatTile label={tx('Type')} value={tx(TYPE_LABEL[territory.type])} />
         <StatTile
           label={tx('Households')}

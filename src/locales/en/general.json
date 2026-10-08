@@ -181,5 +181,17 @@
   "tr_normal": "Normal",
   "tr_large": "Large",
   "tr_chooseFields": "Choose export fields",
-  "tr_chooseFieldsDesc": "Please select the fields you want to include in the export file."
+  "tr_chooseFieldsDesc": "Please select the fields you want to include in the export file.",
+  "tr_showDoNotCallCount": "Show do-not-call count",
+  "tr_showDoNotCallCountDescription": "Display the do-not-call count in territory lists and boards",
+  "tr_showDoNotCallMap": "Show “Do not call” addresses on the map",
+  "tr_showDoNotCallMapDescription": "Display a point for each address on a territory map",
+  "tr_territoryHouseholds": "Show households count",
+  "tr_territoryHouseholdsDescription": "Display the number of households next to every territory",
+  "tr_territoryOverdue": "Overdue after",
+  "tr_territoryMonths": "{{count}} months",
+  "tr_territoryOverdueDescription": "Months a publisher may hold a territory before it counts as overdue",
+  "tr_territoryPreferencesDescription": "Changes save automatically and also apply to Quick settings.",
+  "tr_territoryDisplay": "Territory lists",
+  "tr_territoryAssignments": "Assignments"
 }

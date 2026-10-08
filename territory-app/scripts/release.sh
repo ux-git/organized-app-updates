@@ -7,6 +7,7 @@
 #   PUBLIC_ONLY=1 NO_MAC=1 scripts/release.sh
 #   NO_ANDROID=1 NO_IOS=1 scripts/release.sh   the Mac alone
 #   WINDOWS=1 adds the Windows installer, cross-built with cargo-xwin
+#   IOS_SIDELOAD=1 packages an unsigned IPA for SideStore/iLoader to sign
 A=${0:a:h:h}
 LOGS=${TMPDIR:-/tmp}/territory-release
 mkdir -p $LOGS
@@ -20,8 +21,10 @@ UNSIGNED=src-tauri/gen/android/app/build/outputs/apk/universal/release/app-unive
 KS=$HOME/.android/territories-release.jks
 LINEAGE=$HOME/.android/territories-release.lineage
 KS_ENV=$HOME/.android/territories-release.env
-for f in $KS $LINEAGE $KS_ENV; do [[ -f $f ]] || { echo "FAIL $f missing: see docs/signing.md"; exit 1; }; done
-source $KS_ENV; export TERRITORIES_KS_PASS
+if [[ -z $NO_ANDROID ]]; then
+  for f in $KS $LINEAGE $KS_ENV; do [[ -f $f ]] || { echo "FAIL $f missing: see docs/signing.md"; exit 1; }; done
+  source $KS_ENV; export TERRITORIES_KS_PASS
+fi
 
 apk() { # $1 = output name
   rm -rf dist
@@ -29,7 +32,7 @@ apk() { # $1 = output name
   rm -f $LOGS/aligned.apk
   # the old debug key still signs v1/v2 for Android 7-8; Android 9+ follow the v3 lineage to the release key
   $BT/zipalign -p -f 4 $UNSIGNED $LOGS/aligned.apk && \
-  $BT/apksigner sign --ks $KS --ks-key-alias androiddebugkey --ks-pass env:TERRITORIES_KS_PASS \
+  $BT/apksigner sign --v4-signing-enabled false --ks $KS --ks-key-alias androiddebugkey --ks-pass env:TERRITORIES_KS_PASS \
     --next-signer --ks $KS --ks-key-alias territories --ks-pass env:TERRITORIES_KS_PASS \
     --lineage $LINEAGE --rotation-min-sdk-version 28 --out ~/Downloads/$1 $LOGS/aligned.apk && echo "OK $1"
   rm -f $LOGS/aligned.apk
@@ -42,9 +45,19 @@ HOLD=${A:h:h}/territory-seed-hold
 # full names and addresses to look for; single words also appear in Organized texts and libraries
 canary() { cat $1/publishers.txt $1/groups.txt; python3 -c "import json,sys; d=sys.argv[1]; print('\n'.join(list(json.load(open(d+'/streets.json')))[:40] + [r.get(k) or '' for v in json.load(open(d+'/donotcalls.json')).values() for r in v for k in ('address','name')]))" $1; }
 clean() { # fails when any private name or address made it into dist/
-  local hits=0
-  while IFS= read -r w; do [[ $w == *" "* || $w == *[0-9]* ]] && grep -rqF -- "$w" dist && hits=$((hits+1)); done < <(canary $HOLD)
-  [[ $hits -eq 0 ]] || { echo "FAIL public bundle holds $hits private words"; return 1; }
+  local patterns=$LOGS/private-canaries.txt result
+  (umask 077; while IFS= read -r w; do
+    [[ $w == *" "* || $w == *[0-9]* ]] && printf '%s\n' "$w"
+  done < <(canary $HOLD) > "$patterns")
+  # Scan once for all literal patterns, rather than rereading every bundle for each name.
+  if command -v rg >/dev/null; then
+    rg --no-ignore --hidden --text -q -F -f "$patterns" dist
+  else
+    LC_ALL=C grep -rqF -f "$patterns" dist
+  fi
+  result=$?
+  rm -f "$patterns"
+  [[ $result -eq 1 ]] || { echo "FAIL public bundle privacy check ($result)"; return 1; }
 }
 
 [[ -z $PUBLIC_ONLY && -z $NO_ANDROID ]] && { apk Territories-$V-private-arm64.apk || exit 1; }
@@ -56,12 +69,43 @@ if [[ -z $NO_ANDROID ]]; then
 fi
 
 if [[ -z $NO_IOS ]]; then
+  # cargo-mobile clears most environment variables when probing Xcode. Keep all
+  # nested Apple tools on the requested installation without a global xcode-select change.
+  if [[ -n $DEVELOPER_DIR ]]; then
+    XCODE_TOOLS=$LOGS/xcode-tools
+    python3 - "$XCODE_TOOLS" "$DEVELOPER_DIR" <<'PYTOOLS'
+from pathlib import Path
+import shlex, sys
+folder = Path(sys.argv[1]); folder.mkdir(parents=True, exist_ok=True)
+for tool in ('xcode-select', 'xcodebuild', 'xcrun', 'swift', 'clang', 'clang++', 'cc', 'c++'):
+    wrapper = folder / tool
+    wrapper.write_text('#!/bin/sh\nexport DEVELOPER_DIR=' + shlex.quote(sys.argv[2]) + '\nexec /usr/bin/' + tool + ' "$@"\n')
+    wrapper.chmod(0o755)
+PYTOOLS
+    export PATH="$XCODE_TOOLS:$PATH"
+  fi
   rm -rf dist src-tauri/gen/apple/build
-  npm run tauri -- ios build --target aarch64 --debug --export-method debugging > $LOGS/ios.log 2>&1 || { echo "FAIL ios"; grep -E "error" $LOGS/ios.log | tail -20; exit 1; }
-  clean || exit 1
-  IPA=$(find src-tauri/gen/apple/build -name "*.ipa" | head -1)
-  [[ -n $IPA ]] || { echo "FAIL ios: no ipa exported"; exit 1; }
-  cp "$IPA" ~/Downloads/Territories-$V.ipa && echo "OK ipa"
+  if [[ -n $IOS_SIDELOAD ]]; then
+    npm run tauri -- ios build --target aarch64 --no-sign --archive-only > $LOGS/ios.log 2>&1 || { echo "FAIL ios archive"; grep -E "error" $LOGS/ios.log | tail -20; exit 1; }
+    clean || exit 1
+    APP=src-tauri/gen/apple/build/territories_iOS.xcarchive/Products/Applications/Territories.app
+    [[ -f "$APP/Territories" ]] || { echo "FAIL ios: no archived application"; exit 1; }
+    STAGE=$LOGS/ipa
+    rm -rf "$STAGE" && mkdir -p "$STAGE/Payload"
+    cp -R "$APP" "$STAGE/Payload/"
+    # Signing belongs to the installing user's account. A copied static archive is never needed at runtime.
+    rm -rf "$STAGE/Payload/Territories.app/_CodeSignature"
+    rm -f "$STAGE/Payload/Territories.app/embedded.mobileprovision" "$STAGE/Payload/Territories.app/libapp.a"
+    ditto -c -k --norsrc --noextattr --keepParent "$STAGE/Payload" ~/Downloads/Territories-$V.ipa || exit 1
+    rm -rf "$STAGE"
+    echo "OK ipa (SideStore/iLoader signing required)"
+  else
+    npm run tauri -- ios build --target aarch64 --debug --export-method debugging > $LOGS/ios.log 2>&1 || { echo "FAIL ios"; grep -E "error" $LOGS/ios.log | tail -20; exit 1; }
+    clean || exit 1
+    IPA=$(find src-tauri/gen/apple/build -name "*.ipa" | head -1)
+    [[ -n $IPA ]] || { echo "FAIL ios: no ipa exported"; exit 1; }
+    cp "$IPA" ~/Downloads/Territories-$V.ipa && echo "OK ipa"
+  fi
 fi
 
 if [[ -z $NO_MAC ]]; then
@@ -86,5 +130,6 @@ rm -rf dist
 PATH="/opt/homebrew/opt/llvm/bin:$HOME/.cargo/bin:$PATH" npm run tauri -- build --runner cargo-xwin \
   --target x86_64-pc-windows-msvc --bundles nsis > $LOGS/windows.log 2>&1 || { echo "FAIL windows"; grep -E "error" $LOGS/windows.log | tail -20; exit 1; }
 clean || exit 1
-EXE=$(ls $CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe | head -1)
+EXE=$CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/bundle/nsis/Territories_${V}_x64-setup.exe
+[[ -f "$EXE" ]] || { echo "FAIL Windows: installer for $V not found"; exit 1; }
 cp "$EXE" ~/Downloads/Territories-$V-windows-setup.exe && echo "OK exe"

@@ -28,7 +28,7 @@ import {
   TerritoryMapMarker,
 } from '@definition/territory';
 import { DEFAULT_BOUNDARY_STYLE, MAP_COLORS } from './constants';
-import { roundPosition, toBoundary } from './helpers';
+import { lineColor, roundPosition, toBoundary } from './helpers';
 
 export type MapTool =
   | 'border'
@@ -42,6 +42,11 @@ export type MapTool =
 export type MapItemKind = 'boundary' | 'shape' | 'line' | 'pin' | 'text';
 
 export type EditScope = 'territory' | 'congregation';
+
+// an area may also have a dashed outline; a border never does
+export type ShapeStyle = MapStyle & { dashed?: boolean };
+
+export type LineLook = { style: 'solid' | 'dashed'; color: MapColor };
 
 const EMPTY_DRAFT: TerritoryMapDraft = {
   shapes: [],
@@ -91,14 +96,28 @@ const outlineColor = (feature: GeoJSONStoreFeatures) =>
 const fillOpacity = (feature: GeoJSONStoreFeatures) =>
   styleOf(feature).fill === 'transparent' ? 0 : 0.2;
 
+const lookOf = (feature: GeoJSONStoreFeatures): LineLook => {
+  const style = feature.properties?.lineStyle === 'dashed' ? 'dashed' : 'solid';
+  const color = (feature.properties?.color as MapColor) || undefined;
+  return { style, color: lineColor({ style, color }) };
+};
+
+const lineHex = (feature: GeoJSONStoreFeatures) =>
+  MAP_COLORS[lookOf(feature).color] as HexColor;
+
 const selectStyles = {
   selectedPolygonColor: fillColor,
   selectedPolygonOutlineColor: outlineColor,
   selectedPolygonFillOpacity: (feature: GeoJSONStoreFeatures) =>
     fillOpacity(feature) === 0 ? 0 : 0.3,
   selectedPolygonOutlineWidth: 3.5,
-  selectedLineStringColor: BLUE,
-  selectedLineStringWidth: 4,
+  selectedLineStringColor: lineHex,
+  selectedLineStringWidth: 5,
+  // a picked pin or note stands out under its chip
+  selectedPointColor: BLUE,
+  selectedPointWidth: 9,
+  selectedPointOutlineColor: '#ffffff' as HexColor,
+  selectedPointOutlineWidth: 3,
   selectionPointColor: '#ffffff' as HexColor,
   selectionPointOutlineColor: BLUE,
   selectionPointWidth: 5,
@@ -170,6 +189,7 @@ const readPolygon = (
       path,
       ...styleFrom(properties, { border: 'red', fill: 'transparent' }),
       label: (properties.label as string) || undefined,
+      dashed: properties.dashed === true || undefined,
     });
   } else if (properties.role === 'boundary') {
     next.boundary = path;
@@ -213,6 +233,7 @@ const readSnapshot = (features: GeoJSONStoreFeatures[]) => {
         id,
         path: geometry.coordinates.map(position),
         style: properties.lineStyle === 'dashed' ? 'dashed' : 'solid',
+        color: (properties.color as MapColor) || undefined,
       });
     } else if (geometry.type === 'Point') {
       next.markers.push(readMarker(id, geometry.coordinates, properties));
@@ -220,6 +241,56 @@ const readSnapshot = (features: GeoJSONStoreFeatures[]) => {
   }
 
   return next;
+};
+
+const inside = (point: number[], ring: number[][]) => {
+  let hit = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (
+      yi > point[1] !== yj > point[1] &&
+      point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi
+    ) {
+      hit = !hit;
+    }
+  }
+  return hit;
+};
+
+const ringArea = (ring: number[][]) =>
+  Math.abs(
+    ring.reduce((sum, [x, y], i) => {
+      const [nx, ny] = ring[(i + 1) % ring.length];
+      return sum + x * ny - nx * y;
+    }, 0)
+  );
+
+// the smallest area drawn on the territory under the point, if any
+const areaAt = (features: GeoJSONStoreFeatures[], point: number[]) =>
+  features
+    .filter(
+      (feature) =>
+        isShape(feature) &&
+        feature.geometry.type === 'Polygon' &&
+        inside(point, feature.geometry.coordinates[0] as number[][])
+    )
+    .sort(
+      (a, b) =>
+        ringArea((a.geometry.coordinates as number[][][])[0]) -
+        ringArea((b.geometry.coordinates as number[][][])[0])
+    )[0]?.id;
+
+const ringOf = (feature?: GeoJSONStoreFeatures) => {
+  if (feature?.geometry.type === 'Polygon') {
+    return (feature.geometry.coordinates[0] as number[][]).slice(0, -1);
+  }
+
+  if (feature?.geometry.type === 'LineString') {
+    return feature.geometry.coordinates as number[][];
+  }
+
+  return [];
 };
 
 const kindOf = (feature?: GeoJSONStoreFeatures): MapItemKind | undefined => {
@@ -265,25 +336,28 @@ const useMapEditor = ({
   // terra draw calls back outside React, so the current choices live in refs
   const options = useRef({
     tool: 'move' as MapTool,
-    shape: { border: 'red', fill: 'transparent' } as MapStyle,
+    shape: { border: 'red', fill: 'transparent', dashed: false } as ShapeStyle,
     boundary: DEFAULT_BOUNDARY_STYLE,
-    lineStyle: 'solid' as 'solid' | 'dashed',
+    line: { style: 'solid', color: 'blue' } as LineLook,
     pinType: 'normal' as PinType,
   });
 
   const [editing, setEditing] = useState(false);
   const [scope, setScope] = useState<EditScope>('territory');
   const [tool, setTool] = useState<MapTool>('move');
-  const [shape, setShape] = useState<MapStyle>(options.current.shape);
-  const [boundaryStyle, setBoundaryStyle] = useState<MapStyle>(
+  const [shape, setShape] = useState<ShapeStyle>(options.current.shape);
+  const [boundaryStyle, setBoundaryStyle] = useState<ShapeStyle>(
     DEFAULT_BOUNDARY_STYLE
   );
-  const [lineStyle, setLineStyle] = useState<'solid' | 'dashed'>('solid');
+  const [line, setLine] = useState<LineLook>(options.current.line);
   const [pinType, setPinType] = useState<PinType>('normal');
   const [draft, setDraft] = useState<TerritoryMapDraft>(EMPTY_DRAFT);
   const [labelling, setLabelling] = useState<string | number>();
+  // what the label dialog starts with: empty for a new note, the text for a picked one
+  const [labelStart, setLabelStart] = useState('');
   const [selected, setSelected] = useState<string | number>();
-  const [selectedStyle, setSelectedStyle] = useState<MapStyle>();
+  const [selectedStyle, setSelectedStyle] = useState<ShapeStyle>();
+  const [selectedLine, setSelectedLine] = useState<LineLook>();
   const [selectedKind, setSelectedKind] = useState<MapItemKind>();
 
   // what the drawing looked like when editing started, to tell if anything changed
@@ -323,14 +397,22 @@ const useMapEditor = ({
   }, []);
 
   const start = useCallback(
-    (nextScope: EditScope, target?: Territory, border?: TerritoryBoundary) => {
+    (
+      nextScope: EditScope,
+      target?: Territory,
+      border?: TerritoryBoundary,
+      borderColor: MapColor = 'red',
+      borderDashed = false
+    ) => {
       const instance = map.current;
       if (!instance) return;
 
       const congregation = nextScope === 'congregation';
       const existing = congregation ? border : target?.boundary;
-      const style =
-        (!congregation && target?.boundaryStyle) || DEFAULT_BOUNDARY_STYLE;
+      // the congregation's outline has a colour of its own and no fill
+      const style: ShapeStyle = congregation
+        ? { border: borderColor, fill: 'transparent', dashed: borderDashed }
+        : target?.boundaryStyle || DEFAULT_BOUNDARY_STYLE;
 
       options.current.boundary = style;
       setBoundaryStyle(style);
@@ -359,7 +441,7 @@ const useMapEditor = ({
           }),
           new TerraDrawLineStringMode({
             styles: {
-              lineStringColor: BLUE,
+              lineStringColor: lineHex,
               lineStringWidth: 3,
             },
             keyEvents: DRAW_KEYS,
@@ -411,8 +493,12 @@ const useMapEditor = ({
             ? {
                 border: feature.properties.border as MapStyle['border'],
                 fill: feature.properties.fill as MapStyle['fill'],
+                dashed: feature.properties.dashed === true,
               }
             : undefined
+        );
+        setSelectedLine(
+          feature?.geometry.type === 'LineString' ? lookOf(feature) : undefined
         );
       });
 
@@ -421,10 +507,24 @@ const useMapEditor = ({
         setSelected(undefined);
         setSelectedKind(undefined);
         setSelectedStyle(undefined);
+        setSelectedLine(undefined);
       });
 
       terra.on('finish', (id) => {
         const { tool: current, shape: style, pinType: type } = options.current;
+
+        // a point can only come from the pin or text tool; one finished while
+        // another tool is picked (a mode switch still under way) is dropped,
+        // so it never turns into a stray pin
+        if (
+          current !== 'pin' &&
+          current !== 'text' &&
+          terra.getSnapshotFeature(id)?.geometry.type === 'Point'
+        ) {
+          terra.removeFeatures([id]);
+          terra.setMode(MODE_FOR[current]);
+          return;
+        }
 
         const before = historySize();
 
@@ -451,6 +551,7 @@ const useMapEditor = ({
             role: 'shape',
             border: style.border,
             fill: style.fill,
+            dashed: !!style.dashed,
           });
         }
 
@@ -466,7 +567,8 @@ const useMapEditor = ({
 
         if (current === 'line') {
           terra.updateFeatureProperties(id, {
-            lineStyle: options.current.lineStyle,
+            lineStyle: options.current.line.style,
+            color: options.current.line.color,
           });
         }
 
@@ -476,6 +578,7 @@ const useMapEditor = ({
 
         if (current === 'text') {
           terra.updateFeatureProperties(id, { kind: 'text', label: '' });
+          setLabelStart('');
           setLabelling(id);
         }
 
@@ -508,6 +611,7 @@ const useMapEditor = ({
               border: item.border,
               fill: item.fill,
               label: item.label ?? '',
+              dashed: !!item.dashed,
             },
             geometry: {
               type: 'Polygon',
@@ -520,7 +624,11 @@ const useMapEditor = ({
           loaded.push({
             type: 'Feature',
             id: terra.getFeatureId(),
-            properties: { mode: 'linestring', lineStyle: line.style },
+            properties: {
+              mode: 'linestring',
+              lineStyle: line.style,
+              color: lineColor(line),
+            },
             geometry: {
               type: 'LineString',
               coordinates: line.path.map(roundPosition),
@@ -584,6 +692,7 @@ const useMapEditor = ({
       setSelected(undefined);
       setSelectedKind(undefined);
       setSelectedStyle(undefined);
+      setSelectedLine(undefined);
       clearVertex();
       draw.current?.setMode(MODE_FOR[next]);
     },
@@ -591,7 +700,7 @@ const useMapEditor = ({
   );
 
   const pickShape = useCallback(
-    (next: Partial<MapStyle>) => {
+    (next: Partial<ShapeStyle>) => {
       if (selected !== undefined && selectedStyle && draw.current) {
         const restyled = { ...selectedStyle, ...next };
 
@@ -611,7 +720,7 @@ const useMapEditor = ({
   );
 
   const pickBoundary = useCallback(
-    (next: Partial<MapStyle>) => {
+    (next: Partial<ShapeStyle>) => {
       const style = { ...options.current.boundary, ...next };
 
       options.current.boundary = style;
@@ -630,22 +739,213 @@ const useMapEditor = ({
     [readDraft]
   );
 
-  const pickLineStyle = useCallback(
-    (next: 'solid' | 'dashed') => {
-      options.current.lineStyle = next;
-      setLineStyle(next);
+  // a picked line changes in place; otherwise the look is for the next line drawn
+  const pickLine = useCallback(
+    (next: Partial<LineLook>) => {
+      const current = selectedLine ?? options.current.line;
+      // solid or dashed keeps the colour the line has
+      const look = { ...current, ...next };
+
+      if (selected !== undefined && selectedLine && draw.current) {
+        draw.current.updateFeatureProperties(selected, {
+          lineStyle: look.style,
+          color: look.color,
+        });
+        setSelectedLine(look);
+        readDraft();
+        return;
+      }
+
+      options.current.line = look;
+      setLine(look);
       pickTool('line');
     },
-    [pickTool]
+    [pickTool, selected, selectedLine, readDraft]
   );
 
+  // a picked pin changes its type in place; otherwise it is for the next pin
   const pickPinType = useCallback(
     (next: PinType) => {
+      if (selected !== undefined && selectedKind === 'pin' && draw.current) {
+        draw.current.updateFeatureProperties(selected, { pinType: next });
+        readDraft();
+        return;
+      }
+
       options.current.pinType = next;
       setPinType(next);
       pickTool('pin');
     },
-    [pickTool]
+    [pickTool, selected, selectedKind, readDraft]
+  );
+
+  // the picked note, or the one the context menu was opened on
+  const editLabel = useCallback(
+    (id: string | number | undefined = selected) => {
+      const terra = draw.current;
+      if (!terra || id === undefined) return;
+      const feature = terra.getSnapshotFeature(id);
+      if (feature?.properties?.kind !== 'text') return;
+      setLabelStart(String(feature.properties.label ?? ''));
+      setLabelling(id);
+    },
+    [selected]
+  );
+
+  const deleteItem = useCallback(
+    (id: string | number) => {
+      const terra = draw.current;
+      if (!terra || !terra.hasFeature(id)) return;
+      const border = kindOf(terra.getSnapshotFeature(id)) === 'boundary';
+      if (terra.getSnapshotFeature(id)?.properties?.selected) {
+        clearVertex();
+        terra.deselectFeature(id);
+      }
+      terra.removeFeatures([id]);
+      readDraft();
+      if (border) pickTool('border');
+    },
+    [clearVertex, readDraft, pickTool]
+  );
+
+  // the context menu places a pin or a note straight where it was opened
+  const addMarkerAt = useCallback(
+    (kind: 'pin' | 'text', at: [number, number]) => {
+      const terra = draw.current;
+      if (!terra) return;
+
+      pickTool('move');
+      const id = terra.getFeatureId();
+      terra.addFeatures([
+        {
+          type: 'Feature',
+          id,
+          properties: {
+            mode: 'point',
+            kind,
+            label: '',
+            pinType: kind === 'pin' ? options.current.pinType : 'normal',
+            color: '',
+          },
+          geometry: { type: 'Point', coordinates: roundPosition(at) },
+        },
+      ]);
+
+      if (kind === 'text') {
+        setLabelStart('');
+        setLabelling(id);
+      } else {
+        setTimeout(() => terra.selectFeature(id, MODE_FOR.move));
+      }
+      readDraft();
+    },
+    [pickTool, readDraft]
+  );
+
+  // what lies under a point on screen, nearest kind first: pins and notes,
+  // lines, the smallest area, then the border
+  const itemAt = useCallback(
+    (pixel: { x: number; y: number }, at: [number, number]) => {
+      const terra = draw.current;
+      const instance = map.current;
+      if (!terra || !instance) return undefined;
+
+      const features = terra
+        .getSnapshot()
+        .filter(
+          (f) => !f.properties?.selectionPoint && !f.properties?.midPoint
+        );
+      const near = (point: number[]) => {
+        const p = instance.project(point as [number, number]);
+        return Math.hypot(p.x - pixel.x, p.y - pixel.y);
+      };
+
+      const marker = features.find(
+        (f) =>
+          f.geometry.type === 'Point' &&
+          near(f.geometry.coordinates as number[]) < 16
+      );
+      if (marker) return { id: marker.id!, kind: kindOf(marker)! };
+
+      const line = features.find((f) => {
+        if (f.geometry.type !== 'LineString') return false;
+        const pts = (f.geometry.coordinates as number[][]).map((c) =>
+          instance.project(c as [number, number])
+        );
+        return pts.slice(1).some((b, i) => {
+          const a = pts[i];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const t = Math.max(
+            0,
+            Math.min(
+              1,
+              ((pixel.x - a.x) * dx + (pixel.y - a.y) * dy) /
+                (dx * dx + dy * dy || 1)
+            )
+          );
+          return (
+            Math.hypot(a.x + t * dx - pixel.x, a.y + t * dy - pixel.y) < 10
+          );
+        });
+      });
+      if (line) return { id: line.id!, kind: 'line' as const };
+
+      const area = areaAt(features, at);
+      if (area !== undefined) return { id: area, kind: 'shape' as const };
+
+      const border = features.find(
+        (f) =>
+          f.properties?.role === 'boundary' &&
+          f.geometry.type === 'Polygon' &&
+          inside(at, (f.geometry.coordinates as number[][][])[0])
+      );
+      if (border) return { id: border.id!, kind: 'boundary' as const };
+
+      return undefined;
+    },
+    [map]
+  );
+
+  // the corner of the picked drawing under a point on screen, if any
+  const cornerAt = useCallback(
+    (pixel: { x: number; y: number }) => {
+      const terra = draw.current;
+      const instance = map.current;
+      if (!terra || !instance || selected === undefined) return undefined;
+
+      const points = ringOf(terra.getSnapshotFeature(selected));
+      let best: { index: number; distance: number } | undefined;
+      points.forEach((point, index) => {
+        const p = instance.project(point as [number, number]);
+        const distance = Math.hypot(p.x - pixel.x, p.y - pixel.y);
+        if (distance <= PICK_DISTANCE && (!best || distance < best.distance)) {
+          best = { index, distance };
+        }
+      });
+      return best?.index;
+    },
+    [map, selected]
+  );
+
+  const selectItem = useCallback(
+    (id: string | number, corners = false) => {
+      const terra = draw.current;
+      if (!terra) return;
+      const next: MapTool = corners
+        ? 'points'
+        : tool === 'points'
+          ? 'points'
+          : 'move';
+      if (next !== tool) pickTool(next);
+      setTimeout(() => {
+        const picked = terra.getSnapshot().find((f) => f.properties?.selected);
+        if (picked?.id !== undefined && picked.id !== id)
+          terra.deselectFeature(picked.id);
+        terra.selectFeature(id, MODE_FOR[next]);
+      });
+    },
+    [tool, pickTool]
   );
 
   const saveLabel = useCallback(
@@ -655,7 +955,8 @@ const useMapEditor = ({
       const before = historySize();
 
       if (text.trim().length === 0) {
-        draw.current?.removeFeatures([labelling]);
+        // Cancel on a note that already had text keeps it
+        if (!labelStart) draw.current?.removeFeatures([labelling]);
       } else {
         draw.current?.updateFeatureProperties(labelling, {
           kind: 'text',
@@ -668,7 +969,7 @@ const useMapEditor = ({
       setLabelling(undefined);
       readDraft();
     },
-    [labelling, readDraft, historySize, markAuto]
+    [labelling, labelStart, readDraft, historySize, markAuto]
   );
 
   const deleteSelected = useCallback(() => {
@@ -684,6 +985,19 @@ const useMapEditor = ({
 
     pickTool(removedBorder ? 'border' : options.current.tool);
   }, [selected, selectedKind, clearVertex, readDraft, pickTool]);
+
+  // Done on the style bar: the picked drawing lets go, the tool stays
+  const deselect = useCallback(() => {
+    const terra = draw.current;
+    clearVertex();
+    if (terra && selected !== undefined && terra.hasFeature(selected)) {
+      terra.deselectFeature(selected);
+    }
+    setSelected(undefined);
+    setSelectedKind(undefined);
+    setSelectedStyle(undefined);
+    setSelectedLine(undefined);
+  }, [selected, clearVertex]);
 
   const redrawBorder = useCallback(() => {
     const terra = draw.current;
@@ -753,6 +1067,7 @@ const useMapEditor = ({
     setSelected(undefined);
     setSelectedKind(undefined);
     setSelectedStyle(undefined);
+    setSelectedLine(undefined);
     setBaseline('');
     setDraft(EMPTY_DRAFT);
     setEditing(false);
@@ -814,18 +1129,6 @@ const useMapEditor = ({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [editing, undo, redo]);
-
-  const ringOf = (feature?: GeoJSONStoreFeatures) => {
-    if (feature?.geometry.type === 'Polygon') {
-      return (feature.geometry.coordinates[0] as number[][]).slice(0, -1);
-    }
-
-    if (feature?.geometry.type === 'LineString') {
-      return feature.geometry.coordinates as number[][];
-    }
-
-    return [];
-  };
 
   const deleteVertex = useCallback(() => {
     const terra = draw.current;
@@ -895,12 +1198,13 @@ const useMapEditor = ({
       if (!vertexMarker.current) {
         const element = document.createElement('div');
         element.style.cssText =
-          'width:14px;height:14px;border-radius:50%;border:2px solid var(--accent-main);box-shadow:0 0 0 3px rgba(94,106,210,0.3);pointer-events:none';
+          'width:16px;height:16px;border-radius:50%;background:var(--accent-main);border:3px solid #fff;box-shadow:0 0 0 3px var(--accent-main),0 0 0 9px rgba(94,106,210,0.28),0 2px 6px rgba(0,0,0,0.35);pointer-events:none';
 
         vertexMarker.current = new maplibregl.Marker({ element });
-        vertexMarker.current.setLngLat(points[best.index] as [number, number]);
         vertexMarker.current.addTo(instance);
       }
+      // a newly picked point moves the ring there, not only the first one
+      vertexMarker.current.setLngLat(points[best.index] as [number, number]);
     };
 
     const follow = () => {
@@ -927,10 +1231,15 @@ const useMapEditor = ({
     instance.on('mouseup', follow);
     instance.on('touchstart', pick);
     instance.on('touchend', follow);
+    // the ring goes along while the point is dragged
+    instance.on('mousemove', follow);
+    instance.on('touchmove', follow);
     window.addEventListener('keydown', onKey);
 
     return () => {
       instance.off('mousedown', pick);
+      instance.off('mousemove', follow);
+      instance.off('touchmove', follow);
       instance.off('mouseup', follow);
       instance.off('touchstart', pick);
       instance.off('touchend', follow);
@@ -992,6 +1301,34 @@ const useMapEditor = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [editing, tool, selected, deleteSelected]);
 
+  // terra draw decides between overlapping areas by its own order, often the
+  // border; a click inside an area drawn on the territory takes the area
+  useEffect(() => {
+    const instance = map.current;
+    if (!editing || !instance || (tool !== 'move' && tool !== 'points')) return;
+
+    const onClick = (event: maplibregl.MapMouseEvent) => {
+      const point = [event.lngLat.lng, event.lngLat.lat];
+      // after terra draw has handled the same click
+      setTimeout(() => {
+        const terra = draw.current;
+        if (!terra) return;
+        const features = terra.getSnapshot();
+        const picked = features.find((feature) => feature.properties?.selected);
+        if (picked && kindOf(picked) !== 'boundary') return;
+        const area = areaAt(features, point);
+        if (area === undefined || area === picked?.id) return;
+        if (picked?.id !== undefined) terra.deselectFeature(picked.id);
+        terra.selectFeature(area, MODE_FOR[tool]);
+      });
+    };
+
+    instance.on('click', onClick);
+    return () => {
+      instance.off('click', onClick);
+    };
+  }, [map, editing, tool]);
+
   useEffect(() => stop, [stop]);
 
   const dirty = editing && JSON.stringify(draft) !== baseline;
@@ -1004,7 +1341,15 @@ const useMapEditor = ({
       selected,
       selectedKind,
       deleteSelected,
+      deselect,
       leaveTool,
+      labelStart,
+      editLabel,
+      addMarkerAt,
+      itemAt,
+      cornerAt,
+      selectItem,
+      deleteItem,
       cornerPicked,
       deleteVertex,
       redrawBorder,
@@ -1013,17 +1358,18 @@ const useMapEditor = ({
       tool,
       shape,
       boundaryStyle,
-      lineStyle,
+      line,
       pinType,
       draft,
       labelling,
       selectedStyle,
+      selectedLine,
       start,
       finish,
       pickTool,
       pickShape,
       pickBoundary,
-      pickLineStyle,
+      pickLine,
       pickPinType,
       saveLabel,
       undo,
@@ -1035,7 +1381,15 @@ const useMapEditor = ({
       selected,
       selectedKind,
       deleteSelected,
+      deselect,
       leaveTool,
+      labelStart,
+      editLabel,
+      addMarkerAt,
+      itemAt,
+      cornerAt,
+      selectItem,
+      deleteItem,
       cornerPicked,
       deleteVertex,
       redrawBorder,
@@ -1044,17 +1398,18 @@ const useMapEditor = ({
       tool,
       shape,
       boundaryStyle,
-      lineStyle,
+      line,
       pinType,
       draft,
       labelling,
       selectedStyle,
+      selectedLine,
       start,
       finish,
       pickTool,
       pickShape,
       pickBoundary,
-      pickLineStyle,
+      pickLine,
       pickPinType,
       saveLabel,
       undo,

@@ -1,0 +1,11 @@
+html[data-keyboard-open] body {
+  padding-bottom: var(--keyboard-overlap);
+}
+html[data-keyboard-open] .MuiDialog-root {
+  top: var(--keyboard-viewport-top);
+  height: var(--keyboard-viewport-height);
+  bottom: auto;
+}
+html[data-keyboard-open] [data-keyboard-toolbar] {
+  display: none;
+}

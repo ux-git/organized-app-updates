@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
@@ -13,10 +13,12 @@ import {
 import { invoke, listen } from '../../native';
 import { Touched } from '../useNearby';
 import { Avatar } from './parts';
+import Changes from './Changes';
 import { list, t } from '../../i18n';
 import { count, when } from './text';
 
 type Entry = {
+  id: number;
   at: number;
   peer: string;
   name: string;
@@ -24,6 +26,10 @@ type Entry = {
   received: number;
   items: Record<string, number> | null;
   detail: { received?: Touched[]; sent?: Touched[]; removed?: string[] } | null;
+  /** Fields this sync brought, each to review. */
+  changes: number;
+  /** Of them, changed on both devices and not decided yet. */
+  open: number;
 };
 
 const KINDS: Record<string, string> = {
@@ -174,10 +180,57 @@ const Territories = ({ label, list }: { label: string; list?: Touched[] }) => {
   );
 };
 
+/** The review of one sync's changes, opened from its entry. */
+const Review = ({ entry, open: initial }: { entry: Entry; open: boolean }) => {
+  const [open, setOpen] = useState(initial);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!initial) return;
+    setOpen(true);
+    box.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [initial]);
+
+  if (!entry.changes) return null;
+  return (
+    <Box
+      ref={box}
+      sx={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+    >
+      <Box sx={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <Button
+          variant="small"
+          disableAutoStretch
+          onClick={() => setOpen(!open)}
+          sx={{ marginLeft: '-8px' }}
+        >
+          {open
+            ? t('changes.hide')
+            : t('changes.review', { count: entry.changes })}
+        </Button>
+        {entry.open > 0 && (
+          <Typography
+            className="label-small-regular"
+            color="var(--orange-dark)"
+          >
+            {t('changes.toDecide', { count: entry.open })}
+          </Typography>
+        )}
+      </Box>
+      {open && <Changes syncId={entry.id} name={entry.name} />}
+    </Box>
+  );
+};
+
 /** The latest syncs: with whom, when, and which territories changed. */
-const History = () => {
+const History = ({ review }: { review?: string | null }) => {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [all, setAll] = useState(false);
+  // the newest sync with the device a notification asked to review
+  const reviewed =
+    review != null
+      ? entries.find((entry) => !review || entry.peer === review)?.id
+      : undefined;
 
   const refresh = useCallback(() => {
     invoke<Entry[]>('sync_log')
@@ -203,7 +256,7 @@ const History = () => {
       <Stack spacing="16px">
         {shown.map((entry) => (
           <Box
-            key={`${entry.at}-${entry.peer}`}
+            key={entry.id ?? `${entry.at}-${entry.peer}`}
             sx={{ display: 'flex', gap: '12px' }}
           >
             <Avatar name={entry.name || '?'} id={entry.peer} />
@@ -235,6 +288,7 @@ const History = () => {
                 label={t('history.youSent')}
                 list={entry.detail?.sent}
               />
+              <Review entry={entry} open={entry.id === reviewed} />
             </Box>
           </Box>
         ))}

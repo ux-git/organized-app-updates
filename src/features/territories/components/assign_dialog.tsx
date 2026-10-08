@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
-import { Badge, Button, Typography } from '@components/index';
+import { Badge, Button, InfoNote, Typography } from '@components/index';
 import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
@@ -23,6 +23,7 @@ import {
   toStoredDate,
 } from '../helpers';
 import { latestReturnNote } from '../notes';
+import { startsBeforeOpen } from '../assignment_issues';
 import CampaignField, { CampaignChoice } from './campaign_field';
 import CardField from './card_field';
 import PublisherSearch from './publisher_search';
@@ -89,6 +90,13 @@ const AssignDialog = ({
     !!assignedOn &&
     assignmentIssues({ assignedOn: toStoredDate(assignedOn) }).length > 0;
 
+  // still out: assigning returns it first, on the new start date
+  const open = territory?.assignments.find((item) => !item.returnedOn);
+  const beforeOpen =
+    !!territory &&
+    !!assignedOn &&
+    startsBeforeOpen(territory.assignments, toStoredDate(assignedOn));
+
   return (
     <Dialog
       onClose={onClose}
@@ -152,6 +160,18 @@ const AssignDialog = ({
         </Typography>
       )}
 
+      {open && assignedOn && (
+        <InfoNote
+          message={tx(
+            '{{name}} still has it. It is returned on {{date}} first.',
+            {
+              name: open.publisher,
+              date: displayDate(toStoredDate(assignedOn), format),
+            }
+          )}
+        />
+      )}
+
       <Stack
         direction={tablet600Up ? 'row' : 'column'}
         spacing="16px"
@@ -172,8 +192,17 @@ const AssignDialog = ({
           <DatePicker
             label={tx('Assigned on')}
             value={assignedOn}
-            error={future}
-            helperText={future ? tx('This date is in the future') : ''}
+            error={future || beforeOpen}
+            helperText={
+              beforeOpen && open
+                ? tx('Cannot be before {{name}} got it on {{date}}', {
+                    name: open.publisher,
+                    date: displayDate(open.assignedOn, format),
+                  })
+                : future
+                  ? tx('This date is in the future')
+                  : ''
+            }
             onChange={(value) => setAssignedOn(value)}
           />
         </Box>
@@ -198,13 +227,13 @@ const AssignDialog = ({
         </Button>
         <Button
           variant="main"
-          disabled={!publisher}
+          disabled={!publisher || !assignedOn || beforeOpen}
           onClick={() => {
-            if (!publisher) return;
+            if (!publisher || !assignedOn || beforeOpen) return;
             rememberCard(card);
             onAssign(
               publisher,
-              assignedOn ?? new Date(),
+              assignedOn,
               campaign.checked && campaign.value
                 ? campaignSnapshot(campaign.value)
                 : null,

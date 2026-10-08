@@ -1,4 +1,6 @@
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { observeKeyboardViewport } from './keyboardViewport';
+import './keyboard.css';
 import {
   Outlet,
   ScrollRestoration,
@@ -31,8 +33,10 @@ import logo from './assets/logo.svg?url';
 // decoded once up front, so the logo doesn't blink in each time Home opens
 new Image().src = logo;
 import { t } from './i18n';
-import { ConfirmHost } from './pages/confirm';
+import { listen, nearby } from './native';
+import { ConfirmHost } from './pages/ConfirmHost';
 import useNearby from './pages/useNearby';
+import { receive } from './pages/sync/receive';
 import useSyncFeedback from './pages/sync/useSyncFeedback';
 
 const HOME = '/';
@@ -40,6 +44,16 @@ const HOME = '/';
 // Organized's nav bar (layouts/navbar): the logo and the account menu on the
 // dashboard, back and the page title everywhere else.
 const Layout = () => {
+  useEffect(observeKeyboardViewport, []);
+  // a transfer or backup opened from outside is taken in on every page
+  useEffect(() => {
+    const stop = listen<{ text: string }>('file', ({ text }) => receive(text));
+    // asked once listening, or the file can come before the listener
+    stop.then(() => nearby('takeFile'));
+    return () => {
+      stop.then((unlisten) => unlisten());
+    };
+  }, []);
   useNavigationTrail();
   useSyncFeedback();
 
@@ -52,8 +66,7 @@ const Layout = () => {
   const [settingsAnimating, setSettingsAnimating] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
 
-  const isWelcome = pathname === '/welcome';
-  const isHome = pathname === HOME || isWelcome;
+  const isHome = pathname === HOME;
 
   const handleBack = () => {
     if (options.onBack) {
@@ -115,11 +128,8 @@ const Layout = () => {
                     alt=""
                     width={40}
                     height={40}
-                    // a light edge in the icon grid's colour
                     sx={{
-                      borderRadius: '10px',
-                      outline: '1px solid #767F92',
-                      outlineOffset: '-1px',
+                      borderRadius: 'var(--radius-l)',
                     }}
                   />
                   <Typography
@@ -156,24 +166,22 @@ const Layout = () => {
                       },
                     }}
                   />
-                  {!isWelcome && (
-                    <AccountMenu
-                      name={name || t('settings.nameMissing')}
-                      subtitle={t('account.thisPhone')}
-                      items={[
-                        {
-                          icon: <IconAccount color="var(--black)" />,
-                          label: t('account.profile'),
-                          onClick: () => navigate('/settings/profile'),
-                        },
-                        {
-                          icon: <IconInfo color="var(--black)" />,
-                          label: t('about.title'),
-                          onClick: () => setAboutOpen(true),
-                        },
-                      ]}
-                    />
-                  )}
+                  <AccountMenu
+                    name={name || t('settings.nameMissing')}
+                    subtitle={t('account.thisPhone')}
+                    items={[
+                      {
+                        icon: <IconAccount color="var(--black)" />,
+                        label: t('account.profile'),
+                        onClick: () => navigate('/settings/profile'),
+                      },
+                      {
+                        icon: <IconInfo color="var(--black)" />,
+                        label: t('about.title'),
+                        onClick: () => setAboutOpen(true),
+                      },
+                    ]}
+                  />
                 </Box>
               </>
             ) : (
@@ -273,7 +281,9 @@ const Layout = () => {
         </Toolbar>
       </AppBar>
       {options.buttons && !tablet688Up && (
-        <BottomMenu buttons={markLastNavBarButton(options.buttons)} />
+        <Box data-keyboard-toolbar>
+          <BottomMenu buttons={markLastNavBarButton(options.buttons)} />
+        </Box>
       )}
 
       <About open={aboutOpen} onClose={() => setAboutOpen(false)} />

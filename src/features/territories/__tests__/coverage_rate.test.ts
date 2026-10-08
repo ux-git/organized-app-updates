@@ -61,15 +61,13 @@ test('the first and the last day of the period both count', () => {
   });
 });
 
-test('work for a campaign is not coverage unless marked as such', () => {
-  const memorial = { id: 'memorial', name: 'Memorial invitations' };
-
+test('all completed work counts, including campaigns', () => {
   assert.equal(isCoverage({}), true);
-  assert.equal(isCoverage({ campaign: memorial }), false);
-  assert.equal(isCoverage({ campaign: { ...memorial, coverage: true } }), true);
+  assert.equal(isCoverage({ completed: false }), false);
+  assert.equal(isCoverage({ completed: true }), true);
 });
 
-test('a campaign-only return does not cover the territory', () => {
+test('campaign returns cover the territory', () => {
   const memorial = { id: 'memorial', name: 'Memorial invitations' };
   const campaignOnly = territory('a', [
     { assignedOn: '01.03.2026', returnedOn: '21.03.2026', campaign: memorial },
@@ -87,12 +85,12 @@ test('a campaign-only return does not cover the territory', () => {
 
   assert.equal(
     returnedWithin(campaignOnly, year2026.start, year2026.end),
-    false
+    true
   );
   assert.equal(returnedWithin(counted, year2026.start, year2026.end), true);
   assert.deepEqual(coverageRate([campaignOnly, counted, regular], year2026), {
-    rate: 67,
-    covered: 2,
+    rate: 100,
+    covered: 3,
     total: 3,
   });
 });

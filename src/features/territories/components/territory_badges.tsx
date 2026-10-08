@@ -1,19 +1,16 @@
 import { Box, Stack } from '@mui/material';
 import Tooltip from '@components/tooltip';
 import { Badge } from '@components/index';
-import {
-  IconCampaign,
-  IconCancelCicle,
-  IconPhone,
-  IconPrint,
-  IconRaiseHand,
-} from '@icons/index';
+import { IconCampaign, IconCancelCicle, IconRaiseHand } from '@icons/index';
 import { daysLabel, doNotCallLabel, olderOpenAssignments } from '../helpers';
 import { hasNewNote } from '../notes';
 import { categoryBadge } from '../category_colors';
 import { openCard } from '../card_filter';
 import { useAtomValue } from 'jotai';
-import { territoryCategoriesState } from '@states/territories';
+import {
+  territoriesShowDoNotCallCountState,
+  territoryCategoriesState,
+} from '@states/territories';
 import {
   AssignmentCard,
   CARD_LABEL,
@@ -153,6 +150,11 @@ export const DoNotCallBadge = ({
   );
 };
 
+export const ListDoNotCallBadge = ({ territory }: { territory: Territory }) => {
+  const visible = useAtomValue(territoriesShowDoNotCallCountState);
+  return visible ? <DoNotCallBadge territory={territory} /> : null;
+};
+
 // two devices handed it out while apart; the territory's page closes the older one
 export const AssignedTwiceBadge = ({ territory }: { territory: Territory }) => {
   if (olderOpenAssignments(territory.assignments).length === 0) return null;
@@ -208,15 +210,13 @@ export const CardBadge = ({
   if (!card) return null;
 
   const label = tx(CARD_LABEL[card]);
-  const Icon = card === 'printed' ? IconPrint : IconPhone;
 
   const badge = (
     <Badge
       size="small"
       color="grey"
       filled={false}
-      text={text ? label : ''}
-      icon={<Icon color="var(--grey-400)" />}
+      text={label}
       sx={{
         width: 'fit-content',
         ...(text ? shrink(label) : { flexShrink: 0, '& > div': { gap: 0 } }),

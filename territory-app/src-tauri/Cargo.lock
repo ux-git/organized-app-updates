@@ -3671,13 +3671,14 @@ dependencies = [
 
 [[package]]
 name = "territories"
-version = "0.8.9"
+version = "0.8.16"
 dependencies = [
  "base64 0.22.1",
  "chacha20poly1305",
  "flate2",
  "hkdf",
  "hmac",
+ "if-addrs",
  "jni",
  "libc",
  "mdns-sd",

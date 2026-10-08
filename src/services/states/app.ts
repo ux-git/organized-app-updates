@@ -49,6 +49,7 @@ import {
   isMFAEnabledState,
   isContactOpenState,
   encryptedMasterKeyState,
+  appMessageActionState,
   appMessageIconState,
 } from '@states/app';
 import { ReactElement } from 'react';
@@ -78,12 +79,15 @@ export const displaySnackNotification = ({
   message,
   severity,
   icon,
+  action,
 }: {
   header: string;
   message: string;
   severity?: SnackBarSeverityType;
   icon?: ReactElement;
+  action?: { text: string; onClick: VoidFunction };
 }) => {
+  store.set(appMessageActionState, action);
   store.set(appMessageHeaderState, header);
   store.set(appMessageState, message);
   store.set(appMessageIconState, icon);

@@ -67,8 +67,17 @@ const PublisherSearch = <T,>({
     }
     renderGroup={(params) => (
       <li key={params.key}>
-        <MenuSubHeader component="div">{params.group}</MenuSubHeader>
-        <Box component="ul" sx={{ padding: 0 }}>
+        <MenuSubHeader
+          component="div"
+          disableSticky
+          sx={{
+            lineHeight: 'inherit',
+            paddingBlock: 'var(--radius-l) var(--radius-s)',
+          }}
+        >
+          {params.group}
+        </MenuSubHeader>
+        <Box component="ul" sx={{ padding: 0, margin: 0 }}>
           {params.children}
         </Box>
       </li>

@@ -46,7 +46,11 @@ object SyncNotices {
     val sent = status.optInt("sent")
     val received = status.optInt("received")
     val joined = strings(status.optJSONArray("introduced"))
-    if (sent + received == 0 && joined.isEmpty()) return
+    if (sent + received == 0 && joined.isEmpty()) {
+      // only clashing values came in: the page still offers to review them
+      if (status.optInt("conflicts") > 0 && MainActivity.visible) Native.emit("synced", status.toString())
+      return
+    }
 
     // the page vibrates and shows it too; the notification stays either way
     if (MainActivity.visible) Native.emit("synced", status.toString())

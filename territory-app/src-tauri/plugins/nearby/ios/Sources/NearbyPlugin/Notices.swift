@@ -60,7 +60,11 @@ final class Notices: NSObject, UNUserNotificationCenterDelegate {
     let sent = status["sent"] as? Int ?? 0
     let received = status["received"] as? Int ?? 0
     let introduced = status["introduced"] as? [String] ?? []
-    guard sent + received > 0 || !introduced.isEmpty else { return }
+    guard sent + received > 0 || !introduced.isEmpty else {
+      // only clashing values came in: the page still offers to review them
+      if (status["conflicts"] as? Int ?? 0) > 0 { Core.emit("synced", status) }
+      return
+    }
     // the page vibrates and shows it too; the notification stays either way
     Core.emit("synced", status)
     guard wanted else { return }

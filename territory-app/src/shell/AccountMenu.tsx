@@ -1,7 +1,9 @@
 import { MouseEvent, ReactElement, useState } from 'react';
-import { ListItemIcon, ListItemText, Menu, MenuItem } from '@mui/material';
+import { ListItemIcon, ListItemText, Menu } from '@mui/material';
 import AccountHeaderIcon from '@components/account_header_icon';
 import Typography from '@components/typography';
+import MenuItem from '@components/menuitem';
+import { t } from '../i18n';
 
 // Organized's account button and menu from the nav bar (layouts/navbar),
 // with the entries this app has
@@ -39,6 +41,7 @@ const AccountMenu = ({
   return (
     <>
       <AccountHeaderIcon
+        label={t('account.profile')}
         handleOpenMore={(e) =>
           setAnchor((e as MouseEvent<HTMLElement>).currentTarget)
         }
@@ -54,8 +57,6 @@ const AccountMenu = ({
         open={!!anchor}
         onClose={close}
         sx={{
-          padding: '8px 0',
-          marginTop: '7px',
           '& li': { borderBottom: '1px solid var(--accent-200)' },
           '& li:last-child': { borderBottom: 'none' },
         }}
@@ -67,6 +68,9 @@ const AccountMenu = ({
               border: '1px solid var(--accent-200)',
               backgroundColor: 'var(--white)',
               minWidth: '294px',
+              maxWidth: 'calc(100vw - 2 * var(--radius-xxl))',
+              marginTop: 'var(--radius-l)',
+              position: 'fixed',
             },
           },
         }}
@@ -75,10 +79,13 @@ const AccountMenu = ({
           disableRipple
           sx={{
             cursor: 'default',
+            height: 'auto',
             pointerEvents: 'none',
             flexDirection: 'column',
             alignItems: 'flex-start',
             gap: 0,
+            whiteSpace: 'normal',
+            overflowWrap: 'anywhere',
           }}
         >
           <Typography className="body-small-semibold">{name}</Typography>

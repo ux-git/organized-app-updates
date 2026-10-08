@@ -1,3 +1,5 @@
+import type { PDFDocumentLoadingTask } from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker&url';
 import { tx } from '@services/i18n/translation';
 import { useEffect, useRef, useState } from 'react';
 import { Box } from '@mui/material';
@@ -5,7 +7,13 @@ import { Typography } from '@components/index';
 
 // embedded browsers and Android WebViews show a PDF in an iframe as a blank
 // box, so the pages are drawn onto canvases instead
-const PdfPreview = ({ url }: { url?: string }) => {
+const PdfPreview = ({
+  url,
+  onSettled,
+}: {
+  url?: string;
+  onSettled?: (url: string) => void;
+}) => {
   const pages = useRef<HTMLDivElement>(null);
 
   const [failed, setFailed] = useState(false);
@@ -15,16 +23,16 @@ const PdfPreview = ({ url }: { url?: string }) => {
     if (!url || !host) return;
 
     let cancelled = false;
+    let loading: PDFDocumentLoadingTask | undefined;
+    setFailed(false);
 
     const render = async () => {
-      const [pdfjs, worker] = await Promise.all([
-        import('pdfjs-dist'),
-        import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
-      ]);
+      const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+      pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-      pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-
-      const document = await pdfjs.getDocument({ url }).promise;
+      if (cancelled) return;
+      loading = pdfjs.getDocument({ url });
+      const document = await loading.promise;
       const canvases: HTMLCanvasElement[] = [];
 
       for (let number = 1; number <= document.numPages; number++) {
@@ -32,7 +40,9 @@ const PdfPreview = ({ url }: { url?: string }) => {
         const width = page.getViewport({ scale: 1 }).width;
 
         const viewport = page.getViewport({
-          scale: (host.clientWidth / width) * (window.devicePixelRatio || 1),
+          scale:
+            (host.clientWidth / width) *
+            Math.min(window.devicePixelRatio || 1, 1.5),
         });
 
         const canvas = window.document.createElement('canvas');
@@ -54,16 +64,23 @@ const PdfPreview = ({ url }: { url?: string }) => {
 
       host.replaceChildren(...canvases);
       setFailed(false);
+      onSettled?.(url);
     };
 
-    render().catch(() => {
-      if (!cancelled) setFailed(true);
+    render().catch((error) => {
+      if (!cancelled) {
+        console.error('Territory PDF preview failed', error);
+        setFailed(true);
+        onSettled?.(url);
+      }
     });
 
     return () => {
       cancelled = true;
+      void loading?.destroy();
+      host.replaceChildren();
     };
-  }, [url]);
+  }, [url, onSettled]);
 
   return (
     <Box sx={{ minHeight: 0, overflowY: 'auto' }}>

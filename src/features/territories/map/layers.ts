@@ -1,6 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
 import { Territory } from '@definition/territory';
 import { DEFAULT_BOUNDARY_STYLE, MAP_COLORS } from './constants';
+import { mapDetail } from '@services/maps/performance';
 import {
   boundaryCollection,
   drawnColor,
@@ -29,6 +30,8 @@ export const addBoundaryLayers = (
   source: string,
   ids: { fill: string; line: string }
 ) => {
+  const lineJoin = mapDetail().lineJoin;
+
   map.addLayer({
     id: ids.fill,
     type: 'fill',
@@ -40,6 +43,10 @@ export const addBoundaryLayers = (
     id: ids.line,
     type: 'line',
     source,
+    layout: {
+      'line-join': lineJoin,
+      'line-cap': lineJoin === 'round' ? 'round' : 'butt',
+    },
     paint: { 'line-color': ['get', 'color'], 'line-width': BORDER_WIDTH },
   });
 };
@@ -50,6 +57,8 @@ export const addDrawingLayers = (
   prefix = 'drawing',
   selectedId?: string
 ) => {
+  const lineJoin = mapDetail().lineJoin;
+
   map.addSource(`${prefix}-shapes`, {
     type: 'geojson',
     data: shapeCollection(territories),
@@ -68,13 +77,27 @@ export const addDrawingLayers = (
     paint: { 'fill-color': ['get', 'fill'], 'fill-opacity': 0.35 },
   });
 
-  map.addLayer({
-    id: `${prefix}-shapes-line`,
-    type: 'line',
-    source: `${prefix}-shapes`,
-    filter: ['!=', ['get', 'border'], ''],
-    paint: { 'line-color': ['get', 'border'], 'line-width': 2.5 },
-  });
+  for (const dashed of [false, true]) {
+    map.addLayer({
+      id: `${prefix}-shapes-line${dashed ? '-dashed' : ''}`,
+      type: 'line',
+      source: `${prefix}-shapes`,
+      filter: [
+        'all',
+        ['!=', ['get', 'border'], ''],
+        ['==', ['boolean', ['get', 'dashed'], false], dashed],
+      ],
+      layout: {
+        'line-join': lineJoin,
+        'line-cap': lineJoin === 'round' ? 'round' : 'butt',
+      },
+      paint: {
+        'line-color': ['get', 'border'],
+        'line-width': 2.5,
+        ...(dashed && { 'line-dasharray': ['literal', [2, 1.5]] }),
+      },
+    });
+  }
 
   // a width that depends on the feature stretches the dashes several times,
   // so each border width gets its own layer with a fixed one
@@ -88,8 +111,12 @@ export const addDrawingLayers = (
         ['==', ['get', 'style'], 'solid'],
         ['==', ['boolean', ['get', 'selected'], false], selected],
       ],
+      layout: {
+        'line-join': lineJoin,
+        'line-cap': lineJoin === 'round' ? 'round' : 'butt',
+      },
       paint: {
-        'line-color': MAP_COLORS.blue,
+        'line-color': ['get', 'color'],
         'line-width': selected ? 3 : 1.5,
         ...(!selected && { 'line-opacity': labelOpacity(1) }),
       },
@@ -104,8 +131,12 @@ export const addDrawingLayers = (
         ['==', ['get', 'style'], 'dashed'],
         ['==', ['boolean', ['get', 'selected'], false], selected],
       ],
+      layout: {
+        'line-join': lineJoin,
+        'line-cap': lineJoin === 'round' ? 'round' : 'butt',
+      },
       paint: {
-        'line-color': MAP_COLORS.green,
+        'line-color': ['get', 'color'],
         'line-width': selected ? 3 : 1.5,
         // the lines grow longer on screen as you zoom in, so the dashes may too
         'line-dasharray': [
@@ -138,6 +169,57 @@ export const setDrawingData = (
     map.getSource(`${prefix}-lines`) as maplibregl.GeoJSONSource | undefined
   )?.setData(lineCollection(territories, selectedId));
 };
+
+// a do-not-call house shows close in only, where its number can be read: a red
+// ring on top of the territory's fill, open inside so the number reads
+export const DO_NOT_CALL_ZOOM = 15;
+const DO_NOT_CALLS = 'do-not-calls';
+
+export const doNotCallCollection = (
+  territories: Territory[]
+): GeoJSON.FeatureCollection => ({
+  type: 'FeatureCollection',
+  features: territories.flatMap((territory) =>
+    territory.doNotCalls
+      .filter((entry) => entry.position)
+      .map((entry) => ({
+        type: 'Feature' as const,
+        properties: {},
+        geometry: { type: 'Point' as const, coordinates: entry.position! },
+      }))
+  ),
+});
+
+export const addDoNotCallLayer = (
+  map: maplibregl.Map,
+  minzoom = DO_NOT_CALL_ZOOM
+) => {
+  map.addSource(DO_NOT_CALLS, {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+  });
+
+  map.addLayer({
+    id: DO_NOT_CALLS,
+    type: 'circle',
+    source: DO_NOT_CALLS,
+    minzoom,
+    paint: {
+      'circle-radius': 10,
+      'circle-opacity': 0,
+      'circle-stroke-color': MAP_COLORS.red,
+      'circle-stroke-width': 2.5,
+    },
+  });
+};
+
+export const setDoNotCallData = (
+  map: maplibregl.Map,
+  territories: Territory[]
+) =>
+  (
+    map.getSource(DO_NOT_CALLS) as maplibregl.GeoJSONSource | undefined
+  )?.setData(doNotCallCollection(territories));
 
 // one territory as the coverage map shows it once picked, in its drawn colors
 export const addTerritoryLayers = (

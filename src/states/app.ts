@@ -324,6 +324,11 @@ export const appMessageHeaderState = atom('');
 
 export const appMessageIconState = atom<ReactElement>();
 
+export const appMessageActionState = atom<{
+  text: string;
+  onClick: VoidFunction;
+}>();
+
 export const congAccountConnectedState = atom(false);
 
 export const themeOptionsState = atom((get) => {

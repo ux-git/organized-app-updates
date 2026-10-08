@@ -18,11 +18,11 @@ import {
   CardLostBadge,
   CategoryBadges,
   CoveredBadge,
-  DoNotCallBadge,
+  ListDoNotCallBadge as DoNotCallBadge,
   PrintedCardBadge,
 } from './territory_badges';
 import TruncatedText from './truncated_text';
-import { emptyListMessage } from '../helpers';
+import { coveredAge, coveredDays, emptyListMessage } from '../helpers';
 import { tx } from '@services/i18n/translation';
 
 type Column = 'available' | 'requested' | 'in_work' | 'overdue';
@@ -96,7 +96,8 @@ const BoardView = ({
     if (!moved) return;
 
     if (columnOf(moved) === 'requested' && moved.requestedBy) {
-      if (target === 'in_work') onAssign(moved.id, moved.requestedBy);
+      // the dialog comes prefilled with whoever asked
+      if (target === 'in_work') onOpenAssign(moved.id);
       if (target === 'available') onDecline(moved.id);
       return;
     }
@@ -132,7 +133,7 @@ const BoardView = ({
       {columns.map((status) => {
         const column = territories
           .filter((territory) => columnOf(territory) === status)
-          .sort((a, b) => b.daysSinceCovered - a.daysSinceCovered);
+          .sort((a, b) => coveredAge(b) - coveredAge(a));
 
         const canDrop = DROPPABLE.has(status);
 
@@ -293,7 +294,14 @@ const BoardView = ({
                           }}
                         >
                           <DoNotCallBadge territory={territory} />
-                          <CoveredBadge days={territory.daysSinceCovered} />
+                          <CoveredBadge
+                            days={coveredAge(territory)}
+                            label={
+                              coveredDays(territory) === null
+                                ? tx('Never covered')
+                                : undefined
+                            }
+                          />
                           <AssignedTwiceBadge territory={territory} />
                           <CardLostBadge territory={territory} />
                           <PrintedCardBadge territory={territory} />

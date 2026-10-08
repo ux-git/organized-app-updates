@@ -1,9 +1,11 @@
 import { ReactNode, useMemo, useState } from 'react';
+import usePhoneSelection from './usePhoneSelection';
 import { Box, Menu, Stack } from '@mui/material';
 import MenuItem from '@components/menuitem';
 import { dropdownPaper } from '@components/select/index.styles';
 import IconButton from '@components/icon_button';
 import {
+  Button,
   Checkbox,
   CustomDivider,
   InfoNote,
@@ -38,7 +40,7 @@ import {
   AssignedTwiceBadge,
   CardLostBadge,
   CategoryBadges,
-  DoNotCallBadge,
+  ListDoNotCallBadge as DoNotCallBadge,
   NewNoteBadge,
   PrintedCardBadge,
   RequestBadge,
@@ -68,6 +70,8 @@ type TerritoryTableProps = {
   title?: string;
   selectionBar?: ReactNode;
   layoutSwitch?: ReactNode;
+  selecting?: boolean;
+  onSelectingChange?: (value: boolean) => void;
 };
 
 type SortKey =
@@ -296,8 +300,25 @@ const TerritoryTable = ({
   title,
   selectionBar,
   layoutSwitch,
+  selecting = false,
+  onSelectingChange,
 }: TerritoryTableProps) => {
-  const { tablet688Up, laptopUp } = useBreakpoints();
+  const { tablet688Up, tablet600Up, laptopUp } = useBreakpoints();
+  const phone = !tablet600Up;
+  const selectionMode = selecting || checked.size > 0;
+  const showCheckboxes = !phone || selectionMode;
+  const longPress = usePhoneSelection(phone && actions, (id) => {
+    if (!checked.has(id)) onCheck(id);
+  });
+  const selectionSlot = {
+    display: 'grid',
+    gridTemplateColumns: showCheckboxes ? '1fr' : '0fr',
+    opacity: showCheckboxes ? 1 : 0,
+    marginRight: showCheckboxes ? (tablet688Up ? '12px' : '8px') : 0,
+    transition:
+      'grid-template-columns 150ms ease, opacity 150ms ease, margin-right 150ms ease',
+    '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+  };
 
   const me = useAtomValue(currentPublisherState);
 
@@ -384,22 +405,29 @@ const TerritoryTable = ({
   const someChecked = sorted.some((territory) => checked.has(territory.id));
 
   const heading = title && (
-    <Typography className="h3" noWrap>
-      {title}
+    <Typography
+      component={actions ? 'div' : 'h2'}
+      className={actions ? 'h3' : 'h2'}
+      noWrap={actions}
+    >
+      {phone && checked.size > 0
+        ? tx('Selected: {{n}}', { n: checked.size })
+        : title}
     </Typography>
   );
 
   if (territories.length === 0) {
     return (
-      <Stack spacing="16px" sx={{ paddingTop: '16px' }}>
+      <Stack spacing="12px" sx={{ paddingTop: actions ? '16px' : 0 }}>
         {heading}
+        {actions && selectionBar}
         <InfoNote message={emptyMessage} />
       </Stack>
     );
   }
 
   return (
-    <Stack spacing="4px">
+    <Stack spacing={actions ? '4px' : '12px'}>
       <Stack
         direction="row"
         sx={{
@@ -407,10 +435,10 @@ const TerritoryTable = ({
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '12px',
-          padding: '12px 8px 8px',
+          padding: actions ? '12px 8px 8px' : 0,
         }}
       >
-        {actions && (
+        {actions && showCheckboxes && (
           <Checkbox
             sx={{ padding: 0, margin: 0 }}
             checked={allChecked}
@@ -421,13 +449,38 @@ const TerritoryTable = ({
 
         <Stack
           direction="row"
-          sx={{ alignItems: 'center', gap: '4px', flexGrow: 1, minWidth: 0 }}
+          sx={{
+            alignItems: 'center',
+            gap: '4px',
+            flexGrow: 1,
+            minWidth: 0,
+            minHeight: actions ? '40px' : undefined,
+          }}
         >
           {heading}
           {sortButton}
         </Stack>
 
-        {actions && someChecked && selectionBar}
+        {actions && phone && !selectionMode && (
+          <Button
+            variant="small"
+            disableAutoStretch
+            onClick={() => onSelectingChange?.(true)}
+            ariaLabel={tx('Select territories')}
+          >
+            {tx('Select')}
+          </Button>
+        )}
+        {actions && phone && selectionMode && checked.size === 0 && (
+          <Button
+            variant="small"
+            disableAutoStretch
+            onClick={() => onSelectingChange?.(false)}
+          >
+            {tx('Cancel')}
+          </Button>
+        )}
+        {actions && selectionBar}
 
         {layoutSwitch}
       </Stack>
@@ -442,44 +495,72 @@ const TerritoryTable = ({
             direction="row"
             // tighter on a phone, where every pixel goes to the name
             spacing={tablet688Up ? '12px' : '8px'}
-            {...clickableRow(() => onOpen(territory.id))}
+            {...clickableRow(() => {
+              if (longPress.consumeClick(territory.id)) return;
+              if (phone && actions && selectionMode) onCheck(territory.id);
+              else onOpen(territory.id);
+            })}
+            {...longPress.handlers(territory.id)}
             sx={{
               alignItems: 'center',
               padding: '8px',
               borderRadius: 'var(--radius-m)',
               ...rowStates(checked.has(territory.id)),
+              ...(phone &&
+                actions && { userSelect: 'none', WebkitTouchCallout: 'none' }),
             }}
           >
             {actions && (
-              <Checkbox
-                stopPropagation
-                sx={{ padding: 0, margin: 0 }}
-                checked={checked.has(territory.id)}
-                onChange={() => onCheck(territory.id)}
-              />
+              <Box
+                sx={{
+                  ...selectionSlot,
+                  '&&': { marginLeft: 0 },
+                  flexShrink: 0,
+                }}
+                aria-hidden={!showCheckboxes}
+              >
+                <Box sx={{ overflow: 'hidden', minWidth: 0 }}>
+                  <Checkbox
+                    stopPropagation
+                    disabled={!showCheckboxes}
+                    sx={{ padding: 0, margin: 0 }}
+                    checked={checked.has(territory.id)}
+                    onChange={() => onCheck(territory.id)}
+                  />
+                </Box>
+              </Box>
             )}
 
-            {/* same line gap as the name column, so both lines sit level with it */}
-            <Stack
-              spacing="4px"
-              sx={{ width: tablet688Up ? '48px' : '40px', flexShrink: 0 }}
-            >
-              <Typography
-                className="body-small-semibold"
-                color="var(--black)"
-                sx={{ fontVariantNumeric: 'tabular-nums' }}
+            {/* Compact personal lists share the history layout on phones. */}
+            {(tablet688Up || actions) && (
+              <Stack
+                spacing="4px"
+                sx={{
+                  width: tablet688Up ? '48px' : '40px',
+                  flexShrink: 0,
+                  ...(actions && { '&&': { marginLeft: 0 } }),
+                }}
               >
-                {territory.number}
-              </Typography>
-              {showHouseholds && <Households count={territory.households} />}
-            </Stack>
+                <Typography
+                  className="body-small-semibold"
+                  color="var(--black)"
+                  sx={{ fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {territory.number}
+                </Typography>
+                {showHouseholds && <Households count={territory.households} />}
+              </Stack>
+            )}
 
             <Stack spacing="4px" sx={{ flexGrow: 1, minWidth: 0 }}>
               <TruncatedText
                 className="body-small-semibold"
-                text={[territory.city, territory.name]
+                text={[
+                  !tablet688Up && !actions && territory.number,
+                  [territory.city, territory.name].filter(Boolean).join(' • '),
+                ]
                   .filter(Boolean)
-                  .join(' • ')}
+                  .join(' ')}
               />
 
               <Stack
@@ -491,6 +572,9 @@ const TerritoryTable = ({
                   minWidth: 0,
                 }}
               >
+                {!tablet688Up && !actions && showHouseholds && (
+                  <Households count={territory.households} />
+                )}
                 <StatusLine territory={territory} showHolder={showHolder} />
 
                 {!laptopUp && (

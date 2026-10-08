@@ -4,24 +4,7 @@ import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { t } from '../i18n';
 
-type Ask = {
-  title: string;
-  description: string;
-  action: string;
-  resolve: (ok: boolean) => void;
-};
-
-let show: ((ask: Ask) => void) | undefined;
-
-/**
- * The app's own dialog for a yes/no question. The WebView's window.confirm
- * draws Android's oldest dialog style.
- */
-export const confirm = (question: Omit<Ask, 'resolve'>) =>
-  new Promise<boolean>((resolve) => {
-    if (!show) return resolve(window.confirm(question.description));
-    show({ ...question, resolve });
-  });
+import { Ask, subscribeConfirmation } from './confirm';
 
 export const ConfirmHost = () => {
   const [ask, setAsk] = useState<Ask | null>(null);
@@ -29,13 +12,10 @@ export const ConfirmHost = () => {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    show = (next) => {
+    return subscribeConfirmation((next) => {
       setAsk(next);
       setOpen(true);
-    };
-    return () => {
-      show = undefined;
-    };
+    });
   }, []);
 
   const answer = (ok: boolean) => {

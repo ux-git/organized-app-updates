@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { loadIdentity } from '../../persistence';
 import { NearbyStatus } from '../useNearby';
 import { assignmentIssues } from '@features/territories/helpers';
@@ -42,6 +43,8 @@ const withDateIssues = async (numbers: string[]) => {
 
 /** A sync finished while the app is open: a vibration and a message. */
 const useSyncFeedback = () => {
+  const navigate = useNavigate();
+
   useEffect(() => {
     const stop = listen<SyncResult>('synced', async (result) => {
       const header = t('result.syncedWith', {
@@ -52,17 +55,25 @@ const useSyncFeedback = () => {
       ).catch(() => []);
       // with the message, not before the store is read
       play('synced');
-      if (flagged.length) {
-        notify(
-          header,
-          t('result.dateIssues', {
+      const dates = flagged.length
+        ? t('result.dateIssues', {
             count: flagged.length,
             numbers: list(
               flagged.map((number) => t('result.number', { number }))
             ),
-          }),
-          'error'
-        );
+          })
+        : '';
+      if (result.conflicts) {
+        // both sides changed: leads to that sync's changes, to pick each one
+        const text = [dates, describeSync(result)].filter(Boolean).join(' ');
+        notify(header, text, 'message-with-button', {
+          text: t('changes.reviewAction', { count: result.conflicts }),
+          onClick: () => navigate(`/settings/sync?review=${result.peer ?? ''}`),
+        });
+        return;
+      }
+      if (dates) {
+        notify(header, dates, 'error');
         return;
       }
       notify(header, describeSync(result));
@@ -70,7 +81,7 @@ const useSyncFeedback = () => {
     return () => {
       stop.then((unlisten) => unlisten());
     };
-  }, []);
+  }, [navigate]);
 
   // a sync stopped for a reason someone can act on: a removal from the
   // group, an app too old, a pairing only one device still has

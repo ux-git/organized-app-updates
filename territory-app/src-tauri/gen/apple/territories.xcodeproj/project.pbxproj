@@ -19,7 +19,6 @@
 		89D42DDE3ADC500419447E0B /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 968CC9295541EA2DD6136CC9 /* AppIcon.icon */; };
 		8AED47094F07D8D65D046AA7 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6C55F2C0538615E347C9D1B0 /* LaunchScreen.storyboard */; };
 		8D760DCCC16CF9BE22AEA30A /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B7774E45514DB5013BB9F54 /* CoreGraphics.framework */; };
-		92FC8334F03BB946AC6187E2 /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = 076B52A2A3BCE10143BE8EE4 /* libapp.a */; };
 		95E566CED454BBDACBA23CE1 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = C5817277C72CB922577E52E6 /* main.mm */; };
 		B098E8A7D6D9C975123F90DB /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3B74D8DB256A06DA40F0A0B /* WebKit.framework */; };
 		D97A7E922B95E8E307228D73 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 549CDAACD33FC41F54A8AA59 /* assets */; };
@@ -282,7 +281,6 @@
 				8AED47094F07D8D65D046AA7 /* LaunchScreen.storyboard in Resources */,
 				32543E849443ED13B94EF41E /* Localizable.strings in Resources */,
 				D97A7E922B95E8E307228D73 /* assets in Resources */,
-				92FC8334F03BB946AC6187E2 /* libapp.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

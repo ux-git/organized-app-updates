@@ -83,9 +83,14 @@ object Nearby {
 
   /** The name a phone shows in Meet: what fits in the advertisement. */
   fun meetPayload(): ByteArray {
-    var name = summary().optString("name").ifBlank { Build.MODEL }
-    while (name.toByteArray(Charsets.UTF_8).size > PAYLOAD_MAX - 1) name = name.dropLast(1)
-    return byteArrayOf(KIND_MEET) + name.toByteArray(Charsets.UTF_8)
+    val profile = summary()
+    var name = profile.optString("name").ifBlank { Build.MODEL }
+    val code = profile.optInt("avatarCode")
+    val suffix = if (code in 1..255) "~" + code.toString(16).padStart(2, '0') else ""
+    while (name.toByteArray(Charsets.UTF_8).size > PAYLOAD_MAX - 1 - suffix.length) {
+      name = name.dropLast(Character.charCount(name.codePointBefore(name.length)))
+    }
+    return byteArrayOf(KIND_MEET) + (name + suffix).toByteArray(Charsets.UTF_8)
   }
 
   fun beaconPayload(): ByteArray = byteArrayOf(KIND_BEACON) + Native.beacon()

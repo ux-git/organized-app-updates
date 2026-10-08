@@ -5,12 +5,10 @@ import CardBack from '../shared/CardBack';
 import CardFront from '../shared/CardFront';
 import { tx } from '@services/i18n/translation';
 
-const CUT = '0.5px dashed #BDBDBD';
+import { A5_HORIZONTAL } from '../geometry';
 
-const WIDTH = 575;
-// two halves of an A4 sheet, cut along the middle; a couple of points are
-// left over so a wrapped line can never push the card onto a second page
-const HALF = 400;
+const WIDTH = A5_HORIZONTAL.width;
+const HALF = A5_HORIZONTAL.height;
 
 const TemplateTerritoryCard = ({
   territories,
@@ -26,11 +24,9 @@ const TemplateTerritoryCard = ({
           size="A4"
           style={{
             backgroundColor: '#FFFFFF',
-            paddingLeft: 10,
-            paddingTop: 10,
           }}
         >
-          <View style={{ border: CUT }}>
+          <View wrap={false} style={{ position: 'relative', width: WIDTH }}>
             {parts.front && (
               <CardFront territory={territory} width={WIDTH} height={HALF} />
             )}
@@ -40,7 +36,6 @@ const TemplateTerritoryCard = ({
                 territory={territory}
                 width={WIDTH}
                 height={HALF}
-                rowsPerColumn={11}
                 notes={territory.notes}
                 printedOn={printedOn}
               />

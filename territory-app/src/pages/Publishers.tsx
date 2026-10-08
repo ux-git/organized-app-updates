@@ -1,11 +1,21 @@
+import Badge from '@components/badge';
+import { exportFile } from '@services/files/export';
+import importExample from '../publisher-import-example.json';
+import { tx } from '@services/i18n/translation';
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
-import { Box, Stack } from '@mui/material';
+import { Box, Menu, Stack } from '@mui/material';
+import { useNavigate, useParams } from 'react-router';
+import MenuItem from '@components/menuitem';
+import WaitingLoader from '@components/waiting_loader';
+import PublisherTerritories from './PublisherTerritories';
+import { sortPublishers, type PublisherSort } from '../publisherView';
 import {
   IconAdd,
   IconChevronRight,
   IconDelete,
   IconImportExport,
+  IconSortDown,
 } from '@icons/index';
 import Button from '@components/button';
 import Checkbox from '@components/checkbox';
@@ -27,8 +37,7 @@ import {
 } from '@features/congregation/settings/shared_styles';
 import EditorHeader from '@features/territories/components/editor_header';
 import { HOVER_ACTIONS } from '@features/territories/components/table_styles';
-import { useBreakpoints } from '@hooks/index';
-import { territoriesState } from '@states/territories';
+import { useBreakpoints, useAppTranslation } from '@hooks/index';
 import {
   applyImport,
   ImportPlan,
@@ -45,12 +54,12 @@ import {
   writeRows,
 } from '../persistence';
 import { linkedDevices, linksState } from '../profiles';
-import { play, toggled } from '../haptics';
-import { confirm } from './confirm';
-import { list, t } from '../i18n';
+import { toggled } from '../haptics';
+import ManagePublisher from './ManagePublisher';
+import { t } from '../i18n';
 import { count, notify } from './sync/text';
 import { Actions, Avatar } from './sync/parts';
-import usePeople from './usePeople';
+import { usePeopleList } from './usePeople';
 
 const failed = (error: unknown) => {
   console.error('publishers: saving failed', error);
@@ -91,6 +100,23 @@ const ImportDialog = ({
     } catch (error) {
       console.error('publishers: reading the backup failed', error);
       notify(t('common.somethingWrong'), t('publishers.notBackup'), 'error');
+    }
+  };
+
+  const downloadExample = async () => {
+    try {
+      await exportFile(
+        new Blob([JSON.stringify(importExample, null, 2) + '\n'], {
+          type: 'application/json',
+        }),
+        'publishers-example.json'
+      );
+    } catch {
+      notify(
+        t('common.somethingWrong'),
+        t('publishers.exampleFailed'),
+        'error'
+      );
     }
   };
 
@@ -194,6 +220,9 @@ const ImportDialog = ({
         <Button variant="tertiary" onClick={() => fileInput.current?.click()}>
           {t('publishers.chooseBackup')}
         </Button>
+        <Button variant="tertiary" onClick={downloadExample}>
+          {t('publishers.example')}
+        </Button>
         <input
           ref={fileInput}
           type="file"
@@ -229,11 +258,13 @@ const NameDialog = ({
   people,
   onClose,
   onRemove,
+  onMerge,
 }: {
   person: Person | 'new' | null;
   people: Person[];
   onClose: VoidFunction;
   onRemove?: VoidFunction;
+  onMerge?: VoidFunction;
 }) => {
   const existing = person && person !== 'new' ? person : null;
   const links = useAtomValue(linksState);
@@ -317,6 +348,11 @@ const NameDialog = ({
           })}
         />
       )}
+      {existing && (
+        <Button variant="tertiary" onClick={onMerge} disabled={busy}>
+          {tx('Merge duplicate')}
+        </Button>
+      )}
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
           {t('common.cancel')}
@@ -336,67 +372,83 @@ const NameDialog = ({
 // the settings page names it; it adds its own Import and Add buttons
 const Publishers = ({ title }: { title: NavBarOptionsType }) => {
   const { tablet688Up } = useBreakpoints();
-  const people = usePeople();
-  const links = useAtomValue(linksState);
-  const territories = useAtomValue(territoriesState);
+  const { people, loading } = usePeopleList();
+  const { t: translate, i18n } = useAppTranslation();
+  const navigate = useNavigate();
+  const { publisherId } = useParams();
+  const person = people.find((item) => item.id === publisherId);
+  const [sort, setSort] = useState<PublisherSort>('first');
+  const [sortMenu, setSortMenu] = useState<HTMLElement | null>(null);
+
   const [search, setSearch] = useState('');
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Person | 'new' | null>(null);
 
   const [groups, publishers] = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    const shown = people
-      .filter((person) => person.name.toLocaleLowerCase().includes(query))
-      .sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { numeric: true })
-      );
+    const shown = sortPublishers(
+      people.filter((person) =>
+        person.name.toLocaleLowerCase().includes(query)
+      ),
+      sort,
+      i18n.language === 'deu' ? 'de' : 'en'
+    );
     return [
       shown.filter((person) => person.group),
       shown.filter((person) => !person.group),
     ];
-  }, [people, search]);
+  }, [people, search, sort, i18n.language]);
 
-  const remove = async (person: Person) => {
-    const linked = person.group ? 0 : linkedDevices(person.id, links);
-    const held = territories
-      .filter((territory) => territory.holder === person.name)
-      .map((territory) => territory.number)
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    const ok = await confirm({
-      title: t('publishers.removeTitle', { name: person.name }),
-      description: [
-        held.length > 0 && t('publishers.holds', { territories: list(held) }),
-        t('publishers.removeText'),
-        linked > 0 &&
-          t('publishers.linkedDevices', { devices: count(linked, 'phones') }),
-      ]
-        .filter(Boolean)
-        .join(' '),
-      action: t('common.remove'),
-    });
-    if (!ok) return false;
-    play('remove');
-    try {
-      await writeRows([{ table: PEOPLE, id: person.id, deleted: true }]);
-      await loadPeople();
-    } catch (error) {
-      failed(error);
-    }
-    return true;
+  const [managing, setManaging] = useState<{
+    person: Person;
+    mode: 'remove' | 'merge';
+  } | null>(null);
+  const remove = (person: Person) => {
+    setEditing(null);
+    setManaging({ person, mode: 'remove' });
   };
 
-  const section = (title: string, list: Person[]) =>
+  const section = (title: string, list: Person[], sortable = false) =>
     list.length > 0 && (
       <CardSection>
-        <CardSectionHeader title={`${title} (${list.length})`} />
+        <Stack direction="row" sx={{ alignItems: 'center', gap: '8px' }}>
+          <Typography component="h2" className="h2">
+            {title}
+          </Typography>
+          <Badge size="small" color="accent" text={String(list.length)} />
+          {sortable && (
+            <IconButton
+              aria-label={translate('tr_publisherSort')}
+              aria-haspopup="menu"
+              aria-expanded={!!sortMenu}
+              onClick={(event) => setSortMenu(event.currentTarget)}
+            >
+              <IconSortDown color="var(--black)" />
+            </IconButton>
+          )}
+        </Stack>
         <Stack spacing="2px">
           {list.map((person) => (
             <Box
               key={person.id}
               role="button"
               tabIndex={0}
-              onClick={() => setEditing(person)}
-              onKeyDown={(event) => event.key === 'Enter' && setEditing(person)}
+              onClick={() =>
+                navigate(
+                  `/settings/publishers/${encodeURIComponent(person.id)}`
+                )
+              }
+              onKeyDown={(event) => {
+                if (
+                  event.target === event.currentTarget &&
+                  (event.key === 'Enter' || event.key === ' ')
+                ) {
+                  event.preventDefault();
+                  navigate(
+                    `/settings/publishers/${encodeURIComponent(person.id)}`
+                  );
+                }
+              }}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -448,58 +500,108 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
 
   return (
     <>
-      <PageTitle
-        {...title}
-        buttons={
-          <NavBarButtonGroup>
-            <NavBarButton
-              text={t('publishers.importButton')}
-              icon={<IconImportExport />}
-              onClick={() => setImportOpen(true)}
-            />
-            <NavBarButton
-              text={t('publishers.addButton')}
-              icon={<IconAdd />}
-              main
-              onClick={() => setEditing('new')}
-            />
-          </NavBarButtonGroup>
-        }
-      />
-
-      {people.length === 0 ? (
-        <CardSection>
-          <CardSectionHeader
-            title={t('publishers.none')}
-            description={t('publishers.noneText')}
+      {publisherId ? (
+        person ? (
+          <PublisherTerritories
+            person={person}
+            onEdit={() => setEditing(person)}
           />
-          <Actions
-            actions={[
-              {
-                label: t('publishers.import'),
-                kind: 'main',
-                onClick: () => setImportOpen(true),
-              },
-            ]}
-          />
-        </CardSection>
+        ) : loading ? (
+          <WaitingLoader type="lottie" />
+        ) : (
+          <>
+            <PageTitle
+              {...title}
+              onBack={() => navigate('/settings/publishers')}
+            />
+            <InfoNote message={translate('tr_publisherNotFound')} />
+          </>
+        )
       ) : (
         <>
-          <SearchBar
-            placeholder={t('publishers.search')}
-            value={search}
-            onSearch={setSearch}
+          <PageTitle
+            {...title}
+            buttons={
+              <NavBarButtonGroup>
+                <NavBarButton
+                  text={t('publishers.importButton')}
+                  icon={<IconImportExport />}
+                  onClick={() => setImportOpen(true)}
+                />
+                <NavBarButton
+                  text={t('publishers.addButton')}
+                  icon={<IconAdd />}
+                  main
+                  onClick={() => setEditing('new')}
+                />
+              </NavBarButtonGroup>
+            }
           />
-          {section(t('publishers.groups'), groups)}
-          {section(t('publishers.publishers'), publishers)}
-          {groups.length + publishers.length === 0 && (
-            <Typography className="body-regular" color="var(--grey-400)">
-              {t('publishers.noMatch')}
-            </Typography>
+
+          {people.length === 0 ? (
+            <CardSection>
+              <CardSectionHeader
+                title={t('publishers.none')}
+                description={t('publishers.noneText')}
+              />
+              <Actions
+                actions={[
+                  {
+                    label: t('publishers.import'),
+                    kind: 'main',
+                    onClick: () => setImportOpen(true),
+                  },
+                ]}
+              />
+            </CardSection>
+          ) : (
+            <>
+              <SearchBar
+                placeholder={t('publishers.search')}
+                value={search}
+                onSearch={setSearch}
+              />
+              <Menu
+                anchorEl={sortMenu}
+                open={!!sortMenu}
+                onClose={() => setSortMenu(null)}
+              >
+                {(['first', 'last'] as const).map((value) => (
+                  <MenuItem
+                    key={value}
+                    selected={sort === value}
+                    onClick={() => {
+                      setSort(value);
+                      setSortMenu(null);
+                    }}
+                  >
+                    {translate(
+                      value === 'first'
+                        ? 'tr_publisherSortFirst'
+                        : 'tr_publisherSortLast'
+                    )}
+                  </MenuItem>
+                ))}
+              </Menu>
+              {section(t('publishers.groups'), groups)}
+              {section(t('publishers.publishers'), publishers, true)}
+              {groups.length + publishers.length === 0 && (
+                <Typography className="body-regular" color="var(--grey-400)">
+                  {t('publishers.noMatch')}
+                </Typography>
+              )}
+            </>
           )}
         </>
       )}
-
+      {managing && (
+        <ManagePublisher
+          person={managing.person}
+          initialMode={managing.mode}
+          people={people}
+          onClose={() => setManaging(null)}
+        />
+      )}
       <ImportDialog
         open={importOpen}
         people={people}
@@ -509,12 +611,16 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
         person={editing}
         people={people}
         onClose={() => setEditing(null)}
-        onRemove={
+        onMerge={
           editing && editing !== 'new'
-            ? async () => {
-                if (await remove(editing)) setEditing(null);
+            ? () => {
+                setManaging({ person: editing, mode: 'merge' });
+                setEditing(null);
               }
             : undefined
+        }
+        onRemove={
+          editing && editing !== 'new' ? () => remove(editing) : undefined
         }
       />
     </>

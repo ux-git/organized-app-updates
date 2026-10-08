@@ -23,6 +23,7 @@ type ProfilePictureProps = {
   /** Renders the given avatar instead of the one saved by the user. */
   type?: AvatarType;
   alt?: string;
+  initials?: string;
 };
 
 const AccountPhoto = ({
@@ -54,10 +55,12 @@ const ProfilePicture = ({
   size = 24,
   type,
   alt = 'Avatar',
+  initials: initialsOverride,
 }: ProfilePictureProps) => {
   const savedType = useAtomValue(userAvatarTypeState);
   const avatarBuffer = useAtomValue(userAvatarState);
-  const initials = useAtomValue(userInitialsState);
+  const savedInitials = useAtomValue(userInitialsState);
+  const initials = initialsOverride ?? savedInitials;
 
   const avatarType = type ?? savedType;
 

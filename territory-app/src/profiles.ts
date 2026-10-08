@@ -1,5 +1,17 @@
 import { atom } from 'jotai';
 import type { Person } from './persistence';
+import avatarTypes from './avatar-types.json';
+import {
+  AVATAR_IMAGE_NAMES,
+  AVATAR_ICON_NAMES,
+  AvatarType,
+} from '@definition/settings';
+
+export const isProfilePicture = (value: unknown): value is AvatarType =>
+  typeof value === 'string' &&
+  ['default', 'initials', ...AVATAR_ICON_NAMES, ...AVATAR_IMAGE_NAMES].includes(
+    value
+  );
 
 // Each device's picture and publisher, by device id, from the synced
 // "profiles" table
@@ -43,7 +55,8 @@ export const avatarsFrom = (rows: { id: string; avatar?: unknown }[]) =>
     rows
       .filter(
         (row) =>
-          typeof row.avatar === 'string' && row.avatar.startsWith('data:image/')
+          typeof row.avatar === 'string' &&
+          (isProfilePicture(row.avatar) || row.avatar.startsWith('data:image/'))
       )
       .map((row) => [row.id, row.avatar as string])
   );
@@ -60,31 +73,12 @@ export const bufferOf = (dataUrl: string) => {
   return Uint8Array.from(bytes, (char) => char.charCodeAt(0)).buffer;
 };
 
-/** The square middle of a photo, `size` px wide, as a small data URL. */
-export const pictureFrom = async (file: Blob, size = 128) => {
-  const image = await createImageBitmap(file);
-  const side = Math.min(image.width, image.height);
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('no canvas');
-  context.imageSmoothingQuality = 'high';
-  context.drawImage(
-    image,
-    (image.width - side) / 2,
-    (image.height - side) / 2,
-    side,
-    side,
-    0,
-    0,
-    size,
-    size
-  );
-  image.close();
-  // Safari before 17 can't encode WebP and hands back a PNG instead
-  const webp = canvas.toDataURL('image/webp', 0.8);
-  return webp.startsWith('data:image/webp')
-    ? webp
-    : canvas.toDataURL('image/jpeg', 0.8);
+/** The optional suffix fits in a Bluetooth scan response; old names still work. */
+export const nearbyProfile = (
+  name: string
+): { name: string; avatar?: string } => {
+  const match = /~([0-9a-f]{2})$/i.exec(name);
+  if (!match) return { name };
+  const avatar = avatarTypes[parseInt(match[1], 16) - 1];
+  return avatar ? { name: name.slice(0, -3), avatar } : { name };
 };

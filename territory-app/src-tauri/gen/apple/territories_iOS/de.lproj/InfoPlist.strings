@@ -1,7 +1,7 @@
 "CFBundleDisplayName" = "Gebiete";
 "CFBundleName" = "Gebiete: Organized";
 "NSBluetoothAlwaysUsageDescription" = "Findet deine gekoppelten Geräte in der Nähe und synchronisiert die Gebiete direkt mit ihnen, ohne Internet.";
-"NSLocalNetworkUsageDescription" = "Findet deine gekoppelten Geräte im selben WLAN und synchronisiert die Gebiete mit ihnen, wenn Bluetooth sie nicht erreicht.";
+"NSLocalNetworkUsageDescription" = "Koppelt und synchronisiert deine Geräte im selben WLAN, wenn Bluetooth sie nicht erreicht. Nichts geht über das Internet.";
 "NSLocationWhenInUseUsageDescription" = "Speichert, wo der Königreichssaal ist. Der Standort bleibt auf diesem Gerät.";
 "NSLocationAlwaysAndWhenInUseUsageDescription" = "Bemerkt, wenn du am Königreichssaal ankommst oder ein gekoppeltes Gerät in der Nähe ist, damit dein Gerät von selbst synchronisiert. Der Standort bleibt auf diesem Gerät.";
 "NSCameraUsageDescription" = "Scannt die QR-Codes zum Koppeln und Übertragen von einem anderen Gerät.";

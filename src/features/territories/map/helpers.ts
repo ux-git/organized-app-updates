@@ -6,17 +6,68 @@ import {
   MapColor,
   Territory,
   TerritoryBoundary,
+  TerritoryMapLine,
   TerritoryMapMarker,
 } from '@definition/territory';
+import { mapDetail } from '@services/maps/performance';
 import { MAP_COLORS, pinLabel } from './constants';
 
 // legend colors are CSS variables; maplibre needs the resolved value
 export const resolveColor = (color: string) =>
   color.startsWith('--') ? getCSSPropertyValue(color) : color;
 
+// paper is white: the colours of the light theme, whatever the app shows
+export const resolveLightColor = (color: string) => {
+  if (!color.startsWith('--')) return color;
+  const probe = document.createElement('div');
+  probe.dataset.theme = (
+    document.documentElement.dataset.theme ?? 'blue-light'
+  ).replace(/-dark$/, '-light');
+  probe.style.display = 'none';
+  document.body.appendChild(probe);
+  const value = getComputedStyle(probe).getPropertyValue(color).trim();
+  probe.remove();
+  return value || resolveColor(color);
+};
+
 // a border has no transparent option, and an empty fill leaves the area unfilled
 export const drawnColor = (color: MapColor | 'transparent') =>
   color === 'transparent' ? '' : MAP_COLORS[color];
+
+// Consecutive duplicates or micro-steps (< 1e-6 deg, approx 10cm) cause zero-length
+// segments in WebGL line tessellation, dividing by zero in miter/normal calculations.
+export const sanitizeCoordinates = <
+  T extends [number, number] | GeoJSON.Position,
+>(
+  coords: T[]
+): T[] => {
+  if (coords.length < 2) return coords;
+  const result: T[] = [coords[0]];
+  for (let i = 1; i < coords.length; i++) {
+    const prev = result[result.length - 1];
+    const curr = coords[i];
+    if (
+      Math.abs(curr[0] - prev[0]) > 1e-6 ||
+      Math.abs(curr[1] - prev[1]) > 1e-6
+    ) {
+      result.push(curr);
+    }
+  }
+  return result;
+};
+
+export const sanitizeBoundary = (
+  boundary: TerritoryBoundary
+): TerritoryBoundary => {
+  const cleaned = sanitizeCoordinates(boundary);
+  if (cleaned.length < 3) return boundary;
+  const first = cleaned[0];
+  const last = cleaned[cleaned.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    cleaned.push(first);
+  }
+  return cleaned as TerritoryBoundary;
+};
 
 type BoundaryFeature = GeoJSON.Feature<GeoJSON.Polygon>;
 
@@ -27,22 +78,30 @@ const boundaryFeature = (
     fill?: string;
     detail: string;
     selected: boolean;
+    sanitize?: boolean;
   }
-): BoundaryFeature => ({
-  type: 'Feature',
-  id: territory.id,
-  properties: {
+): BoundaryFeature => {
+  const boundary =
+    options.sanitize && territory.boundary
+      ? sanitizeBoundary(territory.boundary)
+      : (territory.boundary ?? []);
+
+  return {
+    type: 'Feature',
     id: territory.id,
-    number: territory.number,
-    households: territory.households,
-    selected: options.selected,
-    detail: options.detail,
-    color: options.color,
-    fill: options.fill || options.color,
-    filled: options.fill !== '',
-  },
-  geometry: { type: 'Polygon', coordinates: [territory.boundary ?? []] },
-});
+    properties: {
+      id: territory.id,
+      number: territory.number,
+      households: territory.households,
+      selected: options.selected,
+      detail: options.detail,
+      color: options.color,
+      fill: options.fill || options.color,
+      filled: options.fill !== '',
+    },
+    geometry: { type: 'Polygon', coordinates: [boundary] },
+  };
+};
 
 export const boundaryCollection = (
   territories: Territory[],
@@ -53,23 +112,29 @@ export const boundaryCollection = (
     detailOf: (territory: Territory) => string;
     selectedId?: string;
     hiddenId?: string;
+    sanitize?: boolean;
   }
-): GeoJSON.FeatureCollection<GeoJSON.Polygon> => ({
-  type: 'FeatureCollection',
-  features: territories
-    .filter(
-      (territory) =>
-        territory.boundary?.length && territory.id !== options.hiddenId
-    )
-    .map((territory) =>
-      boundaryFeature(territory, {
-        color: options.colorOf(territory),
-        fill: options.fillOf?.(territory),
-        detail: options.detailOf(territory),
-        selected: territory.id === options.selectedId,
-      })
-    ),
-});
+): GeoJSON.FeatureCollection<GeoJSON.Polygon> => {
+  const shouldSanitize = options.sanitize ?? mapDetail().sanitizeGeometry;
+
+  return {
+    type: 'FeatureCollection',
+    features: territories
+      .filter(
+        (territory) =>
+          territory.boundary?.length && territory.id !== options.hiddenId
+      )
+      .map((territory) =>
+        boundaryFeature(territory, {
+          color: options.colorOf(territory),
+          fill: options.fillOf?.(territory),
+          detail: options.detailOf(territory),
+          selected: territory.id === options.selectedId,
+          sanitize: shouldSanitize,
+        })
+      ),
+  };
+};
 
 export const boundaryBounds = (boundary: TerritoryBoundary) =>
   boundary.reduce(
@@ -117,33 +182,51 @@ export const toBoundary = (
   return ring;
 };
 
+export const lineColor = (line: Pick<TerritoryMapLine, 'style' | 'color'>) =>
+  line.color ?? (line.style === 'dashed' ? 'red' : 'blue');
+
 export const lineCollection = (
   territories: Territory[],
-  selectedId?: string
-): GeoJSON.FeatureCollection<GeoJSON.LineString> => ({
-  type: 'FeatureCollection',
-  features: territories.flatMap((territory) =>
-    (territory.mapLines ?? []).map((line) => ({
-      type: 'Feature' as const,
-      id: line.id,
-      properties: {
-        style: line.style,
-        territory: territory.id,
-        selected: territory.id === selectedId,
-        // the dashes show together with the territory's number
-        labelZoom:
-          (territory.boundary?.length ?? 0) > 2
-            ? labelZoom(
-                territory.boundary!,
-                numberBox(String(territory.number ?? '')),
-                0
-              )
-            : 0,
-      },
-      geometry: { type: 'LineString' as const, coordinates: line.path },
-    }))
-  ),
-});
+  selectedId?: string,
+  options?: { sanitize?: boolean }
+): GeoJSON.FeatureCollection<GeoJSON.LineString> => {
+  const shouldSanitize = options?.sanitize ?? mapDetail().sanitizeGeometry;
+
+  return {
+    type: 'FeatureCollection',
+    features: territories.flatMap((territory) =>
+      (territory.mapLines ?? []).flatMap((line) => {
+        const path = shouldSanitize
+          ? sanitizeCoordinates(line.path)
+          : line.path;
+        if (path.length < 2) return [];
+
+        return [
+          {
+            type: 'Feature' as const,
+            id: line.id,
+            properties: {
+              style: line.style,
+              color: MAP_COLORS[lineColor(line)],
+              territory: territory.id,
+              selected: territory.id === selectedId,
+              // the dashes show together with the territory's number
+              labelZoom:
+                (territory.boundary?.length ?? 0) > 2
+                  ? labelZoom(
+                      territory.boundary!,
+                      numberBox(String(territory.number ?? '')),
+                      0
+                    )
+                  : 0,
+            },
+            geometry: { type: 'LineString' as const, coordinates: path },
+          },
+        ];
+      })
+    ),
+  };
+};
 
 export const shapeCollection = (
   territories: Territory[]
@@ -157,14 +240,29 @@ export const shapeCollection = (
         fill: shape.fill === 'transparent' ? '' : MAP_COLORS[shape.fill],
         border: shape.border === 'transparent' ? '' : MAP_COLORS[shape.border],
         label: shape.label ?? '',
+        dashed: !!shape.dashed,
       },
       geometry: { type: 'Polygon' as const, coordinates: [shape.path] },
     }))
   ),
 });
 
+// each part's letter with the border it shows inside
+export const letterFrames = (territories: Territory[]) =>
+  new Map(
+    territories.flatMap((territory) =>
+      (territory.mapMarkers ?? [])
+        .filter(isAreaLetter)
+        .map((item) => [item.id, territory.boundary ?? []] as const)
+    )
+  );
+
 export const allMarkers = (territories: Territory[]): TerritoryMapMarker[] =>
   territories.flatMap((territory) => territory.mapMarkers ?? []);
+
+// a part's letter (A, B, C) is read with the whole territory in view
+export const isAreaLetter = (item: TerritoryMapMarker) =>
+  item.kind === 'text' && /^[A-Z]{1,2}$/.test(item.text ?? '');
 
 export const chip = (item: TerritoryMapMarker) => ({
   background: MAP_COLORS[item.color ?? (item.kind === 'text' ? 'red' : 'blue')],
@@ -451,8 +549,18 @@ export const CAPTION_TEXT_SIZE: maplibregl.ExpressionSpecification = [
 export const labelOpacity = (
   opacity: number,
   from: 'labelZoom' | 'captionZoom' = 'labelZoom'
-): maplibregl.ExpressionSpecification =>
-  [
+): maplibregl.ExpressionSpecification => {
+  if (mapDetail().simpleOpacityShader) {
+    // on older mobile GPUs: a simple step avoids compiling 49 nested stops in GLSL
+    return [
+      'case',
+      ['>=', ['zoom'], ['get', from]],
+      opacity,
+      0,
+    ] as maplibregl.ExpressionSpecification;
+  }
+
+  return [
     'interpolate',
     ['linear'],
     ['zoom'],
@@ -465,6 +573,7 @@ export const labelOpacity = (
       ],
     ]),
   ] as maplibregl.ExpressionSpecification;
+};
 
 // labels too small to show yet leave room for others, the street names too
 export const LABEL_FILTER: maplibregl.FilterSpecification = [

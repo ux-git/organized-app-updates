@@ -6,6 +6,8 @@ import DialogActions from '@components/dialog_actions';
 type TerritoryDeleteProps = {
   open: boolean;
   number: string;
+  // whoever has it out now
+  holder?: string;
   onClose: VoidFunction;
   onDelete: VoidFunction;
 };
@@ -13,6 +15,7 @@ type TerritoryDeleteProps = {
 const TerritoryDelete = ({
   open,
   number,
+  holder,
   onClose,
   onDelete,
 }: TerritoryDeleteProps) => (
@@ -20,9 +23,16 @@ const TerritoryDelete = ({
     onClose={onClose}
     open={open}
     title={tx('Delete territory {{number}}?', { number })}
-    description={tx(
-      'The territory, its addresses and its assignment history will be removed. This cannot be undone.'
-    )}
+    description={
+      holder
+        ? tx(
+            '{{name}} has this territory now. The open assignment, the assignment history and the do-not-calls are removed with it. This cannot be undone.',
+            { name: holder }
+          )
+        : tx(
+            'The territory, its addresses and its assignment history will be removed. This cannot be undone.'
+          )
+    }
   >
     <DialogActions>
       <Button variant="secondary" onClick={onClose}>

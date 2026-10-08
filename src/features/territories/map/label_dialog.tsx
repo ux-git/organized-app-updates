@@ -5,19 +5,21 @@ import DialogActions from '@components/dialog_actions';
 import { tx } from '@services/i18n/translation';
 
 const LabelDialog = ({
+  initial = '',
   onSave,
   onClose,
 }: {
+  initial?: string;
   onSave: (text: string) => void;
   onClose: VoidFunction;
 }) => {
-  const [text, setText] = useState('');
+  const [text, setText] = useState(initial);
 
   return (
     <Dialog
       onClose={onClose}
       open
-      title={tx('Add text')}
+      title={initial ? tx('Edit text') : tx('Add text')}
       description={tx(
         'The note is printed on the territory card together with the map.'
       )}

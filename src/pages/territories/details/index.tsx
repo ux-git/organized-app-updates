@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Box } from '@mui/material';
 import { Navigate } from 'react-router';
-import { InfoNote } from '@components/index';
+import { Button, InfoNote } from '@components/index';
+import Dialog from '@components/dialog';
+import DialogActions from '@components/dialog_actions';
 import {
   IconCheckCircle,
   IconClose,
@@ -73,6 +75,7 @@ const TerritoryDetailsPage = () => {
     handleDelete,
     deleteOpen,
     setDeleteOpen,
+    blocker,
   } = useTerritoryDetails();
 
   const actions = useAssignReturn();
@@ -166,7 +169,7 @@ const TerritoryDetailsPage = () => {
         onClick={() => setDeleteOpen(true)}
       />
       <NavBarButton
-        text={tx('Export')}
+        text={tx('Print')}
         icon={<IconPrint />}
         onClick={() => setExportOpen(true)}
       />
@@ -201,9 +204,30 @@ const TerritoryDetailsPage = () => {
 
       <AssignReturnDialogs actions={actions} canAssign={isTerritoryEditor} />
 
+      {blocker.state === 'blocked' && (
+        <Dialog
+          onClose={blocker.reset}
+          open
+          title={tx('Discard the new territory?')}
+          description={tx(
+            'It is saved once it has a number no other territory uses.'
+          )}
+        >
+          <DialogActions>
+            <Button variant="secondary" onClick={blocker.reset}>
+              {tx('Keep editing')}
+            </Button>
+            <Button variant="main" color="red" onClick={blocker.proceed}>
+              {tx('Discard')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
       <TerritoryDelete
         open={deleteOpen}
         number={territory.number}
+        holder={territory.holder}
         onClose={() => setDeleteOpen(false)}
         onDelete={handleDelete}
       />

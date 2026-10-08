@@ -33,6 +33,7 @@ targets:
       - path: AppIcon.icon
         buildPhase: resources
       - path: Externals
+        excludes: ["**/*.a"]
       - path: territories_iOS
       - path: assets
         buildPhase: resources
@@ -53,8 +54,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 0.8.9
-        CFBundleVersion: "0.8.9"
+        CFBundleShortVersionString: 0.8.16
+        CFBundleVersion: "0.8.16"
         CFBundleDisplayName: Territories
         CFBundleName: "Territories: Organized"
         # Siri also understands the full name

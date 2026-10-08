@@ -10,6 +10,9 @@ import {
   Select,
   Typography,
 } from '@components/index';
+import DatePicker from '@components/date_picker';
+import Dialog from '@components/dialog';
+import DialogActions from '@components/dialog_actions';
 import { appLocaleState } from '@states/app';
 import { territoryLocalModeState } from '@states/territories';
 import { Territory, TerritoryType, TYPE_LABEL } from '@definition/territory';
@@ -23,7 +26,10 @@ import {
   campaignChoices,
   campaignLabel,
   campaignRange,
+  dateOf,
+  dayOf,
 } from '../campaign_dates';
+import { assignmentIssues, toStoredDate } from '../helpers';
 import {
   campaignEnded,
   campaignProgress,
@@ -43,6 +49,8 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
 
   const [picked, setPicked] = useState<string>();
   const [types, setTypes] = useState<TerritoryType[]>([]);
+  // set while "Return all" waits for its date
+  const [returnOn, setReturnOn] = useState<Date | null>();
 
   const choices = campaignChoices(campaigns, new Date());
   const campaign =
@@ -89,6 +97,17 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
 
     return open && campaignEnded(open, campaigns) ? [{ territory, open }] : [];
   });
+
+  const returnIssues = returnOn
+    ? stillOut.flatMap(({ open }) =>
+        assignmentIssues({
+          assignedOn: open.assignedOn,
+          returnedOn: toStoredDate(returnOn),
+        })
+      )
+    : [];
+  const returnTooEarly = returnIssues.includes('returned_before_assigned');
+  const returnFuture = returnIssues.includes('returned_future');
 
   const toggleType = (type: TerritoryType) =>
     setTypes(
@@ -236,8 +255,10 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
               variant="small"
               disableAutoStretch
               onClick={() =>
-                actions.returnMany(
-                  stillOut.map(({ territory }) => territory.id)
+                setReturnOn(
+                  campaign.end < dayOf(new Date())
+                    ? dateOf(campaign.end)
+                    : new Date()
                 )
               }
             >
@@ -289,6 +310,51 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
             ))}
           </Stack>
         </Stack>
+      )}
+
+      {returnOn !== undefined && (
+        <Dialog
+          onClose={() => setReturnOn(undefined)}
+          open
+          title={tx('Return all')}
+          description={tx(
+            'The territories still out for this campaign are returned on this date.'
+          )}
+        >
+          <DatePicker
+            label={tx('Returned on')}
+            value={returnOn}
+            error={returnTooEarly || returnFuture}
+            helperText={
+              returnTooEarly
+                ? tx('Cannot be before the assigned date')
+                : returnFuture
+                  ? tx('This date is in the future')
+                  : ''
+            }
+            onChange={(value) => setReturnOn(value)}
+          />
+
+          <DialogActions>
+            <Button variant="secondary" onClick={() => setReturnOn(undefined)}>
+              {tx('Cancel')}
+            </Button>
+            <Button
+              variant="main"
+              disabled={!returnOn || returnTooEarly || returnFuture}
+              onClick={() => {
+                if (!returnOn) return;
+                actions.returnMany(
+                  stillOut.map(({ territory }) => territory.id),
+                  returnOn
+                );
+                setReturnOn(undefined);
+              }}
+            >
+              {tx('Return')}
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
 
       <UndoSnackbar

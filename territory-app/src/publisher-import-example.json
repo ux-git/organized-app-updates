@@ -1,0 +1,37 @@
+{
+  "data": {
+    "persons": [
+      {
+        "person_uid": "example-alex",
+        "person_data": {
+          "person_firstname": {
+            "value": "Alex"
+          },
+          "person_lastname": {
+            "value": "Example"
+          }
+        }
+      },
+      {
+        "person_uid": "example-sam",
+        "person_data": {
+          "person_firstname": {
+            "value": "Sam"
+          },
+          "person_lastname": {
+            "value": "Sample"
+          }
+        }
+      }
+    ],
+    "field_service_groups": [
+      {
+        "group_id": "example-group",
+        "group_data": {
+          "name": "Example",
+          "sort_index": 0
+        }
+      }
+    ]
+  }
+}

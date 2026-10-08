@@ -5,6 +5,8 @@ import { atom } from 'jotai';
 import { atomWithDefault } from 'jotai/utils';
 import {
   DEFAULT_CATEGORIES,
+  DEFAULT_RECOMMENDATIONS,
+  MapColor,
   Territory,
   TerritoryBoundary,
   TerritoryCategoryOption,
@@ -30,12 +32,19 @@ export const congregationBoundaryState = atom<TerritoryBoundary | undefined>(
   CONGREGATION_BOUNDARY
 );
 
+// the colour of the congregation's outline, on the map and on paper
+export const congregationBorderColorState = atom<MapColor>('red');
+export const congregationBorderDashedState = atom(false);
+
 export const territoriesShowHouseholdsState = atom(true);
+export const territoriesShowDoNotCallCountState = atom(true);
+export const territoriesShowDoNotCallMapState = atom(true);
 
 // the offline territories app: one territory servant, so no requests
 export const territoryLocalModeState = atom(false);
 
 export const territoryOverdueMonthsState = atom(4);
+export const territoryRecommendationsState = atom(DEFAULT_RECOMMENDATIONS);
 
 export const territoriesWithStatusState = atom((get) =>
   withDerivedStatus(

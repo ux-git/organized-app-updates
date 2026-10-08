@@ -87,6 +87,25 @@ final class MacBridge: NSObject {
   private func command(_ name: String, _ args: [String: Any]) {
     let nearby = Nearby.shared
     switch name {
+    case "locate":
+      MapLocation.shared.request(args["id"] as? String ?? "")
+    case "exportFile":
+      let id = args["id"] as? String ?? ""
+      guard let data = Data(base64Encoded: args["base64"] as? String ?? "") else {
+        Core.emit("export-result", ["id": id, "error": "Invalid file data"]); return
+      }
+      let panel = NSSavePanel()
+      panel.nameFieldStringValue = ((args["name"] as? String ?? "territory.pdf") as NSString).lastPathComponent
+      panel.canCreateDirectories = true
+      panel.begin { response in
+        guard response == .OK, let url = panel.url else {
+          Core.emit("export-result", ["id": id, "saved": false]); return
+        }
+        do {
+          try data.write(to: url, options: .atomic)
+          Core.emit("export-result", ["id": id, "saved": true])
+        } catch { Core.emit("export-result", ["id": id, "error": error.localizedDescription]) }
+      }
     case "permissions":
       nearby.ensureLink()
       Notices.shared.ask { self.emitStatus() }
@@ -123,11 +142,9 @@ final class MacBridge: NSObject {
 
   private func showFile() {
     guard Core.hasFile else { return }
-    guard Page.ready, let webview = webview else { return }
-    webview.evaluateJavaScript("location.hash") { result, _ in
-      let hash = (result as? String ?? "").split(separator: "?").first.map(String.init)
-      if hash == "#/sync" { self.deliverFile() } else { Page.open(route: "/sync") }
-    }
+    // every page takes it in; before one has loaded, it asks (takeFile)
+    guard Page.ready, webview != nil else { return }
+    deliverFile()
   }
 
   private func deliverFile() {

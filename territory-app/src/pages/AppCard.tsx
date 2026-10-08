@@ -6,6 +6,7 @@ import {
   IconCampaign,
   IconPerson,
   IconSynced,
+  IconSettings,
 } from '@icons/index';
 import DashboardCard from '@features/dashboard/card';
 import DashboardMenu from '@features/dashboard/menu';
@@ -88,6 +89,9 @@ const AppCard = () => {
           }
           path="/settings/campaigns"
         />
+      </ListItem>
+      <ListItem disablePadding>
+        <DashboardMenu icon={<IconSettings color="var(--black)" />} primaryText={t('preferences.title')} path="/settings/preferences" />
       </ListItem>
       {android && (
         <ListItem disablePadding>

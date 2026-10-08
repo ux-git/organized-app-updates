@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Territories",
-  "version": "0.8.9",
+  "version": "0.8.16",
   "identifier": "com.sws2apps.territories",
   "build": {
     "frontendDist": "../dist",
@@ -15,8 +15,10 @@
         "title": "Territories: Organized",
         "label": "main",
         "create": false,
-        "width": 420,
+        "width": 1280,
         "height": 860,
+        "minWidth": 360,
+        "minHeight": 560,
         "useHttpsScheme": true,
         "backgroundColor": "#F8F9FF"
       }
@@ -41,6 +43,9 @@
     "iOS": {
       "minimumSystemVersion": "16.0",
       "developmentTeam": "9N9L9FKJ3U"
+    },
+    "macOS": {
+      "minimumSystemVersion": "12.0"
     }
   }
 }

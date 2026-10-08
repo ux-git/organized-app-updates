@@ -7,7 +7,8 @@ import Typography from '@components/typography';
 import { useBreakpoints } from '@hooks/index';
 import { BadgeColor } from '@definition/app';
 import { HOVER_ACTIONS } from '@features/territories/components/table_styles';
-import { avatarsState } from '../../profiles';
+import { avatarsState, isProfilePicture } from '../../profiles';
+import ProfilePicture from '@components/profile_picture';
 
 const ripple = keyframes`
   from { transform: scale(1); opacity: 0.45; }
@@ -20,10 +21,13 @@ export const Pulse = ({
   active,
   size = 88,
   onWave,
+  tone = 'var(--accent-150)',
 }: {
   icon: ReactElement;
   active: boolean;
   size?: number;
+  /** The circle's colour, red or green for an outcome. */
+  tone?: string;
   /** As each wave sets out; with reduced motion none do. */
   onWave?: VoidFunction;
 }) => (
@@ -49,7 +53,7 @@ export const Pulse = ({
         position: 'absolute',
         inset: 0,
         borderRadius: '50%',
-        backgroundColor: 'var(--accent-150)',
+        backgroundColor: tone,
         color: 'var(--accent-main)',
         display: 'flex',
         alignItems: 'center',
@@ -98,8 +102,17 @@ export const Heartbeat = ({
 const AVATAR_COLORS = ['#7D5FBD', '#E59A1F', '#1E9CC9', '#4E9E14'];
 
 /** A device's picture when it has one (by its id), else its initials. */
-export const Avatar = ({ name, id }: { name: string; id?: string }) => {
-  const picture = useAtomValue(avatarsState)[id ?? ''];
+export const Avatar = ({
+  name,
+  id,
+  avatar,
+}: {
+  name: string;
+  id?: string;
+  avatar?: string;
+}) => {
+  const saved = useAtomValue(avatarsState)[id ?? ''];
+  const picture = avatar ?? saved;
   const initials =
     name
       .trim()
@@ -112,6 +125,11 @@ export const Avatar = ({ name, id }: { name: string; id?: string }) => {
       [...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) %
         AVATAR_COLORS.length
     ];
+  if (isProfilePicture(picture)) {
+    return (
+      <ProfilePicture type={picture} size={40} initials={initials} alt="" />
+    );
+  }
   if (picture) {
     return (
       <Box
@@ -151,12 +169,14 @@ export const Avatar = ({ name, id }: { name: string; id?: string }) => {
 
 export const PhoneRow = ({
   id,
+  avatar,
   name,
   detail,
   onClick,
   trailing,
 }: {
   id?: string;
+  avatar?: string;
   name: string;
   detail: ReactNode;
   onClick?: VoidFunction;
@@ -180,7 +200,7 @@ export const PhoneRow = ({
       ...(onClick && HOVER_ACTIONS),
     }}
   >
-    <Avatar name={name} id={id} />
+    <Avatar name={name} id={id} avatar={avatar} />
     <Box sx={{ flex: 1, minWidth: 0 }}>
       <Typography className="body-regular">{name}</Typography>
       <Typography className="label-small-regular" color="var(--grey-400)">
@@ -298,7 +318,15 @@ export const PairOptions = ({
           backgroundColor: 'var(--accent-150)',
         }}
       >
-        <Box sx={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
           <Box
             sx={{
               width: 40,
@@ -319,8 +347,10 @@ export const PairOptions = ({
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
+                columnGap: '8px',
+                rowGap: '6px',
                 flexWrap: 'wrap',
+                marginBottom: '4px',
               }}
             >
               <Typography className="h3">{title}</Typography>
@@ -328,7 +358,7 @@ export const PairOptions = ({
                 <Badge text={state.text} color={state.color} size="small" />
               )}
             </Box>
-            <Typography className="body-small-regular" color="var(--grey-400)">
+            <Typography className="label-small-regular" color="var(--grey-400)">
               {description}
             </Typography>
           </Box>

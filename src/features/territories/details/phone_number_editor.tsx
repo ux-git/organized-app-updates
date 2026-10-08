@@ -21,6 +21,34 @@ const PhoneNumberEditor = ({
   onCall?: (number: string) => void;
 }) => {
   const [number, setNumber] = useState(value ?? '');
+  const [confirming, setConfirming] = useState(false);
+
+  if (confirming && onDelete) {
+    return (
+      <Dialog
+        onClose={() => setConfirming(false)}
+        open
+        title={tx('Delete number?')}
+        description={tx('It will be removed on all devices.')}
+      >
+        <DialogActions>
+          <Button variant="secondary" onClick={() => setConfirming(false)}>
+            {tx('Cancel')}
+          </Button>
+          <Button
+            variant="main"
+            color="red"
+            onClick={() => {
+              onDelete();
+              onClose();
+            }}
+          >
+            {tx('Delete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog
@@ -38,10 +66,7 @@ const PhoneNumberEditor = ({
           )}
           onDelete={
             value !== undefined && onDelete
-              ? () => {
-                  onDelete();
-                  onClose();
-                }
+              ? () => setConfirming(true)
               : undefined
           }
         />

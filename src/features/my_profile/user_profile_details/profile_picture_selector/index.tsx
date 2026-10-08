@@ -7,11 +7,13 @@ import IconButton from '@components/icon_button';
 import ProfilePicture from '@components/profile_picture';
 import Tabs from '@components/tabs';
 import { IconCheck } from '@icons/index';
-import useProfilePictureSelector from './useProfilePictureSelector';
+import useProfilePictureSelector, {
+  ProfilePictureOptions,
+} from './useProfilePictureSelector';
 
-type Props = { open: boolean; onClose: () => void };
+type Props = { open: boolean; onClose: () => void } & ProfilePictureOptions;
 
-const ProfilePictureSelector = ({ open, onClose }: Props) => {
+const ProfilePictureSelector = ({ open, onClose, ...options }: Props) => {
   const {
     t,
     sections,
@@ -26,7 +28,7 @@ const ProfilePictureSelector = ({ open, onClose }: Props) => {
     handleClose,
     getName,
     handleOptionKeyDown,
-  } = useProfilePictureSelector(onClose);
+  } = useProfilePictureSelector(onClose, options);
 
   return (
     <Dialog

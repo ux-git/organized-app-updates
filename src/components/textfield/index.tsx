@@ -77,8 +77,12 @@ const TextField = (props: TextFieldTypeProps) => {
     'inputProps' in props &&
     typeof (props as Record<string, unknown>).inputProps === 'object' &&
     (props as Record<string, unknown>).inputProps !== null
-      ? ((props as Record<string, unknown>).inputProps as Record<string, unknown>)
-          .value
+      ? (
+          (props as Record<string, unknown>).inputProps as Record<
+            string,
+            unknown
+          >
+        ).value
       : undefined;
 
   const hasValue =
@@ -252,7 +256,7 @@ const TextField = (props: TextFieldTypeProps) => {
               ? 'var(--green-main)'
               : props.error
                 ? 'var(--red-main)'
-                : 'inherit',
+                : 'var(--grey-400)',
           },
         },
       }}

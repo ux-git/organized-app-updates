@@ -1,5 +1,5 @@
 import { tx } from '@services/i18n/translation';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Box, FormControlLabel, RadioGroup, Stack } from '@mui/material';
 import { Button, Checkbox, CustomDivider, Typography } from '@components/index';
 import { useBreakpoints } from '@hooks/index';
@@ -49,6 +49,10 @@ const TerritoryExport = ({
   onClose: VoidFunction;
 }) => {
   const exporter = useTerritoryExport(territory);
+  const [renderedUrl, setRenderedUrl] = useState<string>();
+  const loadingPreview =
+    exporter.isProcessing ||
+    (!!exporter.previewUrl && renderedUrl !== exporter.previewUrl);
 
   const { tablet600Up } = useBreakpoints();
 
@@ -56,21 +60,17 @@ const TerritoryExport = ({
 
   const formats = isPhone ? PHONE_FORMATS : MAP_FORMATS;
 
-  // the QR code sits on the back, and on the A5 vertical page under the map
-  const qrShown = parts.back || (exporter.format === 'a5v' && parts.front);
-
-  const handleExport = () => {
-    exporter.handleExport();
-    onClose();
+  const handleExport = async () => {
+    if (await exporter.handleExport()) onClose();
   };
 
   return (
     <Dialog
       onClose={onClose}
       open
-      title={tx('Export territory {{number}}', { number: territory.number })}
+      title={tx('Print territory: {{number}}', { number: territory.number })}
       description={tx(
-        'Choose what to include and the format. The PDF is saved to your device.'
+        'Choose the content and format, then save or share the PDF.'
       )}
     >
       <Stack
@@ -87,31 +87,6 @@ const TerritoryExport = ({
         }
         sx={{ width: '100%', '& > .MuiStack-root': { flex: 1, minWidth: 0 } }}
       >
-        <OptionGroup label={tx('Include')}>
-          <Checkbox
-            label={isPhone ? tx('Phone numbers') : tx('Map')}
-            checked={parts.front}
-            disabled={parts.front && !parts.back}
-            onChange={() => exporter.toggleSide('front')}
-            className="body-regular"
-          />
-          <Checkbox
-            label={tx('Do not call')}
-            checked={parts.back}
-            disabled={parts.back && !parts.front}
-            onChange={() => exporter.toggleSide('back')}
-            className="body-regular"
-          />
-          {qrShown && (
-            <Checkbox
-              label={tx('QR code')}
-              checked={exporter.showQr}
-              onChange={(_, checked) => exporter.setShowQr(checked)}
-              className="body-regular"
-            />
-          )}
-        </OptionGroup>
-
         <OptionGroup label={tx('Format')}>
           <RadioGroup
             value={exporter.format}
@@ -130,6 +105,31 @@ const TerritoryExport = ({
             ))}
           </RadioGroup>
         </OptionGroup>
+
+        <OptionGroup label={tx('Include')}>
+          <Checkbox
+            label={isPhone ? tx('Phone numbers') : tx('Map')}
+            checked={parts.front}
+            disabled={parts.front && !parts.back}
+            onChange={() => exporter.toggleSide('front')}
+            className="body-regular"
+          />
+          <Checkbox
+            label={tx('Do not call')}
+            checked={parts.back}
+            disabled={parts.back && !parts.front}
+            onChange={() => exporter.toggleSide('back')}
+            className="body-regular"
+          />
+          {!isPhone && parts.front && (
+            <Checkbox
+              label={tx('Households')}
+              checked={exporter.showHouseholds}
+              onChange={(_, checked) => exporter.setShowHouseholds(checked)}
+              className="body-regular"
+            />
+          )}
+        </OptionGroup>
       </Stack>
 
       <Box
@@ -146,9 +146,9 @@ const TerritoryExport = ({
           overflow: 'hidden',
         }}
       >
-        <PdfPreview url={exporter.previewUrl} />
+        <PdfPreview url={exporter.previewUrl} onSettled={setRenderedUrl} />
 
-        {exporter.isProcessing && (
+        {loadingPreview && (
           <Stack
             sx={{
               position: 'absolute',
@@ -158,9 +158,27 @@ const TerritoryExport = ({
               backgroundColor: 'var(--white-semi-l)',
             }}
           >
-            <Typography className="body-small-regular" color="var(--grey-400)">
-              {tx('Preparing the preview…')}
-            </Typography>
+            <Stack
+              role="status"
+              aria-live="polite"
+              direction="row"
+              sx={{
+                alignItems: 'center',
+                gap: 'var(--radius-l)',
+                margin: 'var(--radius-l)',
+                padding: 'var(--radius-xl)',
+                borderRadius: 'var(--radius-l)',
+                backgroundColor: 'var(--white)',
+                boxShadow: 'var(--small-card-shadow)',
+              }}
+            >
+              <Box aria-hidden="true">
+                <IconLoading color="var(--accent-main)" />
+              </Box>
+              <Typography className="body-small-regular" color="var(--black)">
+                {tx('Preparing the preview…')}
+              </Typography>
+            </Stack>
           </Stack>
         )}
       </Box>
@@ -171,11 +189,11 @@ const TerritoryExport = ({
         </Button>
         <Button
           variant="main"
-          disabled={exporter.isProcessing}
+          disabled={exporter.isProcessing || !exporter.previewUrl}
           endIcon={exporter.isProcessing ? <IconLoading /> : undefined}
           onClick={handleExport}
         >
-          {tx('Export')}
+          {tx('Print')}
         </Button>
       </DialogActions>
     </Dialog>

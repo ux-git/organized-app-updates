@@ -48,17 +48,17 @@ const TerritoriesCard = () => {
       </ListItem>
       <ListItem disablePadding>
         <DashboardMenu
-          icon={<IconMapView color="var(--black)" />}
-          primaryText={t('territories.map')}
-          path="/territories/map"
-        />
-      </ListItem>
-      <ListItem disablePadding>
-        <DashboardMenu
           icon={<IconCancelCicle color="var(--black)" />}
           primaryText={t('territories.doNotCall')}
           badgeText={String(doNotCalls)}
           path="/territories/do-not-calls"
+        />
+      </ListItem>
+      <ListItem disablePadding>
+        <DashboardMenu
+          icon={<IconMapView color="var(--black)" />}
+          primaryText={t('territories.map')}
+          path="/territories/map"
         />
       </ListItem>
       <ListItem disablePadding>

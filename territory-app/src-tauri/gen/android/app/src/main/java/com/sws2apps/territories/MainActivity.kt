@@ -86,12 +86,18 @@ class MainActivity : TauriActivity() {
 
     // Android WebView doesn't fill env(safe-area-inset-*) yet, so
     // system_bars.js gets the bar sizes from here and pads the page itself
-    ViewCompat.setOnApplyWindowInsetsListener(content()) { _, windowInsets ->
+    ViewCompat.setOnApplyWindowInsetsListener(content()) { view, windowInsets ->
       val bars = windowInsets.getInsets(
         WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
       )
+      // edge to edge, adjustResize no longer shrinks the page for the keyboard;
+      // the page ends above it instead, so a dialog moves up as in a native app
+      val keyboard = windowInsets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+      view.setPadding(0, 0, 0, keyboard)
       val density = resources.displayMetrics.density
-      insets = intArrayOf(bars.top, bars.right, bars.bottom, bars.left)
+      // the keyboard covers the navigation bar, so the page keeps no room for it
+      val bottom = if (keyboard > 0) 0 else bars.bottom
+      insets = intArrayOf(bars.top, bars.right, bottom, bars.left)
         .map { Math.round(it / density) }
       webView?.evaluateJavascript(
         "window.__organizedInsets&&window.__organizedInsets(${insets.joinToString(",")})",
@@ -213,18 +219,14 @@ class MainActivity : TauriActivity() {
 
   private fun isTransfer(text: String) = listOf("OTB1:", "OTC1:", "OTA1:").any(text::startsWith)
 
-  /** The sync page shows what came in; it asks for the file (takeFile) once it listens. */
+  /** Every page takes it in; before one has loaded, it asks for the file (takeFile). */
   private fun showFile() {
     if (openedFile == null) return
-    val view = webView
-    if (!pageReady || view == null) {
+    if (!pageReady || webView == null) {
       pendingRoute = "/sync"
       return
     }
-    view.evaluateJavascript("location.hash") { result ->
-      val route = result?.trim('"')?.removePrefix("#")?.substringBefore('?')
-      if (route == "/sync") deliverFile() else openRoute("/sync")
-    }
+    deliverFile()
   }
 
   private fun deliverFile() {
@@ -540,6 +542,15 @@ class MainActivity : TauriActivity() {
       }
       "backupFolder" -> pickBackupFolder(false)
       "backupNow" -> if (Backups.status(this).optBoolean("folderOk")) Backups.runNow(this) else pickBackupFolder(true)
+      "exportFile" -> {
+        try {
+          val bytes = android.util.Base64.decode(args.optString("base64"), android.util.Base64.DEFAULT)
+          FileHandoff.share(this, args.optString("name"), args.optString("type", "application/octet-stream"), bytes)
+          Native.emit("export-result", JSONObject().put("id", args.optString("id")).put("saved", true).toString())
+        } catch (error: Exception) {
+          Native.emit("export-result", JSONObject().put("id", args.optString("id")).put("error", error.message).toString())
+        }
+      }
       "shareFile" -> {
         val bytes = args.optString("text").toByteArray(Charsets.UTF_8)
         FileHandoff.share(this, args.optString("name"), "application/octet-stream", bytes)
@@ -600,6 +611,11 @@ class MainActivity : TauriActivity() {
     val wanted = when (which) {
       "location" -> arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
       "camera" -> arrayOf(Manifest.permission.CAMERA)
+      // one row of the welcome list: only what that row is about
+      "bluetooth" -> Nearby.bluetoothPermissions()
+      "notifications" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        arrayOf(Manifest.permission.POST_NOTIFICATIONS)
+      } else emptyArray()
       // first start: everything at once, then the battery exception
       "all" -> {
         askBatteryAfter = true
@@ -628,7 +644,8 @@ class MainActivity : TauriActivity() {
       }
       blocked.isNotEmpty() -> openSettings(notifications = false)
       // allowed, but switched off for this app
-      which.isEmpty() && !Notify.mayNotify(this) -> openSettings(notifications = true)
+      (which.isEmpty() || which == "notifications") && !Notify.mayNotify(this) ->
+        openSettings(notifications = true)
       askBatteryAfter -> askBattery()
     }
   }

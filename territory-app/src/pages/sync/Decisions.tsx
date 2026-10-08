@@ -10,13 +10,14 @@ import {
 import { territoriesState } from '@states/territories';
 import { Territory } from '@definition/territory';
 import { play } from '../../haptics';
+import { keepOneAssignment } from '../../publisherChanges';
 import { invoke, listen } from '../../native';
 import { list, t } from '../../i18n';
 import BorderSketch, { Drawing } from './BorderSketch';
 import { Peer } from '../useNearby';
 import { joinNotes, NOTE_FIELDS, withNote } from './notes';
 import { Actions, Avatar } from './parts';
-import { notify } from './text';
+import { fieldName, notify, show } from './text';
 
 type Conflict = {
   table: string;
@@ -27,28 +28,11 @@ type Conflict = {
   /** The losing value was written on this phone. */
   mine: boolean;
   by: string;
+  /** The device whose value lost, when several did. */
+  lostBy: string;
   at: number;
   record: Record<string, unknown>;
 };
-
-const FIELDS = [
-  'holder',
-  'publisher',
-  'assignedOn',
-  'returnedOn',
-  'status',
-  'name',
-  'number',
-  'city',
-  'notes',
-  'note',
-  'address',
-  'households',
-  'cardLost',
-  'card',
-  'group',
-  'boundary',
-];
 
 // a border is drawn as one thing, so its parts are decided together
 const BORDER = [
@@ -73,22 +57,6 @@ const drawingOf = (group: Conflict[], mine: boolean): Drawing => {
       conflict.mine === mine ? conflict.lost : conflict.kept;
   }
   return drawing;
-};
-
-const fieldName = (field: string) =>
-  FIELDS.includes(field)
-    ? t(`decisions.${field}`)
-    : field.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
-
-const show = (value: unknown) => {
-  if (value === null || value === undefined || value === '') {
-    return t('decisions.empty');
-  }
-  if (typeof value === 'boolean') {
-    return value ? t('decisions.yes') : t('decisions.no');
-  }
-  if (typeof value === 'object') return t('decisions.changed');
-  return String(value);
 };
 
 /** Open assignments: without a return date. */
@@ -199,6 +167,7 @@ const Decisions = () => {
       id: conflict.id,
       field: conflict.field,
       useOther,
+      by: conflict.lostBy,
     })
       .then(refresh)
       .catch((error) =>
@@ -221,6 +190,7 @@ const Decisions = () => {
           id: conflict.id,
           field: conflict.field,
           useOther: conflict.mine === mine,
+          by: conflict.lostBy,
         });
       }
       notify(
@@ -238,21 +208,11 @@ const Decisions = () => {
   };
 
   const keepAssignment = (territory: Territory, keptId: string) => {
-    const kept = territory.assignments.find((item) => item.id === keptId);
-    if (!kept) return;
+    if (!territory.assignments.some((item) => item.id === keptId)) return;
     play('synced');
     setTerritories(
       territories.map((item) =>
-        item.id === territory.id
-          ? {
-              ...item,
-              holder: kept.publisher,
-              assignments: item.assignments.filter(
-                (assignment) =>
-                  assignment.returnedOn || assignment.id === keptId
-              ),
-            }
-          : item
+        item.id === territory.id ? keepOneAssignment(item, keptId) : item
       )
     );
     // the holder clash, if any, is settled with it
@@ -377,7 +337,7 @@ const Decisions = () => {
         })}
         {deletions.map((conflict) => (
           <Card
-            key={`${conflict.table}/${conflict.id}/${conflict.field}`}
+            key={`${conflict.table}/${conflict.id}/${conflict.field}/${conflict.lostBy}`}
             title={t('decisions.deleted', { what: label(conflict) })}
             by={conflict.mine ? undefined : device(conflict.by)}
             text={
@@ -416,7 +376,7 @@ const Decisions = () => {
             : undefined;
           return (
             <Card
-              key={`${conflict.table}/${conflict.id}/${conflict.field}`}
+              key={`${conflict.table}/${conflict.id}/${conflict.field}/${conflict.lostBy}`}
               title={
                 // a setting is one value, named by its row
                 conflict.table === 'settings'

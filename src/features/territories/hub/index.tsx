@@ -264,6 +264,15 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
   const inlineSwitch = tablet688Up ? layoutSwitch : undefined;
 
+  const selectionBar = selected.length > 0 && (
+    <SelectionBar
+      selected={selected}
+      onAssignMany={() => setAssignManyOpen(true)}
+      onReturnMany={returnMany}
+      onClear={hub.clearChecked}
+    />
+  );
+
   const content = isBoard ? (
     <BoardView
       territories={boardTerritories}
@@ -280,6 +289,8 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     <TerritoryTable
       territories={visible}
       checked={checked}
+      selecting={hub.selecting}
+      onSelectingChange={hub.setSelecting}
       onCheck={toggleCheck}
       onCheckMany={toggleCheckMany}
       onOpen={handleOpen}
@@ -294,13 +305,7 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
       showDoNotCalls={isTerritoryEditor}
       emptyMessage={emptyMessage}
       title={tx('Territories: {{n}}', { n: visible.length })}
-      selectionBar={
-        <SelectionBar
-          selected={selected}
-          onAssignMany={() => setAssignManyOpen(true)}
-          onReturnMany={returnMany}
-        />
-      }
+      selectionBar={selectionBar}
     />
   );
 
@@ -359,6 +364,7 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
             <Typography className="h3" noWrap>
               {tx('Territories: {{n}}', { n: boardTerritories.length })}
             </Typography>
+            {selectionBar}
           </Stack>
         )}
 

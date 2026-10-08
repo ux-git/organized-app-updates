@@ -2,6 +2,7 @@ import { Box, Link } from '@mui/material';
 import { IconLogo } from '@icons/index';
 import Button from '@components/button';
 import Dialog from '@components/dialog';
+import Divider from '@components/divider';
 import Typography from '@components/typography';
 import logo from '../assets/logo.svg?url';
 import { version } from '../../src-tauri/tauri.conf.json';
@@ -49,6 +50,7 @@ const About = ({
       </Box>
     </Box>
     <Typography className="body-regular">{t('about.appText')}</Typography>
+    <Divider color="var(--accent-200)" sx={{ alignSelf: 'stretch' }} />
 
     <Box
       sx={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%' }}

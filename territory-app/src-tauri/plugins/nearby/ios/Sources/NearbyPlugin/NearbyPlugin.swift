@@ -110,7 +110,7 @@ class NearbyPlugin: Tauri.Plugin {
     case "scanQr": scanQr()
     case "pageReady":
       Page.loaded()
-      // the sync page pulls the file itself (takeFile) once it listens
+      // the app pulls the file itself (takeFile) once it listens
       if Core.hasFile { Page.open(route: "/sync") }
     case "pageGone": Page.ready = false
     case "showFile": showFile()
@@ -122,6 +122,7 @@ class NearbyPlugin: Tauri.Plugin {
     case "backupFolder": pickBackupFolder(thenBackUp: false)
     case "backupNow":
       if Backups.folderOk { Backups.runNow() } else { pickBackupFolder(thenBackUp: true) }
+    case "exportFile": exportFile(args)
     case "shareFile": share(name: args["name"] as? String ?? "territories", text: args["text"] as? String ?? "")
     case "openUrl":
       if let text = args["url"] as? String, text.hasPrefix("https://"), let url = URL(string: text) {
@@ -147,15 +148,11 @@ class NearbyPlugin: Tauri.Plugin {
 
   // ---- a transfer file opened into the app (src-tauri/src/lib.rs) ----
 
-  /// The sync page takes it once it listens (takeFile); when it is open
-  /// already, it gets the file now.
   private func showFile() {
     guard Core.hasFile else { return }
-    guard Page.ready, let webview = webview else { return }
-    webview.evaluateJavaScript("location.hash") { result, _ in
-      let hash = (result as? String ?? "").split(separator: "?").first.map(String.init)
-      if hash == "#/sync" { self.deliverFile() } else { Page.open(route: "/sync") }
-    }
+    // every page takes it in; before one has loaded, it asks (takeFile)
+    guard Page.ready, webview != nil else { return }
+    deliverFile()
   }
 
   private func deliverFile() {
@@ -167,7 +164,15 @@ class NearbyPlugin: Tauri.Plugin {
   private func ask(_ which: String) {
     switch which {
     case "camera":
+      // refused once, iOS asks no more; only its settings help then
+      if AVCaptureDevice.authorizationStatus(for: .video) == .denied { return openSettings() }
       AVCaptureDevice.requestAccess(for: .video) { _ in DispatchQueue.main.async { self.emitStatus() } }
+    case "bluetooth":
+      if CBManager.authorization == .denied { return openSettings() }
+      Nearby.shared.ensureLink()
+      emitStatus()
+    case "notifications":
+      Notices.shared.ask { self.emitStatus() }
     case "location":
       Place.shared.askWhenInUse()
     case "backgroundLocation":
@@ -186,6 +191,12 @@ class NearbyPlugin: Tauri.Plugin {
     default:
       Nearby.shared.ensureLink()
       Notices.shared.ask { self.emitStatus() }
+    }
+  }
+
+  private func openSettings() {
+    if let url = URL(string: UIApplication.openSettingsURLString) {
+      UIApplication.shared.open(url)
     }
   }
 
@@ -245,7 +256,7 @@ class NearbyPlugin: Tauri.Plugin {
       }
       guard frames.count == counts[1] else { return }
       finish((1...counts[1]).compactMap { frames[$0] }.joined())
-    } else if text.hasPrefix("OTC1:") || text.hasPrefix("OTB1:") {
+    } else if ["OTC1:", "OTB1:", "OTL1:"].contains(where: text.hasPrefix) {
       finish(text)
     }
   }
@@ -276,6 +287,34 @@ class NearbyPlugin: Tauri.Plugin {
   }
 
   // ---- sending a transfer as a file ----
+
+  private func exportFile(_ args: [String: Any]) {
+    let id = args["id"] as? String ?? ""
+    let finish: (Bool, String?) -> Void = { saved, error in
+      if let error = error { Core.emit("export-result", ["id": id, "error": error]) }
+      else { Core.emit("export-result", ["id": id, "saved": saved]) }
+    }
+    guard let data = Data(base64Encoded: args["base64"] as? String ?? ""), let presenter = top() else {
+      finish(false, "Cannot prepare the file for sharing"); return
+    }
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let name = ((args["name"] as? String ?? "territory.pdf") as NSString).lastPathComponent
+    let url = directory.appendingPathComponent(name)
+    do {
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      try data.write(to: url, options: .atomic)
+      let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+      if let webview = webview, let popover = sheet.popoverPresentationController {
+        popover.sourceView = webview
+        popover.sourceRect = CGRect(x: webview.bounds.midX, y: webview.bounds.midY, width: 1, height: 1)
+      }
+      sheet.completionWithItemsHandler = { _, completed, _, error in
+        finish(completed, error?.localizedDescription)
+        try? FileManager.default.removeItem(at: directory)
+      }
+      presenter.present(sheet, animated: true)
+    } catch { finish(false, error.localizedDescription) }
+  }
 
   private func share(name: String, text: String) {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)

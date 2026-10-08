@@ -1,7 +1,7 @@
 import { Stack } from '@mui/material';
 import { Typography } from '@components/index';
 import Card from '@components/card';
-import { daysLabel, withAssignments } from '../helpers';
+import { coveredDays, daysLabel, withAssignments } from '../helpers';
 import TerritoryAssignments from '../details/territory_assignments';
 import TerritorySummary from '../components/territory_summary';
 import { Territory } from '@definition/territory';
@@ -27,9 +27,13 @@ const TerritoryHistory = ({
 
     <TerritorySummary
       territory={territory}
-      meta={tx('Last covered {{days}} ago', {
-        days: daysLabel(territory.daysSinceCovered),
-      })}
+      meta={
+        coveredDays(territory) === null
+          ? tx('Never covered')
+          : tx('Last covered {{days}} ago', {
+              days: daysLabel(coveredDays(territory) ?? 0),
+            })
+      }
     />
 
     <TerritoryAssignments

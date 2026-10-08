@@ -48,8 +48,8 @@ const PublisherLoad = ({
   }
 
   const openTerritories = (holder: string) =>
-    navigate('/territories?tab=all', {
-      state: { parent: 'Territory coverage statistics', holder },
+    navigate(`/territories?tab=all&search=${encodeURIComponent(holder)}`, {
+      state: { parent: 'Territory coverage statistics' },
     });
 
   return (

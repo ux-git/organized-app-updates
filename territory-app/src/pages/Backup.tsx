@@ -1,3 +1,4 @@
+import { exportFile as saveExport } from '@services/files/export';
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Box, Stack } from '@mui/material';
@@ -144,9 +145,16 @@ const Restore = () => {
 const MacBackup = () => {
   const save = async () => {
     try {
-      await invoke<string>('backup_save', { name: backupName() });
-      play('synced');
-      notify(t('backup.saved'), t('backup.savedText', { folder: 'Downloads' }));
+      const text = await invoke<string>('backup_export');
+      if (
+        await saveExport(
+          new Blob([text], { type: 'application/octet-stream' }),
+          backupName()
+        )
+      ) {
+        play('synced');
+        notify(t('backup.saved'), '');
+      }
     } catch (error) {
       console.error('backup: save failed', error);
       notify(t('common.somethingWrong'), t('backup.exportFailed'), 'error');
@@ -219,7 +227,10 @@ const Backup = () => {
   const exportFile = async () => {
     try {
       const text = await invoke<string>('backup_export');
-      nearby('shareFile', { name: backupName(), text });
+      await saveExport(
+        new Blob([text], { type: 'application/octet-stream' }),
+        backupName()
+      );
     } catch (error) {
       console.error('backup: export failed', error);
       notify(t('common.somethingWrong'), t('backup.exportFailed'), 'error');

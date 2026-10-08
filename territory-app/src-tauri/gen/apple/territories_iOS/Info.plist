@@ -40,9 +40,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.8.9</string>
+	<string>0.8.16</string>
 	<key>CFBundleVersion</key>
-	<string>0.8.9</string>
+	<string>0.8.16</string>
 	<key>INAlternativeAppNames</key>
 	<array>
 		<dict>
@@ -63,7 +63,7 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<false/>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Finds your paired devices on the same Wi-Fi and syncs territories with them when Bluetooth can’t reach.</string>
+	<string>Pairs and syncs with your devices on the same Wi-Fi when Bluetooth can’t reach. Nothing goes over the internet.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_territories._tcp</string>
@@ -128,5 +128,7 @@
 			</dict>
 		</dict>
 	</array>
+	<key>NSLocationUsageDescription</key>
+	<string>Shows your current position on the territory map when you tap the location button.</string>
 </dict>
 </plist>

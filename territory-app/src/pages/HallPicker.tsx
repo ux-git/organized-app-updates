@@ -1,3 +1,10 @@
+import { locateMap } from '@services/maps/location';
+import {
+  downgradeMapTier,
+  mapPerformanceOptions,
+} from '@services/maps/performance';
+import { displaySnackNotification } from '@services/states/app';
+import { tx } from '@services/i18n/translation';
 import { useEffect, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Box } from '@mui/material';
@@ -94,7 +101,9 @@ const HallPicker = ({
             zoom: hall ? 16 : 13,
           }),
       attributionControl: { compact: true },
+      ...mapPerformanceOptions(),
     });
+    created.on('webglcontextlost', downgradeMapTier);
     created.on('load', () => {
       const accent = getCSSPropertyValue('--accent-main');
       created.addSource(AREA, {
@@ -157,15 +166,17 @@ const HallPicker = ({
   }, [point, radius, ready]);
 
   const locate = () =>
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) =>
-        map.current?.flyTo({
-          center: [coords.longitude, coords.latitude],
-          zoom: 16,
-        }),
-      () => {},
-      { enableHighAccuracy: true, timeout: 10_000 }
-    );
+    locateMap()
+      .then(({ longitude, latitude }) =>
+        map.current?.flyTo({ center: [longitude, latitude], zoom: 16 })
+      )
+      .catch(() =>
+        displaySnackNotification({
+          header: tx('Location unavailable'),
+          message: tx('The device did not share its position.'),
+          severity: 'error',
+        })
+      );
 
   const save = () => {
     if (!point) return;

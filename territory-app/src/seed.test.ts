@@ -130,6 +130,41 @@ describe('borderFields', () => {
     ).toBeUndefined();
     expect(borderFields(row(earlierPath, 'mine'), newer)).toBeUndefined();
   });
+  test('adds the part letters once, and keeps them as a phone left them', () => {
+    const lettered: Border = {
+      ...border,
+      areas: [
+        { text: 'A', position: [6.472, 51.678] },
+        { text: 'B', position: [6.478, 51.672] },
+      ],
+    };
+    const drawn = { id: 't1', boundary: lettered.boundary, mapMarkers: [] };
+
+    const fields = borderFields(drawn, lettered);
+    expect(fields?.mapMarkers).toEqual([
+      {
+        id: 'seed-t1-area-A',
+        kind: 'text',
+        position: [6.472, 51.678],
+        text: 'A',
+        color: 'red',
+      },
+      {
+        id: 'seed-t1-area-B',
+        kind: 'text',
+        position: [6.478, 51.672],
+        text: 'B',
+        color: 'red',
+      },
+    ]);
+
+    const moved = [
+      { id: 'seed-t1-area-A', kind: 'text', position: [6.4, 51.6], text: 'A' },
+    ];
+    expect(
+      borderFields({ ...drawn, mapMarkers: moved }, lettered)?.mapMarkers
+    ).toBeUndefined();
+  });
 });
 
 describe('doNotCallWrites', () => {

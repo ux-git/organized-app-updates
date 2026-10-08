@@ -16,7 +16,6 @@ export type S13Row = {
 };
 
 type TemplateS13Props = {
-  serviceYear: number;
   createdOn: string;
   rows: S13Row[];
   lang: string;
@@ -109,12 +108,7 @@ const BodyRow = ({ row }: { row: S13Row }) => (
   </View>
 );
 
-const TemplateS13 = ({
-  serviceYear,
-  createdOn,
-  rows,
-  lang,
-}: TemplateS13Props) => {
+const TemplateS13 = ({ createdOn, rows, lang }: TemplateS13Props) => {
   const pages = Array.from(
     { length: Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE)) },
     (_, index) => rows.slice(index * ROWS_PER_PAGE, (index + 1) * ROWS_PER_PAGE)
@@ -123,17 +117,10 @@ const TemplateS13 = ({
   return (
     <Document title="S-13" lang={lang}>
       {pages.map((chunk, pageIndex) => (
-        <Page
-          key={`page-${chunk[0]?.number ?? 'empty'}`}
-          size="A4"
-          style={styles.page}
-        >
+        <Page key={pageIndex} size="A4" style={styles.page}>
           <Text style={styles.title}>{tx('Territory assignment record')}</Text>
 
           <View style={styles.meta}>
-            <Text style={styles.year}>
-              {tx('Service year: {{year}}', { year: serviceYear })}
-            </Text>
             <Text style={styles.created}>
               {tx('Created: {{date}}', { date: createdOn })}
             </Text>

@@ -97,8 +97,6 @@ const Territories = () => {
         <TerritoriesQuickSettings
           open={hub.quickSettingsOpen}
           onClose={() => hub.setQuickSettingsOpen(false)}
-          showHouseholds={hub.showHouseholds}
-          onShowHouseholdsChange={hub.setShowHouseholds}
           overdueMonths={hub.overdueMonths}
           onOverdueMonthsChange={hub.setOverdueMonths}
         />

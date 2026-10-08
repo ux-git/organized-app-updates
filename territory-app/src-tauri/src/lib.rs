@@ -1,4 +1,5 @@
 mod backup;
+mod map_cache;
 mod hlc;
 mod pack;
 mod qr;
@@ -60,6 +61,13 @@ pub fn store() -> Result<MutexGuard<'static, Store>> {
         .ok_or("the store is not open")?
         .lock()
         .map_err(|_| "the store is locked".to_string())
+}
+
+/// Tells the page something, from a thread with no window of its own.
+pub fn emit<S: serde::Serialize + Clone>(event: &str, payload: S) {
+    if let Some(app) = APP.get() {
+        let _ = app.emit(event, payload);
+    }
 }
 
 /// Tells the page that a sync changed the data, so it reloads it.
@@ -145,10 +153,38 @@ fn conflicts() -> Result<Vec<Value>> {
 }
 
 #[tauri::command]
-fn resolve_conflict(table: String, id: String, field: String, use_other: bool) -> Result<()> {
-    store()?.resolve(&table, &id, &field, use_other)?;
+fn resolve_conflict(
+    table: String,
+    id: String,
+    field: String,
+    use_other: bool,
+    by: Option<String>,
+) -> Result<()> {
+    store()?.resolve_by(&table, &id, &field, use_other, by.as_deref())?;
     changed();
     Ok(())
+}
+
+#[tauri::command(async)]
+fn sync_changes(sync_id: i64) -> Result<Vec<Value>> {
+    store()?.sync_changes(sync_id)
+}
+
+/// Takes the incoming value of each change. Those edited since are skipped
+/// and flagged, unless `force`.
+#[tauri::command]
+fn apply_changes(ids: Vec<i64>, force: Option<bool>) -> Result<Vec<Value>> {
+    let results = store()?.decide(&ids, true, force.unwrap_or(false))?;
+    changed();
+    Ok(results)
+}
+
+/// Brings back what this phone had before each change, as a new edit.
+#[tauri::command]
+fn undo_changes(ids: Vec<i64>, force: Option<bool>) -> Result<Vec<Value>> {
+    let results = store()?.decide(&ids, false, force.unwrap_or(false))?;
+    changed();
+    Ok(results)
 }
 
 /// This phone's pairing code, and the fingerprint the other phone shows of it.
@@ -170,6 +206,40 @@ fn read_pairing_card(text: String) -> Result<qr::CardInfo> {
 #[tauri::command]
 fn add_pairing_card(text: String, again: Option<bool>) -> Result<Peer> {
     qr::add_card(&mut *store()?, &text, again.unwrap_or(false))
+}
+
+/// Shows an invite for a phone to scan or type (`lan::host`).
+#[tauri::command(async)]
+fn invite_open() -> Result<lan::Offer> {
+    lan::host()
+}
+
+/// The person's yes or no to the device that answered the invite.
+#[tauri::command]
+fn invite_answer(accept: bool) {
+    lan::answer(accept)
+}
+
+#[tauri::command]
+fn invite_close() {
+    lan::close()
+}
+
+/// Joins a scanned invite; the progress comes as `invite` events too.
+#[tauri::command(async)]
+fn invite_join(text: String) -> Result<session::Status> {
+    lan::join(&text)
+}
+
+#[tauri::command(async)]
+fn invite_code(code: String) -> Result<session::Status> {
+    lan::join_code(&code)
+}
+
+/// Whether this device is on a local network (Wi-Fi or cable).
+#[tauri::command(async)]
+fn local_network() -> bool {
+    lan::has_network()
 }
 
 #[tauri::command(async)]
@@ -264,7 +334,7 @@ fn open_files(app: &AppHandle, urls: Vec<tauri::Url>) {
                 continue;
             }
             let Some(window) = app.get_webview_window("main") else { continue };
-            // the plugin shows the sync page, or hands the file over there; before
+            // the plugin hands the file to whichever page is open; before
             // the page has loaded, it does so once the page reports in
             #[cfg(target_os = "ios")]
             let _ = window.eval("window.TerritoryNearby&&TerritoryNearby.command('showFile','{}')");
@@ -324,11 +394,23 @@ pub fn run() {
             sync_log,
             conflicts,
             resolve_conflict,
+            sync_changes,
+            apply_changes,
+            undo_changes,
             pairing_card,
             read_pairing_card,
             add_pairing_card,
+            invite_open,
+            invite_answer,
+            invite_close,
+            invite_join,
+            invite_code,
+            local_network,
             export_bundle,
             import_bundle,
+            map_cache::map_cache_get,
+            map_cache::map_cache_put,
+            map_cache::map_cache_clear,
             backup::backup_export,
             backup::backup_info,
             backup::backup_restore,

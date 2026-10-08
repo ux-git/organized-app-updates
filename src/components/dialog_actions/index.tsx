@@ -8,6 +8,7 @@ const DialogActions: FC<DialogActionsProps> = ({ children, sx }) => {
 
   return (
     <Box
+      data-dialog-actions
       sx={{
         display: 'flex',
         flexDirection: tabletUp ? 'row' : 'column-reverse',

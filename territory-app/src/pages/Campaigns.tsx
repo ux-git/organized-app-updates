@@ -174,7 +174,7 @@ const Campaigns = ({ title }: { title: NavBarOptionsType }) => {
       <CardSection>
         <CardSectionHeader
           title={t('campaigns.title')}
-          description={t('campaigns.text')}
+          description={t('campaigns.shortText')}
         />
         {sorted.length === 0 ? (
           <Typography className="body-regular" color="var(--grey-400)">

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box } from '@mui/material';
 import { IconCheck } from '@icons/index';
+import { useAppTranslation } from '@hooks/index';
 import QRCode from 'qrcode';
 import Button from '@components/button';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
+import IconLoading from '@components/icon_loading';
 import TextField from '@components/textfield';
 import Typography from '@components/typography';
 import { announceFound, play } from '../../haptics';
@@ -13,55 +15,8 @@ import { NearbyStatus, Peer, SessionStatus } from '../useNearby';
 import { IconBluetooth, IconTap } from './icons';
 import { Heartbeat, PhoneRow, Pulse } from './parts';
 import { t } from '../../i18n';
-import {
-  CARD_PREFIX,
-  describeItems,
-  notify,
-  PAIR_CLASH,
-  reasonText,
-} from './text';
-import { BACKUP_PREFIX, restoreBackup } from '../useBackup';
-
-// ---- what a scanned QR code or an opened file contains ----
-
-/** What the core hands over instead of a file too large to open. */
-const TOO_LARGE = 'OTX1:too-large';
-
-/**
- * A transfer or a backup. A pairing code only counts when it is scanned in
- * the QR pairing dialog, which takes it before it gets here.
- */
-export const receive = async (text: string) => {
-  try {
-    if (text.startsWith(CARD_PREFIX)) {
-      play('error');
-      notify(t('receive.cardOutside'), t('receive.cardOutsideText'), 'error');
-    } else if (text === TOO_LARGE) {
-      play('error');
-      notify(t('receive.tooLarge'), t('receive.tooLargeText'), 'error');
-    } else if (text.startsWith('OTB1:')) {
-      const imported = await invoke<{
-        name: string;
-        received: number;
-        items: Record<string, number>;
-      }>('import_bundle', { text });
-      play('synced');
-      notify(
-        t('receive.from', { name: imported.name }),
-        imported.received
-          ? t('receive.got', { items: describeItems(imported.items) })
-          : t('receive.nothing')
-      );
-    } else if (text.startsWith(BACKUP_PREFIX)) {
-      await restoreBackup(text);
-    } else {
-      notify(t('receive.unknown'), t('receive.unknownText'), 'error');
-    }
-  } catch (error) {
-    play('error');
-    notify(t('common.somethingWrong'), String(error), 'error');
-  }
-};
+import { notify, PAIR_CLASH, reasonText } from './text';
+import { pairingConnection } from './pairing';
 
 // ---- Meet: pairing with a phone anywhere in the room ----
 
@@ -91,6 +46,7 @@ export const MeetDialog = ({
   status,
   myName,
   onNamed,
+  searching = false,
 }: {
   open: boolean;
   method: PairMethod;
@@ -98,7 +54,10 @@ export const MeetDialog = ({
   status: NearbyStatus;
   myName: string;
   onNamed: VoidFunction;
+  /** The page already runs the search, so the dialog leaves it be. */
+  searching?: boolean;
 }) => {
+  const { t: appText } = useAppTranslation();
   const [tapped, setTapped] = useState<SessionStatus | null>(null);
   const [touching, setTouching] = useState(false);
   const [name, setName] = useState('');
@@ -109,10 +68,16 @@ export const MeetDialog = ({
   const needsName = open && !myName.trim();
 
   useEffect(() => {
-    if (!open || needsName) return;
+    if (!open) {
+      setTapped(null);
+      setAccepted('');
+      setDismissed('');
+      return;
+    }
+    if (needsName) return;
     setTapped(null);
     setTouching(false);
-    nearby('meetStart');
+    if (!searching) nearby('meetStart');
     const stop = listen<SessionStatus | { state: 'touching' | 'apart' }>(
       'tap',
       (event) => {
@@ -132,22 +97,38 @@ export const MeetDialog = ({
       }
     );
     return () => {
-      nearby('meetStop');
+      if (!searching) nearby('meetStop');
       stop.then((unlisten) => unlisten());
     };
-  }, [open, needsName]);
+  }, [open, needsName, searching]);
 
   // a pairing counts only once this dialog is open, not an earlier sync
   const openedAt = useRef(0);
-  if (open && !openedAt.current) openedAt.current = Date.now();
+  const earlier = useRef(new Set<string>());
+  const notified = useRef(false);
+  if (open && !openedAt.current) {
+    openedAt.current = Date.now();
+    notified.current = false;
+    earlier.current = new Set(
+      (status.exchanges ?? [])
+        .filter((item) => item.state === 'exchanging' || item.state === 'done')
+        .map((item) => `${item.address}:${item.peer}`)
+    );
+  }
   if (!open) openedAt.current = 0;
 
-  const exchange = status.exchanges?.find((item) => item.mode === 1);
+  const exchange = status.exchanges?.find(
+    (item) =>
+      item.mode === 1 && !earlier.current.has(`${item.address}:${item.peer}`)
+  );
   // a failure stays in the status; Try again hides it and looks again
   const failure = exchange?.state === 'failed' ? JSON.stringify(exchange) : '';
   const pairing = failure && failure === dismissed ? undefined : exchange;
   const paired =
-    open && status.lastDone && status.lastDone.at >= openedAt.current
+    open &&
+    status.lastDone &&
+    (status.lastDone.mode === 1 || status.lastDone.mode === 2) &&
+    status.lastDone.at >= openedAt.current
       ? status.lastDone
       : null;
   const seen = status.seen ?? [];
@@ -184,15 +165,21 @@ export const MeetDialog = ({
   const waitingOther = !!codeKey && accepted === codeKey;
 
   // paired: the dialog has done its job, a snackbar says so
-  const pairedName =
-    tapped?.state === 'done' ? tapped.name : paired ? paired.name : undefined;
-  const pairedNow = open && (tapped?.state === 'done' || !!paired);
+  const connection = pairingConnection(
+    status,
+    tapped,
+    openedAt.current,
+    earlier.current
+  );
+  const pairedName = connection?.name;
+  const pairedNow = open && !!connection;
 
   useEffect(() => {
-    if (!pairedNow) return;
+    if (!pairedNow || notified.current) return;
+    notified.current = true;
     play('paired');
     notify(
-      t('meet.pairedWith', { name: pairedName || t('common.theOtherPhone') }),
+      t('meet.connectedTo', { name: pairedName || t('common.theOtherPhone') }),
       t('meet.pairedText')
     );
     onClose();
@@ -222,7 +209,7 @@ export const MeetDialog = ({
     <Box sx={centered}>
       <Pulse icon={<IconCheck color="var(--green-main)" />} active={false} />
       <Typography className="h3">
-        {t('meet.pairedWith', { name: who || t('common.theOtherPhone') })}
+        {t('meet.connectedTo', { name: who || t('common.theOtherPhone') })}
       </Typography>
       <Typography className="body-regular" color="var(--grey-400)">
         {t('meet.pairedText')}
@@ -238,7 +225,7 @@ export const MeetDialog = ({
             {t('meet.nameFirst')}
           </Typography>
           <TextField
-            label={t('common.fullName')}
+            label={appText('tr_name')}
             value={name}
             autoFocus
             onChange={(event) => setName(event.target.value)}
@@ -335,6 +322,7 @@ export const MeetDialog = ({
           <PhoneRow
             key={phone.address}
             name={phone.name}
+            avatar={phone.avatar}
             detail={t('sync.nearby')}
             onClick={() => nearby('pair', { address: phone.address })}
           />
@@ -398,10 +386,17 @@ export const MeetDialog = ({
     return null;
   };
 
+  // closed while the code is up: the other device hears no, as with the button
+  const close = () => {
+    if (pairing?.state === 'confirm')
+      nearby('confirm', { accept: false, address: pairing.address });
+    onClose();
+  };
+
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={close}
       title={method === 'tap' ? t('meet.titleTap') : t('meet.titleNearby')}
     >
       {needsBluetooth ? (
@@ -437,6 +432,7 @@ export const MeetDialog = ({
 const qrImage = {
   width: '100%',
   maxWidth: 360,
+  aspectRatio: '1',
   imageRendering: 'pixelated',
 } as const;
 
@@ -455,9 +451,26 @@ const QrImage = ({ text }: { text: string }) => {
       current = false;
     };
   }, [text]);
+  // the code's own size from the start, so nothing jumps once it is ready
   if (!url) {
     return (
-      <Typography className="body-regular">{t('qr.preparing')}</Typography>
+      <Box
+        sx={{
+          ...qrImage,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          borderRadius: 'var(--radius-l)',
+          backgroundColor: 'var(--grey-100)',
+        }}
+      >
+        <IconLoading color="var(--accent-main)" width={32} height={32} />
+        <Typography className="body-small-regular" color="var(--grey-400)">
+          {t('qr.preparing')}
+        </Typography>
+      </Box>
     );
   }
   return <img src={url} alt="" style={qrImage} />;
@@ -572,20 +585,25 @@ export const QrPairDialog = ({
   const [info, setInfo] = useState<CardInfo | null>(null);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [codeFailed, setCodeFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!open) return;
     let current = true;
+    setCodeFailed(false);
     invoke<{ text: string; fingerprint: string }>('pairing_card')
       .then((next) => current && setCode(next))
       .catch((error) => {
+        if (!current) return;
+        console.error('qr: making the pairing code failed', error);
         play('error');
-        notify(t('common.somethingWrong'), String(error), 'error');
+        setCodeFailed(true);
       });
     return () => {
       current = false;
     };
-  }, [open]);
+  }, [open, attempt]);
 
   useEffect(() => {
     setInfo(null);
@@ -621,12 +639,13 @@ export const QrPairDialog = ({
       nearby('paired');
       play('paired');
       notify(
-        t('receive.paired'),
+        t('meet.connectedTo', { name: info.name || t('common.theOtherPhone') }),
         t('receive.pairedText', {
           name: info.name || t('common.theOtherPhone'),
         })
       );
       onCardDone();
+      onClose();
     } catch (reason) {
       play('error');
       const key = CARD_ERRORS[String(reason)];
@@ -639,6 +658,13 @@ export const QrPairDialog = ({
   const name = info?.name || t('common.theOtherPhone');
 
   const body = () => {
+    if (!card && codeFailed) {
+      return (
+        <Typography className="body-regular" color="var(--red-main)">
+          {t('qr.failed')}
+        </Typography>
+      );
+    }
     if (!card) {
       return (
         <Box sx={centered}>
@@ -698,6 +724,18 @@ export const QrPairDialog = ({
         </Button>
       );
     }
+    if (codeFailed) {
+      return (
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.done')}
+          </Button>
+          <Button variant="main" onClick={() => setAttempt((n) => n + 1)}>
+            {t('common.tryAgain')}
+          </Button>
+        </>
+      );
+    }
     return (
       <>
         <Button variant={android ? 'secondary' : 'main'} onClick={onClose}>
@@ -733,19 +771,25 @@ export const QrSendDialog = ({
   onClose: VoidFunction;
 }) => {
   const [bundle, setBundle] = useState('');
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     setBundle('');
+    setFailed(false);
     if (!peer) return;
     let current = true;
     invoke<string>('export_bundle', { peer: peer.id })
       .then((next) => current && setBundle(next))
-      .catch((error) =>
-        notify(t('common.somethingWrong'), String(error), 'error')
-      );
+      .catch((error) => {
+        if (!current) return;
+        console.error('qr: making the transfer failed', error);
+        play('error');
+        setFailed(true);
+      });
     return () => {
       current = false;
     };
-  }, [peer]);
+  }, [peer, attempt]);
   const peerName = peer?.name || t('common.theOtherPhone');
   return (
     <Dialog
@@ -754,11 +798,22 @@ export const QrSendDialog = ({
       title={t('qr.sendTitle', { name: peerName })}
       description={t('qr.sendText', { name: peerName })}
     >
-      <AnimatedQr text={bundle} />
+      {failed ? (
+        <Typography className="body-regular" color="var(--red-main)">
+          {t('qr.failed')}
+        </Typography>
+      ) : (
+        <AnimatedQr text={bundle} />
+      )}
       <DialogActions>
-        <Button variant="main" onClick={onClose}>
+        <Button variant={failed ? 'secondary' : 'main'} onClick={onClose}>
           {t('common.done')}
         </Button>
+        {failed && (
+          <Button variant="main" onClick={() => setAttempt((n) => n + 1)}>
+            {t('common.tryAgain')}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

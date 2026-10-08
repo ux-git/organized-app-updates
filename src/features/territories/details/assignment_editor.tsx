@@ -90,7 +90,8 @@ const AssignmentEditor = ({
 
     return { checked: !!value, value };
   });
-  const [coverage, setCoverage] = useState(!!assignment.campaign?.coverage);
+  const [coverage, setCoverage] = useState(assignment.completed !== false);
+  const [confirming, setConfirming] = useState(false);
 
   const overlapping = campaigns.filter((item) =>
     campaignOverlaps(item, assignedOn ?? new Date(), returnedOn ?? new Date())
@@ -110,6 +111,33 @@ const AssignmentEditor = ({
 
   const secondOpen = otherOpen && !returnedOn;
 
+  if (confirming && onDelete) {
+    return (
+      <Dialog
+        onClose={() => setConfirming(false)}
+        open
+        title={tx('Delete assignment?')}
+        description={tx('It will be removed on all devices.')}
+      >
+        <DialogActions>
+          <Button variant="secondary" onClick={() => setConfirming(false)}>
+            {tx('Cancel')}
+          </Button>
+          <Button
+            variant="main"
+            color="red"
+            onClick={() => {
+              onDelete();
+              onClose();
+            }}
+          >
+            {tx('Delete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog
       onClose={onClose}
@@ -120,14 +148,7 @@ const AssignmentEditor = ({
           description={tx(
             'Who worked the territory, and when it was taken and returned.'
           )}
-          onDelete={
-            onDelete && !isNew
-              ? () => {
-                  onDelete();
-                  onClose();
-                }
-              : undefined
-          }
+          onDelete={onDelete && !isNew ? () => setConfirming(true) : undefined}
         />
       }
     >
@@ -211,10 +232,10 @@ const AssignmentEditor = ({
         />
       )}
 
-      {campaign.checked && campaign.value && (
+      {returnedOn && (
         <SwitchWithLabel
-          label={tx('Counts as regular coverage')}
-          helper={tx('The territory counts as covered by this work too.')}
+          label={tx('Territory completed')}
+          helper={tx('Turn off if the territory was returned unfinished.')}
           checked={coverage}
           onChange={setCoverage}
         />
@@ -247,6 +268,7 @@ const AssignmentEditor = ({
                 campaign.checked && campaign.value
                   ? campaignSnapshot(campaign.value, coverage)
                   : undefined,
+              completed: coverage,
               note: note.trim() || undefined,
               card,
             });

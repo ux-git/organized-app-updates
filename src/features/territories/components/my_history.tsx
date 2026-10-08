@@ -27,7 +27,17 @@ import { tx } from '@services/i18n/translation';
 const FIRST_PAGE = 10;
 const PAGE = 20;
 
-const MyHistory = ({ territories }: { territories: Territory[] }) => {
+const MyHistory = ({
+  territories,
+  publisher,
+  title,
+  parent,
+}: {
+  territories: Territory[];
+  publisher?: string;
+  title?: string;
+  parent?: string;
+}) => {
   const navigate = useNavigate();
 
   const { tablet688Up } = useBreakpoints();
@@ -42,7 +52,8 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
     .flatMap((territory) =>
       territory.assignments
         .filter(
-          (assignment) => assignment.publisher === me && assignment.returnedOn
+          (assignment) =>
+            assignment.publisher === (publisher ?? me) && assignment.returnedOn
         )
         .map((assignment) => ({ territory, assignment }))
     )
@@ -57,7 +68,9 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
   const remaining = rows.length - visible.length;
 
   const open = (id: string) =>
-    navigate(`/territories/${id}`, { state: { parent: 'My territories' } });
+    navigate(`/territories/${id}`, {
+      state: { parent: parent ?? 'My territories' },
+    });
 
   return (
     <Stack>
@@ -77,7 +90,7 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
         }}
       >
         <Typography component="h2" className="h2" color="var(--black)">
-          {tx('My previous territories')}
+          {title ?? tx('My previous territories')}
         </Typography>
         {/* the accent badge vanishes on the tinted card */}
         <Badge

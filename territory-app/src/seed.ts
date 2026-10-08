@@ -44,6 +44,8 @@ export type Border = {
   lines?: [number, number][][];
   replaces?: string[];
   linesReplace?: string[];
+  // where the parts a dashed line cuts the territory into get their letter
+  areas?: { text: string; position: [number, number] }[];
 };
 
 export const hash = (value: unknown) => {
@@ -93,8 +95,41 @@ const borders = Object.values(
 
 const borderByKey = byKey(borders);
 
-/** The seeded border (and lines) a territory takes, if it takes one. */
+// the A, B, C of the parts come once; a letter moved or deleted on a phone stays so
+const areaFields = (row: Row, border: Border | undefined) => {
+  if (!border?.areas?.length) return;
+  const markers = Array.isArray(row.mapMarkers) ? row.mapMarkers : [];
+  const prefix = `seed-${row.id}-area-`;
+  if (
+    markers.some((marker: { id?: string }) =>
+      String(marker?.id).startsWith(prefix)
+    )
+  )
+    return;
+  return {
+    mapMarkers: [
+      ...markers,
+      ...border.areas.map(({ text, position }) => ({
+        id: `${prefix}${text}`,
+        kind: 'text',
+        position,
+        text,
+        color: 'red',
+      })),
+    ],
+  };
+};
+
+/** The seeded border, lines and part letters a territory takes, if any. */
 export const borderFields = (row: Row, border: Border | undefined) => {
+  const fields: Record<string, unknown> = {
+    ...lineFields(row, border),
+    ...areaFields(row, border),
+  };
+  return Object.keys(fields).length ? fields : undefined;
+};
+
+const lineFields = (row: Row, border: Border | undefined) => {
   const drawn = Array.isArray(row.boundary) && row.boundary.length > 0;
   const replaceable =
     !drawn ||
@@ -204,4 +239,25 @@ export const seedDoNotCalls = async (
   return writes
     .filter((write) => write.table === 'do_not_calls')
     .map((write) => write.fields);
+};
+
+// The congregation's outer border, from seed/congregation.json:
+// { "boundary": [[lng, lat], ...] }, the outline of all its territories.
+// Only filled in while no border is set, so one drawn on a phone stays.
+const congregation = Object.values(
+  import.meta.glob<{ boundary: [number, number][] }>(
+    '../seed/congregation.json',
+    { import: 'default', eager: true }
+  )
+)[0];
+
+export const seedCongregation = async (settings: Row[]) => {
+  if (!congregation?.boundary?.length) return [];
+  const current = settings.find((row) => row.id === 'boundary')?.value;
+  if (Array.isArray(current) && current.length) return [];
+  const row = { id: 'boundary', value: congregation.boundary };
+  await writeRows([
+    { table: 'settings', id: row.id, fields: { value: row.value } },
+  ]);
+  return [row];
 };

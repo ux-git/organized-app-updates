@@ -11,8 +11,10 @@ import {
 
 export const StyleDatePickerDay = {
   sx: {
-    height: 'auto',
+    // a full circle, as tall as it is wide
+    height: '40px',
     width: '40px',
+    borderRadius: '50%',
     margin: '0 4px',
     fontSize: '16px',
     lineHeight: '20px',
@@ -31,9 +33,6 @@ export const StyleDatePickerDay = {
     },
     '.MuiPickersYear-yearButton:hover': {
       backgroundColor: 'red',
-    },
-    '@media (max-width:430px)': {
-      height: '100%',
     },
   },
 } as DayCalendarSlotProps['day'];
@@ -75,7 +74,7 @@ export const StyleDatePickerLayout = {
       backgroundColor: 'rgba(var(--accent-main-base), 0.1)',
     },
   },
-} as Partial<PickersLayoutProps<Date>>;
+} as Partial<PickersLayoutProps<Date | null>>;
 
 export const StyleDatePickerPopper: SxProps<Theme> = {
   width: '360px',

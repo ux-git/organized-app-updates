@@ -1,6 +1,6 @@
 import { tx } from '@services/i18n/translation';
 import { Box } from '@mui/material';
-import { daysLabel } from '../helpers';
+import { coveredText } from '../helpers';
 import StatTile from '../components/stat_tile';
 import { Territory } from '@definition/territory';
 
@@ -12,20 +12,11 @@ const TerritoryStats = ({ territory }: { territory: Territory }) => {
     ? Math.round(months.reduce((acc, value) => acc + value, 0) / months.length)
     : 0;
 
-  // a new territory counts 0 days without ever having been worked
-  const neverCovered =
-    territory.daysSinceCovered === 0 &&
-    !territory.assignments.some((assignment) => assignment.returnedOn);
-
-  let covered = daysLabel(territory.daysSinceCovered);
-  if (territory.daysSinceCovered === 0) covered = tx('Today');
-  if (neverCovered) covered = tx('Never');
-
   const stats = [
     {
       id: 'covered',
       label: tx('Last covered'),
-      value: covered,
+      value: coveredText(territory),
     },
     {
       id: 'households',

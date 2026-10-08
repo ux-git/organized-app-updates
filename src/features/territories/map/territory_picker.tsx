@@ -34,7 +34,7 @@ const TerritoryPicker = ({
   const emptyTabMessage =
     tab === 0
       ? tx(
-          'No territory is on the map yet. Pick one under “Unmapped” to draw it.'
+          'No territory is on the map yet. Pick one under “Undrawn” to draw it.'
         )
       : tx('Every territory has its borders drawn.');
 
@@ -62,8 +62,8 @@ const TerritoryPicker = ({
           appearance="plain"
           layout="stretch"
           tabs={[
-            { label: tx('Mapped'), badge: added.length },
-            { label: tx('Unmapped'), badge: notAdded.length },
+            { label: tx('Drawn'), badge: added.length },
+            { label: tx('Undrawn'), badge: notAdded.length },
           ]}
           value={tab}
           onChange={setTab}

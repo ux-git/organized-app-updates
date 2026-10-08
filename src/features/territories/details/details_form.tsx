@@ -162,9 +162,6 @@ const DetailsForm = ({
 
           <TextField
             label={tx('Notes')}
-            helperText={tx(
-              'No names or addresses – do-not-call addresses belong in their list. Printed on the territory card.'
-            )}
             multiline
             minRows={2}
             value={territory.notes ?? ''}
@@ -216,7 +213,7 @@ const DetailsForm = ({
 
       <SwitchWithLabel
         label={tx('Card lost')}
-        helper={tx('The printed card is missing and has to be printed again')}
+        helper={tx('The card needs reprinting.')}
         checked={territory.cardLost}
         onChange={(value) => onChange({ ...territory, cardLost: value })}
       />

@@ -6,13 +6,15 @@ import { loadPeople, Person } from '../persistence';
 let known: Person[] = [];
 
 /** The names territories can be assigned to, kept current after a sync. */
-const usePeople = () => {
+export const usePeopleList = () => {
+  const [loading, setLoading] = useState(true);
   const [people, setPeople] = useState<Person[]>(known);
 
   const refresh = useCallback(() => {
     loadPeople()
       .then((next) => setPeople((known = next)))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -28,7 +30,8 @@ const usePeople = () => {
     };
   }, [refresh]);
 
-  return people;
+  return { people, loading };
 };
 
+const usePeople = () => usePeopleList().people;
 export default usePeople;

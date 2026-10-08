@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
@@ -17,9 +17,10 @@ import {
   CardSectionHeader,
   CardSubSectionHeader,
 } from '@features/congregation/settings/shared_styles';
+import ProfilePictureSelector from '@features/my_profile/user_profile_details/profile_picture_selector';
 import ProfilePictureEntry from '@features/my_profile/user_profile_details/profile_picture_entry';
 import PublisherSearch from '@features/territories/components/publisher_search';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { isDarkThemeState } from '@states/app';
 import { hapticsEnabledState } from '@states/settings';
 import { chosen, pickedRadio, setHapticsEnabled, toggled } from '../haptics';
@@ -27,16 +28,12 @@ import { invoke } from '../native';
 import {
   loadIdentity,
   Person,
+  renameOnTerritories,
   setAvatar,
   setLink,
   suggestedLink,
 } from '../persistence';
-import {
-  myAvatarState,
-  myLinkState,
-  peopleState,
-  pictureFrom,
-} from '../profiles';
+import { myLinkState, peopleState } from '../profiles';
 import { LANGUAGES, setLanguage, t } from '../i18n';
 import { followSystemState, setFollowSystem, setTheme } from '../theme';
 import useNearby from './useNearby';
@@ -51,12 +48,12 @@ const failed = (error: unknown) => {
 // publisher it belongs to, the language, the theme and the vibration
 const Profile = () => {
   const { i18n } = useTranslation();
+  const { t: appText } = useAppTranslation();
   const { tabletDown } = useBreakpoints();
   const { name } = useNearby();
   const isDark = useAtomValue(isDarkThemeState);
   const followSystem = useAtomValue(followSystemState);
   const haptics = useAtomValue(hapticsEnabledState);
-  const avatar = useAtomValue(myAvatarState);
   const link = useAtomValue(myLinkState);
   const publishers = useAtomValue(peopleState)
     .filter((person) => !person.group)
@@ -65,7 +62,7 @@ const Profile = () => {
   const [value, setValue] = useState(name);
   // Enter and then leaving the field would save the same name twice
   const sent = useRef(name);
-  const picker = useRef<HTMLInputElement>(null);
+  const [pictureOpen, setPictureOpen] = useState(false);
 
   useEffect(() => {
     setValue(name);
@@ -74,10 +71,17 @@ const Profile = () => {
 
   const save = async () => {
     const trimmed = value.trim();
-    if (!trimmed || trimmed === sent.current) return;
+    if (!trimmed) {
+      setValue(name);
+      return;
+    }
+    if (trimmed === sent.current) return;
     sent.current = trimmed;
+    // unlinked, the territories carry this device's name as "me"
+    const own = !link.person && !suggestion;
     try {
       await invoke('set_name', { name: trimmed });
+      if (own && name) renameOnTerritories(new Map([[name, trimmed]]));
       await loadIdentity();
     } catch (error) {
       sent.current = name;
@@ -85,27 +89,18 @@ const Profile = () => {
     }
   };
 
-  const pick = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    let picture: string;
-    try {
-      picture = await pictureFrom(file);
-    } catch {
-      notify(t('common.somethingWrong'), t('account.pictureFailed'), 'error');
-      return;
-    }
-    changePicture(picture);
-  };
-
-  const changePicture = (picture: string | null) =>
-    setAvatar(picture).catch(failed);
-
   const changeLink = (person: string | null) => setLink(person).catch(failed);
 
   return (
     <>
+      {pictureOpen && (
+        <ProfilePictureSelector
+          open
+          allPictures
+          onSave={setAvatar}
+          onClose={() => setPictureOpen(false)}
+        />
+      )}
       <CardSection>
         <CardSectionHeader
           title={t('common.yourName')}
@@ -114,10 +109,10 @@ const Profile = () => {
         <Box sx={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <ProfilePictureEntry
             size={tabletDown ? 44 : 48}
-            onOpen={() => picker.current?.click()}
+            onOpen={() => setPictureOpen(true)}
           />
           <TextField
-            label={t('common.fullName')}
+            label={appText('tr_name')}
             height={48}
             value={value}
             onChange={(event) => setValue(event.target.value)}
@@ -125,25 +120,6 @@ const Profile = () => {
             onKeyDown={(event) => event.key === 'Enter' && save()}
           />
         </Box>
-        <input
-          ref={picker}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={pick}
-        />
-        {avatar && (
-          <Button
-            variant="small"
-            color="red"
-            startIcon={<IconDelete />}
-            disableAutoStretch
-            onClick={() => changePicture(null)}
-            sx={{ alignSelf: 'flex-start' }}
-          >
-            {t('account.removePicture')}
-          </Button>
-        )}
       </CardSection>
 
       <CardSection>

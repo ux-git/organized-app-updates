@@ -1,8 +1,11 @@
 import type {
   Territory,
+  TerritoryRecommendations,
   TerritoryRestrictions,
   TerritoryTab,
 } from '@definition/territory';
+import { addMonths } from 'date-fns';
+import { coveredAge } from './helpers';
 
 export const NO_RESTRICTIONS: TerritoryRestrictions = {
   categories: [],
@@ -17,18 +20,39 @@ const isOffered = (territory: Territory, restricted: TerritoryRestrictions) =>
     restricted.categories.includes(category)
   );
 
+export const pastCooldown = (
+  territory: Territory,
+  months: number,
+  now = new Date()
+) => {
+  if (!months) return true;
+  const returned = territory.assignments
+    .flatMap((item) => {
+      if (!item.returnedOn) return [];
+      const [day, month, year] = item.returnedOn.split('.').map(Number);
+      const date = new Date(year, month - 1, day);
+      return Number.isNaN(date.getTime()) ? [] : [date];
+    })
+    .sort((a, b) => b.getTime() - a.getTime())[0];
+  return !returned || addMonths(returned, months) <= now;
+};
+
 const recommendedTerritories = (
   territories: Territory[],
-  restricted: TerritoryRestrictions
+  restricted: TerritoryRestrictions,
+  recommendations?: TerritoryRecommendations
 ) =>
   territories
     .filter(
       (territory) =>
         territory.status === 'available' &&
         !territory.requestedBy &&
-        isOffered(territory, restricted)
+        isOffered(territory, restricted) &&
+        (!recommendations ||
+          (isOffered(territory, recommendations) &&
+            pastCooldown(territory, recommendations.cooldownMonths)))
     )
-    .sort((a, b) => b.daysSinceCovered - a.daysSinceCovered);
+    .sort((a, b) => coveredAge(b) - coveredAge(a));
 
 // `me` is the current publisher's name, as territories store their holders
 export const forTab = (
@@ -37,7 +61,8 @@ export const forTab = (
   me: string,
   isEditor = true,
   groupHolder?: string,
-  restricted: TerritoryRestrictions = NO_RESTRICTIONS
+  restricted: TerritoryRestrictions = NO_RESTRICTIONS,
+  recommendations?: TerritoryRecommendations
 ) => {
   if (tab === 'group') {
     return groupHolder
@@ -56,7 +81,8 @@ export const forTab = (
   if (tab === 'recommended') {
     return recommendedTerritories(
       territories,
-      isEditor ? NO_RESTRICTIONS : restricted
+      isEditor ? NO_RESTRICTIONS : restricted,
+      recommendations
     );
   }
 

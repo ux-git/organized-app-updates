@@ -119,6 +119,18 @@ pub fn recognise(beacon: &[u8]) -> String {
         .unwrap_or_default()
 }
 
+/// Codes are append-only so a picture has the same meaning on every device.
+fn avatar_code(store: &crate::store::Store) -> crate::store::Result<usize> {
+    let catalogue: Vec<String> = serde_json::from_str(include_str!("../../src/avatar-types.json"))
+        .map_err(|error| error.to_string())?;
+    let profiles = store.list("profiles")?;
+    let avatar = profiles.iter()
+        .find(|row| row["id"].as_str() == Some(&store.identity.id))
+        .and_then(|row| row["avatar"].as_str());
+    Ok(avatar.and_then(|name| catalogue.iter().position(|item| item == name))
+        .map(|index| index + 1).unwrap_or(0))
+}
+
 /// `{"id", "name", "peers": [...], "unsynced", "removed"}` for notifications and the service.
 pub fn summary() -> String {
     store()
@@ -127,6 +139,7 @@ pub fn summary() -> String {
             Ok(serde_json::json!({
                 "id": s.identity.id,
                 "name": s.identity.name,
+                "avatarCode": avatar_code(&s)?,
                 "unsynced": peers.iter().map(|p| p.pending).min().unwrap_or(0),
                 "peers": peers,
                 "removed": s.is_removed()?,
@@ -147,6 +160,21 @@ pub fn emit(event: &str, payload: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn discovery_only_shares_the_local_bundled_picture() {
+        let mut store = crate::store::Store::open(std::path::Path::new(":memory:")).unwrap();
+        let me = store.identity.id.clone();
+        assert_eq!(avatar_code(&store).unwrap(), 0);
+        store.put("profiles", "other", serde_json::json!({"avatar": "StoryArk"}).as_object().unwrap()).unwrap();
+        assert_eq!(avatar_code(&store).unwrap(), 0);
+        store.put("profiles", &me, serde_json::json!({"avatar": "StoryArk"}).as_object().unwrap()).unwrap();
+        let code = avatar_code(&store).unwrap();
+        let types: Vec<String> = serde_json::from_str(include_str!("../../src/avatar-types.json")).unwrap();
+        assert_eq!(types[code - 1], "StoryArk");
+        store.put("profiles", &me, serde_json::json!({"avatar": "data:image/png;base64,cGlj"}).as_object().unwrap()).unwrap();
+        assert_eq!(avatar_code(&store).unwrap(), 0);
+    }
 
     #[test]
     fn no_one_else_can_pair_while_this_phone_pairs() {

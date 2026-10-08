@@ -555,6 +555,30 @@ export const sortedPublishers = (
       : b.count - a.count
   );
 
+// covered means returned: an open assignment or none at all is no coverage,
+// and the stored daysSinceCovered is only a snapshot (3650 after an import)
+export const coveredDays = (territory: Territory) => {
+  const last = Math.max(
+    0,
+    ...territory.assignments
+      .filter((item) => isCoverage(item))
+      .map((item) => parseDate(item.returnedOn)?.getTime() ?? 0)
+  );
+
+  return last ? Math.max(0, Math.round((Date.now() - last) / DAY)) : null;
+};
+
+// never covered sorts as the longest wait
+export const coveredAge = (territory: Territory) =>
+  coveredDays(territory) ?? Number.MAX_SAFE_INTEGER;
+
+export const coveredText = (territory: Territory) => {
+  const days = coveredDays(territory);
+  if (days === null) return tx('Never');
+
+  return days === 0 ? tx('Today') : daysLabel(days);
+};
+
 // from the dates: the stored daysSinceCovered is a snapshot, 3650 after an import
 export const waitingAge = (
   territory: Territory
@@ -727,14 +751,8 @@ export const isDoNotCallNumber = (territory: Territory, number: string) =>
     (entry) => phoneDigits(entry.address) === phoneDigits(number)
   );
 
-export const doNotCallLabel = (count: number, isPhone = false) => {
-  if (isPhone) {
-    return count === 1
-      ? tx('{{n}} do-not-call number', { n: count })
-      : tx('{{n}} do-not-call numbers', { n: count });
-  }
-
-  return count === 1
-    ? tx('{{n}} do-not-call address', { n: count })
-    : tx('{{n}} do-not-call addresses', { n: count });
-};
+// "label: count" reads the same in every language, with no plural forms
+export const doNotCallLabel = (count: number, isPhone = false) =>
+  isPhone
+    ? tx('Do-not-call numbers: {{n}}', { n: count })
+    : tx('Do-not-call addresses: {{n}}', { n: count });
