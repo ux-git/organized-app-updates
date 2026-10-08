@@ -15,7 +15,15 @@ import {
   campaignSnapshot,
   campaignsOn,
 } from '../campaign_dates';
-import { rememberCard, savedCard } from '../card_choice';
+import {
+  chosenHolder,
+  holderMissing,
+  initialHolder,
+  rememberCard,
+  rememberHolder,
+  savedCard,
+} from '../card_choice';
+import { holderText } from '../group_holder';
 import {
   assignmentIssues,
   displayDate,
@@ -26,9 +34,10 @@ import { latestReturnNote } from '../notes';
 import { startsBeforeOpen } from '../assignment_issues';
 import CampaignField, { CampaignChoice } from './campaign_field';
 import CardField from './card_field';
-import PublisherSearch from './publisher_search';
+import { HolderModeSwitch, HolderPickers } from './holder_picker';
 import {
   AssignmentCard,
+  AssignmentHolder,
   Territory,
   TerritoryAssignment,
 } from '@definition/territory';
@@ -44,7 +53,7 @@ type AssignDialogProps = {
   territory?: Territory;
   onClose: VoidFunction;
   onAssign: (
-    publisher: string,
+    holder: AssignmentHolder,
     assignedOn: Date,
     campaign: TerritoryAssignment['campaign'] | null,
     card: AssignmentCard
@@ -64,19 +73,24 @@ const AssignDialog = ({
 
   const format = useAtomValue(shortDateFormatState);
 
-  // whoever asked is the choice; anyone else is only offered, never filled in
-  const [publisher, setPublisher] = useState<string | null>(
-    requestedBy ?? null
+  const assignees = useAtomValue(territoryAssigneesState);
+
+  // still out: assigning returns it first, on the new start date
+  const open = territory?.assignments.find((item) => !item.returnedOn);
+
+  // whoever asked is the publisher; a transfer starts from the current holder
+  const [holder, setHolder] = useState(() =>
+    initialHolder(
+      open,
+      assignees.filter((item) => item.group).map(({ name }) => name),
+      requestedBy
+    )
   );
+  const [tried, setTried] = useState(false);
   const [assignedOn, setAssignedOn] = useState<Date | null>(new Date());
   const [card, setCard] = useState<AssignmentCard>(savedCard);
 
   const lastNote = territory && latestReturnNote(territory.assignments);
-
-  const assignees = useAtomValue(territoryAssigneesState);
-  const groups = new Set(
-    assignees.filter((assignee) => assignee.group).map(({ name }) => name)
-  );
 
   const campaigns = useAtomValue(territoryCampaignsState);
   const running = assignedOn ? campaignsOn(campaigns, assignedOn) : [];
@@ -90,8 +104,6 @@ const AssignDialog = ({
     !!assignedOn &&
     assignmentIssues({ assignedOn: toStoredDate(assignedOn) }).length > 0;
 
-  // still out: assigning returns it first, on the new start date
-  const open = territory?.assignments.find((item) => !item.returnedOn);
   const beforeOpen =
     !!territory &&
     !!assignedOn &&
@@ -102,7 +114,13 @@ const AssignDialog = ({
       onClose={onClose}
       open
       header={
-        <Stack direction="row" spacing="8px" sx={{ alignItems: 'flex-start' }}>
+        // the badge sits top right, centred on the title, as on the
+        // territory's overview
+        <Stack
+          direction="row"
+          spacing="12px"
+          sx={{ width: '100%', alignItems: 'flex-start' }}
+        >
           <Stack spacing="2px" sx={{ flex: 1, minWidth: 0 }}>
             <Typography component="h2" className="h2">
               {title}
@@ -116,7 +134,12 @@ const AssignDialog = ({
               role="img"
               aria-label={doNotCallLabel(doNotCalls)}
               title={doNotCallLabel(doNotCalls)}
-              sx={{ flexShrink: 0 }}
+              sx={{
+                flexShrink: 0,
+                display: 'flex',
+                minHeight: '24px',
+                alignItems: 'center',
+              }}
             >
               <Badge
                 size="small"
@@ -131,6 +154,8 @@ const AssignDialog = ({
         </Stack>
       }
     >
+      <HolderModeSwitch value={holder} onChange={setHolder} />
+
       {territory?.notes && (
         <Stack spacing="2px">
           <Typography className="body-small-semibold" color="var(--grey-400)">
@@ -153,7 +178,7 @@ const AssignDialog = ({
           sx={{ whiteSpace: 'pre-line' }}
         >
           {tx('Last return ({{name}}, {{date}}): {{note}}', {
-            name: lastNote.publisher,
+            name: holderText(lastNote),
             date: displayDate(lastNote.returnedOn, format),
             note: lastNote.note,
           })}
@@ -165,48 +190,36 @@ const AssignDialog = ({
           message={tx(
             '{{name}} still has it. It is returned on {{date}} first.',
             {
-              name: open.publisher,
+              name: holderText(open),
               date: displayDate(toStoredDate(assignedOn), format),
             }
           )}
         />
       )}
 
-      <Stack
-        direction={tablet600Up ? 'row' : 'column'}
-        spacing="16px"
-        sx={{ width: '100%' }}
-      >
-        <Stack spacing="4px" sx={{ flex: 1, minWidth: 0 }}>
-          <PublisherSearch
-            options={assignees.map(({ name }) => name)}
-            value={publisher}
-            onChange={setPublisher}
-            getName={(name) => name}
-            isGroup={(name) => groups.has(name)}
-            autoFocus={!tablet600Up && !publisher}
-          />
-        </Stack>
+      <HolderPickers
+        value={holder}
+        onChange={setHolder}
+        showMissing={tried}
+        autoFocus={!tablet600Up}
+      />
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <DatePicker
-            label={tx('Assigned on')}
-            value={assignedOn}
-            error={future || beforeOpen}
-            helperText={
-              beforeOpen && open
-                ? tx('Cannot be before {{name}} got it on {{date}}', {
-                    name: open.publisher,
-                    date: displayDate(open.assignedOn, format),
-                  })
-                : future
-                  ? tx('This date is in the future')
-                  : ''
-            }
-            onChange={(value) => setAssignedOn(value)}
-          />
-        </Box>
-      </Stack>
+      <DatePicker
+        label={tx('Assigned on')}
+        value={assignedOn}
+        error={future || beforeOpen}
+        helperText={
+          beforeOpen && open
+            ? tx('Cannot be before {{name}} got it on {{date}}', {
+                name: holderText(open),
+                date: displayDate(open.assignedOn, format),
+              })
+            : future
+              ? tx('This date is in the future')
+              : ''
+        }
+        onChange={(value) => setAssignedOn(value)}
+      />
 
       <CardField value={card} onChange={setCard} />
 
@@ -227,12 +240,18 @@ const AssignDialog = ({
         </Button>
         <Button
           variant="main"
-          disabled={!publisher || !assignedOn || beforeOpen}
+          disabled={!assignedOn || beforeOpen}
           onClick={() => {
-            if (!publisher || !assignedOn || beforeOpen) return;
+            if (!assignedOn || beforeOpen) return;
+            if (holderMissing(holder)) {
+              setTried(true);
+              return;
+            }
+            const chosen = chosenHolder(holder);
             rememberCard(card);
+            rememberHolder(chosen.group);
             onAssign(
-              publisher,
+              chosen,
               assignedOn,
               campaign.checked && campaign.value
                 ? campaignSnapshot(campaign.value)

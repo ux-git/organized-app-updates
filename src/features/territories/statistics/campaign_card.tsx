@@ -36,6 +36,7 @@ import {
   outForCampaign,
 } from '../campaign_filter';
 import useAssignReturn from '../useAssignReturn';
+import { holderText } from '../group_holder';
 
 const CampaignCard = ({ territories }: { territories: Territory[] }) => {
   const navigate = useNavigate();
@@ -302,7 +303,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
                   <TruncatedText
                     className="label-small-regular"
                     color="var(--grey-350)"
-                    text={open.publisher}
+                    text={holderText(open)}
                   />
                 </Box>
               </Stack>

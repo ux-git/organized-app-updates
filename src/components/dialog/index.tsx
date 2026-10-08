@@ -114,7 +114,7 @@ const Dialog = ({
 
   if (header) {
     heading = (
-      <Box id={titleId} sx={{ minWidth: 0 }}>
+      <Box id={titleId} sx={{ flex: 1, minWidth: 0 }}>
         {header}
       </Box>
     );

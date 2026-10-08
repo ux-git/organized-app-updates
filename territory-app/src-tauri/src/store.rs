@@ -1023,7 +1023,7 @@ impl Store {
                 "assignments" if deleted => "assignment-removed",
                 "assignments" if is_new || revived => "assigned",
                 "assignments" => match cell.f.as_str() {
-                    "publisher" | "assignedOn" => "assigned",
+                    "publisher" | "group" | "assignedOn" => "assigned",
                     "returnedOn" if cell.v.as_str().is_some_and(|s| !s.is_empty()) => "returned",
                     "returnedOn" => "assigned",
                     _ => continue,
@@ -2419,6 +2419,21 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn a_group_on_an_assignment_syncs_as_an_assignment() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "1"}))).unwrap();
+        a.put("assignments", "x", &fields(json!({"territory": "t1", "publisher": "Ben"})))
+            .unwrap();
+        sync(&mut a, &mut b);
+        a.put("assignments", "x", &fields(json!({"group": "Group 3"}))).unwrap();
+        assert_eq!(received(&a, &mut b), vec![told("1", &["assigned"])]);
+        let row = b.list("assignments").unwrap().into_iter().find(|r| r["id"] == "x").unwrap();
+        assert_eq!(row["group"], "Group 3");
+        assert_eq!(row["publisher"], "Ben");
     }
 
     fn received(a: &Store, b: &mut Store) -> Vec<(String, Vec<String>)> {

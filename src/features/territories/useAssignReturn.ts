@@ -3,6 +3,7 @@ import { useAtom, useAtomValue } from 'jotai';
 import { territoriesState } from '@states/territories';
 import {
   AssignmentCard,
+  AssignmentHolder,
   Territory,
   TerritoryAssignment,
 } from '@definition/territory';
@@ -13,6 +14,7 @@ import { campaignFor, campaignSnapshot } from './campaign_dates';
 import { savedCard } from './card_choice';
 import { isCoverage } from './coverage_rate';
 import { revertAssignment } from './assignment_undo';
+import { holderOf, holderText } from './group_holder';
 import { offerUndo } from './undo';
 
 // undefined leaves an assignment's campaign as it is, null clears it
@@ -93,7 +95,7 @@ const useAssignReturn = () => {
   // and the card goes out the way it did last time on this device
   const assign = (
     id: string,
-    publisher: string,
+    holder: AssignmentHolder,
     assignedOn?: Date,
     campaign?: Campaign,
     note?: string,
@@ -109,9 +111,12 @@ const useAssignReturn = () => {
 
     // handing it out is not reading its last note: the mark stays until an
     // editor opens the territory, also when the holder takes it straight back
+    const { publisher, group } = holderOf(holder);
+
     patch(id, (territory) => ({
       status: 'in_work',
       holder: publisher,
+      holderGroup: group,
       daysOut: daysSince(start),
       requestedBy: undefined,
       assignments: [
@@ -120,7 +125,7 @@ const useAssignReturn = () => {
           ...assignmentFromDates(
             {
               id: assignmentId,
-              publisher,
+              ...holderOf(holder),
               assignedOn: '',
               serviceYear: 0,
               months: 0,
@@ -157,6 +162,7 @@ const useAssignReturn = () => {
       return {
         status: 'available',
         holder: undefined,
+        holderGroup: undefined,
         daysOut: undefined,
         ...(covered ? { daysSinceCovered: daysSince(end) } : {}),
         // a note is for the editor to read; the list marks it until they do
@@ -167,8 +173,12 @@ const useAssignReturn = () => {
     });
   };
 
-  const assignedText = (id: string, publisher: string, flagged: boolean) => {
-    const values = { number: numberOf(id), name: publisher };
+  const assignedText = (
+    id: string,
+    holder: AssignmentHolder,
+    flagged: boolean
+  ) => {
+    const values = { number: numberOf(id), name: holderText(holder) };
 
     return flagged
       ? tx('{{number}} assigned to {{name}} for the campaign', values)
@@ -177,7 +187,7 @@ const useAssignReturn = () => {
 
   const handleAssign = (
     id: string,
-    publisher: string,
+    holder: AssignmentHolder,
     assignedOn?: Date,
     campaign?: Campaign,
     note?: string,
@@ -185,13 +195,13 @@ const useAssignReturn = () => {
   ) => {
     const { flagged, assignmentId } = assign(
       id,
-      publisher,
+      holder,
       assignedOn,
       campaign,
       note,
       card
     );
-    remember([id], assignedText(id, publisher, flagged), [assignmentId]);
+    remember([id], assignedText(id, holder, flagged), [assignmentId]);
   };
 
   const handleReturn = (
@@ -220,21 +230,21 @@ const useAssignReturn = () => {
 
   const assignMany = (
     ids: string[],
-    publisher: string,
+    holder: AssignmentHolder,
     assignedOn?: Date,
     campaign?: Campaign,
     card?: AssignmentCard
   ) => {
     const results = ids.map((id) =>
-      assign(id, publisher, assignedOn, campaign, undefined, card)
+      assign(id, holder, assignedOn, campaign, undefined, card)
     );
     const flagged = results.some((result) => result.flagged);
-    const values = { n: ids.length, name: publisher };
+    const values = { n: ids.length, name: holderText(holder) };
 
     remember(
       ids,
       ids.length === 1
-        ? assignedText(ids[0], publisher, flagged)
+        ? assignedText(ids[0], holder, flagged)
         : flagged
           ? tx(
               '{{n}} territories assigned to {{name}} for the campaign',

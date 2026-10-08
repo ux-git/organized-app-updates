@@ -61,9 +61,9 @@ test('the first and the last day of the period both count', () => {
   });
 });
 
-test('all completed work counts, including campaigns', () => {
+test('every return counts, also old ones marked unfinished', () => {
   assert.equal(isCoverage({}), true);
-  assert.equal(isCoverage({ completed: false }), false);
+  assert.equal(isCoverage({ completed: false }), true);
   assert.equal(isCoverage({ completed: true }), true);
 });
 

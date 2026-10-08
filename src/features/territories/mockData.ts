@@ -57,7 +57,7 @@ const CITIES = [
   'Schöneberg',
 ];
 
-const CATEGORIES: string[] = ['dangerous', 'dogs', 'gated', 'rural'];
+const CATEGORIES: string[] = ['rural'];
 
 const DNC_NAMES = ['Mrs. Kramer', 'Mr. Vogel', 'Family Brinkmann', ''];
 

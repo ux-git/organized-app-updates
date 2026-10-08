@@ -4,6 +4,7 @@ import type { Territory } from '@definition/territory';
 const FIELDS = [
   'status',
   'holder',
+  'holderGroup',
   'daysOut',
   'requestedBy',
   'daysSinceCovered',

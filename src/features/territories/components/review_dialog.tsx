@@ -16,7 +16,8 @@ import { tx } from '@services/i18n/translation';
 type ReviewDialogProps = {
   territory?: Territory;
   onClose: VoidFunction;
-  onAssign: (id: string, publisher: string) => void;
+  // opens the assign dialog, with whoever asked filled in
+  onAssign: (id: string) => void;
   onDecline: (id: string) => void;
 };
 
@@ -89,7 +90,7 @@ const ReviewDialog = ({
           variant="main"
           startIcon={<IconMoveForward color="var(--always-white)" />}
           onClick={() => {
-            onAssign(territory.id, publisher);
+            onAssign(territory.id);
             onClose();
           }}
         >

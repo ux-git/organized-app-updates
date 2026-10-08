@@ -383,6 +383,7 @@
     "text": "Changed on both devices. The newer version is currently used.",
     "campaigns": "Special campaigns",
     "holder": "Assigned to",
+    "holderGroup": "Assigned for group",
     "publisher": "Publisher",
     "assignedOn": "Assigned on",
     "returnedOn": "Returned on",

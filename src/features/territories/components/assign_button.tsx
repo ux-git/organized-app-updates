@@ -9,7 +9,6 @@ import { tx } from '@services/i18n/translation';
 type AssignButtonProps = {
   territory: Territory;
   onOpenAssign: (id: string) => void;
-  onAssign: (id: string, publisher: string) => void;
   onDecline: (id: string) => void;
   onReturn: (id: string) => void;
   compact?: boolean;
@@ -42,7 +41,6 @@ const lookOf = (isAssigned: boolean, isRequested: boolean) => {
 const AssignButton = ({
   territory,
   onOpenAssign,
-  onAssign,
   onDecline,
   onReturn,
   compact = false,
@@ -79,7 +77,7 @@ const AssignButton = ({
           <ReviewDialog
             territory={territory}
             onClose={() => setReviewOpen(false)}
-            onAssign={onAssign}
+            onAssign={onOpenAssign}
             onDecline={onDecline}
           />
         </Box>

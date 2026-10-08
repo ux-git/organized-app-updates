@@ -11,6 +11,7 @@ import {
   TerritoryBoundary,
   TerritoryCampaign,
   TerritoryCategoryOption,
+  RETIRED_CATEGORIES,
 } from '@definition/territory';
 import {
   congregationBorderColorState,
@@ -25,6 +26,7 @@ import {
   territoryRecommendationsState,
 } from '@states/territories';
 import { parseDate } from '@features/territories/helpers';
+import { withGroupHolders } from '@features/territories/group_holder';
 import { store } from '@states/index';
 import { appLocalsState } from '@states/app_locals';
 import { settingsState } from '@states/settings';
@@ -718,6 +720,31 @@ const read = async () => {
   saved = new Map();
   records.forEach(remember);
 
+  // Old records name a group as the publisher. They are read as the group,
+  // with who took it left to fill in; the store keeps the old name until
+  // someone does, so no phone writes the blank over a name filled in on
+  // another. The group itself goes out with the next edit, the same on all.
+  const groups = store
+    .get(peopleState)
+    .filter((person) => person.group)
+    .map((person) => person.name);
+  const blank = (table: string, id: string, field: string) => {
+    const fields = saved.get(key(table, id));
+    if (fields) fields[field] = json('');
+  };
+  const migrated = withGroupHolders(state.territories, groups);
+  migrated.forEach((territory, index) => {
+    const before = state.territories[index];
+    if (territory === before) return;
+    if (territory.holder !== before.holder)
+      blank(TERRITORIES, territory.id, 'holder');
+    territory.assignments.forEach((item, at) => {
+      if (item.publisher !== before.assignments[at].publisher)
+        blank(ASSIGNMENTS, item.id, 'publisher');
+    });
+  });
+  state = { ...state, territories: migrated };
+
   centerOf(
     state.boundary ??
       state.territories.flatMap((territory) => territory.boundary ?? [])
@@ -746,7 +773,34 @@ const read = async () => {
   } finally {
     applying = false;
   }
+  retireCategories();
   if (pending.length) save();
+};
+
+// set outside a load, so the removal is written and syncs like an edit
+const retireCategories = () => {
+  const retired = (id: string) => RETIRED_CATEGORIES.includes(id);
+  const categories = store.get(territoryCategoriesState);
+  if (categories.some(({ id }) => retired(id))) {
+    store.set(
+      territoryCategoriesState,
+      categories.filter(({ id }) => !retired(id))
+    );
+  }
+  const territories = store.get(territoriesState);
+  if (territories.some((item) => item.categories?.some(retired))) {
+    store.set(
+      territoriesState,
+      territories.map((item) =>
+        item.categories?.some(retired)
+          ? {
+              ...item,
+              categories: item.categories.filter((id) => !retired(id)),
+            }
+          : item
+      )
+    );
+  }
 };
 
 let nextLoad: Promise<void> | undefined;
@@ -770,10 +824,12 @@ export const renameOnTerritories = (renames: Map<string, string>) => {
       const next = {
         ...territory,
         holder: to(territory.holder),
+        holderGroup: to(territory.holderGroup),
         requestedBy: to(territory.requestedBy),
         assignments: territory.assignments.map((assignment) => ({
           ...assignment,
           publisher: to(assignment.publisher)!,
+          ...(assignment.group ? { group: to(assignment.group) } : {}),
         })),
         doNotCalls: territory.doNotCalls.map((entry) => ({
           ...entry,

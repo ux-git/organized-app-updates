@@ -210,6 +210,8 @@ export const applyFilters = (
 
     if (filters.cardLostOnly && !territory.cardLost) return false;
 
+    if (filters.forGroups && !territory.holderGroup) return false;
+
     if (!matchesCard(territory, filters.card)) return false;
 
     if (!matchesHolder(territory, filters.holder, filters.holderPast)) {
@@ -266,9 +268,11 @@ export const publisherLoad = (
 
   for (const { name } of assignees) load.set(name, 0);
 
+  // a group's territory counts for the group and for whoever took it
   for (const territory of territories) {
-    if (!territory.holder) continue;
-    load.set(territory.holder, (load.get(territory.holder) ?? 0) + 1);
+    for (const name of [territory.holder, territory.holderGroup]) {
+      if (name) load.set(name, (load.get(name) ?? 0) + 1);
+    }
   }
 
   return [...load.entries()]
@@ -530,7 +534,10 @@ export const publisherCoverage = (
 
   const everHeld = new Set(
     territories.flatMap((territory) =>
-      territory.assignments.map((assignment) => assignment.publisher)
+      territory.assignments.flatMap((assignment) => [
+        assignment.publisher,
+        assignment.group ?? '',
+      ])
     )
   );
 
@@ -615,7 +622,7 @@ export const publishersPerMonth = (
 
     for (const territory of territories) {
       for (const assignment of territory.assignments) {
-        if (heldWithin(assignment, start, end)) {
+        if (assignment.publisher && heldWithin(assignment, start, end)) {
           holders.add(assignment.publisher);
         }
       }
@@ -658,6 +665,7 @@ export const appliedFilters = (filters: TerritoryFilters) =>
   filters.categories.length +
   (filters.coverage ? 1 : 0) +
   (filters.cardLostOnly ? 1 : 0) +
+  (filters.forGroups ? 1 : 0) +
   filters.card.length +
   (filters.holder ? 1 : 0) +
   (filters.campaign ? 1 : 0);
@@ -692,6 +700,7 @@ export const withAssignments = (
       daysSinceCovered,
       status: 'available',
       holder: undefined,
+      holderGroup: undefined,
       daysOut: undefined,
     };
   }
@@ -702,6 +711,7 @@ export const withAssignments = (
     daysSinceCovered,
     status: territory.status === 'available' ? 'in_work' : territory.status,
     holder: open.publisher,
+    holderGroup: open.group,
     daysOut: daysAgo(time(open.assignedOn) || Date.now()),
   };
 };

@@ -6,7 +6,6 @@ import { Button, InfoNote, TextField } from '@components/index';
 import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
-import SwitchWithLabel from '@components/switch_with_label';
 import { useBreakpoints } from '@hooks/index';
 import { IconCopy } from '@icons/index';
 import { territoryAssigneesState } from '../assignees';
@@ -20,8 +19,13 @@ import {
 import CampaignField, { CampaignChoice } from '../components/campaign_field';
 import CardField from '../components/card_field';
 import EditorHeader from '../components/editor_header';
-import PublisherSearch from '../components/publisher_search';
-import { savedCard } from '../card_choice';
+import { HolderModeSwitch, HolderPickers } from '../components/holder_picker';
+import {
+  chosenHolder,
+  holderMissing,
+  initialHolder,
+  savedCard,
+} from '../card_choice';
 import {
   assignmentFromDates,
   assignmentIssues,
@@ -60,15 +64,13 @@ const AssignmentEditor = ({
   const assignees = useAtomValue(territoryAssigneesState);
   const campaigns = useAtomValue(territoryCampaignsState);
 
-  const [publisher, setPublisher] = useState(assignment.publisher);
-
-  const groups = new Set(
-    assignees.filter((assignee) => assignee.group).map(({ name }) => name)
+  const [holder, setHolder] = useState(() =>
+    initialHolder(
+      assignment,
+      assignees.filter((item) => item.group).map(({ name }) => name)
+    )
   );
-  // a name no longer on the list, e.g. someone who moved, stays choosable
-  const names = assignees.map(({ name }) => name);
-  const options =
-    publisher && !names.includes(publisher) ? [...names, publisher] : names;
+  const [tried, setTried] = useState(false);
   const [assignedOn, setAssignedOn] = useState<Date | null>(
     parseDate(assignment.assignedOn) ?? new Date()
   );
@@ -90,7 +92,6 @@ const AssignmentEditor = ({
 
     return { checked: !!value, value };
   });
-  const [coverage, setCoverage] = useState(assignment.completed !== false);
 
   const overlapping = campaigns.filter((item) =>
     campaignOverlaps(item, assignedOn ?? new Date(), returnedOn ?? new Date())
@@ -131,13 +132,14 @@ const AssignmentEditor = ({
         />
       }
     >
-      <PublisherSearch
-        options={options}
-        value={publisher || null}
-        onChange={(value) => setPublisher(value ?? '')}
-        getName={(name) => name}
-        isGroup={(name) => groups.has(name)}
-        autoFocus={!tablet600Up && !publisher}
+      <HolderModeSwitch value={holder} onChange={setHolder} />
+
+      <HolderPickers
+        value={holder}
+        onChange={setHolder}
+        showMissing={tried || (!isNew && !assignment.publisher)}
+        autoFocus={!tablet600Up}
+        current={assignment}
       />
 
       <Stack
@@ -211,15 +213,6 @@ const AssignmentEditor = ({
         />
       )}
 
-      {returnedOn && (
-        <SwitchWithLabel
-          label={tx('Territory completed')}
-          helper={tx('Turn off if the territory was returned unfinished.')}
-          checked={coverage}
-          onChange={setCoverage}
-        />
-      )}
-
       {secondOpen && (
         <InfoNote
           message={tx(
@@ -234,8 +227,13 @@ const AssignmentEditor = ({
         </Button>
         <Button
           variant="main"
-          disabled={!publisher || returnedTooEarly || secondOpen}
+          disabled={returnedTooEarly || secondOpen}
           onClick={() => {
+            if (holderMissing(holder)) {
+              setTried(true);
+              return;
+            }
+            const { publisher, group } = chosenHolder(holder);
             onSave({
               ...assignmentFromDates(
                 assignment,
@@ -243,11 +241,11 @@ const AssignmentEditor = ({
                 assignedOn ?? new Date(),
                 returnedOn
               ),
+              group,
               campaign:
                 campaign.checked && campaign.value
-                  ? campaignSnapshot(campaign.value, coverage)
+                  ? campaignSnapshot(campaign.value)
                   : undefined,
-              completed: coverage,
               note: note.trim() || undefined,
               card,
             });

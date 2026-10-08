@@ -7,6 +7,11 @@ import {
 } from './publisherChanges';
 import { s13Rows } from '@features/territories/history/s13_rows';
 import { forTab, pastCooldown } from '@features/territories/tabs';
+import {
+  applyFilters,
+  EMPTY_FILTERS,
+  withAssignments,
+} from '@features/territories/helpers';
 import { isCoverage } from '@features/territories/coverage_rate';
 import { tileUrls } from '@services/maps/tiles';
 vi.mock('@features/territories/mockData', () => ({ STREET_INDEX: [] }));
@@ -52,12 +57,12 @@ describe('publisher history', () => {
         now
       )
     ).toThrow('every active'));
-  test('returns an unfinished territory without deleting old history', () => {
+  test('returns a territory without deleting old history', () => {
     const historical = assignment({ id: 'old', returnedOn: '01.02.2026' });
     const [result] = changedTerritories(
       [territory([historical, assignment()])],
       person,
-      { resolutions: { t: { completed: false } } },
+      { resolutions: { t: {} } },
       now
     );
     expect(result.assignments).toHaveLength(2);
@@ -65,8 +70,8 @@ describe('publisher history', () => {
     expect(result.assignments[1]).toMatchObject({
       publisher: 'Alex',
       returnedOn: '03.10.2026',
-      completed: false,
     });
+    expect(result.assignments[1].completed).toBeUndefined();
     expect(result.holder).toBeUndefined();
   });
   test('transfer changes only the active publisher and preserves completed history', () => {
@@ -79,7 +84,7 @@ describe('publisher history', () => {
     const [result] = changedTerritories(
       [territory([historical, source])],
       person,
-      { resolutions: { t: { target: 'Ben', completed: true } } },
+      { resolutions: { t: { target: 'Ben' } } },
       now
     );
     expect(result.assignments).toEqual([
@@ -99,7 +104,7 @@ describe('publisher history', () => {
           ]),
         ],
         person,
-        { resolutions: { t: { target: 'Ben', completed: false } } },
+        { resolutions: { t: { target: 'Ben' } } },
         now
       )
     ).toThrow('other open assignment');
@@ -149,7 +154,7 @@ describe('publisher history', () => {
       changedTerritories(
         [territory([assignment({ assignedOn: '04.10.2026' })])],
         person,
-        { resolutions: { t: { completed: true } } },
+        { resolutions: { t: {} } },
         now
       )
     ).toThrow('future'));
@@ -204,14 +209,69 @@ describe('S-13 and coverage', () => {
     expect(rows.map((row) => row.entries.length)).toEqual([4, 2]);
     expect(rows.every((row) => row.number === '1')).toBe(true);
   });
-  test('unfinished returns never count as completed coverage', () => {
+  test('every return counts as completed, also old unfinished ones', () => {
     const source = territory([
       assignment({ returnedOn: '02.02.2026', completed: false }),
     ]);
+    const [row] = s13Rows(source, 'dd.MM.yyyy', '', now);
+    expect(row.entries[0].completedOn).toBe('02.02.2026');
+    expect(row.lastCompleted).toBe('02.02.2026');
+    expect(isCoverage(source.assignments[0])).toBe(true);
+  });
+  test('the S-13 prints the publisher, never the group', () => {
+    const source = territory([
+      assignment({ publisher: 'Max Müller', group: 'Group 3' }),
+      assignment({ id: 'old', publisher: '', group: 'Group 2' }),
+    ]);
+    const names = s13Rows(source, 'dd.MM.yyyy', '', now)[0].entries.map(
+      (entry) => entry.publisher
+    );
+    expect(names).toEqual(['Max Müller', '']);
+  });
+});
+describe('group assignments', () => {
+  const forGroup = territory(
+    [assignment({ publisher: 'Max', group: 'Group 3' })],
+    { status: 'in_work' }
+  );
+  const group = { id: 'g3', name: 'Group 3', group: true };
+  test('the holder is the publisher, the group beside it', () => {
+    const held = withAssignments(forGroup, forGroup.assignments);
+    expect(held.holder).toBe('Max');
+    expect(held.holderGroup).toBe('Group 3');
+    expect(forTab([held], 'mine', 'Max')).toEqual([held]);
+    expect(forTab([held], 'group', '', true, 'Group 3')).toEqual([held]);
     expect(
-      s13Rows(source, 'dd.MM.yyyy', '', now)[0].entries[0].completedOn
-    ).toBeUndefined();
-    expect(isCoverage(source.assignments[0])).toBe(false);
+      applyFilters([held, territory()], { ...EMPTY_FILTERS, forGroups: true })
+    ).toEqual([held]);
+  });
+  test('a group handed to another group keeps who took it', () => {
+    const [result] = changedTerritories(
+      [forGroup],
+      group,
+      { resolutions: { t: { target: 'Group 4' } } },
+      now
+    );
+    expect(result.assignments[0]).toMatchObject({
+      publisher: 'Max',
+      group: 'Group 4',
+    });
+    expect(result.holderGroup).toBe('Group 4');
+  });
+  test('a merged group is renamed on its assignments only', () => {
+    const [result] = changedTerritories(
+      [forGroup],
+      group,
+      {
+        mergeInto: { id: 'g4', name: 'Group 4', group: true },
+        resolutions: {},
+      },
+      now
+    );
+    expect(result.assignments[0]).toMatchObject({
+      publisher: 'Max',
+      group: 'Group 4',
+    });
   });
 });
 describe('recommendations', () => {

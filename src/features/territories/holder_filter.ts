@@ -11,13 +11,13 @@ export const holderOptions = (
 
   for (const territory of territories) {
     for (const assignment of territory.assignments) {
-      if (!counts.has(assignment.publisher)) {
-        counts.set(assignment.publisher, 0);
+      for (const name of [assignment.publisher, assignment.group ?? '']) {
+        if (!counts.has(name)) counts.set(name, 0);
       }
     }
 
-    if (territory.holder) {
-      counts.set(territory.holder, (counts.get(territory.holder) ?? 0) + 1);
+    for (const name of [territory.holder, territory.holderGroup]) {
+      if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
     }
   }
 
@@ -38,7 +38,9 @@ export const matchesHolder = (
 ) =>
   !holder ||
   territory.holder === holder ||
+  territory.holderGroup === holder ||
   (past &&
     territory.assignments.some(
-      (assignment) => assignment.publisher === holder
+      (assignment) =>
+        assignment.publisher === holder || assignment.group === holder
     ));

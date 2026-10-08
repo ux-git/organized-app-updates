@@ -5,7 +5,6 @@ import { Button, Select, Typography } from '@components/index';
 import MenuItem from '@components/menuitem';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
-import SwitchWithLabel from '@components/switch_with_label';
 import PublisherSearch from '@features/territories/components/publisher_search';
 import { tx } from '@services/i18n/translation';
 import { territoriesState } from '@states/territories';
@@ -101,7 +100,6 @@ const ManagePublisher = ({
                   value={choice ? (choice.target ? 'transfer' : 'return') : ''}
                   onChange={(event) =>
                     update(territory.id, {
-                      completed: false,
                       target:
                         event.target.value === 'transfer'
                           ? '__choose__'
@@ -114,7 +112,7 @@ const ManagePublisher = ({
                     {tx('Transfer to another publisher')}
                   </MenuItem>
                 </Select>
-                {choice?.target ? (
+                {choice?.target && (
                   <PublisherSearch
                     options={options}
                     value={
@@ -123,23 +121,11 @@ const ManagePublisher = ({
                     }
                     onChange={(value) =>
                       update(territory.id, {
-                        completed: false,
                         target: value?.name ?? '__choose__',
                       })
                     }
                     getName={(item) => item.name}
                   />
-                ) : (
-                  choice && (
-                    <SwitchWithLabel
-                      label={tx('Territory completed')}
-                      helper={tx('Leave off if it was returned unfinished.')}
-                      checked={choice.completed}
-                      onChange={(completed) =>
-                        update(territory.id, { completed })
-                      }
-                    />
-                  )
                 )}
               </Stack>
             );

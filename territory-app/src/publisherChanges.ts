@@ -7,15 +7,27 @@ import {
 import { revertAssignment } from '@features/territories/assignment_undo';
 import type { Person } from './persistence';
 
-export type Resolution = { target?: string; completed: boolean };
+export type Resolution = { target?: string };
 export type PublisherChange = {
   mergeInto?: Person;
   resolutions: Record<string, Resolution>;
 };
+// a group's name is on its assignments as the group, a person's as the publisher
+const names = (item: TerritoryAssignment, name: string) =>
+  item.publisher === name || item.group === name;
+
+const renamed = (
+  item: TerritoryAssignment,
+  name: string,
+  target: string
+): TerritoryAssignment => ({
+  ...item,
+  ...(item.publisher === name ? { publisher: target } : {}),
+  ...(item.group === name ? { group: target } : {}),
+});
+
 export const activeFor = (territory: Territory, name: string) =>
-  territory.assignments.filter(
-    (item) => item.publisher === name && !item.returnedOn
-  );
+  territory.assignments.filter((item) => names(item, name) && !item.returnedOn);
 
 /** Pure preview: deleting a directory entry never deletes assignment records. */
 export const changedTerritories = (
@@ -28,7 +40,7 @@ export const changedTerritories = (
     const target = change.mergeInto?.name;
     if (target) {
       if (
-        !territory.assignments.some((item) => item.publisher === person.name) &&
+        !territory.assignments.some((item) => names(item, person.name)) &&
         territory.holder !== person.name &&
         territory.requestedBy !== person.name
       )
@@ -42,7 +54,7 @@ export const changedTerritories = (
               : territory.requestedBy,
         },
         territory.assignments.map((item) =>
-          item.publisher === person.name ? { ...item, publisher: target } : item
+          names(item, person.name) ? renamed(item, person.name, target) : item
         )
       );
     }
@@ -77,16 +89,14 @@ export const changedTerritories = (
     const assignments: TerritoryAssignment[] = territory.assignments.map(
       (item) => {
         if (!active.includes(item)) return item;
-        if (resolution.target) return { ...item, publisher: resolution.target };
-        return {
-          ...assignmentFromDates(
-            item,
-            item.publisher,
-            parseDate(item.assignedOn) ?? now,
-            now
-          ),
-          completed: resolution.completed,
-        };
+        if (resolution.target)
+          return renamed(item, person.name, resolution.target);
+        return assignmentFromDates(
+          item,
+          item.publisher,
+          parseDate(item.assignedOn) ?? now,
+          now
+        );
       }
     );
     return withAssignments(

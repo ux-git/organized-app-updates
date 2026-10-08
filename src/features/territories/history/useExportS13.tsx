@@ -4,6 +4,8 @@ import { pdf } from '@react-pdf/renderer';
 import { exportFile } from '@services/files/export';
 import { getI18n } from 'react-i18next';
 import { s13Rows } from './s13_rows';
+import { territoryAssigneesState } from '../assignees';
+import { withGroupHolders } from '../group_holder';
 import { JWLangLocaleState, shortDateFormatState } from '@states/settings';
 import { territoriesState } from '@states/territories';
 import { displaySnackNotification } from '@services/states/app';
@@ -11,7 +13,12 @@ import { getMessageByCode } from '@services/i18n/translation';
 import { formatDate } from '@utils/date';
 import { TemplateS13 } from '@views/index';
 const useExportS13 = () => {
-  const territories = useAtomValue(territoriesState);
+  const assignees = useAtomValue(territoryAssigneesState);
+  // old records naming a group print no name: the group never goes on the S-13
+  const territories = withGroupHolders(
+    useAtomValue(territoriesState),
+    assignees.filter((item) => item.group).map(({ name }) => name)
+  );
   const lang = useAtomValue(JWLangLocaleState);
   const dateFormat = useAtomValue(shortDateFormatState);
 

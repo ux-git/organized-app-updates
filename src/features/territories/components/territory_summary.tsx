@@ -1,7 +1,7 @@
 import { Box, Stack } from '@mui/material';
 import { useNavigate } from 'react-router';
 import { Typography } from '@components/index';
-import { IconPerson } from '@icons/index';
+import { IconArrowLink, IconPerson } from '@icons/index';
 import { Territory, TYPE_LABEL } from '@definition/territory';
 import {
   CardLostBadge,
@@ -115,52 +115,75 @@ const TerritorySummary = ({
           <CategoryBadges territory={territory} wrap />
         </Stack>
 
-        {meta && (
+        {meta && holder && meta.startsWith(holder) && (
+          <Stack direction="row" sx={{ alignItems: 'center', gap: '6px' }}>
+            <Box
+              component="button"
+              type="button"
+              className="label-small-medium"
+              title={tx('Show all their territories')}
+              onClick={() =>
+                navigate(
+                  `/territories?tab=all&search=${encodeURIComponent(holder)}`
+                )
+              }
+              sx={{
+                all: 'unset',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 8px 2px 6px',
+                borderRadius: 'var(--radius-s)',
+                backgroundColor: 'var(--accent-150)',
+                color: 'var(--accent-dark)',
+                cursor: 'pointer',
+                transition: 'background-color 0.15s',
+                '& svg path': { fill: 'currentColor' },
+                // the arrow slides in on hover: it opens their territories
+                '& .holder-arrow': {
+                  display: 'inline-flex',
+                  width: 0,
+                  marginLeft: '-4px',
+                  opacity: 0,
+                  overflow: 'hidden',
+                  transition:
+                    'width 0.2s cubic-bezier(0.22, 1, 0.36, 1), margin 0.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s',
+                },
+                '&:hover, &:focus-visible': {
+                  backgroundColor: 'var(--accent-200)',
+                  '& .holder-arrow': {
+                    width: '14px',
+                    marginLeft: 0,
+                    opacity: 1,
+                  },
+                },
+                '&:focus-visible': {
+                  outline: '2px solid var(--accent-main)',
+                  outlineOffset: '2px',
+                },
+                '@media (prefers-reduced-motion: reduce)': {
+                  '&, & .holder-arrow': { transition: 'none' },
+                },
+              }}
+            >
+              <IconPerson width={14} height={14} />
+              {holder}
+              <Box component="span" className="holder-arrow">
+                <IconArrowLink width={14} height={14} />
+              </Box>
+            </Box>
+            <Typography className="label-small-regular" color="var(--grey-400)">
+              {meta.slice(holder.length).replace(/^\s*·\s*/, '')}
+            </Typography>
+          </Stack>
+        )}
+
+        {meta && !(holder && meta.startsWith(holder)) && (
           <Stack direction="row" sx={{ alignItems: 'center', gap: '4px' }}>
             <IconPerson color="var(--grey-400)" width={16} height={16} />
-            {holder && meta.startsWith(holder) ? (
-              <Typography
-                className="label-small-regular"
-                color="var(--grey-400)"
-              >
-                <Box
-                  component="button"
-                  type="button"
-                  onClick={() =>
-                    navigate(
-                      `/territories?tab=all&search=${encodeURIComponent(holder)}`
-                    )
-                  }
-                  sx={{
-                    all: 'unset',
-                    cursor: 'pointer',
-                    borderRadius: 'var(--radius-xs)',
-                    textDecoration: 'underline',
-                    textDecorationColor: 'transparent',
-                    textUnderlineOffset: '2px',
-                    transition: 'color 0.15s, text-decoration-color 0.15s',
-                    '&:hover': {
-                      color: 'var(--accent-main)',
-                      textDecorationColor: 'currentColor',
-                    },
-                    '&:focus-visible': {
-                      outline: '2px solid var(--accent-main)',
-                      outlineOffset: '2px',
-                    },
-                  }}
-                >
-                  {holder}
-                </Box>
-                {meta.slice(holder.length)}
-              </Typography>
-            ) : (
-              <Typography
-                className="label-small-regular"
-                color="var(--grey-400)"
-              >
-                {meta}
-              </Typography>
-            )}
+            <Typography className="label-small-regular" color="var(--grey-400)">
+              {meta}
+            </Typography>
           </Stack>
         )}
       </Stack>

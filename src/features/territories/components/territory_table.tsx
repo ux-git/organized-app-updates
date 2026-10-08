@@ -45,6 +45,7 @@ import {
   PrintedCardBadge,
   RequestBadge,
 } from './territory_badges';
+import { territoryHolderText } from '../group_holder';
 import { tx } from '@services/i18n/translation';
 
 type TerritoryTableProps = {
@@ -54,7 +55,6 @@ type TerritoryTableProps = {
   onCheckMany: (ids: string[]) => void;
   onOpen: (id: string) => void;
   onOpenAssign: (id: string) => void;
-  onAssign: (id: string, publisher: string) => void;
   onDecline: (id: string) => void;
   onReturn: (id: string) => void;
   showHouseholds?: boolean;
@@ -135,11 +135,12 @@ const compare =
 
     // grouped by who holds them; the free ones always come last, whichever way
     if (key === 'person') {
-      if (!a.holder || !b.holder) {
-        return Number(!a.holder) - Number(!b.holder) || byNumber;
+      const [holderA, holderB] = [a, b].map(territoryHolderText);
+      if (!holderA || !holderB) {
+        return Number(!holderA) - Number(!holderB) || byNumber;
       }
 
-      const byHolder = a.holder.localeCompare(b.holder);
+      const byHolder = holderA.localeCompare(holderB);
 
       return (reversed ? -byHolder : byHolder) || byNumber;
     }
@@ -213,7 +214,7 @@ const StatusLine = ({
         className="label-small-regular"
         color={overdue ? 'var(--red-main)' : 'var(--grey-400)'}
         text={[
-          showHolder ? territory.holder : status,
+          showHolder ? territoryHolderText(territory) : status,
           assigned && date(assigned),
         ]
           .filter(Boolean)
@@ -288,7 +289,6 @@ const TerritoryTable = ({
   onCheckMany,
   onOpen,
   onOpenAssign,
-  onAssign,
   onDecline,
   onReturn,
   showHouseholds = true,
@@ -599,7 +599,6 @@ const TerritoryTable = ({
                 <AssignButton
                   territory={territory}
                   onOpenAssign={onOpenAssign}
-                  onAssign={onAssign}
                   onDecline={onDecline}
                   onReturn={onReturn}
                   compact={!tablet688Up}

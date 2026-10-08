@@ -58,7 +58,6 @@ const PublisherTerritories = ({
             onCheck={noop}
             onCheckMany={noop}
             onOpenAssign={noop}
-            onAssign={noop}
             onDecline={noop}
             onReturn={noop}
           />

@@ -23,6 +23,7 @@ import {
   emptyListMessage,
 } from '../helpers';
 import { appendNote, noteLine } from '../notes';
+import { holderText, missingPublisher } from '../group_holder';
 import { offerUndo } from '../undo';
 import { restoreAssignment } from '../restore';
 import AssignmentEditor from './assignment_editor';
@@ -76,14 +77,19 @@ const TerritoryAssignments = ({
         items={[...assignments].sort(newestFirst).map((assignment) => ({
           id: assignment.id,
           onClick: onChange && (() => setEditing(assignment)),
-          title: assignment.publisher,
+          title: holderText(assignment),
           subtitle: assignment.note ? noteLine(assignment.note) : undefined,
           date: assignment.returnedOn
             ? `${displayDate(assignment.assignedOn, format)} – ${displayDate(assignment.returnedOn, format)}`
             : tx('Since: {{date}}', {
                 date: displayDate(assignment.assignedOn, format),
               }),
-          warning: issuesText(assignmentIssues(assignment)),
+          warning: [
+            missingPublisher(assignment) && tx('Fill in who took it'),
+            issuesText(assignmentIssues(assignment)),
+          ]
+            .filter(Boolean)
+            .join(' · '),
           badge: (!assignment.returnedOn ||
             assignment.campaign ||
             assignment.card) && (

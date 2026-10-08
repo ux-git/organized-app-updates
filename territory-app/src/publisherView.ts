@@ -47,6 +47,8 @@ export const currentPublisherTerritories = (
 ) =>
   territories.filter((territory) =>
     territory.assignments.some(
-      (assignment) => assignment.publisher === name && !assignment.returnedOn
+      (assignment) =>
+        (assignment.publisher === name || assignment.group === name) &&
+        !assignment.returnedOn
     )
   );

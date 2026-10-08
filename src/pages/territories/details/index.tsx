@@ -28,6 +28,7 @@ import TerritoryExport from '@features/territories/details/territory_export';
 import AssignReturnDialogs from '@features/territories/components/assign_return_dialogs';
 import useAssignReturn from '@features/territories/useAssignReturn';
 import useParentPage from '@features/territories/useParentPage';
+import { territoryHolderText } from '@features/territories/group_holder';
 import { Territory } from '@definition/territory';
 
 const publisherNoteOf = (territory: Territory, me: string) => {
@@ -227,7 +228,7 @@ const TerritoryDetailsPage = () => {
       <TerritoryDelete
         open={deleteOpen}
         number={territory.number}
-        holder={territory.holder}
+        holder={territoryHolderText(territory)}
         onClose={() => setDeleteOpen(false)}
         onDelete={handleDelete}
       />

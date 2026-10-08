@@ -3,6 +3,7 @@ import { ReactNode, useRef, useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { ScrollableTabs, Typography } from '@components/index';
 import Card from '@components/card';
+import InfoBanner from '@components/info_banner';
 import { IconCancelCicle } from '@icons/index';
 import { useBreakpoints } from '@hooks/index';
 import { DoNotCall, Territory } from '@definition/territory';
@@ -16,6 +17,7 @@ import TerritoryMap from './territory_map';
 import PhoneNumbersPanel from './phone_numbers_panel';
 import TerritoryStats from './territory_stats';
 import TerritoryStreets from './territory_streets';
+import { missingPublisher, territoryHolderText } from '../group_holder';
 
 type TerritoryDetailsProps = {
   territory: Territory;
@@ -73,6 +75,8 @@ const TerritoryDetails = ({
       block: 'start',
     });
 
+  const holder = territoryHolderText(territory);
+
   const summary = (
     <>
       <TerritorySummary
@@ -81,11 +85,11 @@ const TerritoryDetails = ({
         showDoNotCalls={showPrivate}
         onDoNotCalls={showDoNotCallList}
         meta={
-          !readOnly && territory.holder
-            ? `${territory.holder} · ${daysLabel(territory.daysOut)}`
+          !readOnly && holder
+            ? `${holder} · ${daysLabel(territory.daysOut)}`
             : undefined
         }
-        holder={readOnly ? undefined : territory.holder}
+        holder={readOnly ? undefined : holder}
       />
 
       {territory.notes && (
@@ -106,6 +110,20 @@ const TerritoryDetails = ({
       <TerritoryStats territory={territory} />
 
       {!readOnly && <AssignedTwice territory={territory} onChange={onChange} />}
+
+      {!readOnly &&
+        territory.status !== 'available' &&
+        missingPublisher({
+          publisher: territory.holder,
+          group: territory.holderGroup,
+        }) && (
+          <InfoBanner sx={{ width: '100%' }}>
+            {tx(
+              'Out for {{group}}, but nobody is named as having taken it. Open the assignment below and fill in who took it.',
+              { group: territory.holderGroup }
+            )}
+          </InfoBanner>
+        )}
     </>
   );
 

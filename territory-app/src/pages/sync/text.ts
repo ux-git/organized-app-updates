@@ -1,5 +1,6 @@
 import { displaySnackNotification } from '@services/states/app';
 import { list, t } from '../../i18n';
+import { holderText } from '@features/territories/group_holder';
 
 export const notify = (
   header: string,
@@ -128,6 +129,7 @@ export const describeSync = (result: SyncResult) => {
 
 const FIELDS = [
   'holder',
+  'holderGroup',
   'publisher',
   'assignedOn',
   'returnedOn',
@@ -149,6 +151,15 @@ export const fieldName = (field: string) =>
   FIELDS.includes(field)
     ? t(`decisions.${field}`)
     : field.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+
+// an assignment's group goes first, as on the territory pages
+export const showHolder = (record: Record<string, unknown>) =>
+  typeof record.group === 'string' && record.group
+    ? holderText({
+        publisher: typeof record.publisher === 'string' ? record.publisher : '',
+        group: record.group,
+      })
+    : show(record.publisher);
 
 export const show = (value: unknown) => {
   if (value === null || value === undefined || value === '') {

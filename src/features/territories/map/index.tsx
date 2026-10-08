@@ -102,6 +102,25 @@ const ATTRIBUTION_STYLES = {
 
 const LAYOUT_GAP = 32;
 
+const panelSlide = (shown: boolean) => ({
+  transform: shown ? 'none' : 'translateX(calc(-100% - 24px))',
+  opacity: shown ? 1 : 0,
+  visibility: shown ? 'visible' : 'hidden',
+  transition: `transform ${SLIDE}, opacity ${SLIDE}, visibility 0s ${shown ? '0s' : '340ms'}`,
+  '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+});
+
+// the panel's button leaves as the panel comes, and returns once it has gone
+const buttonReveal = (hidden: boolean) => ({
+  opacity: hidden ? 0 : 1,
+  transform: hidden ? 'scale(0.9)' : 'none',
+  visibility: hidden ? 'hidden' : 'visible',
+  transition: hidden
+    ? 'opacity 120ms, transform 120ms, visibility 0s 120ms'
+    : 'opacity 200ms 180ms, transform 200ms 180ms',
+  '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+});
+
 // the scroll area reaches 12px past the cards so their shadows aren't clipped
 const PANEL_STACK = {
   padding: '12px',
@@ -463,7 +482,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
           </Stack>
         )}
 
-        {compact && showPanel && (
+        {compact && (
           <Box
             sx={{
               position: 'absolute',
@@ -475,6 +494,8 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
               width: '100%',
               zIndex: 3,
               ...PANEL_STACK,
+              // slides in and out as on a wide screen
+              ...panelSlide(showPanel),
             }}
           >
             {panelContents}
@@ -512,15 +533,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
                   position: 'absolute',
                   inset: '-12px',
                   ...PANEL_STACK,
-                  transform: showPanel
-                    ? 'none'
-                    : `translateX(calc(-100% - 24px))`,
-                  opacity: showPanel ? 1 : 0,
-                  visibility: showPanel ? 'visible' : 'hidden',
-                  transition: `transform ${SLIDE}, opacity ${SLIDE}, visibility 0s ${showPanel ? '0s' : '340ms'}`,
-                  '@media (prefers-reduced-motion: reduce)': {
-                    transition: 'none',
-                  },
+                  ...panelSlide(showPanel),
                 }}
               >
                 {panelContents}
@@ -531,18 +544,8 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
                   position: 'absolute',
                   top: 0,
                   left: 0,
-                  opacity: showPanel || map.mode === 'edit' ? 0 : 1,
-                  transform: showPanel ? 'scale(0.9)' : 'none',
-                  visibility:
-                    showPanel || map.mode === 'edit' ? 'hidden' : 'visible',
                   pointerEvents: 'auto',
-                  // appears once the panel has slid away
-                  transition: showPanel
-                    ? 'opacity 120ms, transform 120ms, visibility 0s 120ms'
-                    : `opacity 200ms 180ms, transform 200ms 180ms`,
-                  '@media (prefers-reduced-motion: reduce)': {
-                    transition: 'none',
-                  },
+                  ...buttonReveal(showPanel || map.mode === 'edit'),
                 }}
               >
                 {panelButton}
@@ -647,7 +650,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
 
         {/* under the switch, as on a wide screen: the panel button while the
             panel is closed (open, it has its own), then the picked territory */}
-        {compact && map.mode === 'view' && !showPanel && (
+        {compact && map.mode === 'view' && (
           <Box
             sx={{
               ...SECOND_ROW,
@@ -655,6 +658,8 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
               gap: '8px',
               alignItems: 'flex-start',
               justifyContent: 'flex-start',
+              transformOrigin: 'top left',
+              ...buttonReveal(showPanel),
             }}
           >
             {panelButton}

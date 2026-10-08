@@ -15,6 +15,7 @@ type PublisherSearchProps<T> = {
   getName: (option: T) => string;
   isGroup?: (option: T) => boolean;
   label?: string;
+  placeholder?: string;
   autoFocus?: boolean;
   blurOnSelect?: boolean;
   inputValue?: string;
@@ -33,6 +34,7 @@ const PublisherSearch = <T,>({
   getName,
   isGroup,
   label = tx('Publisher'),
+  placeholder = tx('Search publishers…'),
   autoFocus,
   blurOnSelect,
   inputValue,
@@ -42,7 +44,7 @@ const PublisherSearch = <T,>({
 }: PublisherSearchProps<T>) => (
   <Autocomplete
     label={label}
-    placeholder={tx('Search publishers…')}
+    placeholder={placeholder}
     startIcon={<IconSearch color="var(--grey-350)" />}
     autoFocus={autoFocus}
     autoHighlight

@@ -23,6 +23,7 @@ import {
 } from './territory_badges';
 import TruncatedText from './truncated_text';
 import { coveredAge, coveredDays, emptyListMessage } from '../helpers';
+import { territoryHolderText } from '../group_holder';
 import { tx } from '@services/i18n/translation';
 
 type Column = 'available' | 'requested' | 'in_work' | 'overdue';
@@ -49,7 +50,6 @@ type BoardViewProps = {
   territories: Territory[];
   onOpen: (id: string) => void;
   onOpenAssign: (id: string) => void;
-  onAssign: (id: string, publisher: string) => void;
   onDecline: (id: string) => void;
   onReturn: (id: string) => void;
   onDrop: (id: string, status: TerritoryStatus) => void;
@@ -61,7 +61,6 @@ const BoardView = ({
   territories,
   onOpen,
   onOpenAssign,
-  onAssign,
   onDecline,
   onReturn,
   onDrop,
@@ -272,7 +271,7 @@ const BoardView = ({
                       <TruncatedText
                         className="label-small-regular"
                         color="var(--grey-350)"
-                        text={`${territory.holder ?? tx(TYPE_LABEL[territory.type])}${
+                        text={`${territoryHolderText(territory) || tx(TYPE_LABEL[territory.type])}${
                           showHouseholds
                             ? ` · ${tx('{{n}} households', { n: territory.households })}`
                             : ''
@@ -312,7 +311,6 @@ const BoardView = ({
                           <AssignButton
                             territory={territory}
                             onOpenAssign={onOpenAssign}
-                            onAssign={onAssign}
                             onDecline={onDecline}
                             onReturn={onReturn}
                             compact={!tablet688Up}

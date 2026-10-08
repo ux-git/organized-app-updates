@@ -53,7 +53,9 @@ const MyHistory = ({
       territory.assignments
         .filter(
           (assignment) =>
-            assignment.publisher === (publisher ?? me) && assignment.returnedOn
+            [assignment.publisher, assignment.group].includes(
+              publisher ?? me
+            ) && assignment.returnedOn
         )
         .map((assignment) => ({ territory, assignment }))
     )

@@ -19,7 +19,8 @@ import BorderSketch, { Drawing } from './BorderSketch';
 import { Peer } from '../useNearby';
 import { joinNotes, NOTE_FIELDS, withNote } from './notes';
 import { Actions, Avatar } from './parts';
-import { fieldName, notify, show } from './text';
+import { fieldName, notify, show, showHolder } from './text';
+import { holderText } from '@features/territories/group_holder';
 
 type Conflict = {
   table: string;
@@ -147,7 +148,7 @@ const Decisions = () => {
       case 'assignments':
         return t('decisions.assignment', {
           number: numberOf(record.territory),
-          publisher: show(record.publisher),
+          publisher: showHolder(record),
         });
       case 'do_not_calls':
         return t('decisions.doNotCall', { address: show(record.address) });
@@ -244,14 +245,16 @@ const Decisions = () => {
       )
     );
     // the holder clash, if any, is settled with it
-    invoke('resolve_conflict', {
-      table: 'territories',
-      id: territory.id,
-      field: 'holder',
-      useOther: false,
-    })
-      .then(refresh)
-      .catch(() => {});
+    Promise.allSettled(
+      ['holder', 'holderGroup'].map((field) =>
+        invoke('resolve_conflict', {
+          table: 'territories',
+          id: territory.id,
+          field,
+          useOther: false,
+        })
+      )
+    ).then(refresh);
   };
 
   // two notes written apart both stay: the joined text is a new edit, so it
@@ -305,12 +308,12 @@ const Decisions = () => {
               key={territory.id}
               title={t('decisions.twice', { number: territory.number })}
               text={t('decisions.twiceText', {
-                names: list(assignments.map((a) => a.publisher)),
+                names: list(assignments.map(holderText)),
               })}
             >
               <Actions
                 actions={assignments.map((assignment) => ({
-                  label: assignment.publisher,
+                  label: holderText(assignment),
                   onClick: () => keepAssignment(territory, assignment.id),
                 }))}
               />

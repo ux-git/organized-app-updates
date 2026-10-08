@@ -10,6 +10,7 @@ import {
 import { STATUS_LABEL, Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 import { openInMaps, territoryCenter } from '../helpers';
+import { territoryHolderText } from '../group_holder';
 import { DoNotCallBadge } from '../components/territory_badges';
 
 const ToolButton = ({
@@ -129,7 +130,7 @@ export const ViewToolbar = ({
   const info = [
     selected.city,
     tx(STATUS_LABEL[selected.status]),
-    selected.holder,
+    territoryHolderText(selected),
   ]
     .filter(Boolean)
     .join(' · ');

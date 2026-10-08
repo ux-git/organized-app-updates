@@ -488,6 +488,53 @@ describe('saving', () => {
     ]);
   });
 
+  test('an old group record is read as the group, and only the group is written', async () => {
+    const fake = fakeStore({
+      territories: [{ id: 't1', number: '1', holder: 'Group 3' }],
+      assignments: [
+        { id: 'a1', territory: 't1', publisher: 'Group 3', order: 0 },
+      ],
+      people: [
+        { id: 'g3', name: 'Group 3', group: true },
+        { id: 'p1', name: 'Max', group: false },
+      ],
+    });
+    await load();
+    persisted();
+    const [read] = store.get(territoriesState);
+    expect(read.holderGroup).toBe('Group 3');
+    expect(read.assignments[0]).toMatchObject({
+      publisher: '',
+      group: 'Group 3',
+    });
+
+    // the blank never goes out, so it can't overwrite a name filled in elsewhere
+    edit((territory) => ({ ...territory, name: 'Old town' }));
+    await settled();
+    expect(fake.sent).toEqual([
+      [
+        {
+          table: 'territories',
+          id: 't1',
+          fields: { name: 'Old town', holderGroup: 'Group 3' },
+        },
+        { table: 'assignments', id: 'a1', fields: { group: 'Group 3' } },
+      ],
+    ]);
+
+    edit((territory) => ({
+      ...territory,
+      assignments: territory.assignments.map((item) => ({
+        ...item,
+        publisher: 'Max',
+      })),
+    }));
+    await settled();
+    expect(fake.sent[1]).toEqual([
+      { table: 'assignments', id: 'a1', fields: { publisher: 'Max' } },
+    ]);
+  });
+
   test('going back to the territories from before is written too', async () => {
     const fake = fakeStore(tables());
     await load();

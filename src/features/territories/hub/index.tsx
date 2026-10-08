@@ -204,7 +204,6 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     toggleCheckMany,
     assignMany,
     returnMany,
-    handleAssign,
     handleDecline,
     handleOpen,
     isBoard,
@@ -278,7 +277,6 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
       territories={boardTerritories}
       onOpen={handleOpen}
       onOpenAssign={setAssignId}
-      onAssign={handleAssign}
       onDecline={handleDecline}
       onReturn={setReturnId}
       onDrop={handleDrop}
@@ -295,7 +293,6 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
       onCheckMany={toggleCheckMany}
       onOpen={handleOpen}
       onOpenAssign={setAssignId}
-      onAssign={handleAssign}
       onDecline={handleDecline}
       onReturn={setReturnId}
       showHouseholds={showHouseholds}

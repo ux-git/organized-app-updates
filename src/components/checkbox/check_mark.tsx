@@ -1,37 +1,37 @@
 import { useState } from 'react';
 import { Box, keyframes } from '@mui/material';
 
-// squeezed by the press, then springing past its size and settling; two
-// names taken in turns, so each change starts it afresh
-const pops = [
-  keyframes`
-    0% { transform: scale(1); }
-    30% { transform: scale(0.84); }
-    65% { transform: scale(1.08); }
-    100% { transform: scale(1); }
-  `,
-  keyframes`
-    0% { transform: scale(1); }
-    30% { transform: scale(0.84); }
-    65% { transform: scale(1.08); }
-    99% { transform: scale(1); }
-  `,
-];
+// squeezed by the press, then springing past its size and settling
+const pop = (turn: number) => keyframes`
+  0% { transform: scale(1); }
+  30% { transform: scale(0.84); }
+  65% { transform: scale(1.08); }
+  100% { transform: scale(1); --turn: ${turn}; }
+`;
+
+// two otherwise equal animations taken in turns: a new name restarts the
+// pop on every change, even mid-way through the last one
+const POPS = [pop(0), pop(1)];
 
 const SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)';
 const DRAW = 'cubic-bezier(0.65, 0, 0.15, 1)';
+const WIPE = 'cubic-bezier(0.4, 0, 1, 1)';
 
-type CheckMarkState = 'unchecked' | 'checked' | 'indeterminate';
+export type CheckMarkState = 'unchecked' | 'checked' | 'indeterminate';
 
 // one icon for every state, so a change animates in and out instead of
 // swapping icons
 const CheckMark = ({
   state,
   disabled = false,
+  fontSize,
 }: {
   state: CheckMarkState;
   disabled?: boolean;
+  // set by MUI from the checkbox's size
+  fontSize?: 'small' | 'medium' | 'large' | 'inherit';
 }) => {
+  const size = fontSize === 'small' ? 20 : 24;
   const on = state !== 'unchecked';
   // a box that loads checked stays still; only a change pops
   const [seen, setSeen] = useState(state);
@@ -58,7 +58,7 @@ const CheckMark = ({
     transform: shown ? 'scale(1)' : 'scale(0.7)',
     transition: shown
       ? `stroke-dashoffset 300ms ${DRAW} 90ms, transform 420ms ${SPRING} 60ms`
-      : 'stroke-dashoffset 140ms cubic-bezier(0.4, 0, 1, 1), transform 160ms ease-in',
+      : `stroke-dashoffset 140ms ${WIPE}, transform 160ms ${WIPE}`,
   });
 
   return (
@@ -67,12 +67,12 @@ const CheckMark = ({
       viewBox="0 0 24 24"
       aria-hidden
       sx={{
-        width: 24,
-        height: 24,
+        width: size,
+        height: size,
         display: 'block',
         transformOrigin: 'center',
         animation: changes
-          ? `${pops[changes % 2]} 380ms cubic-bezier(0.22, 1, 0.36, 1)`
+          ? `${POPS[changes % 2]} 380ms cubic-bezier(0.22, 1, 0.36, 1)`
           : 'none',
         '& *': { transformOrigin: 'center', transformBox: 'view-box' },
         '@media (prefers-reduced-motion: reduce)': {

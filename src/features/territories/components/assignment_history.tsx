@@ -14,6 +14,7 @@ import {
   emptyListMessage,
 } from '../helpers';
 import { noteLine } from '../notes';
+import { holderText } from '../group_holder';
 import { clickableRow, rowStates } from './table_styles';
 import { CampaignBadge, CardBadge } from './territory_badges';
 import TruncatedText from './truncated_text';
@@ -146,7 +147,7 @@ const AssignmentHistory = ({
                       <TruncatedText
                         className="label-small-regular"
                         color="var(--grey-400)"
-                        text={assignment.publisher}
+                        text={holderText(assignment)}
                       />
                       <CardBadge card={assignment.card} text={tablet688Up} />
                       <CampaignBadge assignment={assignment} />

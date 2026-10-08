@@ -87,3 +87,35 @@ test('an assignment added by hand meanwhile stays', () => {
 
   assert.deepEqual(result.assignments.at(-1), extra);
 });
+
+test('undo of a transfer gives the group back with its publisher', () => {
+  const forGroup: Territory = {
+    ...before,
+    holder: 'Max',
+    holderGroup: 'Group 3',
+    assignments: [
+      {
+        ...base,
+        id: 'g1',
+        publisher: 'Max',
+        group: 'Group 3',
+        assignedOn: '01.09.2026',
+      },
+    ],
+  };
+  const transferred: Territory = {
+    ...forGroup,
+    holder: 'Ben',
+    holderGroup: undefined,
+    assignments: [
+      { ...forGroup.assignments[0], returnedOn: '05.10.2026' },
+      { ...base, id: 'b1', publisher: 'Ben', assignedOn: '05.10.2026' },
+    ],
+  };
+
+  const result = revertAssignment(transferred, forGroup, ['b1']);
+
+  assert.equal(result.holder, 'Max');
+  assert.equal(result.holderGroup, 'Group 3');
+  assert.deepEqual(result.assignments, forGroup.assignments);
+});

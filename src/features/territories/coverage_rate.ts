@@ -8,10 +8,13 @@ const dayOf = (value?: string) => {
   return new Date(year, month - 1, day);
 };
 
-// A returned, unfinished assignment is retained without counting as coverage.
+// every return counts as covered: nobody knows how much was worked until the
+// territory comes back, so the app only records assigned and returned
+// (`completed: false` on old records is no longer honoured)
 export const isCoverage = (
-  assignment: Pick<TerritoryAssignment, 'completed'>
-) => assignment.completed !== false;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _assignment: Pick<TerritoryAssignment, 'completed'>
+) => true;
 
 export const returnedWithin = (territory: Territory, start: Date, end: Date) =>
   territory.assignments.some((assignment) => {

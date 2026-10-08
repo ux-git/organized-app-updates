@@ -66,7 +66,7 @@ export const forTab = (
 ) => {
   if (tab === 'group') {
     return groupHolder
-      ? territories.filter((territory) => territory.holder === groupHolder)
+      ? territories.filter((territory) => territory.holderGroup === groupHolder)
       : [];
   }
 

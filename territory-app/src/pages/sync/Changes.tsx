@@ -8,7 +8,7 @@ import { invoke, listen } from '../../native';
 import { t } from '../../i18n';
 import BorderSketch, { Drawing } from './BorderSketch';
 import { Actions } from './parts';
-import { fieldName, notify, show } from './text';
+import { fieldName, notify, show, showHolder } from './text';
 
 type Change = {
   id: number;
@@ -63,7 +63,7 @@ const text = (change: Change, value: unknown) => {
     const record = value as Record<string, unknown>;
     switch (change.table) {
       case 'assignments':
-        return [show(record.publisher), dateOr(record.assignedOn)]
+        return [showHolder(record), dateOr(record.assignedOn)]
           .filter(Boolean)
           .join(', ');
       case 'do_not_calls':
@@ -91,7 +91,7 @@ const title = (change: Change) => {
     case 'assignments':
       return t('decisions.assignment', {
         number,
-        publisher: show(change.context.publisher),
+        publisher: showHolder(change.context),
       });
     case 'do_not_calls':
       return t('decisions.doNotCall', {

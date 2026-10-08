@@ -115,6 +115,13 @@ const TerritoryFilters = ({
             onClick={() => toggle('card', 'unknown')}
           />
         )}
+        <FilterChip
+          label={tx('Out for groups')}
+          selected={!!filters.forGroups}
+          onClick={() =>
+            onChange({ ...filters, forGroups: !filters.forGroups || undefined })
+          }
+        />
       </Group>
 
       <Group label={tx('Type')}>

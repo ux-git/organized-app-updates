@@ -84,7 +84,10 @@ export type AssignmentCard = 'digital' | 'printed';
 
 export type TerritoryAssignment = {
   id: string;
+  // always a person; empty only on old records that named a group instead
   publisher: string;
+  // the field service group it went out for, by name; the publisher took it
+  group?: string;
   assignedOn: string;
   returnedOn?: string;
   completed?: boolean;
@@ -120,6 +123,7 @@ export type Territory = {
   status: TerritoryStatus;
   categories: string[];
   holder?: string;
+  holderGroup?: string;
   daysOut?: number;
   daysSinceCovered: number;
   households: number;
@@ -141,6 +145,9 @@ export type Territory = {
 // a publisher or a field service group a territory can go to
 export type TerritoryAssignee = { id: string; name: string; group: boolean };
 
+// who a territory goes to: a publisher, for themselves or for a group
+export type AssignmentHolder = Pick<TerritoryAssignment, 'publisher' | 'group'>;
+
 export type TerritoryFilters = {
   search: string;
   status: TerritoryStatus[];
@@ -148,6 +155,8 @@ export type TerritoryFilters = {
   categories: string[];
   coverage?: { covered: boolean; period: string };
   cardLostOnly: boolean;
+  // out now for a field service group
+  forGroups?: boolean;
   // how the territory is out now; `unknown` for open records without the field
   card: (AssignmentCard | 'unknown')[];
   holder?: string;
@@ -208,11 +217,11 @@ export const CARD_LABEL: Record<AssignmentCard, string> = {
 };
 
 export const DEFAULT_CATEGORIES: TerritoryCategoryOption[] = [
-  { id: 'dangerous', name: 'Dangerous', color: 'red' },
-  { id: 'dogs', name: 'Dogs', color: 'orange' },
-  { id: 'gated', name: 'Gated access', color: 'blue' },
   { id: 'rural', name: 'Rural', color: 'green' },
 ];
+
+// once among the defaults; taken out of stored data when it loads
+export const RETIRED_CATEGORIES = ['dangerous', 'dogs', 'gated'];
 
 export const CATEGORY_COLORS: CategoryColor[] = [
   'blue',

@@ -23,25 +23,19 @@ export const s13Rows = (
   const assignments = territory.assignments
     .filter((item) => time(item.assignedOn) <= end)
     .sort((a, b) => order(a.assignedOn) - order(b.assignedOn));
+  // only the publisher is printed, never the group they took it for
   const entries = assignments.map((item) => ({
     publisher: item.publisher,
     assignedOn:
       displayDate(item.assignedOn, format) +
       (marker && item.campaign ? ` (${marker})` : ''),
     completedOn:
-      item.returnedOn &&
-      time(item.returnedOn) <= end &&
-      item.completed !== false
+      item.returnedOn && time(item.returnedOn) <= end
         ? displayDate(item.returnedOn, format)
         : undefined,
   }));
   const completed = assignments
-    .filter(
-      (item) =>
-        item.returnedOn &&
-        item.completed !== false &&
-        time(item.returnedOn) <= end
-    )
+    .filter((item) => item.returnedOn && time(item.returnedOn) <= end)
     .sort((a, b) => time(b.returnedOn) - time(a.returnedOn))[0]?.returnedOn;
   return Array.from(
     { length: Math.max(1, Math.ceil(entries.length / 4)) },

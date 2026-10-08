@@ -19,7 +19,9 @@ import {
 import { assignmentIssues, parseDate, toStoredDate } from '../helpers';
 import { parseHouseholds } from '../assignment_issues';
 import CampaignField, { CampaignChoice } from './campaign_field';
+import { holderOf } from '../group_holder';
 import {
+  AssignmentHolder,
   MAX_NOTE_LENGTH,
   Territory,
   TerritoryAssignment,
@@ -38,7 +40,11 @@ type ReturnDialogProps = {
     campaign?: TerritoryAssignment['campaign'] | null,
     note?: string
   ) => void;
-  onAssignAgain?: (id: string, publisher: string, assignedOn: Date) => void;
+  onAssignAgain?: (
+    id: string,
+    holder: AssignmentHolder,
+    assignedOn: Date
+  ) => void;
 };
 
 const ReturnDialog = ({
@@ -70,7 +76,9 @@ const ReturnDialog = ({
 
   if (!territory) return null;
 
-  const holder = territory.holder;
+  // the same publisher, for the same group; an old group record without one
+  // goes out again through the assign dialog
+  const holder = open?.publisher ? holderOf(open) : undefined;
 
   const issues = returnedOn
     ? assignmentIssues({

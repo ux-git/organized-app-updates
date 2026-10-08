@@ -8,6 +8,7 @@ import {
   olderOpenAssignments,
   parseDate,
 } from '../helpers';
+import { holderText } from '../group_holder';
 
 const time = (value?: string) => parseDate(value)?.getTime() ?? 0;
 
@@ -24,7 +25,7 @@ const AssignedTwice = ({
   const names = territory.assignments
     .filter((item) => !item.returnedOn)
     .sort((a, b) => time(b.assignedOn) - time(a.assignedOn))
-    .map((item) => item.publisher)
+    .map(holderText)
     .join(', ');
 
   return (
