@@ -180,7 +180,11 @@ const TabSwitcher = <T extends string = string>({
                   component="span"
                   sx={{
                     fontWeight: isActive ? 600 : 400,
-                    transition: 'font-weight 0.2s ease-out',
+                    // a regular label spaced a touch wider is about as wide as
+                    // its semibold, so the text hardly changes width
+                    letterSpacing: isActive ? 'normal' : '0.025em',
+                    transition:
+                      'font-weight 0.2s ease-out, letter-spacing 0.2s ease-out',
                   }}
                 >
                   {option.label}
