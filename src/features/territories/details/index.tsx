@@ -119,7 +119,7 @@ const TerritoryDetails = ({
         }) && (
           <InfoBanner sx={{ width: '100%' }}>
             {tx(
-              'Out for {{group}}, but nobody is named as having taken it. Open the assignment below and fill in who took it.',
+              'Out for {{group}}, but nobody is named as having it. Open the assignment below and fill in who it is assigned to.',
               { group: territory.holderGroup }
             )}
           </InfoBanner>

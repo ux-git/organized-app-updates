@@ -93,7 +93,7 @@ export const HolderPickers = ({
 
       <Stack spacing="4px" sx={{ flex: 1, minWidth: 0 }}>
         <PublisherSearch
-          label={isGroup ? tx('Taken by') : tx('Publisher')}
+          label={isGroup ? tx('Assigned to') : tx('Publisher')}
           options={people}
           value={value.publisher}
           onChange={(publisher) => onChange({ ...value, publisher })}
@@ -104,7 +104,11 @@ export const HolderPickers = ({
         />
         {showMissing && !value.publisher && (
           <Hint
-            text={isGroup ? tx('Choose who took it') : tx('Choose a publisher')}
+            text={
+              isGroup
+                ? tx('Choose who it is assigned to')
+                : tx('Choose a publisher')
+            }
           />
         )}
       </Stack>

@@ -85,7 +85,7 @@ const TerritoryAssignments = ({
                 date: displayDate(assignment.assignedOn, format),
               }),
           warning: [
-            missingPublisher(assignment) && tx('Fill in who took it'),
+            missingPublisher(assignment) && tx('Fill in who it is assigned to'),
             issuesText(assignmentIssues(assignment)),
           ]
             .filter(Boolean)

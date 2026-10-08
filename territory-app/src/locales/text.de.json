@@ -585,12 +585,12 @@
   "Request from {{name}} declined": "Anfrage von {{name}} abgelehnt",
   "Assign to": "Zuteilen an",
   "Group": "Gruppe",
-  "Taken by": "Abgeholt von",
+  "Assigned to": "Zugeteilt an",
   "Choose a group": "Wähle eine Gruppe",
-  "Choose who took it": "Wähle, wer es abgeholt hat",
+  "Choose who it is assigned to": "Wähle, wem es zugeteilt ist",
   "Choose a publisher": "Wähle einen Verkündiger",
   "Out for groups": "Bei Gruppen",
-  "Fill in who took it": "Trag ein, wer es abgeholt hat",
-  "Out for {{group}}, but nobody is named as having taken it. Open the assignment below and fill in who took it.": "Zugeteilt an {{group}}, aber niemand ist eingetragen, der es abgeholt hat. Öffne die Zuteilung unten und trag ein, wer es abgeholt hat.",
+  "Fill in who it is assigned to": "Trag ein, wem es zugeteilt ist",
+  "Out for {{group}}, but nobody is named as having it. Open the assignment below and fill in who it is assigned to.": "Zugeteilt an {{group}}, aber ohne Verkündiger. Öffne die Zuteilung unten und trag ein, wem es zugeteilt ist.",
   "Search groups…": "Gruppe suchen…"
 }

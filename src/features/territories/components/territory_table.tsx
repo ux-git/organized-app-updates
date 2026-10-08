@@ -229,10 +229,11 @@ const badges = (
   territory: Territory,
   showRequested: boolean,
   showDoNotCalls: boolean,
-  me: string
+  me: string,
+  withDoNotCalls = true
 ) => (
   <>
-    {(showDoNotCalls || territory.holder === me) && (
+    {withDoNotCalls && (showDoNotCalls || territory.holder === me) && (
       <DoNotCallBadge territory={territory} />
     )}
     {showRequested && <RequestBadge territory={territory} />}
@@ -590,12 +591,38 @@ const TerritoryTable = ({
                 direction="row"
                 sx={{ ...BADGE_ROW, flexShrink: 0, maxWidth: '45%' }}
               >
-                {badges(territory, showRequested, showDoNotCalls, me)}
+                {badges(territory, showRequested, showDoNotCalls, me, false)}
               </Stack>
             )}
 
+            {/* on a wide screen the do-not-calls keep a column of their own,
+                and the action one of fixed width, so both line up row by row */}
+            {laptopUp && (
+              <Box
+                sx={{
+                  flexShrink: 0,
+                  width: '56px',
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                }}
+              >
+                {(showDoNotCalls || territory.holder === me) && (
+                  <DoNotCallBadge territory={territory} />
+                )}
+              </Box>
+            )}
+
             {actions && (
-              <Box sx={{ flexShrink: 0 }}>
+              <Box
+                sx={{
+                  flexShrink: 0,
+                  ...(laptopUp && {
+                    minWidth: '150px',
+                    display: 'flex',
+                    justifyContent: 'flex-start',
+                  }),
+                }}
+              >
                 <AssignButton
                   territory={territory}
                   onOpenAssign={onOpenAssign}
