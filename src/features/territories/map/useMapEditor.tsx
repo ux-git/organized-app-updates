@@ -105,6 +105,15 @@ const lookOf = (feature: GeoJSONStoreFeatures): LineLook => {
 const lineHex = (feature: GeoJSONStoreFeatures) =>
   MAP_COLORS[lookOf(feature).color] as HexColor;
 
+// in line widths, as the saved drawings have them
+const DASH: [number, number] = [2, 1.5];
+
+// terra draw takes a line's dashes in pixels
+const dashOf = (width: number): [number, number] => [
+  DASH[0] * width,
+  DASH[1] * width,
+];
+
 const selectStyles = {
   selectedPolygonColor: fillColor,
   selectedPolygonOutlineColor: outlineColor,
@@ -113,6 +122,8 @@ const selectStyles = {
   selectedPolygonOutlineWidth: 3.5,
   selectedLineStringColor: lineHex,
   selectedLineStringWidth: 5,
+  selectedLineStringDash: (feature: GeoJSONStoreFeatures) =>
+    lookOf(feature).style === 'dashed' ? dashOf(5) : undefined,
   // a picked pin or note stands out under its chip
   selectedPointColor: BLUE,
   selectedPointWidth: 9,
@@ -443,6 +454,12 @@ const useMapEditor = ({
             styles: {
               lineStringColor: lineHex,
               lineStringWidth: 3,
+              // a line still being drawn has no style of its own yet
+              lineStringDash: (feature) =>
+                (feature.properties?.lineStyle ??
+                  options.current.line.style) === 'dashed'
+                  ? dashOf(3)
+                  : undefined,
             },
             keyEvents: DRAW_KEYS,
           }),
@@ -1282,6 +1299,29 @@ const useMapEditor = ({
       instance.off('zoomend', update);
     };
   }, [map, editing, selected]);
+
+  // terra draw can't dash an area's outline, so its layer gets the dashes here;
+  // an area still being drawn has no role yet and takes the tool's style
+  useEffect(() => {
+    const instance = map.current;
+    if (!editing || !instance?.getLayer('td-polygon-outline')) return;
+
+    const drawing =
+      (tool === 'shape' && !!shape.dashed) ||
+      (tool === 'border' && !!boundaryStyle.dashed);
+
+    instance.setPaintProperty('td-polygon-outline', 'line-dasharray', [
+      'case',
+      ['has', 'role'],
+      [
+        'case',
+        ['boolean', ['get', 'dashed'], false],
+        ['literal', DASH],
+        ['literal', [1, 0]],
+      ],
+      ['literal', drawing ? DASH : [1, 0]],
+    ]);
+  }, [map, editing, tool, shape.dashed, boundaryStyle.dashed]);
 
   // with Move items the whole picked drawing goes, as the corner does in points mode
   useEffect(() => {
