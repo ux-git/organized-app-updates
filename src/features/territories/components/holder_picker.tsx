@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { useAtomValue } from 'jotai';
-import { Stack } from '@mui/material';
+import { Box, Stack } from '@mui/material';
 import { Typography } from '@components/index';
+import { IconAdd } from '@icons/index';
 import TabSwitcher from '@components/tab_switcher';
 import { useBreakpoints } from '@hooks/index';
 import { AssignmentHolder } from '@definition/territory';
-import { territoryAssigneesState } from '../assignees';
+import { addAssignee, territoryAssigneesState } from '../assignees';
 import { HolderChoice, HolderMode } from '../card_choice';
 import PublisherSearch from './publisher_search';
 import { tx } from '@services/i18n/translation';
@@ -19,6 +21,58 @@ const Hint = ({ text }: { text: string }) => (
     {text}
   </Typography>
 );
+
+// what a search shows when the typed name isn't on the list: add it there and
+// then, so the assignment can go ahead
+const AddName = ({
+  name,
+  group,
+  onAdded,
+}: {
+  name: string;
+  group: boolean;
+  onAdded: (name: string) => void;
+}) => {
+  const [busy, setBusy] = useState(false);
+  const trimmed = name.trim();
+  if (!addAssignee || !trimmed) return tx('No results');
+
+  return (
+    <Box
+      component="button"
+      type="button"
+      className="body-small-semibold"
+      disabled={busy}
+      // keeps the list open until the click lands
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await addAssignee!(trimmed, group);
+          onAdded(trimmed);
+        } finally {
+          setBusy(false);
+        }
+      }}
+      sx={{
+        all: 'unset',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        cursor: 'pointer',
+        color: 'var(--accent-main)',
+        '& svg path': { fill: 'currentColor' },
+        '&:hover': { color: 'var(--accent-dark)' },
+        '&:disabled': { opacity: 0.5, cursor: 'default' },
+      }}
+    >
+      <IconAdd width={20} height={20} />
+      {group
+        ? tx('Add the group “{{name}}”', { name: trimmed })
+        : tx('Add “{{name}}” as a publisher', { name: trimmed })}
+    </Box>
+  );
+};
 
 export const HolderModeSwitch = ({
   value,
@@ -69,6 +123,8 @@ export const HolderPickers = ({
   const groups = namesOf(true, current?.group);
 
   const isGroup = value.mode === 'group';
+  const [groupQuery, setGroupQuery] = useState('');
+  const [personQuery, setPersonQuery] = useState('');
 
   return (
     <Stack
@@ -85,6 +141,14 @@ export const HolderPickers = ({
             value={value.group}
             onChange={(group) => onChange({ ...value, group })}
             getName={(name) => name}
+            onInputChange={setGroupQuery}
+            noOptionsText={
+              <AddName
+                name={groupQuery}
+                group
+                onAdded={(group) => onChange({ ...value, group })}
+              />
+            }
             autoFocus={autoFocus && !value.group}
           />
           {showMissing && !value.group && <Hint text={tx('Choose a group')} />}
@@ -98,6 +162,14 @@ export const HolderPickers = ({
           value={value.publisher}
           onChange={(publisher) => onChange({ ...value, publisher })}
           getName={(name) => name}
+          onInputChange={setPersonQuery}
+          noOptionsText={
+            <AddName
+              name={personQuery}
+              group={false}
+              onAdded={(publisher) => onChange({ ...value, publisher })}
+            />
+          }
           autoFocus={
             autoFocus && !value.publisher && (!isGroup || !!value.group)
           }

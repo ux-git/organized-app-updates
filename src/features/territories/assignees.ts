@@ -50,6 +50,12 @@ export const territoryAssigneesState = atom<TerritoryAssignee[]>((get) => {
   return [...groups, ...publishers];
 });
 
+// Organized keeps its persons and groups on their own pages, so names can't
+// be added from a territory dialog here; the territory app swaps this in
+export const addAssignee:
+  | ((name: string, group: boolean) => Promise<void>)
+  | undefined = undefined;
+
 // the logged-in user's person; empty when the account has none
 export const currentPublisherState = atom((get) => {
   const uid = get(userLocalUIDState);
