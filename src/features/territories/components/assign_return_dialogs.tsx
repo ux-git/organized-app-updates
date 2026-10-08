@@ -2,7 +2,6 @@ import { tx } from '@services/i18n/translation';
 import { AssignReturn } from '../useAssignReturn';
 import AssignDialog from './assign_dialog';
 import ReturnDialog from './return_dialog';
-import UndoSnackbar from './undo_snackbar';
 
 const AssignReturnDialogs = ({
   actions,
@@ -50,12 +49,6 @@ const AssignReturnDialogs = ({
           onAssignAgain={actions.handleAssign}
         />
       )}
-
-      <UndoSnackbar
-        notice={actions.undo}
-        onUndo={actions.undoLast}
-        onClose={actions.closeUndo}
-      />
     </>
   );
 };

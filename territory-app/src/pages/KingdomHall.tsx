@@ -8,7 +8,7 @@ import {
 import { play } from '../haptics';
 import { nearby } from '../native';
 import { t } from '../i18n';
-import { confirm } from './confirm';
+import { offerUndo } from '@features/territories/undo';
 import HallPicker from './HallPicker';
 import { Actions } from './sync/parts';
 import { NearbyStatus } from './useNearby';
@@ -44,15 +44,17 @@ const KingdomHall = ({ status }: { status: NearbyStatus }) => {
                     {
                       label: t('hall.remove'),
                       kind: 'remove' as const,
-                      onClick: async () => {
-                        const ok = await confirm({
-                          title: t('hall.removeTitle'),
-                          description: t('hall.removeText'),
-                          action: t('common.remove'),
-                        });
-                        if (!ok) return;
+                      onClick: () => {
+                        const hall = status.hall!;
                         play('remove');
                         nearby('hallClear');
+                        offerUndo({
+                          text: t('hall.removed'),
+                          revert: () => {
+                            nearby('hallSet', hall);
+                            nearby('status');
+                          },
+                        });
                       },
                     },
                   ]

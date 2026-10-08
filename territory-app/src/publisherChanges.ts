@@ -4,6 +4,7 @@ import {
   parseDate,
   withAssignments,
 } from '@features/territories/helpers';
+import { revertAssignment } from '@features/territories/assignment_undo';
 import type { Person } from './persistence';
 
 export type Resolution = { target?: string; completed: boolean };
@@ -99,6 +100,41 @@ export const changedTerritories = (
       assignments
     );
   });
+
+// undoes a removal or merge: what it changed goes back, later edits elsewhere stay
+export const revertedTerritories = (
+  current: Territory[],
+  before: Territory[],
+  after: Territory[]
+) => {
+  const changed = new Map(
+    before.flatMap((old, index) =>
+      old === after[index] ? [] : [[old.id, { old, new: after[index] }]]
+    )
+  );
+  return current.map((territory) => {
+    const change = changed.get(territory.id);
+    if (!change) return territory;
+    const touched = new Map(
+      change.old.assignments
+        .filter(
+          (item) =>
+            JSON.stringify(item) !==
+            JSON.stringify(
+              change.new.assignments.find((next) => next.id === item.id)
+            )
+        )
+        .map((item) => [item.id, item])
+    );
+    const reverted = revertAssignment(territory, change.old, []);
+    return {
+      ...reverted,
+      assignments: reverted.assignments.map(
+        (item) => touched.get(item.id) ?? item
+      ),
+    };
+  });
+};
 
 /** Given out twice: the other open one is returned the day the kept one began. */
 export const keepOneAssignment = (territory: Territory, keptId: string) => {

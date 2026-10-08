@@ -22,6 +22,7 @@ import {
 } from '@states/territories';
 import { currentPublisherState, territoryAssigneesState } from './assignees';
 import { territoryCampaignsState } from './campaigns';
+import { restoreTerritory } from '@features/territories/restore';
 import { invoke, listen } from './native';
 import { notify } from './pages/sync/text';
 import {
@@ -500,6 +501,27 @@ describe('saving', () => {
     expect(fake.sent.at(-1)).toEqual([
       { table: 'territories', id: 't1', fields: { name: null } },
     ]);
+  });
+
+  test('a deleted territory put back is written whole, so the store revives it', async () => {
+    const fake = fakeStore(tables());
+    await load();
+    persisted();
+    const [deleted] = store.get(territoriesState);
+
+    store.set(territoriesState, []);
+    await settled();
+    expect(fake.sent[0]).toEqual([
+      { table: 'territories', id: 't1', deleted: true },
+      { table: 'assignments', id: 'a1', deleted: true },
+      { table: 'assignments', id: 'a2', deleted: true },
+    ]);
+
+    // whole, as nothing of it is remembered any more; the store revives a
+    // deleted record written like this
+    restoreTerritory(deleted, 0);
+    await settled();
+    expect(fake.sent[1]).toEqual(split(deleted));
   });
 
   test('a cleared field is sent as null, and read back as not there', async () => {

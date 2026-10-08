@@ -17,6 +17,8 @@ import {
 } from '../helpers';
 import { currentPublisherState } from '../assignees';
 import DoNotCallEditor from './do_not_call_editor';
+import { offerUndo } from '../undo';
+import { restoreDoNotCall } from '../restore';
 
 const newestFirst = (a: DoNotCall, b: DoNotCall) =>
   (parseDate(b.date)?.getTime() ?? 0) - (parseDate(a.date)?.getTime() ?? 0);
@@ -95,10 +97,15 @@ const DoNotCallPanel = ({
           numbers={numbers}
           onClose={() => setEditing(undefined)}
           onSave={(next) => onChange(upsertById(entries, next))}
-          onDelete={() =>
-            editing !== 'new' &&
-            onChange(entries.filter((item) => item.id !== editing.id))
-          }
+          onDelete={() => {
+            if (editing === 'new') return;
+            const index = entries.findIndex((item) => item.id === editing.id);
+            onChange(entries.filter((item) => item.id !== editing.id));
+            offerUndo({
+              text: isPhone ? tx('Number deleted') : tx('Address deleted'),
+              revert: () => restoreDoNotCall(territory.id, editing, index),
+            });
+          }}
         />
       )}
     </Box>

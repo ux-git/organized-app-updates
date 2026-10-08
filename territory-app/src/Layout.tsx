@@ -23,6 +23,7 @@ import ThemeSwitcher from '@features/theme_switcher';
 import BottomMenu from '@layouts/bottom_menu';
 import IconButton from '@components/icon_button';
 import PageTransition from '@components/page_transition';
+import UndoSnackbar from '@features/territories/components/undo_snackbar';
 import Typography from '@components/typography';
 import WaitingLoader from '@components/waiting_loader';
 import usePageWidth from '@layouts/usePageWidth';
@@ -289,6 +290,7 @@ const Layout = () => {
       <About open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <AppFeedback />
       <ConfirmHost />
+      <UndoSnackbar />
 
       <Toolbar sx={{ padding: 0, minHeight: '62px' }} />
 

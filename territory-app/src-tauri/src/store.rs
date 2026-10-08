@@ -2378,6 +2378,23 @@ mod tests {
     }
 
     #[test]
+    fn an_undone_deletion_reaches_the_other_phone() {
+        let mut a = Store::in_memory().unwrap();
+        let mut b = Store::in_memory().unwrap();
+        a.put("assignments", "x", &fields(json!({"publisher": "Ben", "order": 0}))).unwrap();
+        sync(&mut a, &mut b);
+        a.remove("assignments", "x").unwrap();
+        sync(&mut a, &mut b);
+        assert!(b.list("assignments").unwrap().is_empty());
+        later();
+        // undo writes the record again as it was
+        a.put("assignments", "x", &fields(json!({"publisher": "Ben", "order": 0}))).unwrap();
+        sync(&mut a, &mut b);
+        assert_eq!(b.list("assignments").unwrap(), a.list("assignments").unwrap());
+        assert_eq!(b.list("assignments").unwrap().len(), 1);
+    }
+
+    #[test]
     fn a_sync_names_the_territories_it_changed() {
         let mut a = Store::in_memory().unwrap();
         let mut b = Store::in_memory().unwrap();

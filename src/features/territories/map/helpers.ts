@@ -56,6 +56,19 @@ export const sanitizeCoordinates = <
   return result;
 };
 
+// with the inside on the left, a line offset to the right runs outside
+export const counterClockwise = (
+  ring: TerritoryBoundary
+): TerritoryBoundary => {
+  let area = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[(i + 1) % ring.length];
+    area += x1 * y2 - x2 * y1;
+  }
+  return area < 0 ? [...ring].reverse() : ring;
+};
+
 export const sanitizeBoundary = (
   boundary: TerritoryBoundary
 ): TerritoryBoundary => {

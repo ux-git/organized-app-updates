@@ -36,6 +36,7 @@ import {
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
 import EditorHeader from '@features/territories/components/editor_header';
+import { territoriesState } from '@states/territories';
 import { HOVER_ACTIONS } from '@features/territories/components/table_styles';
 import { useBreakpoints, useAppTranslation } from '@hooks/index';
 import {
@@ -54,12 +55,13 @@ import {
   writeRows,
 } from '../persistence';
 import { linkedDevices, linksState } from '../profiles';
+import { activeFor } from '../publisherChanges';
 import { toggled } from '../haptics';
 import ManagePublisher from './ManagePublisher';
 import { t } from '../i18n';
 import { count, notify } from './sync/text';
 import { Actions, Avatar } from './sync/parts';
-import { usePeopleList } from './usePeople';
+import { removeWithUndo, usePeopleList } from './usePeople';
 
 const failed = (error: unknown) => {
   console.error('publishers: saving failed', error);
@@ -403,9 +405,17 @@ const Publishers = ({ title }: { title: NavBarOptionsType }) => {
     person: Person;
     mode: 'remove' | 'merge';
   } | null>(null);
+  const territories = useAtomValue(territoriesState);
+  // with no territory to hand on, there is nothing to ask: undo is the safety net
   const remove = (person: Person) => {
     setEditing(null);
-    setManaging({ person, mode: 'remove' });
+    if (territories.some((item) => activeFor(item, person.name).length)) {
+      setManaging({ person, mode: 'remove' });
+      return;
+    }
+    removeWithUndo(person, { resolutions: {} }).catch((error: Error) =>
+      notify(t('common.somethingWrong'), tx(error.message), 'error')
+    );
   };
 
   const section = (title: string, list: Person[], sortable = false) =>

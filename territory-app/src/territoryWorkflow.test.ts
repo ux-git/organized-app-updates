@@ -1,6 +1,10 @@
 import { describe, expect, test, vi } from 'vitest';
 import type { Territory, TerritoryAssignment } from '@definition/territory';
-import { changedTerritories, keepOneAssignment } from './publisherChanges';
+import {
+  changedTerritories,
+  keepOneAssignment,
+  revertedTerritories,
+} from './publisherChanges';
 import { s13Rows } from '@features/territories/history/s13_rows';
 import { forTab, pastCooldown } from '@features/territories/tabs';
 import { isCoverage } from '@features/territories/coverage_rate';
@@ -114,6 +118,31 @@ describe('publisher history', () => {
     expect(result.assignments.map((a) => a.id)).toEqual(['a', 'b']);
     expect(result.assignments.map((a) => a.publisher)).toEqual(['Ben', 'Ben']);
     expect(source.assignments[0].publisher).toBe('Alex');
+  });
+  test('undoing a removal brings back what it changed, and keeps edits made since', () => {
+    const before = [
+      territory(
+        [
+          assignment({ id: 'old', returnedOn: '01.02.2026' }),
+          assignment({ id: 'open', assignedOn: '01.09.2026' }),
+        ],
+        { status: 'in_work', holder: 'Alex', requestedBy: 'Alex' }
+      ),
+      territory([], { id: 'u', number: '2' }),
+    ];
+    const after = changedTerritories(
+      before,
+      person,
+      { mergeInto: { id: 'b', name: 'Ben', group: false }, resolutions: {} },
+      now
+    );
+    const edited = [{ ...after[0], notes: 'Gate code' }, after[1]];
+    const [result, untouched] = revertedTerritories(edited, before, after);
+    expect(result.assignments).toEqual(before[0].assignments);
+    expect(result.holder).toBe('Alex');
+    expect(result.requestedBy).toBe('Alex');
+    expect(result.notes).toBe('Gate code');
+    expect(untouched).toBe(after[1]);
   });
   test('does not return future assignments before their start', () =>
     expect(() =>

@@ -38,6 +38,8 @@ import {
   NO_MATCHES,
   openInMaps,
 } from '../helpers';
+import { offerUndo } from '../undo';
+import { restoreDoNotCall } from '../restore';
 import { clickableRow, rowStates } from '../components/table_styles';
 import RecordList from '../components/record_list';
 import RowAction from '../components/row_action';
@@ -515,14 +517,24 @@ const DoNotCalls = () => {
               upsertById(editingTerritory.doNotCalls, next)
             )
           }
-          onDelete={() =>
+          onDelete={() => {
+            const entry = editing.entry;
+            if (!entry) return;
+            const index = editingTerritory.doNotCalls.findIndex(
+              (item) => item.id === entry.id
+            );
             saveEntries(
               editingTerritory.id,
-              editingTerritory.doNotCalls.filter(
-                (item) => item.id !== editing.entry?.id
-              )
-            )
-          }
+              editingTerritory.doNotCalls.filter((item) => item.id !== entry.id)
+            );
+            offerUndo({
+              text:
+                editingTerritory.type === 'phone'
+                  ? tx('Number deleted')
+                  : tx('Address deleted'),
+              revert: () => restoreDoNotCall(editingTerritory.id, entry, index),
+            });
+          }}
           onOpenInMaps={
             editingTerritory.type !== 'phone'
               ? (address) =>

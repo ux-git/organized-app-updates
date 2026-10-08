@@ -26,11 +26,11 @@ const TerritoryDelete = ({
     description={
       holder
         ? tx(
-            '{{name}} has this territory now. The open assignment, the assignment history and the do-not-calls are removed with it. This cannot be undone.',
+            '{{name}} has this territory now. The open assignment, the assignment history and the do-not-calls are removed with it. You can undo it right after.',
             { name: holder }
           )
         : tx(
-            'The territory, its addresses and its assignment history will be removed. This cannot be undone.'
+            'The territory, its addresses and its assignment history will be removed. You can undo it right after.'
           )
     }
   >

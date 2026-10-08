@@ -23,6 +23,8 @@ import {
   emptyListMessage,
 } from '../helpers';
 import { appendNote, noteLine } from '../notes';
+import { offerUndo } from '../undo';
+import { restoreAssignment } from '../restore';
 import AssignmentEditor from './assignment_editor';
 
 const newestFirst = (a: TerritoryAssignment, b: TerritoryAssignment) =>
@@ -144,9 +146,16 @@ const TerritoryAssignments = ({
             setEditing(undefined);
             setAdding(false);
           }}
-          onDelete={() =>
-            onChange(assignments.filter((item) => item.id !== editing.id))
-          }
+          onDelete={() => {
+            const index = assignments.findIndex(
+              (item) => item.id === editing.id
+            );
+            onChange(assignments.filter((item) => item.id !== editing.id));
+            offerUndo({
+              text: tx('Assignment deleted'),
+              revert: () => restoreAssignment(territory.id, editing, index),
+            });
+          }}
           onAdoptNote={
             adoptable(editing.note)
               ? () => onNotes?.(appendNote(territory.notes, editing.note!))

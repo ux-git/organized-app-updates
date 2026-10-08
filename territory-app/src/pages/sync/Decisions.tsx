@@ -10,6 +10,8 @@ import {
 import { territoriesState } from '@states/territories';
 import { Territory } from '@definition/territory';
 import { play } from '../../haptics';
+import { offerUndo } from '@features/territories/undo';
+import { restoreRecords, split } from '../../persistence';
 import { keepOneAssignment } from '../../publisherChanges';
 import { invoke, listen } from '../../native';
 import { list, t } from '../../i18n';
@@ -173,6 +175,32 @@ const Decisions = () => {
       .catch((error) =>
         notify(t('common.somethingWrong'), String(error), 'error')
       );
+  };
+
+  // a territory comes back with what went with it
+  const deleteRecord = (conflict: Conflict) => {
+    const territory =
+      conflict.table === 'territories'
+        ? territories.find((item) => item.id === conflict.id)
+        : undefined;
+    const fields = Object.fromEntries(
+      Object.entries(conflict.record).filter(
+        ([field]) => field !== 'id' && field !== '_deleted'
+      )
+    );
+    const records = territory
+      ? split(territory)
+      : [{ table: conflict.table, id: conflict.id, fields }];
+    resolve(conflict, true);
+    offerUndo({
+      text: t('decisions.deletedUndo', { what: label(conflict) }),
+      revert: () =>
+        restoreRecords(records)
+          .then(refresh)
+          .catch((error) =>
+            notify(t('common.somethingWrong'), String(error), 'error')
+          ),
+    });
   };
 
   const resolveBorder = async (
@@ -359,7 +387,7 @@ const Decisions = () => {
                 },
                 {
                   label: t('decisions.deleteIt'),
-                  onClick: () => resolve(conflict, true),
+                  onClick: () => deleteRecord(conflict),
                 },
               ]}
             />

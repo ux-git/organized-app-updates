@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { JWLangLocaleState } from '@states/settings';
 import * as maplibregl from 'maplibre-gl';
-import { Image, Page, pdf, Text, View } from '@react-pdf/renderer';
+import { Image, Page, pdf } from '@react-pdf/renderer';
 import { Stack, SvgIcon } from '@mui/material';
 import { Button, Checkbox, Typography } from '@components/index';
 import Dialog from '@components/dialog';
@@ -14,7 +14,6 @@ import { mapPerformanceOptions } from '@services/maps/performance';
 import { exportFile } from '@services/files/export';
 import { displaySnackNotification } from '@services/states/app';
 import { tx } from '@services/i18n/translation';
-import { formatDate } from '@utils/date';
 import { MapColor, Territory, TerritoryBoundary } from '@definition/territory';
 import {
   DEFAULT_PROVIDER,
@@ -27,20 +26,18 @@ import { boundaryBounds } from './helpers';
 
 // ---- the whole congregation's map on paper, from A4 up to a wall poster ----
 
-export type Paper = 'a4' | 'a3' | 'a2' | 'square';
+export type Format = 'portrait' | 'landscape' | 'square';
 
-// in millimetres; the dots per inch keep the largest picture under ~9 million
-// pixels, which every phone's graphics can hold (a metre square is seen from
-// further away, so fewer dots still print sharp)
-// lines and numbers grow with the sheet, as a big one is looked at from
-// further away
-const PAPERS: Record<
-  Paper,
+// in millimetres. A sheets share one shape, so one A2 picture prints on A4 up
+// to A1: its numbers stay readable on A4 and bold on A1. The dots per inch
+// keep it under ~9 million pixels, which every phone's graphics can hold; a
+// metre square is seen from further away, so fewer dots still print sharp
+const FORMATS: Record<
+  Format,
   { width: number; height: number; dpi: number; line: number }
 > = {
-  a4: { width: 210, height: 297, dpi: 300, line: 1 },
-  a3: { width: 297, height: 420, dpi: 200, line: 1.25 },
-  a2: { width: 420, height: 594, dpi: 150, line: 1.6 },
+  portrait: { width: 420, height: 594, dpi: 150, line: 1.8 },
+  landscape: { width: 594, height: 420, dpi: 150, line: 1.8 },
   square: { width: 1000, height: 1000, dpi: 75, line: 2.5 },
 };
 
@@ -48,41 +45,33 @@ const TERRITORY_LINE = 1.4;
 // the congregation's outline at least twice as thick as a territory's
 const BORDER_LINE = TERRITORY_LINE * 2.5;
 
-const PAPER_LABEL: Record<Paper, string> = {
-  a4: 'A4',
-  a3: 'A3',
-  a2: 'A2',
+const FORMAT_LABEL: Record<Format, string> = {
+  portrait: 'Portrait',
+  landscape: 'Landscape',
   square: 'Square',
 };
 
 // the size a print shop needs, in the file name only
-const FILE_SIZE: Record<Paper, string> = {
-  ...PAPER_LABEL,
+const FILE_SIZE: Record<Format, string> = {
+  portrait: 'A-portrait',
+  landscape: 'A-landscape',
   square: '100x100cm',
 };
 
 // the map is laid out at this scale, so street names stay a readable size on
 // paper and a larger sheet shows more of the streets, not bigger letters
 const PX_PER_MM = 4;
-// printed at home: the map runs to the edge, the caption sits on it
-const CAPTION_INSET_MM = 6;
 const POINTS_PER_MM = 72 / 25.4;
 
 export type OverviewOptions = {
-  paper: Paper;
-  landscape: boolean;
+  format: Format;
   border: boolean;
   territories: boolean;
   numbers: boolean;
   colors: boolean;
 };
 
-const sizeOf = ({ paper, landscape }: OverviewOptions) => {
-  const { width, height, ...rest } = PAPERS[paper];
-  return landscape
-    ? { width: height, height: width, ...rest }
-    : { width, height, ...rest };
-};
+const sizeOf = ({ format }: OverviewOptions) => FORMATS[format];
 
 const middle = (ring: TerritoryBoundary): [number, number] => {
   const [west, south, east, north] = boundaryBounds(ring);
@@ -264,21 +253,29 @@ const captureOverview = (
 // as tall as the map's mode switch
 const SWITCH = { '& button': { minHeight: '36px' } };
 
+// Material Symbols crop_portrait, crop_landscape and crop_square, weight 300
+// at 24 px: the same 1.5 px line as the app's other icons
+const SHEET_PATHS: Record<Format, string> = {
+  portrait:
+    'M707.69-100H252.31Q222-100 201-121q-21-21-21-51.31v-615.38Q180-818 201-839q21-21 51.31-21h455.38Q738-860 759-839q21 21 21 51.31v615.38Q780-142 759-121q-21 21-51.31 21Zm-455.38-60h455.38q5.39 0 8.85-3.46t3.46-8.85v-615.38q0-5.39-3.46-8.85t-8.85-3.46H252.31q-5.39 0-8.85 3.46t-3.46 8.85v615.38q0 5.39 3.46 8.85t8.85 3.46ZM240-160v-640 640Z',
+  landscape:
+    'M172.31-180Q142-180 121-201q-21-21-21-51.31v-455.38Q100-738 121-759q21-21 51.31-21h615.38Q818-780 839-759q21 21 21 51.31v455.38Q860-222 839-201q-21 21-51.31 21H172.31Zm0-60h615.38q4.62 0 8.46-3.85 3.85-3.84 3.85-8.46v-455.38q0-4.62-3.85-8.46-3.84-3.85-8.46-3.85H172.31q-4.62 0-8.46 3.85-3.85 3.84-3.85 8.46v455.38q0 4.62 3.85 8.46 3.84 3.85 8.46 3.85ZM160-240v-480 480Z',
+  square:
+    'M212.31-140Q182-140 161-161q-21-21-21-51.31v-535.38Q140-778 161-799q21-21 51.31-21h535.38Q778-820 799-799q21 21 21 51.31v535.38Q820-182 799-161q-21 21-51.31 21H212.31Zm0-60h535.38q5.39 0 8.85-3.46t3.46-8.85v-535.38q0-5.39-3.46-8.85t-8.85-3.46H212.31q-5.39 0-8.85 3.46t-3.46 8.85v535.38q0 5.39 3.46 8.85t8.85 3.46ZM200-200v-560 560Z',
+};
+
 const IconSheet = ({
-  landscape = false,
+  format,
   width = 24,
   height = 24,
 }: {
-  landscape?: boolean;
+  format: Format;
   width?: number;
   height?: number;
 }) => (
-  <SvgIcon sx={{ width, height }} viewBox="0 0 24 24">
-    <g transform={landscape ? 'rotate(90 12 12)' : undefined}>
-      <path
-        fillRule="evenodd"
-        d="M7.8 3.5h8.4c1 0 1.8.8 1.8 1.8v13.4c0 1-.8 1.8-1.8 1.8H7.8c-1 0-1.8-.8-1.8-1.8V5.3c0-1 .8-1.8 1.8-1.8Zm0 1.5c-.2 0-.3.1-.3.3v13.4c0 .2.1.3.3.3h8.4c.2 0 .3-.1.3-.3V5.3c0-.2-.1-.3-.3-.3H7.8Z"
-      />
+  <SvgIcon sx={{ width, height }} viewBox="0 -960 960 960">
+    <g>
+      <path d={SHEET_PATHS[format]} />
     </g>
   </SvgIcon>
 );
@@ -286,36 +283,20 @@ const IconSheet = ({
 const OverviewDocument = ({
   image,
   options,
-  caption,
   lang,
 }: {
   image: string;
   options: OverviewOptions;
-  caption: string;
   lang: string;
 }) => {
   const paper = sizeOf(options);
-  const inset = CAPTION_INSET_MM * POINTS_PER_MM;
+  const width = paper.width * POINTS_PER_MM;
+  const height = paper.height * POINTS_PER_MM;
+  // printed at home: only the map, edge to edge, on exactly one page
   return (
     <Document title={tx('Territory overview')} lang={lang}>
-      <Page
-        size={[paper.width * POINTS_PER_MM, paper.height * POINTS_PER_MM]}
-        style={{ backgroundColor: '#FFFFFF' }}
-      >
-        <Image src={image} style={{ width: '100%', height: '100%' }} />
-        <View
-          style={{
-            position: 'absolute',
-            left: inset,
-            bottom: inset,
-            paddingVertical: 2,
-            paddingHorizontal: 4,
-            borderRadius: 2,
-            backgroundColor: '#FFFFFF',
-          }}
-        >
-          <Text style={{ fontSize: 8, color: '#757575' }}>{caption}</Text>
-        </View>
+      <Page size={{ width, height }} wrap={false}>
+        <Image src={image} style={{ width, height }} />
       </Page>
     </Document>
   );
@@ -340,8 +321,7 @@ export const PrintOverviewDialog = ({
   borderDashed: boolean;
 }) => {
   const [options, setOptions] = useState<OverviewOptions>({
-    paper: 'a3',
-    landscape: true,
+    format: 'landscape',
     border: true,
     territories: true,
     numbers: true,
@@ -370,25 +350,16 @@ export const PrintOverviewDialog = ({
         }
       );
       if (!result) throw new Error(tx('The map could not be drawn.'));
-      const caption = tx('Territory overview · printed {{date}}', {
-        date: formatDate(new Date(), 'dd.MM.yyyy'),
-      });
       const blob = await pdf(
         <OverviewDocument
           image={result.image}
           options={options}
-          caption={caption}
           lang={locale}
         />
       ).toBlob();
-      const size = FILE_SIZE[options.paper];
-      const turn =
-        options.paper === 'square'
-          ? ''
-          : `-${tx(options.landscape ? 'landscape' : 'portrait')}`;
       const saved = await exportFile(
         blob,
-        `${tx('Territory-overview')}-${size}${turn}.pdf`
+        `${tx('Territory-overview')}-${tx(FILE_SIZE[options.format])}.pdf`
       );
       if (saved && result.partial) {
         displaySnackNotification({
@@ -418,50 +389,22 @@ export const PrintOverviewDialog = ({
       <Stack spacing="16px" sx={{ width: '100%' }}>
         <Stack spacing="8px">
           <Typography className="label-small-medium" color="var(--grey-400)">
-            {tx('Paper size')}
+            {tx('Format')}
           </Typography>
           <TabSwitcher
-            ariaLabel={tx('Paper size')}
+            ariaLabel={tx('Format')}
             surface="light"
-            value={options.paper}
-            onChange={(paper: Paper) => set({ paper })}
-            options={(Object.keys(PAPERS) as Paper[]).map((paper) => ({
-              value: paper,
-              label: tx(PAPER_LABEL[paper]),
+            collapseBelow={240}
+            value={options.format}
+            onChange={(format: Format) => set({ format })}
+            options={(Object.keys(FORMATS) as Format[]).map((format) => ({
+              value: format,
+              label: tx(FORMAT_LABEL[format]),
+              icon: <IconSheet format={format} />,
             }))}
             sx={SWITCH}
           />
         </Stack>
-        {/* a square has no sides to turn */}
-        {options.paper !== 'square' && (
-          <Stack spacing="8px">
-            <Typography className="label-small-medium" color="var(--grey-400)">
-              {tx('Orientation')}
-            </Typography>
-            <TabSwitcher
-              ariaLabel={tx('Orientation')}
-              surface="light"
-              collapseBelow={180}
-              value={options.landscape ? 'landscape' : 'portrait'}
-              onChange={(turn: 'portrait' | 'landscape') =>
-                set({ landscape: turn === 'landscape' })
-              }
-              options={[
-                {
-                  value: 'portrait',
-                  label: tx('Portrait'),
-                  icon: <IconSheet />,
-                },
-                {
-                  value: 'landscape',
-                  label: tx('Landscape'),
-                  icon: <IconSheet landscape />,
-                },
-              ]}
-              sx={SWITCH}
-            />
-          </Stack>
-        )}
         <Stack spacing="4px">
           <Checkbox
             label={tx('Congregation border')}

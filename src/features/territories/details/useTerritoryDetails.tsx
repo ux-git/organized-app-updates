@@ -6,6 +6,9 @@ import {
   territoriesWithStatusState,
 } from '@states/territories';
 import { Territory } from '@definition/territory';
+import { tx } from '@services/i18n/translation';
+import { offerUndo } from '../undo';
+import { restoreTerritory } from '../restore';
 
 const blankTerritory = (): Territory => ({
   id: `t-${Date.now()}`,
@@ -107,7 +110,14 @@ const useTerritoryDetails = () => {
   const handleDelete = () => {
     if (!territory) return;
 
-    setTerritories((prev) => prev.filter((item) => item.id !== territory.id));
+    if (stored) {
+      const index = territories.indexOf(stored);
+      setTerritories((prev) => prev.filter((item) => item.id !== stored.id));
+      offerUndo({
+        text: tx('Territory {{number}} deleted', { number: stored.number }),
+        revert: () => restoreTerritory(stored, index),
+      });
+    }
     setDeleteOpen(false);
     navigate('/territories');
   };

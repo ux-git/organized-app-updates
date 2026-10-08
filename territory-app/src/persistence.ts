@@ -1,4 +1,8 @@
-import { changedTerritories, PublisherChange } from './publisherChanges';
+import {
+  changedTerritories,
+  PublisherChange,
+  revertedTerritories,
+} from './publisherChanges';
 import {
   DoNotCall,
   MapColor,
@@ -590,7 +594,7 @@ let applying = false;
 
 // loads and writes take turns: a load never overlaps a write or another load
 let queue: Promise<unknown> = Promise.resolve();
-const enqueue = (task: () => Promise<void>) => {
+const enqueue = <T>(task: () => Promise<T>) => {
   const run = queue.then(task);
   queue = run.catch(() => {});
   return run;
@@ -815,17 +819,25 @@ export const removePublisher = (person: Person, change: PublisherChange) =>
     }
     const before = store.get(territoriesState);
     const next = changedTerritories(before, person, change);
+    const removed: RemovedPublisher = {
+      person: people.find((item) => item.id === person.id)!,
+      links: [],
+      before,
+      after: next,
+    };
     const writes: Write[] = next.flatMap((territory, index) =>
       territory === before[index] ? [] : split(territory).flatMap(changes)
     );
     writes.push({ table: PEOPLE, id: person.id, deleted: true });
     for (const [id, linked] of Object.entries(store.get(linksState))) {
-      if (linked === person.id)
+      if (linked === person.id) {
+        removed.links.push(id);
         writes.push({
           table: PROFILES,
           id,
           fields: { person: change.mergeInto?.id ?? null },
         });
+      }
     }
     await writeRows(writes);
     writes
@@ -840,7 +852,40 @@ export const removePublisher = (person: Person, change: PublisherChange) =>
     }
     await loadPeople();
     await loadProfiles();
+    return removed;
   });
+
+export type RemovedPublisher = {
+  person: Person;
+  links: string[];
+  before: Territory[];
+  after: Territory[];
+};
+
+// the person's record written again comes back on every phone, as a new edit
+export const restorePublisher = (removed: RemovedPublisher) =>
+  enqueue(async () => {
+    const { person, links } = removed;
+    await writeRows([
+      { table: PEOPLE, id: person.id, fields: without(person, 'id') },
+      ...links.map((id) => ({
+        table: PROFILES,
+        id,
+        fields: { person: person.id },
+      })),
+    ]);
+    store.set(territoriesState, (current) =>
+      revertedTerritories(current, removed.before, removed.after)
+    );
+    await loadPeople();
+    await loadProfiles();
+  });
+
+// records written again as they were come back on every phone; the pages reload them
+export const restoreRecords = async (records: Write[]) => {
+  await enqueue(() => writeRows(records));
+  await load();
+};
 
 /** Writes every change made on the pages to the store, until stopped. */
 export const persist = () => {

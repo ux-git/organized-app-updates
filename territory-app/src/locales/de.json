@@ -150,10 +150,9 @@
     "from": "Von",
     "to": "Bis",
     "endBeforeStart": "Das Ende liegt vor dem Anfang.",
-    "removeTitle": "{{name}} entfernen?",
-    "removeText": "Zuteilungen, die darunter eingeordnet sind, behalten ihren Namen.",
     "removeLabel": "{{name}} entfernen",
-    "shortText": "Gebiete für besondere Aktionen verwalten."
+    "shortText": "Gebiete für besondere Aktionen verwalten.",
+    "removed": "{{name}} entfernt"
   },
   "nameDialog": {
     "description": "Für andere Geräte sichtbar. Ohne verknüpften Verkündiger auch für Nicht-besuchen-Einträge verwendet."
@@ -432,7 +431,8 @@
     "deletedHere": "Du hast es auf diesem Gerät gelöscht, während es auf einem anderen geändert wurde. Vorerst ist es wieder da.",
     "deletedThere": "Es wurde auf {{other}} gelöscht, während es anderswo geändert wurde. Vorerst ist es wieder da.",
     "keepIt": "Behalten",
-    "deleteIt": "Löschen"
+    "deleteIt": "Löschen",
+    "deletedUndo": "{{what}} gelöscht"
   },
   "automatic": {
     "always": "Immer",
@@ -476,8 +476,7 @@
     "area": "Ankunftsbereich",
     "radius": "{{meters}} m im Umkreis",
     "whereAmI": "Mein Standort",
-    "removeTitle": "Standort des Königreichssaals entfernen?",
-    "removeText": "Die Synchronisierung beim Ankommen im Saal stoppt, bis du wieder einen Standort wählst."
+    "removed": "Standort des Königreichssaals entfernt"
   },
   "publishers": {
     "imported": "Verkündiger importiert",
@@ -519,7 +518,9 @@
     "noMatch": "Keine Namen passen zu deiner Suche",
     "notBackup": "Diese Datei ist keine Organized-Sicherung.",
     "example": "Beispiel laden (JSON)",
-    "exampleFailed": "Das Beispiel konnte nicht gespeichert werden. Versuche es erneut."
+    "exampleFailed": "Das Beispiel konnte nicht gespeichert werden. Versuche es erneut.",
+    "removed": "{{name}} entfernt",
+    "merged": "{{name}} mit {{into}} zusammengeführt"
   },
   "about": {
     "title": "Über die App",

@@ -71,6 +71,7 @@ import {
   labelCollection,
   mapLocale,
   sanitizeBoundary,
+  counterClockwise,
 } from './helpers';
 import {
   applyBasemapOptions,
@@ -108,8 +109,30 @@ const savedProvider = (): MapProviderKey => {
 // the padding a map keeps around the area it opens on
 const FIT_PADDING = 80;
 
-// the congregation's outline stands out from the territories' borders
-const BORDER_LINE = 5;
+// the congregation's outline stands out from the territories' borders at
+// every zoom, and runs just outside them so it hides none
+const BORDER_LINE: maplibregl.ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  9,
+  4,
+  13,
+  6,
+  16,
+  9,
+];
+const BORDER_OFFSET: maplibregl.ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  9,
+  2,
+  13,
+  3,
+  16,
+  4.5,
+];
 
 const useTerritoriesMap = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -231,9 +254,11 @@ const useTerritoriesMap = () => {
 
     const detail = mapDetail();
     const borderCoords = congregationBoundary?.length
-      ? detail.sanitizeGeometry
-        ? sanitizeBoundary(congregationBoundary)
-        : congregationBoundary
+      ? counterClockwise(
+          detail.sanitizeGeometry
+            ? sanitizeBoundary(congregationBoundary)
+            : congregationBoundary
+        )
       : undefined;
 
     const border: GeoJSON.FeatureCollection = {
@@ -364,6 +389,7 @@ const useTerritoriesMap = () => {
       paint: {
         'line-color': MAP_COLORS[borderColorRef.current],
         'line-width': BORDER_LINE,
+        'line-offset': BORDER_OFFSET,
         // weak devices draw it solid; dashes cost them frames
         ...(detail.dashedBorder &&
           borderDashedRef.current && { 'line-dasharray': [4, 3] }),

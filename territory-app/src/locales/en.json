@@ -150,10 +150,9 @@
     "from": "From",
     "to": "To",
     "endBeforeStart": "The end is before the start.",
-    "removeTitle": "Remove {{name}}?",
-    "removeText": "Assignments filed under it keep its name.",
     "removeLabel": "Remove {{name}}",
-    "shortText": "Track territories worked during special campaigns."
+    "shortText": "Track territories worked during special campaigns.",
+    "removed": "{{name}} removed"
   },
   "nameDialog": {
     "description": "Visible to other devices. Used for do-not-call entries unless a publisher is linked."
@@ -432,7 +431,8 @@
     "deletedHere": "You deleted it on this device while it was changed on another. It is back for now.",
     "deletedThere": "It was deleted on {{other}} while it was changed elsewhere. It is back for now.",
     "keepIt": "Keep it",
-    "deleteIt": "Delete it"
+    "deleteIt": "Delete it",
+    "deletedUndo": "{{what}} deleted"
   },
   "automatic": {
     "always": "Always",
@@ -476,8 +476,7 @@
     "area": "Arrival area",
     "radius": "{{meters}} m around it",
     "whereAmI": "My location",
-    "removeTitle": "Remove the Kingdom Hall location?",
-    "removeText": "Sync on arriving at the hall stops until you choose a location again."
+    "removed": "Kingdom Hall location removed"
   },
   "publishers": {
     "imported": "Publishers imported",
@@ -519,7 +518,9 @@
     "noMatch": "No names match your search",
     "notBackup": "This file is not an Organized backup.",
     "example": "Download example (JSON)",
-    "exampleFailed": "The example couldn’t be saved. Try again."
+    "exampleFailed": "The example couldn’t be saved. Try again.",
+    "removed": "{{name}} removed",
+    "merged": "{{name}} merged into {{into}}"
   },
   "about": {
     "title": "About",

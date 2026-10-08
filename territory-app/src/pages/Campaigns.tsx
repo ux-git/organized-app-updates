@@ -28,9 +28,9 @@ import {
   dayOf,
 } from '@features/territories/campaign_dates';
 import { upsertById } from '@features/territories/helpers';
+import { offerUndo } from '@features/territories/undo';
 import { territoryCampaignsState } from '../campaigns';
 import { play } from '../haptics';
-import { confirm } from './confirm';
 import { t } from '../i18n';
 
 const CampaignDialog = ({
@@ -143,16 +143,18 @@ const Campaigns = ({ title }: { title: NavBarOptionsType }) => {
     [campaigns]
   );
 
-  const remove = async (campaign: TerritoryCampaign) => {
-    const ok = await confirm({
-      title: t('campaigns.removeTitle', { name: campaign.name }),
-      description: t('campaigns.removeText'),
-      action: t('common.remove'),
-    });
-    if (!ok) return false;
+  const remove = (campaign: TerritoryCampaign) => {
     play('remove');
-    setCampaigns(campaigns.filter((item) => item.id !== campaign.id));
-    return true;
+    setCampaigns((prev) => prev.filter((item) => item.id !== campaign.id));
+    offerUndo({
+      text: t('campaigns.removed', { name: campaign.name }),
+      revert: () =>
+        setCampaigns((prev) =>
+          prev.some((item) => item.id === campaign.id)
+            ? prev
+            : [...prev, campaign]
+        ),
+    });
   };
 
   return (
@@ -253,8 +255,9 @@ const Campaigns = ({ title }: { title: NavBarOptionsType }) => {
         }}
         onRemove={
           editing && editing !== 'new'
-            ? async () => {
-                if (await remove(editing)) setEditing(null);
+            ? () => {
+                remove(editing);
+                setEditing(null);
               }
             : undefined
         }

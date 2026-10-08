@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
+import { offerUndo } from '@features/territories/undo';
 import { listen } from '../native';
-import { loadPeople, Person } from '../persistence';
+import {
+  loadPeople,
+  Person,
+  removePublisher,
+  restorePublisher,
+} from '../persistence';
+import { PublisherChange } from '../publisherChanges';
+import { t } from '../i18n';
 
 // the last list, so a page opened again starts from it instead of empty
 let known: Person[] = [];
@@ -35,3 +43,19 @@ export const usePeopleList = () => {
 
 const usePeople = () => usePeopleList().people;
 export default usePeople;
+
+export const removeWithUndo = async (
+  person: Person,
+  change: PublisherChange
+) => {
+  const removed = await removePublisher(person, change);
+  offerUndo({
+    text: change.mergeInto
+      ? t('publishers.merged', {
+          name: person.name,
+          into: change.mergeInto.name,
+        })
+      : t('publishers.removed', { name: person.name }),
+    revert: () => restorePublisher(removed),
+  });
+};

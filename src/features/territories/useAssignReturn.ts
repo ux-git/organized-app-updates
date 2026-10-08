@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { territoriesState } from '@states/territories';
 import {
@@ -13,6 +13,7 @@ import { campaignFor, campaignSnapshot } from './campaign_dates';
 import { savedCard } from './card_choice';
 import { isCoverage } from './coverage_rate';
 import { revertAssignment } from './assignment_undo';
+import { offerUndo } from './undo';
 
 // undefined leaves an assignment's campaign as it is, null clears it
 type Campaign = TerritoryAssignment['campaign'] | null;
@@ -52,15 +53,6 @@ const useAssignReturn = () => {
   const [assignId, setAssignId] = useState<string | undefined>();
   const [returnId, setReturnId] = useState<string | undefined>();
 
-  // the last assign or return, the territories as they were before it, and
-  // the assignments it added
-  const [undo, setUndo] = useState<{
-    key: number;
-    header: string;
-    before: Territory[];
-    added: string[];
-  }>();
-
   const patch = (
     id: string,
     changes: (territory: Territory) => Partial<Territory>
@@ -73,29 +65,26 @@ const useAssignReturn = () => {
       )
     );
 
-  const remember = (ids: string[], header: string, added: string[] = []) =>
-    ids.length > 0 &&
-    setUndo({
-      key: Date.now(),
-      header,
-      before: territories.filter((territory) => ids.includes(territory.id)),
-      added,
-    });
+  // the territories as they were, and the assignments it added
+  const remember = (ids: string[], text: string, added: string[] = []) => {
+    if (ids.length === 0) return;
 
-  const undoLast = () => {
-    if (!undo) return;
-
-    const before = new Map(undo.before.map((item) => [item.id, item]));
-    setTerritories((prev) =>
-      prev.map((item) => {
-        const old = before.get(item.id);
-        return old ? revertAssignment(item, old, undo.added) : item;
-      })
+    const before = new Map(
+      territories
+        .filter((territory) => ids.includes(territory.id))
+        .map((item) => [item.id, item])
     );
-    setUndo(undefined);
+    offerUndo({
+      text,
+      revert: () =>
+        setTerritories((prev) =>
+          prev.map((item) => {
+            const old = before.get(item.id);
+            return old ? revertAssignment(item, old, added) : item;
+          })
+        ),
+    });
   };
-
-  const closeUndo = useCallback(() => setUndo(undefined), []);
 
   const numberOf = (id: string) =>
     territories.find((territory) => territory.id === id)?.number ?? '';
@@ -216,8 +205,18 @@ const useAssignReturn = () => {
     remember([id], tx('{{number}} returned', { number: numberOf(id) }));
   };
 
-  const handleDecline = (id: string) =>
+  const handleDecline = (id: string) => {
+    const requestedBy = territories.find(
+      (territory) => territory.id === id
+    )?.requestedBy;
+    if (!requestedBy) return;
+
     patch(id, () => ({ requestedBy: undefined }));
+    offerUndo({
+      text: tx('Request from {{name}} declined', { name: requestedBy }),
+      revert: () => patch(id, () => ({ requestedBy })),
+    });
+  };
 
   const assignMany = (
     ids: string[],
@@ -270,9 +269,6 @@ const useAssignReturn = () => {
     handleDecline,
     assignMany,
     returnMany,
-    undo,
-    undoLast,
-    closeUndo,
   };
 };
 

@@ -141,6 +141,9 @@ export const ViewToolbar = ({
         flexShrink: 1,
         minWidth: 0,
         ...SHELL,
+        // as tall as the mode switch beside it
+        height: '46px',
+        boxSizing: 'border-box',
         ...(fullWidth && { flex: 1 }),
       }}
     >

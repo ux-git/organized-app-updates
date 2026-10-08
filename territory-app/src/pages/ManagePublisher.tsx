@@ -9,9 +9,10 @@ import SwitchWithLabel from '@components/switch_with_label';
 import PublisherSearch from '@features/territories/components/publisher_search';
 import { tx } from '@services/i18n/translation';
 import { territoriesState } from '@states/territories';
-import { Person, removePublisher } from '../persistence';
+import { Person } from '../persistence';
 import { activeFor, Resolution } from '../publisherChanges';
 import { linkedDevices, linksState } from '../profiles';
+import { removeWithUndo } from './usePeople';
 
 const ManagePublisher = ({
   person,
@@ -43,7 +44,7 @@ const ManagePublisher = ({
     setBusy(true);
     setError('');
     try {
-      await removePublisher(person, {
+      await removeWithUndo(person, {
         mergeInto: mode === 'merge' ? (target ?? undefined) : undefined,
         resolutions,
       });

@@ -8,6 +8,8 @@ import RecordList from '../components/record_list';
 import RowAction from '../components/row_action';
 import PhoneNumberEditor from './phone_number_editor';
 import { emptyListMessage, isDoNotCallNumber } from '../helpers';
+import { offerUndo } from '../undo';
+import { restorePhoneNumber } from '../restore';
 
 // the S-12 phone card holds 32 numbers, so the list stops there
 const MAX_PHONE_NUMBERS = 32;
@@ -160,9 +162,15 @@ const PhoneNumbersPanel = ({
           value={editing === 'new' ? undefined : numbers[editing]}
           onClose={() => setEditing(undefined)}
           onSave={handleSave}
-          onDelete={() =>
-            onChange(numbers.filter((_, index) => index !== editing))
-          }
+          onDelete={() => {
+            if (editing === 'new') return;
+            const number = numbers[editing];
+            onChange(numbers.filter((_, index) => index !== editing));
+            offerUndo({
+              text: tx('Number deleted'),
+              revert: () => restorePhoneNumber(territory.id, number, editing),
+            });
+          }}
           onCall={
             editing !== 'new' && !isDoNotCallNumber(territory, numbers[editing])
               ? call

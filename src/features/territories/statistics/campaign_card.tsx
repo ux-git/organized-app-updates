@@ -20,7 +20,6 @@ import { tx } from '@services/i18n/translation';
 import { displaySnackNotification } from '@services/states/app';
 import { ChartCard } from '../components/charts';
 import TruncatedText from '../components/truncated_text';
-import UndoSnackbar from '../components/undo_snackbar';
 import { territoryCampaignsState } from '../campaigns';
 import {
   campaignChoices,
@@ -356,12 +355,6 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
           </DialogActions>
         </Dialog>
       )}
-
-      <UndoSnackbar
-        notice={actions.undo}
-        onUndo={actions.undoLast}
-        onClose={actions.closeUndo}
-      />
     </ChartCard>
   );
 };

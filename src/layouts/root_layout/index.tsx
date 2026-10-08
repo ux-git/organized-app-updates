@@ -12,6 +12,7 @@ import { useNavigationTrail } from '@hooks/useUpNavigation';
 import useRootLayout from './useRootLayout';
 import About from '@features/about';
 import AppFeedback from '@features/app_feedback';
+import UndoSnackbar from '@features/territories/components/undo_snackbar';
 import AppReminders from '@features/reminders';
 import PageTransition from '@components/page_transition';
 import AppUpdater from '@features/app_updater';
@@ -62,6 +63,7 @@ const RootLayout = ({ updatePwa }: { updatePwa: VoidFunction }) => {
         <AppUpdater updatePwa={updatePwa} />
 
         <AppFeedback />
+        <UndoSnackbar />
 
         {isImportJWOrg && <JWMaterialsImport />}
         {isImportEPUB && <EPUBMaterialsImport />}

@@ -762,7 +762,15 @@ export const EditHeader = ({
     <Stack spacing="6px" sx={{ alignItems: 'flex-start', minWidth: 0 }}>
       <Stack
         direction="row"
-        sx={{ ...SHELL, padding: '4px 4px 4px 12px', gap: '8px' }}
+        // as tall as the mode switch beside it
+        sx={{
+          ...SHELL,
+          height: '46px',
+          boxSizing: 'border-box',
+          alignItems: 'center',
+          padding: '4px 4px 4px 12px',
+          gap: '8px',
+        }}
       >
         {onUp && (
           <>
