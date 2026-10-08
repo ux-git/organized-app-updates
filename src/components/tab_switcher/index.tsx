@@ -134,7 +134,15 @@ const TabSwitcher = <T extends string = string>({
               borderRadius: 'var(--radius-s)',
               fontFamily: 'inherit',
               color: isActive ? 'var(--accent-dark)' : 'var(--accent-400)',
-              transition: 'color 0.2s ease-out',
+              transition: 'color 0.2s ease-out, background-color 0.2s ease-out',
+              // an inactive tab lightens a shade under the pointer
+              ...(!isActive && {
+                '@media (hover: hover)': {
+                  '&:hover': {
+                    backgroundColor: `color-mix(in srgb, ${palette.track}, var(--accent-200) 40%)`,
+                  },
+                },
+              }),
               '&.Mui-disabled': { opacity: 0.5 },
               '& svg, & svg g, & svg g path': {
                 fill: isActive ? 'var(--accent-dark)' : 'var(--accent-400)',
