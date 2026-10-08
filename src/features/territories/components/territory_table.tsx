@@ -15,7 +15,7 @@ import {
   IconClock,
   IconHome,
   IconPerson,
-  IconReturn,
+  IconCheck,
   IconSortDown,
   IconSortUp,
 } from '@icons/index';
@@ -178,7 +178,7 @@ const StatusLine = ({
 
     return (
       <Stack direction="row" spacing="4px" sx={{ alignItems: 'center' }}>
-        <IconReturn color="var(--green-main)" width={16} height={16} />
+        <IconCheck color="var(--green-main)" width={16} height={16} />
         <Typography
           className="label-small-regular"
           color="var(--green-main)"
