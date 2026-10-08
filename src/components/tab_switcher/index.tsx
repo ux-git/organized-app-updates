@@ -6,15 +6,13 @@ import {
   TabSwitcherSurface,
 } from './index.types';
 
-// like a drop of glass: it lifts and swells as it lets go, stretches along
-// the way, and settles back with a soft wobble; two names taken in turns
-// restart it on every change
+// the thumb shrinks as it sets off, travels small and grows back in place;
+// two names taken in turns restart it on every change
 const stretch = (turn: number) => keyframes`
-  0% { transform: scale(1, 1); }
-  18% { transform: scale(1.06, 1.1); }
-  50% { transform: scale(1.14, 0.94); }
-  78% { transform: scale(0.98, 1.03); }
-  100% { transform: scale(1, 1); --turn: ${turn}; }
+  0% { transform: scale(1); }
+  30% { transform: scale(0.86); }
+  70% { transform: scale(0.86); }
+  100% { transform: scale(1); --turn: ${turn}; }
 `;
 const STRETCHES = [stretch(0), stretch(1)];
 
@@ -90,7 +88,7 @@ const TabSwitcher = <T extends string = string>({
           transform: `translateX(calc(${Math.max(activeIndex, 0)} * (100% + ${gap}px)))`,
           // a quick spring: it overshoots a touch and settles
           // eases off gently and lands softly, never past the track's edge
-          transition: 'transform 0.44s cubic-bezier(0.32, 0.72, 0, 1)',
+          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           opacity: activeIndex === -1 ? 0 : 1,
         }}
       >
@@ -103,11 +101,8 @@ const TabSwitcher = <T extends string = string>({
             borderRadius: 'var(--radius-s)',
             backgroundColor: palette.thumb,
             border: `1px solid ${palette.thumbBorder}`,
-            // a light rim along the top edge, as on glass
-            boxShadow:
-              'inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 3px rgba(0, 0, 0, 0.18)',
             animation: moves
-              ? `${STRETCHES[moves % 2]} 0.44s cubic-bezier(0.32, 0.72, 0, 1)`
+              ? `${STRETCHES[moves % 2]} 0.3s ease-in-out`
               : 'none',
           }}
         />
