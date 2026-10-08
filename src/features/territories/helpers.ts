@@ -1,12 +1,5 @@
 import { formatDate } from '@utils/date';
 import { getTranslation, tx } from '@services/i18n/translation';
-import { STREET_INDEX } from './mockData';
-import {
-  matchStreets,
-  streetsOf,
-  streetTerritories,
-  territoryKey,
-} from './street_search';
 import {
   AssignmentIssue,
   ISSUE_TEXT,
@@ -175,19 +168,10 @@ export const withDerivedStatus = (
     } as Territory;
   });
 
-export const streetMatches = (query: string) =>
-  matchStreets(STREET_INDEX, query);
-
-export const territoryStreets = (number: string) =>
-  streetsOf(STREET_INDEX, number);
-
 export const applyFilters = (
   territories: Territory[],
   filters: TerritoryFilters
 ) => {
-  // a street name finds the territories it runs through
-  const onStreet = streetTerritories(STREET_INDEX, filters.search);
-
   return territories.filter((territory) => {
     if (filters.status.length && !filters.status.includes(territory.status)) {
       return false;
@@ -222,11 +206,7 @@ export const applyFilters = (
 
     if (!matchesCampaign(territory, filters.campaign)) return false;
 
-    if (
-      filters.search.length &&
-      !matchesText(territory, filters.search) &&
-      !onStreet.has(territoryKey(territory.number))
-    ) {
+    if (filters.search.length && !matchesText(territory, filters.search)) {
       return false;
     }
 

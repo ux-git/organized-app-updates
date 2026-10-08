@@ -35,7 +35,6 @@ import AssignDialog from '../components/assign_dialog';
 import AssignReturnDialogs from '../components/assign_return_dialogs';
 import MyHistory from '../components/my_history';
 import SelectionBar from '../components/selection_bar';
-import StreetResults from '../components/street_results';
 import DialogActions from '@components/dialog_actions';
 import dashedBorder from '@utils/dashed_border';
 import TerritoryFilters from '../components/territory_filters';
@@ -340,14 +339,6 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
           filtersOpen={filtersOpen}
           applied={applied}
           onToggleFilters={() => setFiltersOpen(!filtersOpen)}
-        />
-      )}
-
-      {!isMine && (
-        <StreetResults
-          search={filters.search}
-          territories={territories}
-          onOpen={handleOpen}
         />
       )}
 

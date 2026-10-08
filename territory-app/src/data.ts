@@ -13,16 +13,6 @@ const TERRITORIES: Territory[] = [];
 
 export const sampleTerritories = () => TERRITORIES;
 
-// street name -> territory numbers, built from OpenStreetMap by
-// scripts/streets.py into seed/streets.json for a private build
-export const STREET_INDEX: Record<string, string[]> =
-  Object.values(
-    import.meta.glob<Record<string, string[]>>('../seed/streets.json', {
-      import: 'default',
-      eager: true,
-    })
-  )[0] ?? {};
-
 export const setMapCenter = (center: [number, number]) => {
   MAP_CENTER[0] = center[0];
   MAP_CENTER[1] = center[1];

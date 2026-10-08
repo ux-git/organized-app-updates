@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import type { Territory, TerritoryAssignment } from '@definition/territory';
 import {
   changedTerritories,
@@ -14,7 +14,6 @@ import {
 } from '@features/territories/helpers';
 import { isCoverage } from '@features/territories/coverage_rate';
 import { tileUrls } from '@services/maps/tiles';
-vi.mock('@features/territories/mockData', () => ({ STREET_INDEX: [] }));
 const assignment = (
   data: Partial<TerritoryAssignment> = {}
 ): TerritoryAssignment => ({

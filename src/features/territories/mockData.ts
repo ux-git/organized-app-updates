@@ -449,6 +449,3 @@ export const sampleTerritories = (get: Getter): Territory[] => {
     };
   });
 };
-
-// street name -> territory numbers; the territory app fills it from its seed
-export const STREET_INDEX: Record<string, string[]> = {};
