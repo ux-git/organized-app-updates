@@ -10,7 +10,7 @@ import { Box, Dialog as MuiDialog, Stack } from '@mui/material';
 import { exportFile } from '@services/files/export';
 import { displaySnackNotification } from '@services/states/app';
 import { useNavigate } from 'react-router';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtomValue } from 'jotai';
 import * as maplibregl from 'maplibre-gl';
 import { Badge, Button, Typography } from '@components/index';
 import {
@@ -29,7 +29,6 @@ import { isDarkThemeState } from '@states/app';
 import {
   territoriesShowDoNotCallMapState,
   territoriesState,
-  territoryTileStreetsState,
 } from '@states/territories';
 import { Territory } from '@definition/territory';
 import { DEFAULT_PROVIDER, MAP_PROVIDER } from '../map/constants';
@@ -52,7 +51,6 @@ import {
 } from '../map/layers';
 import { getCSSPropertyValue } from '@utils/common';
 import { captureTerritoryMap } from '../map/capture';
-import { tileStreetNames } from '../map/street_names';
 import { frameZoom, MarkerRegistry, syncMarkers } from '../map/markers';
 import MapIsland, { MapAction, NorthAction } from '../map/map_island';
 import Tooltip from '@components/tooltip';
@@ -70,7 +68,6 @@ const BoundaryPreview = ({
 }) => {
   const isDark = useAtomValue(isDarkThemeState);
   const showDoNotCalls = useAtomValue(territoriesShowDoNotCallMapState);
-  const setTileStreets = useSetAtom(territoryTileStreetsState);
 
   const container = useRef<HTMLDivElement>(null);
 
@@ -127,15 +124,6 @@ const BoundaryPreview = ({
     addAttribution(instance);
     onReady?.(instance);
 
-    // the small map frames the territory, so its tiles hold every street in it
-    if (!interactive) {
-      instance.once('idle', () => {
-        const streets = tileStreetNames(instance, boundary);
-        const id = latest.current.id;
-        setTileStreets((prev) => ({ ...prev, [id]: streets }));
-      });
-    }
-
     const registry: MarkerRegistry = new Map();
 
     instance.on('style.load', () => {
@@ -173,7 +161,6 @@ const BoundaryPreview = ({
     interactive,
     onReady,
     showDoNotCalls,
-    setTileStreets,
   ]);
 
   return (

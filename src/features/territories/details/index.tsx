@@ -16,7 +16,6 @@ import TerritoryAssignments from './territory_assignments';
 import TerritoryMap from './territory_map';
 import PhoneNumbersPanel from './phone_numbers_panel';
 import TerritoryStats from './territory_stats';
-import TerritoryStreets from './territory_streets';
 import { missingPublisher, territoryHolderText } from '../group_holder';
 
 type TerritoryDetailsProps = {
@@ -150,12 +149,7 @@ const TerritoryDetails = ({
     <TerritoryMap territory={territory} />
   );
 
-  const map = (
-    <Stack spacing="12px">
-      {mapContent}
-      {!isPhone && <TerritoryStreets territory={territory} />}
-    </Stack>
-  );
+  const map = <Stack spacing="12px">{mapContent}</Stack>;
 
   const mapLabel = isPhone ? tx('Phone numbers') : tx('Territory map');
 
@@ -211,10 +205,7 @@ const TerritoryDetails = ({
         <Card>
           {summary}
 
-          <Stack spacing="12px">
-            {content}
-            {!isPhone && <TerritoryStreets territory={territory} />}
-          </Stack>
+          <Stack spacing="12px">{content}</Stack>
         </Card>
 
         {showPrivate &&

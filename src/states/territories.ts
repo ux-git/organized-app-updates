@@ -36,9 +36,6 @@ export const congregationBoundaryState = atom<TerritoryBoundary | undefined>(
 export const congregationBorderColorState = atom<MapColor>('red');
 export const congregationBorderDashedState = atom(false);
 
-// read from the map tiles each territory's small map loaded, by territory id
-export const territoryTileStreetsState = atom<Record<string, string[]>>({});
-
 export const territoriesShowHouseholdsState = atom(true);
 export const territoriesShowDoNotCallCountState = atom(true);
 export const territoriesShowDoNotCallMapState = atom(true);
