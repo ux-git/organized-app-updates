@@ -16,6 +16,14 @@ const stretch = (turn: number) => keyframes`
 `;
 const STRETCHES = [stretch(0), stretch(1)];
 
+// a tap on the tab that's already on: a small press and release
+const press = (turn: number) => keyframes`
+  0% { transform: scale(1); animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1); }
+  40% { transform: scale(0.94); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  100% { transform: scale(1); --turn: ${turn}; }
+`;
+const PRESSES = [press(0), press(1)];
+
 const PALETTE: Record<
   TabSwitcherSurface,
   { track: string; trackBorder: string; thumb: string; thumbBorder: string }
@@ -52,9 +60,12 @@ const TabSwitcher = <T extends string = string>({
   const activeIndex = options.findIndex((option) => option.value === value);
   const [seen, setSeen] = useState(activeIndex);
   const [moves, setMoves] = useState(0);
+  // taps on the active tab; reset by a move, so the move's wave plays
+  const [taps, setTaps] = useState(0);
   if (seen !== activeIndex) {
     setSeen(activeIndex);
     setMoves(moves + 1);
+    setTaps(0);
   }
   const gap = 4;
   const collapse = collapseBelow
@@ -101,7 +112,11 @@ const TabSwitcher = <T extends string = string>({
             borderRadius: 'var(--radius-s)',
             backgroundColor: palette.thumb,
             border: `1px solid ${palette.thumbBorder}`,
-            animation: moves ? `${STRETCHES[moves % 2]} 0.42s linear` : 'none',
+            animation: taps
+              ? `${PRESSES[taps % 2]} 0.28s linear`
+              : moves
+                ? `${STRETCHES[moves % 2]} 0.42s linear`
+                : 'none',
           }}
         />
       </Box>
@@ -118,7 +133,9 @@ const TabSwitcher = <T extends string = string>({
             aria-label={iconOnly || collapse ? option.label : undefined}
             disabled={option.disabled}
             disableRipple
-            onClick={() => onChange(option.value)}
+            onClick={() =>
+              isActive ? setTaps(taps + 1) : onChange(option.value)
+            }
             sx={{
               position: 'relative',
               zIndex: 1,
