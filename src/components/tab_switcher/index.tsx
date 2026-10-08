@@ -9,9 +9,9 @@ import {
 // the thumb shrinks as it sets off, travels small and grows back in place;
 // two names taken in turns restart it on every change
 const stretch = (turn: number) => keyframes`
-  0% { transform: scale(1); }
-  30% { transform: scale(0.86); }
-  70% { transform: scale(0.86); }
+  0% { transform: scale(1); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  35% { transform: scale(0.86); }
+  60% { transform: scale(0.86); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
   100% { transform: scale(1); --turn: ${turn}; }
 `;
 const STRETCHES = [stretch(0), stretch(1)];
@@ -101,9 +101,7 @@ const TabSwitcher = <T extends string = string>({
             borderRadius: 'var(--radius-s)',
             backgroundColor: palette.thumb,
             border: `1px solid ${palette.thumbBorder}`,
-            animation: moves
-              ? `${STRETCHES[moves % 2]} 0.3s ease-in-out`
-              : 'none',
+            animation: moves ? `${STRETCHES[moves % 2]} 0.4s linear` : 'none',
           }}
         />
       </Box>
