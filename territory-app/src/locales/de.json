@@ -701,11 +701,10 @@
   },
   "profile": {
     "you": "Du",
-    "youText": "Wähle dich aus den Verkündigern, damit Meine Gebiete und Nicht-besuchen-Einträge wissen, wer du bist. Für gekoppelte Geräte sichtbar.",
+    "youText": "So sehen gekoppelte Geräte dieses Gerät. Sobald es Verkündiger gibt, wähle dich auch dort aus, damit Meine Gebiete und Nicht-besuchen-Einträge wissen, wer du bist.",
     "linked": "Verknüpfter Verkündiger",
     "change": "Ändern",
     "pickYourself": "Finde dich in den Verkündigern",
-    "notInList": "Ich bin nicht in der Liste",
-    "fromList": "Aus den Verkündigern wählen"
+    "deviceName": "Name auf diesem Gerät"
   }
 }

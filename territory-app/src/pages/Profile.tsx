@@ -20,7 +20,7 @@ import {
 import ProfilePictureSelector from '@features/my_profile/user_profile_details/profile_picture_selector';
 import ProfilePictureEntry from '@features/my_profile/user_profile_details/profile_picture_entry';
 import PublisherSearch from '@features/territories/components/publisher_search';
-import { useAppTranslation, useBreakpoints } from '@hooks/index';
+import { useBreakpoints } from '@hooks/index';
 import { isDarkThemeState } from '@states/app';
 import { hapticsEnabledState } from '@states/settings';
 import { chosen, pickedRadio, setHapticsEnabled, toggled } from '../haptics';
@@ -48,7 +48,6 @@ const failed = (error: unknown) => {
 // publisher it belongs to, the language, the theme and the vibration
 const Profile = () => {
   const { i18n } = useTranslation();
-  const { t: appText } = useAppTranslation();
   const { tabletDown } = useBreakpoints();
   const { name } = useNearby();
   const isDark = useAtomValue(isDarkThemeState);
@@ -90,23 +89,12 @@ const Profile = () => {
   };
 
   const linked = link.person;
-  // linked, the publisher's name is this device's name too; unlinked, the
-  // list comes first and a typed name is the way out for anyone not on it
-  const [typing, setTyping] = useState(!link.person && !!name);
   const [changing, setChanging] = useState(false);
-
-  const rename = async (next: string) => {
-    if (!next || next === name) return;
-    await invoke('set_name', { name: next });
-    await loadIdentity();
-  };
 
   const linkTo = async (person: Person) => {
     try {
       await setLink(person.id);
-      await rename(person.name);
       setChanging(false);
-      setTyping(false);
     } catch (error) {
       failed(error);
     }
@@ -115,7 +103,6 @@ const Profile = () => {
   const unlink = () => {
     setLink(null).catch(failed);
     setChanging(false);
-    setTyping(true);
   };
 
   return (
@@ -138,45 +125,50 @@ const Profile = () => {
             size={tabletDown ? 44 : 48}
             onOpen={() => setPictureOpen(true)}
           />
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            {linked && !changing ? (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '8px',
-                }}
-              >
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography className="h4" noWrap>
-                    {linked.name}
-                  </Typography>
-                  <Typography
-                    className="label-small-regular"
-                    color="var(--grey-400)"
-                  >
-                    {t('profile.linked')}
-                  </Typography>
-                </Box>
-                <Button
-                  variant="small"
-                  disableAutoStretch
-                  onClick={() => setChanging(true)}
+          {/* this device's own name: there from the start, and it tells two
+              phones of one person apart */}
+          <TextField
+            label={t('profile.deviceName')}
+            height={48}
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            onBlur={save}
+            onKeyDown={(event) => event.key === 'Enter' && save()}
+          />
+        </Box>
+
+        {/* the publisher only once there are publishers to choose from */}
+        {publishers.length > 0 &&
+          (linked && !changing ? (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+              }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  className="label-small-regular"
+                  color="var(--grey-400)"
                 >
-                  {t('profile.change')}
-                </Button>
+                  {t('profile.linked')}
+                </Typography>
+                <Typography className="h4" noWrap>
+                  {linked.name}
+                </Typography>
               </Box>
-            ) : typing ? (
-              <TextField
-                label={appText('tr_name')}
-                height={48}
-                value={value}
-                onChange={(event) => setValue(event.target.value)}
-                onBlur={save}
-                onKeyDown={(event) => event.key === 'Enter' && save()}
-              />
-            ) : (
+              <Button
+                variant="small"
+                disableAutoStretch
+                onClick={() => setChanging(true)}
+              >
+                {t('profile.change')}
+              </Button>
+            </Box>
+          ) : (
+            <Stack spacing="8px">
               <PublisherSearch
                 label={t('profile.pickYourself')}
                 options={publishers}
@@ -184,48 +176,29 @@ const Profile = () => {
                 autoFocus={changing}
                 onChange={(person) => person && linkTo(chosen(person))}
                 getName={(person: Person) => person.name}
-                noOptionsText={
-                  <Typography className="body-regular" color="var(--grey-350)">
-                    {t('account.noPublishers')}
-                  </Typography>
-                }
               />
-            )}
-          </Box>
-        </Box>
-
-        {/* the other way round: from the list to a typed name and back */}
-        {!(linked && !changing) && (
-          <Box sx={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-            <Button
-              variant="small"
-              disableAutoStretch
-              onClick={() => setTyping(!typing)}
-            >
-              {typing ? t('profile.fromList') : t('profile.notInList')}
-            </Button>
-            {changing && (
-              <Button
-                variant="small"
-                disableAutoStretch
-                onClick={() => setChanging(false)}
-              >
-                {t('common.cancel')}
-              </Button>
-            )}
-            {linked && (
-              <Button
-                variant="small"
-                color="red"
-                startIcon={<IconDelete />}
-                disableAutoStretch
-                onClick={unlink}
-              >
-                {t('account.unlink')}
-              </Button>
-            )}
-          </Box>
-        )}
+              {(changing || linked) && (
+                <Box sx={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                  <Button
+                    variant="small"
+                    disableAutoStretch
+                    onClick={() => setChanging(false)}
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                  <Button
+                    variant="small"
+                    color="red"
+                    startIcon={<IconDelete />}
+                    disableAutoStretch
+                    onClick={unlink}
+                  >
+                    {t('account.unlink')}
+                  </Button>
+                </Box>
+              )}
+            </Stack>
+          ))}
 
         {link.missing && (
           <InfoNote
@@ -246,7 +219,7 @@ const Profile = () => {
             {t('account.unlink')}
           </Button>
         )}
-        {typing && suggestion && (
+        {suggestion && (
           <Box
             sx={{
               display: 'flex',

@@ -664,11 +664,10 @@
   },
   "profile": {
     "you": "You",
-    "youText": "Pick yourself from the publishers, so My territories and do-not-call entries know who you are. Visible to paired devices.",
+    "youText": "How paired devices see this one. Once publishers are added, also pick yourself, so My territories and do-not-call entries know who you are.",
     "linked": "Linked publisher",
     "change": "Change",
     "pickYourself": "Find yourself in the publishers",
-    "notInList": "I'm not in the list",
-    "fromList": "Choose from the publishers"
+    "deviceName": "Name on this device"
   }
 }
