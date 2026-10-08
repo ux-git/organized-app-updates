@@ -69,8 +69,8 @@ const TabSwitcher = <T extends string = string>({
           bottom: '4px',
           left: '4px',
           width: `calc((100% - ${(options.length - 1) * gap + 8}px) / ${options.length})`,
-          // the track's radius less its 4px padding, so both curves run parallel
-          borderRadius: 'calc(var(--radius-l) - 4px)',
+          // the track's radius-l less its 4px padding, so both curves run parallel
+          borderRadius: 'var(--radius-s)',
           backgroundColor: palette.thumb,
           border: `1px solid ${palette.thumbBorder}`,
           transform: `translateX(calc(${Math.max(activeIndex, 0)} * (100% + ${gap}px)))`,
@@ -103,7 +103,7 @@ const TabSwitcher = <T extends string = string>({
               gap: '6px',
               padding: iconOnly ? '4px 8px' : '4px 12px',
               minHeight: '28px',
-              borderRadius: 'calc(var(--radius-l) - 4px)',
+              borderRadius: 'var(--radius-s)',
               fontFamily: 'inherit',
               color: isActive ? 'var(--accent-dark)' : 'var(--accent-400)',
               transition: 'color 0.16s ease-out',
