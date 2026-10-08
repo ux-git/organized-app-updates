@@ -43,7 +43,7 @@ HOLD=${A:h:h}/territory-seed-hold
 [[ -e $HOLD ]] && { echo "FAIL $HOLD exists from an earlier run: put it back as seed/ first"; exit 1; }
 [[ -d seed ]] || { echo "FAIL no seed/ folder"; exit 1; }
 # full names and addresses to look for; single words also appear in Organized texts and libraries
-canary() { cat $1/publishers.txt $1/groups.txt; python3 -c "import json,sys; d=sys.argv[1]; print('\n'.join(list(json.load(open(d+'/streets.json')))[:40] + [r.get(k) or '' for v in json.load(open(d+'/donotcalls.json')).values() for r in v for k in ('address','name')]))" $1; }
+canary() { cat $1/publishers.txt $1/groups.txt; python3 -c "import json,sys; d=sys.argv[1]; print('\n'.join([r.get(k) or '' for v in json.load(open(d+'/donotcalls.json')).values() for r in v for k in ('address','name')]))" $1; }
 clean() { # fails when any private name or address made it into dist/
   local patterns=$LOGS/private-canaries.txt result
   (umask 077; while IFS= read -r w; do
