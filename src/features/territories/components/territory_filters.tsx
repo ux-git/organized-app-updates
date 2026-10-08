@@ -110,7 +110,8 @@ const TerritoryFilters = ({
         ))}
         {unknownCard && (
           <FilterChip
-            label={tx('Unknown')}
+            // out, but with no map type recorded: older or cleared ones
+            label={tx('Map type not recorded')}
             selected={filters.card.includes('unknown')}
             onClick={() => toggle('card', 'unknown')}
           />

@@ -173,7 +173,7 @@ const ReturnDialog = ({
         <Stack direction="row" spacing="8px" sx={{ alignItems: 'center' }}>
           <IconPrint color="var(--grey-400)" width={20} height={20} />
           <Typography className="body-small-regular" color="var(--grey-400)">
-            {tx('Printed card')}
+            {tx('Printed map')}
           </Typography>
         </Stack>
       )}

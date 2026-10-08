@@ -212,8 +212,8 @@ export const TYPE_LABEL: Record<TerritoryType, string> = {
 };
 
 export const CARD_LABEL: Record<AssignmentCard, string> = {
-  digital: 'Digital',
-  printed: 'Printed card',
+  digital: 'Digital map',
+  printed: 'Printed map',
 };
 
 export const DEFAULT_CATEGORIES: TerritoryCategoryOption[] = [
