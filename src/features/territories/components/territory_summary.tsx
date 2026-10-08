@@ -36,6 +36,12 @@ const TerritorySummary = ({
   onDoNotCalls?: VoidFunction;
 }) => {
   const navigate = useNavigate();
+  const ownsMeta = !!holder && !!meta?.startsWith(holder);
+  // how long it's out joins the status badge; the holder gets a badge of
+  // their own
+  const days = ownsMeta
+    ? meta!.slice(holder!.length).replace(/^\s*·\s*/, '')
+    : undefined;
 
   const description = [
     heading && territory.city,
@@ -92,7 +98,7 @@ const TerritorySummary = ({
           {showDoNotCalls && (
             <DoNotCallBadge territory={territory} onClick={onDoNotCalls} />
           )}
-          <StatusBadge status={territory.status} />
+          <StatusBadge status={territory.status} detail={days} />
         </Stack>
       </Stack>
 
@@ -115,7 +121,7 @@ const TerritorySummary = ({
           <CategoryBadges territory={territory} wrap />
         </Stack>
 
-        {meta && holder && meta.startsWith(holder) && (
+        {ownsMeta && (
           <Stack direction="row" sx={{ alignItems: 'center', gap: '6px' }}>
             <Box
               component="button"
@@ -172,13 +178,10 @@ const TerritorySummary = ({
                 <IconArrowLink width={14} height={14} />
               </Box>
             </Box>
-            <Typography className="label-small-regular" color="var(--grey-400)">
-              {meta.slice(holder.length).replace(/^\s*·\s*/, '')}
-            </Typography>
           </Stack>
         )}
 
-        {meta && !(holder && meta.startsWith(holder)) && (
+        {meta && !ownsMeta && (
           <Stack direction="row" sx={{ alignItems: 'center', gap: '4px' }}>
             <IconPerson color="var(--grey-400)" width={16} height={16} />
             <Typography className="label-small-regular" color="var(--grey-400)">

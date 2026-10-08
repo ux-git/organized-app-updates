@@ -38,11 +38,18 @@ const shrink = (text: string) => ({
   },
 });
 
-export const StatusBadge = ({ status }: { status: TerritoryStatus }) => (
+export const StatusBadge = ({
+  status,
+  detail,
+}: {
+  status: TerritoryStatus;
+  // e.g. how long it has been out, as "In work · 15 d"
+  detail?: string;
+}) => (
   <Badge
     size="small"
     color={STATUS_COLOR[status]}
-    text={tx(STATUS_LABEL[status])}
+    text={[tx(STATUS_LABEL[status]), detail].filter(Boolean).join(' · ')}
     filled={false}
     sx={{ width: 'fit-content', flexShrink: 0 }}
   />
