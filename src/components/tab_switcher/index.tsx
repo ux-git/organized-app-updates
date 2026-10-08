@@ -1,10 +1,20 @@
-import { Box, ButtonBase } from '@mui/material';
-import { cloneElement } from 'react';
+import { Box, ButtonBase, keyframes } from '@mui/material';
+import { cloneElement, useState } from 'react';
 import {
   TabSwitcherOption,
   TabSwitcherProps,
   TabSwitcherSurface,
 } from './index.types';
+
+// the thumb stretches as it sets off and squeezes as it lands; two names
+// taken in turns restart it on every change
+const stretch = (turn: number) => keyframes`
+  0% { transform: scaleX(1); }
+  35% { transform: scaleX(1.14) scaleY(0.92); }
+  70% { transform: scaleX(0.96) scaleY(1.03); }
+  100% { transform: scaleX(1); --turn: ${turn}; }
+`;
+const STRETCHES = [stretch(0), stretch(1)];
 
 const PALETTE: Record<
   TabSwitcherSurface,
@@ -40,6 +50,12 @@ const TabSwitcher = <T extends string = string>({
   const palette = PALETTE[surface];
 
   const activeIndex = options.findIndex((option) => option.value === value);
+  const [seen, setSeen] = useState(activeIndex);
+  const [moves, setMoves] = useState(0);
+  if (seen !== activeIndex) {
+    setSeen(activeIndex);
+    setMoves(moves + 1);
+  }
   const gap = 8;
   const collapse = collapseBelow
     ? `@container (max-width: ${collapseBelow}px)`
@@ -69,16 +85,29 @@ const TabSwitcher = <T extends string = string>({
           bottom: '4px',
           left: '4px',
           width: `calc((100% - ${(options.length - 1) * gap + 8}px) / ${options.length})`,
-          // the track's radius-l less its 4px padding, so both curves run parallel
-          borderRadius: 'var(--radius-s)',
-          backgroundColor: palette.thumb,
-          border: `1px solid ${palette.thumbBorder}`,
           transform: `translateX(calc(${Math.max(activeIndex, 0)} * (100% + ${gap}px)))`,
           // a quick spring: it overshoots a touch and settles
-          transition: 'transform 0.36s cubic-bezier(0.34, 1.32, 0.64, 1)',
+          transition: 'transform 0.42s cubic-bezier(0.34, 1.45, 0.5, 1)',
           opacity: activeIndex === -1 ? 0 : 1,
+          '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
         }}
-      />
+      >
+        <Box
+          sx={{
+            width: '100%',
+            height: '100%',
+            boxSizing: 'border-box',
+            // the track's radius-l less its 4px padding, so both curves run parallel
+            borderRadius: 'var(--radius-s)',
+            backgroundColor: palette.thumb,
+            border: `1px solid ${palette.thumbBorder}`,
+            animation: moves
+              ? `${STRETCHES[moves % 2]} 0.42s cubic-bezier(0.22, 1, 0.36, 1)`
+              : 'none',
+            '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+          }}
+        />
+      </Box>
 
       {options.map((option: TabSwitcherOption<T>) => {
         const isActive = option.value === value;
