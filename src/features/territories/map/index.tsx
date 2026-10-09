@@ -301,7 +301,9 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
   const editTitle =
     editor.scope === 'congregation'
       ? tx('Congregation area')
-      : tx('Territory {{number}}', { number: map.selected?.number ?? '' });
+      : tx('Territory {{number}}', {
+          number: (map.edited ?? map.selected)?.number ?? '',
+        });
 
   // on a wide screen the switch keeps the top left and the panel slides out
   // from under it, so nothing jumps when it opens or closes

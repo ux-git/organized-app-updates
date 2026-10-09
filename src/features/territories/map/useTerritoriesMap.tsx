@@ -1065,6 +1065,8 @@ const useTerritoriesMap = () => {
   // a step that would throw away unsaved drawing waits here for a confirmation
   const [pendingLeave, setPendingLeave] = useState<VoidFunction>();
 
+  const editingId = useRef<string>(undefined);
+
   const startEditing = useCallback(
     (scope: EditScope = 'territory') => {
       if (scope === 'territory' && !selected) return;
@@ -1072,6 +1074,8 @@ const useTerritoriesMap = () => {
       setStaged(NOTHING_STAGED);
       setSplitting(undefined);
       setMergeTarget(undefined);
+      // the drawing belongs to this territory, whatever gets picked meanwhile
+      editingId.current = scope === 'territory' ? selected?.id : undefined;
 
       editor.start(
         scope,
@@ -1371,9 +1375,10 @@ const useTerritoriesMap = () => {
         severity: 'success',
         icon: <IconCheckCircle color="var(--white)" />,
       });
-    } else if (selected) {
+    } else if (editingId.current) {
+      const id = editingId.current;
       const before = store.get(territoriesState);
-      const original = before.find((item) => item.id === selected.id);
+      const original = before.find((item) => item.id === id);
       const absorbed = before.filter((item) => staged.merged.includes(item.id));
 
       setTerritories((prev) => [
@@ -1381,7 +1386,7 @@ const useTerritoriesMap = () => {
         ...prev
           .filter((item) => !staged.merged.includes(item.id))
           .map((item) => {
-            if (item.id !== selected.id) return item;
+            if (item.id !== id) return item;
 
             const next: Territory = {
               ...item,
@@ -1415,7 +1420,7 @@ const useTerritoriesMap = () => {
           }),
       ]);
 
-      const number = staged.keep?.number ?? selected.number;
+      const number = staged.keep?.number ?? original?.number;
 
       if (original && (absorbed.length || staged.created.length)) {
         const createdIds = new Set(staged.created.map((item) => item.id));
@@ -1454,7 +1459,6 @@ const useTerritoriesMap = () => {
     if (!goBack()) setSelectedId(undefined);
   }, [
     editor,
-    selected,
     staged,
     setBorderColor,
     setBorderDashed,
@@ -1541,6 +1545,10 @@ const useTerritoriesMap = () => {
       : undefined,
     toggleCoverageCheck: () => setCoverageCheck((on) => !on),
     editor,
+    // the one being drawn, which a later pick on the map doesn't change
+    edited: editor.editing
+      ? territories.find((item) => item.id === editingId.current)
+      : undefined,
     startEditing,
     editArea,
     leaveTerritory,
