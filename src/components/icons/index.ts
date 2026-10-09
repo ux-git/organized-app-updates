@@ -6,6 +6,7 @@ export { default as IconAddPin } from './IconAddPin';
 export { default as IconAddTime } from './IconAddTime';
 export { default as IconAdd } from './IconAdd';
 export { default as IconAddLocation } from './IconAddLocation';
+export { default as IconCropFree } from './IconCropFree';
 export { default as IconFence } from './IconFence';
 export { default as IconPolyline } from './IconPolyline';
 export { default as IconAdmin } from './IconAdmin';

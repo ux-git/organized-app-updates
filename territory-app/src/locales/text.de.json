@@ -571,7 +571,7 @@
   "Building": "Gebäude",
   "Cart": "Trolley",
   "Delete point": "Punkt löschen",
-  "Congregation area": "Gesamtgebiet",
+  "Congregation area": "Versammlungsgebiet",
   "{{name}} still has it. It is returned on {{date}} first.": "{{name}} hat es noch. Es wird zuerst am {{date}} zurückgegeben.",
   "Cannot be before {{name}} got it on {{date}}": "Darf nicht vor dem {{date}} liegen, als {{name}} es bekam",
   "Enter a whole number, 0 or more": "Eine ganze Zahl ab 0 eingeben",

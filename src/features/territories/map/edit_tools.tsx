@@ -13,7 +13,7 @@ import {
   IconAddLocation,
   IconAddPin,
   IconCheck,
-  IconCongregationBorder,
+  IconCropFree,
   IconClose,
   IconDashedLine,
   IconDelete,
@@ -136,8 +136,8 @@ export const IdleRail = ({
       onClick={onNewTerritory}
     />
     <IconButton
-      label={tx('Congregation border')}
-      icon={<IconCongregationBorder />}
+      label={tx('Congregation area')}
+      icon={<IconCropFree />}
       onClick={onCongregation}
     />
   </Stack>
