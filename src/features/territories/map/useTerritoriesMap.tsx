@@ -759,7 +759,10 @@ const useTerritoriesMap = () => {
     const instance = map.current;
     if (!instance || !styleVersion) return;
 
-    const fade = editor.editing ? 0.5 : 1;
+    // the whole area's outline needs the territories quiet underneath it;
+    // a single territory keeps its neighbours readable
+    let fade = 1;
+    if (editor.editing) fade = editor.scope === 'congregation' ? 0.2 : 0.5;
 
     const set = (
       layer: string,
@@ -791,7 +794,7 @@ const useTerritoriesMap = () => {
     set(LABEL_LAYER, 'text-opacity', labelOpacity(fade));
     set(LABEL_LAYER, 'icon-opacity', labelOpacity(0.92 * fade));
     set(LABEL_CAPTION_LAYER, 'text-opacity', labelOpacity(fade, 'captionZoom'));
-  }, [editor.editing, styleVersion]);
+  }, [editor.editing, editor.scope, styleVersion]);
 
   useEffect(() => {
     const instance = map.current;
