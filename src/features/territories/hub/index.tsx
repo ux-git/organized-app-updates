@@ -1,10 +1,8 @@
 import {
-  Activity,
   ReactNode,
-  startTransition,
   useLayoutEffect,
   useMemo,
-  useOptimistic,
+  useDeferredValue,
   useRef,
 } from 'react';
 import { Box, Stack } from '@mui/material';
@@ -235,7 +233,6 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     returnMany,
     handleDecline,
     handleOpen,
-    isBoard,
     showHouseholds,
     setReturnId,
     setAssignId,
@@ -266,13 +263,9 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     []
   );
 
-  // the switch slides at once; the views swap when the new one is ready
-  const [shownBoard, showBoard] = useOptimistic(isBoard);
-  const switchLayout = (board: boolean) =>
-    startTransition(() => {
-      showBoard(board);
-      setIsBoard(board);
-    });
+  // React's standard split: the switch follows the click at once, the
+  // views follow the deferred value, rendered without blocking the slide
+  const isBoard = useDeferredValue(hub.isBoard);
 
   const { desktopUp, tablet688Up } = useBreakpoints();
 
@@ -305,8 +298,8 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     <TabSwitcher
       ariaLabel={tx('Layout')}
       surface="light"
-      value={shownBoard ? 'board' : 'list'}
-      onChange={(value) => switchLayout(value === 'board')}
+      value={hub.isBoard ? 'board' : 'list'}
+      onChange={(value) => setIsBoard(value === 'board')}
       options={[
         { value: 'list', label: tx('List'), icon: <IconListView /> },
         { value: 'board', label: tx('Board'), icon: <IconInformationBoard /> },
@@ -364,12 +357,12 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     />
   );
 
-  // both views stay built once seen and only hide, so switching back is
-  // instant; the board also renders ahead while the phone is idle
+  // both views stay mounted and only hide, so a switch is one attribute
+  // change instead of building or reconnecting a whole view
   const content = canSwitchLayout ? (
     <>
-      <Activity mode={isBoard ? 'hidden' : 'visible'}>{list}</Activity>
-      <Activity mode={isBoard ? 'visible' : 'hidden'}>{board}</Activity>
+      <div hidden={isBoard}>{list}</div>
+      <div hidden={!isBoard}>{board}</div>
     </>
   ) : isBoard ? (
     board
