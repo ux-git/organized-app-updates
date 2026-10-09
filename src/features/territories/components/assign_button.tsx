@@ -21,7 +21,7 @@ const lookOf = (isAssigned: boolean, isRequested: boolean) => {
     return {
       label: 'Return',
       color: 'red' as const,
-      icon: <IconCheck color="var(--red-main)" />,
+      icon: <IconCheck color="var(--red-dark)" />,
     };
   }
 
@@ -36,7 +36,7 @@ const lookOf = (isAssigned: boolean, isRequested: boolean) => {
   return {
     label: 'Assign',
     color: undefined,
-    icon: <IconArrowForward color="var(--accent-main)" />,
+    icon: <IconArrowForward color="var(--accent-dark)" />,
   };
 };
 
