@@ -14,10 +14,12 @@ type AssignButtonProps = {
   compact?: boolean;
 };
 
+const LABELS = ['Return', 'Review', 'Assign'];
+
 const lookOf = (isAssigned: boolean, isRequested: boolean) => {
   if (isAssigned) {
     return {
-      label: tx('Return'),
+      label: 'Return',
       color: 'red' as const,
       icon: <IconMoveBack color="var(--red-main)" />,
     };
@@ -25,14 +27,14 @@ const lookOf = (isAssigned: boolean, isRequested: boolean) => {
 
   if (isRequested) {
     return {
-      label: tx('Review'),
+      label: 'Review',
       color: 'orange' as const,
       icon: <IconRaiseHand color="var(--orange-dark)" />,
     };
   }
 
   return {
-    label: tx('Assign'),
+    label: 'Assign',
     color: undefined,
     icon: <IconMoveForward color="var(--accent-main)" />,
   };
@@ -89,17 +91,35 @@ const AssignButton = ({
         color={color}
         onClick={handleClick}
         startIcon={icon}
-        ariaLabel={label}
+        ariaLabel={tx(label)}
         sx={{
           minHeight: '28px',
           padding: compact ? '4px' : '2px 8px',
           minWidth: 'unset',
+          justifyContent: 'flex-start',
           '& .MuiButton-startIcon': compact ? { margin: 0 } : {},
           // 28px to see, 44px to tap
           '&::after': { content: '""', position: 'absolute', inset: '-8px' },
         }}
       >
-        {!compact && label}
+        {!compact && (
+          // every label stacked in one cell, so all buttons share the widest width
+          <Box sx={{ display: 'grid', textAlign: 'start' }}>
+            {LABELS.map((text) => (
+              <Box
+                key={text}
+                component="span"
+                aria-hidden={text !== label}
+                sx={{
+                  gridArea: '1 / 1',
+                  visibility: text === label ? 'visible' : 'hidden',
+                }}
+              >
+                {tx(text)}
+              </Box>
+            ))}
+          </Box>
+        )}
       </Button>
     </>
   );
