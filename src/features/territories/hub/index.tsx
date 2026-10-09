@@ -48,7 +48,7 @@ import {
   DURATION_MEDIUM,
   DURATION_SHORT,
   EASE_STANDARD,
-  revealSx,
+  useSlideIn,
 } from '@utils/motion';
 import TerritoryFilters from '../components/territory_filters';
 import TerritoryTable from '../components/territory_table';
@@ -290,6 +290,9 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
   const { desktopUp, tablet688Up } = useBreakpoints();
 
+  // tabs, then the board after them: each change slides in from its side
+  const slide = useSlideIn(isBoard ? tabs.length : tab);
+
   const manyDoNotCalls = selected
     .filter((territory) => territory.status === 'available')
     .reduce((sum, territory) => sum + territory.doNotCalls.length, 0);
@@ -382,12 +385,8 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
   // change instead of building or reconnecting a whole view
   const content = canSwitchLayout ? (
     <>
-      <Box hidden={isBoard} sx={revealSx}>
-        {list}
-      </Box>
-      <Box hidden={!isBoard} sx={revealSx}>
-        {board}
-      </Box>
+      <Box hidden={isBoard}>{list}</Box>
+      <Box hidden={!isBoard}>{board}</Box>
     </>
   ) : isBoard ? (
     board
@@ -428,28 +427,30 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
           aside={inlineSwitch}
         />
 
-        {isBoard && (
-          <Stack
-            direction="row"
-            sx={{
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '12px',
-              // the list's heading row, so the title stays put on a switch
-              padding: '12px 8px 8px',
-              minHeight: '40px',
-              boxSizing: 'content-box',
-            }}
-          >
-            <Typography className="h3" noWrap>
-              {tx('Territories: {{n}}', { n: boardTerritories.length })}
-            </Typography>
-            {selectionBar}
-          </Stack>
-        )}
+        <Box ref={slide}>
+          {isBoard && (
+            <Stack
+              direction="row"
+              sx={{
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+                // the list's heading row, so the title stays put on a switch
+                padding: '12px 8px 8px',
+                minHeight: '40px',
+                boxSizing: 'content-box',
+              }}
+            >
+              <Typography className="h3" noWrap>
+                {tx('Territories: {{n}}', { n: boardTerritories.length })}
+              </Typography>
+              {selectionBar}
+            </Stack>
+          )}
 
-        {content}
+          {content}
+        </Box>
       </Box>
     </Card>
   );

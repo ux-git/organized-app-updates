@@ -3,6 +3,7 @@ import {
   ReactNode,
   SyntheticEvent,
   useEffect,
+  startTransition,
   useState,
 } from 'react';
 import { Box, Tab, Tabs, tabsClasses } from '@mui/material';
@@ -50,7 +51,11 @@ function ScrollableTabs({
     }
 
     setValueOfActivePanel(newValue);
-    onChange?.(newValue);
+    // the indicator moves at once; whatever the parent renders for the new
+    // tab follows as a transition, so it never holds up the slide
+    startTransition(() => {
+      onChange?.(newValue);
+    });
   };
 
   useEffect(() => {

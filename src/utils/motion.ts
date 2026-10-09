@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import { keyframes } from '@mui/material';
 
 // Material 3 motion tokens, so every view change in the app moves alike
@@ -18,4 +19,32 @@ export const revealSx = {
     animation: `${rise} ${DURATION_MEDIUM}ms ${EASE_DECELERATE}`,
   },
   '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+};
+
+// slides an element's new content in from the side it was chosen on, like
+// iOS segmented views: forward from the right, back from the left. `step`
+// is the position of what is shown (tab index, view index); it runs as the
+// new content commits, so its first frame already starts offset
+export const useSlideIn = (step: number) => {
+  const ref = useRef<HTMLElement>(null);
+  const last = useRef(step);
+
+  useLayoutEffect(() => {
+    const from = last.current;
+    last.current = step;
+    const element = ref.current;
+    if (from === step || !element) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const side = step > from ? 1 : -1;
+    element.animate(
+      [
+        { opacity: 0, transform: `translateX(${side * 24}px)` },
+        { opacity: 1, transform: 'none' },
+      ],
+      { duration: DURATION_MEDIUM, easing: EASE_DECELERATE }
+    );
+  }, [step]);
+
+  return ref;
 };
