@@ -1,9 +1,16 @@
-import { Stack } from '@mui/material';
+import { Box, Stack } from '@mui/material';
 import { Button, Typography } from '@components/index';
 import { useBreakpoints } from '@hooks/index';
 import { Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 import { selectionActions } from './selection_actions';
+
+// like the done button in the rows: green, neutral where green is the accent
+const done = {
+  '--done': 'var(--green-main)',
+  '[data-theme^="green"] &': { '--done': 'var(--black)' },
+  color: 'var(--done)',
+};
 
 type SelectionBarProps = {
   selected: Territory[];
@@ -20,9 +27,10 @@ const SelectionBar = ({
 }: SelectionBarProps) => {
   const { tablet600Up } = useBreakpoints();
   if (!selected.length) return null;
+  // 2px inset keeps the bar exactly as tall as the title row it joins
   const button = {
-    minHeight: tablet600Up ? '32px' : '40px',
-    padding: '0 var(--radius-l)',
+    minHeight: tablet600Up ? '32px' : '36px',
+    padding: '0 10px',
     minWidth: 0,
     whiteSpace: 'nowrap',
     fontVariantNumeric: 'tabular-nums',
@@ -33,6 +41,8 @@ const SelectionBar = ({
       sx={{
         alignItems: 'center',
         flexWrap: 'wrap',
+        gap: '2px',
+        padding: '2px',
         width: tablet600Up ? 'fit-content' : '100%',
         borderRadius: 'var(--radius-l)',
         backgroundColor: 'var(--accent-100)',
@@ -40,9 +50,9 @@ const SelectionBar = ({
     >
       {tablet600Up && (
         <Typography
-          className="body-small-semibold"
+          className="body-small-regular"
           color="var(--accent-400)"
-          sx={{ padding: '0 var(--radius-l)', whiteSpace: 'nowrap' }}
+          sx={{ padding: '0 10px', whiteSpace: 'nowrap' }}
         >
           {tx('Selected: {{n}}', { n: selected.length })}
         </Typography>
@@ -52,15 +62,23 @@ const SelectionBar = ({
           key={kind}
           variant="small"
           disableAutoStretch
-          color={kind === 'return' ? 'red' : undefined}
+          color={kind === 'return' ? 'green' : undefined}
           onClick={kind === 'assign' ? onAssignMany : onReturnMany}
-          sx={button}
+          sx={kind === 'return' ? { ...button, ...done } : button}
         >
           {tx(kind === 'assign' ? 'Assign: {{n}}' : 'Return: {{n}}', {
             n: count,
           })}
         </Button>
       ))}
+      <Box
+        sx={{
+          width: '1px',
+          alignSelf: 'stretch',
+          margin: '6px 2px',
+          backgroundColor: 'var(--accent-200)',
+        }}
+      />
       <Button variant="small" disableAutoStretch onClick={onClear} sx={button}>
         {tx('Deselect all')}
       </Button>
