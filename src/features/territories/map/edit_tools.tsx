@@ -16,12 +16,14 @@ import {
   IconCheck,
   IconCropFree,
   IconClose,
+  IconContentCut,
   IconDashedLine,
   IconDelete,
   IconDrawLine,
   IconDrawShape,
   IconEdit,
   IconFrameInspect,
+  IconCellMerge,
   IconMoveAround,
   IconRedo,
   IconPolyline,
@@ -214,6 +216,9 @@ export const EditRail = ({
           {tool('line', tx('Line'), <IconDrawLine />)}
           {tool('pin', tx('Pin'), <IconAddPin />)}
           {tool('text', tx('Text'), <IconTypeText />)}
+          <Divider vertical={vertical} />
+          {tool('split', tx('Split'), <IconContentCut />)}
+          {tool('merge', tx('Merge'), <IconCellMerge />)}
         </>
       )}
 
@@ -789,6 +794,41 @@ export const StyleBar = ({
     </Stack>
   );
 };
+
+// what the split or merge tool wants next, where the style bar would be
+export const ToolHint = ({
+  minTop,
+  text,
+  action,
+}: {
+  minTop: number;
+  text: string;
+  action?: ReactNode;
+}) => (
+  <Stack
+    direction="row"
+    role="status"
+    sx={{
+      ...SHELL,
+      position: 'absolute',
+      zIndex: 4,
+      left: '50%',
+      top: `${minTop + 8}px`,
+      transform: 'translateX(-50%)',
+      width: 'max-content',
+      maxWidth: 'calc(100% - 24px)',
+      minHeight: '46px',
+      boxSizing: 'border-box',
+      padding: action ? '4px 4px 4px 12px' : '4px 12px',
+      gap: '12px',
+    }}
+  >
+    <Typography className="body-small-regular" color="var(--grey-400)">
+      {text}
+    </Typography>
+    {action}
+  </Stack>
+);
 
 // the territory, Cancel and Save, at the top of the map
 // saving is the ✓ on the style bar; Cancel stays here with the name

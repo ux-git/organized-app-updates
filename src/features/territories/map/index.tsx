@@ -15,6 +15,7 @@ import {
   IconFullscreen,
   IconFullscreenExit,
   IconInfo,
+  IconCellMerge,
   IconMapOverview,
   IconMyLocation,
   IconPanelClose,
@@ -31,8 +32,10 @@ import {
   IdleRail,
   MapContextMenu,
   StyleBar,
+  ToolHint,
 } from './edit_tools';
 import LabelDialog from './label_dialog';
+import TerritoryFieldsDialog from './split_merge_dialog';
 import MarkerChip from './marker_chip';
 import MapFilters from './map_filters';
 import MapIsland, { MapAction, NorthAction } from './map_island';
@@ -654,6 +657,32 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
           />
         )}
 
+        {editor.editing && editor.tool === 'split' && (
+          <ToolHint
+            minTop={topBottom}
+            text={tx('Draw a line across the territory')}
+          />
+        )}
+
+        {editor.editing && editor.tool === 'merge' && (
+          <ToolHint
+            minTop={topBottom}
+            text={tx('Pick the neighbouring territories')}
+            action={
+              <Button
+                variant="small"
+                disableAutoStretch
+                disabled={map.mergeCount === 0}
+                startIcon={<IconCellMerge />}
+                onClick={map.mergePicked}
+                sx={{ minHeight: '32px' }}
+              >
+                {tx('Merge ({{n}})', { n: map.mergeCount })}
+              </Button>
+            }
+          />
+        )}
+
         {/* under the switch, as on a wide screen: the panel button while the
             panel is closed (open, it has its own), then the picked territory */}
         {compact && map.mode === 'view' && (
@@ -811,6 +840,30 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
           initial={editor.labelStart}
           onSave={editor.saveLabel}
           onClose={() => editor.saveLabel('')}
+        />
+      )}
+
+      {map.splitDialog && (
+        <TerritoryFieldsDialog
+          title={tx('Split territory')}
+          description={tx(
+            'The highlighted part becomes a new territory. History and do-not-call addresses stay with territory {{number}}.',
+            { number: map.selected?.number ?? '' }
+          )}
+          confirm={tx('Split')}
+          low
+          {...map.splitDialog}
+        />
+      )}
+
+      {map.mergeDialog && (
+        <TerritoryFieldsDialog
+          title={tx('Merge territories')}
+          description={tx(
+            'History and do-not-call addresses move into the merged territory. Which number, locality and name does it keep?'
+          )}
+          confirm={tx('Merge')}
+          {...map.mergeDialog}
         />
       )}
 

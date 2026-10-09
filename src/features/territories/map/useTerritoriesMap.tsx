@@ -16,6 +16,7 @@ import { displaySnackNotification } from '@services/states/app';
 import { tx } from '@services/i18n/translation';
 import { getCSSPropertyValue, localStorageGetItem } from '@utils/common';
 import { isDarkThemeState } from '@states/app';
+import { store } from '@states/index';
 import {
   congregationBorderColorState,
   congregationBorderDashedState,
@@ -24,7 +25,11 @@ import {
   territoriesState,
   territoriesWithStatusState,
 } from '@states/territories';
-import { TerritoryBoundary } from '@definition/territory';
+import { Territory, TerritoryBoundary } from '@definition/territory';
+import { blankTerritory } from '../details/useTerritoryDetails';
+import { withAssignments } from '../helpers';
+import { restoreTerritory } from '../restore';
+import { offerUndo } from '../undo';
 import {
   MAP_PROVIDERS,
   CONGREGATION_FILL_LAYER,
@@ -96,6 +101,8 @@ import {
 import { MARKER_ICON_ZOOM, MarkerRegistry, syncMarkers } from './markers';
 import useFullscreen from './useFullscreen';
 import useMapEditor, { EditScope } from './useMapEditor';
+import { mergeBoundaries, nextNumber, splitBoundary } from './split_merge';
+import { TerritoryFields } from './split_merge_dialog';
 
 const ZOOM_STEP = 0.5;
 
@@ -119,6 +126,21 @@ const COVERAGE_SOURCE = 'coverage-check';
 const COVERAGE_VEIL = 'coverage-check-veil';
 const COVERAGE_FILL = 'coverage-check-fill';
 const COVERAGE_LINE = 'coverage-check-line';
+
+const SPLIT_SOURCE = 'split-preview';
+const SPLIT_FILL = 'split-preview-fill';
+const SPLIT_LINE = 'split-preview-line';
+
+// what a split or merge changes beyond the edited territory, kept until Save
+type Staged = {
+  created: Territory[];
+  merged: string[];
+  keep?: TerritoryFields;
+};
+
+const NOTHING_STAGED: Staged = { created: [], merged: [] };
+
+const NO_PICKS: string[] = [];
 
 // the congregation's outline stands out from the territories' borders at
 // every zoom, and runs just outside them so it hides none
@@ -231,7 +253,36 @@ const useTerritoriesMap = () => {
     [flyToBoundary]
   );
 
-  const editor = useMapEditor({ map, onStart: handleEditStart });
+  const splitLine = useRef<(line: [number, number][]) => void>(undefined);
+
+  const editor = useMapEditor({
+    map,
+    onStart: handleEditStart,
+    onSplitLine: (line) => splitLine.current?.(line),
+  });
+
+  // the territories picked to merge with the edited one; a fresh pick list
+  // with every tool change
+  const [mergePicks, setMergePicks] = useState<string[]>(NO_PICKS);
+  const [pickedFor, setPickedFor] = useState(editor.tool);
+  if (pickedFor !== editor.tool) {
+    setPickedFor(editor.tool);
+    setMergePicks(NO_PICKS);
+  }
+  const merging = editor.editing && editor.tool === 'merge';
+
+  const [staged, setStaged] = useState<Staged>(NOTHING_STAGED);
+
+  const mergeClick = useRef<(id: string) => void>(undefined);
+  mergeClick.current = merging
+    ? (id) => {
+        // a part split off is not saved yet, so there is nothing to merge
+        if (!territories.some((item) => item.id === id)) return;
+        setMergePicks((prev) =>
+          prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+        );
+      }
+    : undefined;
   // editing shows every territory in its own colours, not a status
   const shownView: ColorView =
     editMode || editor.editing ? 'original' : colorView;
@@ -263,7 +314,17 @@ const useTerritoriesMap = () => {
     const hiddenId =
       editor.editing && editor.scope === 'territory' ? selectedId : undefined;
 
-    const rest = territories.filter((item) => item.id !== hiddenId);
+    // until saved, merged territories are gone and split-off parts are there;
+    // a merged one's drawings stay, as they go to the territory it joins
+    const pending = editor.editing ? staged : NOTHING_STAGED;
+    const shown = [
+      ...territories.filter((item) => !pending.merged.includes(item.id)),
+      ...pending.created,
+    ];
+
+    const rest = [...territories, ...pending.created].filter(
+      (item) => item.id !== hiddenId
+    );
 
     const detail = mapDetail();
     const borderCoords = congregationBoundary?.length
@@ -293,7 +354,7 @@ const useTerritoriesMap = () => {
 
     return {
       border,
-      areas: boundaryCollection(territories, {
+      areas: boundaryCollection(shown, {
         ...areaPaint(resolveColor),
         detailOf: scheme.detailOf,
         selectedId,
@@ -312,6 +373,7 @@ const useTerritoriesMap = () => {
     scheme,
     shownView,
     isDark,
+    staged,
   ]);
 
   const basemap = useRef({ provider, layers });
@@ -439,10 +501,11 @@ const useTerritoriesMap = () => {
             ['get', 'fill'],
             ['get', 'color'],
           ],
+          // picked to merge, it stays deep
           'fill-opacity': [
-            '*',
-            ['number', ['feature-state', 'hover'], 0],
-            0.35,
+            'max',
+            ['*', ['number', ['feature-state', 'hover'], 0], 0.35],
+            ['case', ['boolean', ['feature-state', 'picked'], false], 0.6, 0],
           ],
         },
       },
@@ -581,7 +644,11 @@ const useTerritoriesMap = () => {
     });
 
     instance.on('click', FILL_LAYER, (event: maplibregl.MapLayerMouseEvent) => {
-      if (editor.active.current) return;
+      if (editor.active.current) {
+        const id = event.features?.[0]?.properties?.id;
+        if (typeof id === 'string') mergeClick.current?.(id);
+        return;
+      }
       // in edit mode a click on the outline takes the whole area, not the
       // territory under it
       if (
@@ -631,7 +698,10 @@ const useTerritoriesMap = () => {
       FILL_LAYER,
       (event: maplibregl.MapLayerMouseEvent) => {
         // while a shape is being drawn, the pointer belongs to the tool
-        const id = editor.active.current ? undefined : event.features?.[0]?.id;
+        const id =
+          editor.active.current && !mergeClick.current
+            ? undefined
+            : event.features?.[0]?.id;
         if (id === hovered) return;
         unhover();
         if (id === undefined) return;
@@ -920,6 +990,67 @@ const useTerritoriesMap = () => {
     };
   }, [coverage, styleVersion]);
 
+  const picked = merging ? mergePicks : NO_PICKS;
+
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !styleVersion || !instance.getSource(SOURCE_ID)) return;
+
+    for (const id of picked) {
+      instance.setFeatureState({ source: SOURCE_ID, id }, { picked: true });
+    }
+    return () => {
+      if (!instance.getStyle() || !instance.getSource(SOURCE_ID)) return;
+      for (const id of picked) {
+        instance.setFeatureState({ source: SOURCE_ID, id }, { picked: false });
+      }
+    };
+  }, [picked, styleVersion]);
+
+  const [splitting, setSplitting] = useState<{
+    larger: TerritoryBoundary;
+    smaller: TerritoryBoundary;
+  }>();
+  const [mergeTarget, setMergeTarget] = useState<{
+    boundary: TerritoryBoundary;
+    ids: string[];
+  }>();
+
+  // the part that will become a new territory, while its number is asked for
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !styleVersion || !splitting) return;
+
+    instance.addSource(SPLIT_SOURCE, {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'Polygon', coordinates: [splitting.smaller] },
+      },
+    });
+    instance.addLayer({
+      id: SPLIT_FILL,
+      type: 'fill',
+      source: SPLIT_SOURCE,
+      paint: { 'fill-color': MAP_COLORS.orange, 'fill-opacity': 0.45 },
+    });
+    instance.addLayer({
+      id: SPLIT_LINE,
+      type: 'line',
+      source: SPLIT_SOURCE,
+      paint: { 'line-color': MAP_COLORS.orange, 'line-width': 3 },
+    });
+
+    return () => {
+      if (!instance.getStyle()) return;
+      for (const id of [SPLIT_LINE, SPLIT_FILL]) {
+        if (instance.getLayer(id)) instance.removeLayer(id);
+      }
+      if (instance.getSource(SPLIT_SOURCE)) instance.removeSource(SPLIT_SOURCE);
+    };
+  }, [splitting, styleVersion]);
+
   useEffect(() => {
     if (!ready || !selected?.boundary?.length) return;
 
@@ -935,6 +1066,10 @@ const useTerritoriesMap = () => {
   const startEditing = useCallback(
     (scope: EditScope = 'territory') => {
       if (scope === 'territory' && !selected) return;
+
+      setStaged(NOTHING_STAGED);
+      setSplitting(undefined);
+      setMergeTarget(undefined);
 
       editor.start(
         scope,
@@ -985,12 +1120,15 @@ const useTerritoriesMap = () => {
     goBack();
   }, [editor, goBack]);
 
+  const dirty =
+    editor.dirty || staged.created.length > 0 || staged.merged.length > 0;
+
   const requestLeave = useCallback(
     (action: VoidFunction) => {
-      if (editor.dirty) setPendingLeave(() => action);
+      if (dirty) setPendingLeave(() => action);
       else action();
     },
-    [editor.dirty]
+    [dirty]
   );
 
   // the breadcrumb's step up: from a territory to the whole area's outline
@@ -1052,7 +1190,7 @@ const useTerritoriesMap = () => {
   // an open dialog, or full screen, takes Esc first
   useEffect(() => {
     if (!isEditMode || pendingLeave || editor.labelling !== undefined) return;
-    if (fullscreen) return;
+    if (fullscreen || splitting || mergeTarget) return;
 
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
@@ -1065,7 +1203,153 @@ const useTerritoriesMap = () => {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isEditMode, pendingLeave, editor.labelling, fullscreen, stepBack]);
+  }, [
+    isEditMode,
+    pendingLeave,
+    editor.labelling,
+    fullscreen,
+    splitting,
+    mergeTarget,
+    stepBack,
+  ]);
+
+  // numbers a new or merged territory can't take
+  const takenNumbers = (except: string[] = []) => [
+    ...withStatus
+      .filter((item) => !except.includes(item.id))
+      .map((item) => item.number),
+    ...staged.created.map((item) => item.number),
+  ];
+
+  splitLine.current = (line) => {
+    const boundary = editor.draft.boundary;
+    if (!boundary?.length) return;
+
+    const result = splitBoundary(boundary, line);
+    if ('error' in result) {
+      displaySnackNotification({
+        header: tx('Territory not split'),
+        message: tx('Draw one line straight across the territory.'),
+        severity: 'error',
+      });
+      return;
+    }
+    setSplitting(result);
+
+    // the dialog sits low, so the part it asks about shows above it
+    const instance = map.current;
+    if (!instance) return;
+    const [west, south, east, north] = boundaryBounds(boundary);
+    const height = instance.getContainer().clientHeight;
+    instance.fitBounds([west, south, east, north], {
+      padding: {
+        top: FIT_PADDING,
+        left: FIT_PADDING,
+        right: FIT_PADDING,
+        bottom: Math.min(360, height / 2),
+      },
+      maxZoom: 17,
+    });
+  };
+
+  const confirmSplit = (fields: TerritoryFields) => {
+    if (!splitting || !selected) return;
+
+    editor.replaceBoundary(splitting.larger);
+    setStaged((prev) => ({
+      ...prev,
+      created: [
+        ...prev.created,
+        {
+          ...blankTerritory(),
+          ...fields,
+          type: selected.type,
+          categories: selected.categories,
+          boundary: splitting.smaller,
+          boundaryStyle: editor.boundaryStyle,
+        },
+      ],
+    }));
+    setSplitting(undefined);
+  };
+
+  const mergePicked = () => {
+    const boundary = editor.draft.boundary;
+    if (!boundary?.length || mergePicks.length === 0) return;
+
+    const others = territories.filter((item) => mergePicks.includes(item.id));
+    const result = mergeBoundaries(
+      boundary,
+      others.map((item) => item.boundary ?? [])
+    );
+
+    if ('error' in result) {
+      displaySnackNotification({
+        header: tx('Territories not merged'),
+        message:
+          result.error === 'apart'
+            ? tx('Only neighbouring territories can be merged.')
+            : tx('The merged territory would enclose another one.'),
+        severity: 'error',
+      });
+      return;
+    }
+    setMergeTarget({ boundary: result.boundary, ids: mergePicks });
+  };
+
+  const confirmMerge = (fields: TerritoryFields) => {
+    if (!mergeTarget) return;
+
+    editor.replaceBoundary(mergeTarget.boundary);
+    setStaged((prev) => ({
+      ...prev,
+      merged: [...prev.merged, ...mergeTarget.ids],
+      keep: fields,
+    }));
+    setMergeTarget(undefined);
+  };
+
+  const fieldsOf = (item: Territory): TerritoryFields => ({
+    number: item.number,
+    city: item.city,
+    name: item.name,
+  });
+
+  const splitDialog =
+    splitting && selected
+      ? {
+          initial: {
+            number: nextNumber(selected.number, takenNumbers()),
+            city: selected.city,
+            name: '',
+          },
+          taken: takenNumbers(),
+          onConfirm: confirmSplit,
+          onClose: () => setSplitting(undefined),
+        }
+      : undefined;
+
+  const mergeChoices = mergeTarget
+    ? [
+        ...(selected ? [selected] : []),
+        ...territories.filter((item) => mergeTarget.ids.includes(item.id)),
+      ].map(fieldsOf)
+    : [];
+
+  const mergeDialog =
+    mergeTarget && selected
+      ? {
+          initial: staged.keep ?? fieldsOf(selected),
+          taken: takenNumbers([
+            selected.id,
+            ...staged.merged,
+            ...mergeTarget.ids,
+          ]),
+          choices: mergeChoices,
+          onConfirm: confirmMerge,
+          onClose: () => setMergeTarget(undefined),
+        }
+      : undefined;
 
   const save = useCallback(() => {
     const { draft, scope } = editor;
@@ -1086,37 +1370,90 @@ const useTerritoriesMap = () => {
         icon: <IconCheckCircle color="var(--white)" />,
       });
     } else if (selected) {
-      setTerritories((prev) =>
-        prev.map((item) =>
-          item.id === selected.id
-            ? {
-                ...item,
-                boundary: draft.boundary,
-                boundaryStyle: draft.boundaryStyle,
-                mapShapes: draft.shapes,
-                mapLines: draft.lines,
-                mapMarkers: draft.markers,
-              }
-            : item
-        )
-      );
+      const before = store.get(territoriesState);
+      const original = before.find((item) => item.id === selected.id);
+      const absorbed = before.filter((item) => staged.merged.includes(item.id));
 
-      displaySnackNotification({
-        header: tx('Map saved'),
-        message: tx('The map of territory {{number}} was saved.', {
-          number: selected.number,
-        }),
-        severity: 'success',
-        icon: <IconCheckCircle color="var(--white)" />,
-      });
+      setTerritories((prev) => [
+        ...staged.created,
+        ...prev
+          .filter((item) => !staged.merged.includes(item.id))
+          .map((item) => {
+            if (item.id !== selected.id) return item;
+
+            const next: Territory = {
+              ...item,
+              ...staged.keep,
+              boundary: draft.boundary,
+              boundaryStyle: draft.boundaryStyle,
+              mapShapes: [
+                ...draft.shapes,
+                ...absorbed.flatMap((other) => other.mapShapes ?? []),
+              ],
+              mapLines: [
+                ...draft.lines,
+                ...absorbed.flatMap((other) => other.mapLines ?? []),
+              ],
+              mapMarkers: [
+                ...draft.markers,
+                ...absorbed.flatMap((other) => other.mapMarkers ?? []),
+              ],
+              doNotCalls: [
+                ...item.doNotCalls,
+                ...absorbed.flatMap((other) => other.doNotCalls),
+              ],
+            };
+
+            return absorbed.length
+              ? withAssignments(next, [
+                  ...item.assignments,
+                  ...absorbed.flatMap((other) => other.assignments),
+                ])
+              : next;
+          }),
+      ]);
+
+      const number = staged.keep?.number ?? selected.number;
+
+      if (original && (absorbed.length || staged.created.length)) {
+        const createdIds = new Set(staged.created.map((item) => item.id));
+        const restored = [original, ...absorbed]
+          .map((item) => ({ item, index: before.indexOf(item) }))
+          .sort((a, b) => a.index - b.index);
+
+        offerUndo({
+          text: absorbed.length
+            ? tx('Territories merged into {{number}}', { number })
+            : tx('Territory {{number}} split', { number }),
+          revert: () => {
+            store.set(territoriesState, (prev) =>
+              prev.filter((item) => !createdIds.has(item.id))
+            );
+            for (const { item, index } of restored) {
+              restoreTerritory(item, index);
+            }
+          },
+        });
+      } else {
+        displaySnackNotification({
+          header: tx('Map saved'),
+          message: tx('The map of territory {{number}} was saved.', {
+            number,
+          }),
+          severity: 'success',
+          icon: <IconCheckCircle color="var(--white)" />,
+        });
+      }
     }
 
     editor.finish();
+    setStaged(NOTHING_STAGED);
 
     if (!goBack()) setSelectedId(undefined);
   }, [
     editor,
     selected,
+    staged,
     setBorderColor,
     setBorderDashed,
     setTerritories,
@@ -1210,6 +1547,10 @@ const useTerritoriesMap = () => {
     confirmLeave,
     keepEditing: () => setPendingLeave(undefined),
     save,
+    mergeCount: picked.length,
+    mergePicked,
+    splitDialog,
+    mergeDialog,
   };
 };
 

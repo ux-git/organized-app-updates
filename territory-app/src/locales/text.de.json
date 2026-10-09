@@ -602,5 +602,21 @@
   "No gaps or overlaps": "Keine Lücken oder Überschneidungen",
   "Gaps: {{gaps}} · Overlaps: {{overlaps}}": "Lücken: {{gaps}} · Überschneidungen: {{overlaps}}",
   "Gaps": "Lücken",
-  "Overlaps": "Überschneidungen"
+  "Overlaps": "Überschneidungen",
+  "Split": "Teilen",
+  "Draw a line across the territory": "Zieh eine Linie quer durchs Gebiet",
+  "Pick the neighbouring territories": "Tippe die Nachbargebiete an",
+  "Merge ({{n}})": "Zusammenführen ({{n}})",
+  "Split territory": "Gebiet teilen",
+  "The highlighted part becomes a new territory. History and do-not-call addresses stay with territory {{number}}.": "Der markierte Teil wird ein neues Gebiet. Verlauf und „Nicht besuchen“-Adressen bleiben bei Gebiet Nr. {{number}}.",
+  "Merge territories": "Gebiete zusammenführen",
+  "History and do-not-call addresses move into the merged territory. Which number, locality and name does it keep?": "Verlauf und „Nicht besuchen“-Adressen kommen ins zusammengeführte Gebiet. Welche Nummer, welchen Ort und Namen behält es?",
+  "Take number, locality and name from": "Nummer, Ort und Name übernehmen von",
+  "Territory not split": "Gebiet nicht geteilt",
+  "Draw one line straight across the territory.": "Zieh eine einzige Linie quer durchs ganze Gebiet.",
+  "Territories not merged": "Gebiete nicht zusammengeführt",
+  "Only neighbouring territories can be merged.": "Nur benachbarte Gebiete lassen sich zusammenführen.",
+  "The merged territory would enclose another one.": "Das zusammengeführte Gebiet würde ein anderes umschließen.",
+  "Territories merged into {{number}}": "Gebiete zu Nr. {{number}} zusammengeführt",
+  "Territory {{number}} split": "Gebiet Nr. {{number}} geteilt"
 }

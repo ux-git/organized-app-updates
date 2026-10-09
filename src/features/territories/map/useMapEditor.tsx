@@ -37,7 +37,9 @@ export type MapTool =
   | 'shape'
   | 'line'
   | 'pin'
-  | 'text';
+  | 'text'
+  | 'split'
+  | 'merge';
 
 export type MapItemKind = 'boundary' | 'shape' | 'line' | 'pin' | 'text';
 
@@ -54,7 +56,14 @@ const EMPTY_DRAFT: TerritoryMapDraft = {
   markers: [],
 };
 
-const EXTRA_TOOLS = new Set<MapTool>(['text', 'pin', 'line', 'shape']);
+const EXTRA_TOOLS = new Set<MapTool>([
+  'text',
+  'pin',
+  'line',
+  'shape',
+  'split',
+  'merge',
+]);
 
 const MODE_FOR: Record<MapTool, string> = {
   border: 'polygon',
@@ -64,6 +73,9 @@ const MODE_FOR: Record<MapTool, string> = {
   line: 'linestring',
   pin: 'point',
   text: 'point',
+  split: 'linestring',
+  // picking territories to merge is the map's own click, not terra draw's
+  merge: 'static',
 };
 
 const hex = (color: MapColor | 'transparent', fallback: MapColor) =>
@@ -321,11 +333,16 @@ const kindOf = (feature?: GeoJSONStoreFeatures): MapItemKind | undefined => {
 const useMapEditor = ({
   map,
   onStart,
+  onSplitLine,
 }: {
   map: RefObject<maplibregl.Map | null>;
   onStart: (boundary?: TerritoryBoundary) => void;
+  onSplitLine: (line: [number, number][]) => void;
 }) => {
   const draw = useRef<TerraDraw>(null);
+
+  const splitLine = useRef(onSplitLine);
+  splitLine.current = onSplitLine;
 
   const history = useRef<TerraDrawSessionUndoRedo>(null);
 
@@ -544,6 +561,23 @@ const useMapEditor = ({
         }
 
         const before = historySize();
+
+        // the cut is no drawing of its own; undo takes it back with its line
+        if (current === 'split') {
+          const feature = terra.getSnapshotFeature(id);
+          // once terra draw is done finishing it
+          setTimeout(() => {
+            if (!terra.hasFeature(id)) return;
+            terra.removeFeatures([id]);
+            markAuto(before);
+          });
+          if (feature?.geometry.type === 'LineString') {
+            splitLine.current(
+              (feature.geometry.coordinates as number[][]).map(roundPosition)
+            );
+          }
+          return;
+        }
 
         if (current === 'border') {
           // a territory has one border, so a new one replaces the old
@@ -1052,6 +1086,30 @@ const useMapEditor = ({
     }
   }, [pickTool]);
 
+  // a split or merge also changes territories outside the drawing, which
+  // undo can't reach, so the history starts again from here
+  const replaceBoundary = useCallback(
+    (ring: TerritoryBoundary) => {
+      const terra = draw.current;
+      const border = terra
+        ?.getSnapshot()
+        .find((feature) => feature.properties?.role === 'boundary');
+      if (!terra || border?.id === undefined) return;
+
+      clearVertex();
+      if (border.properties.selected) terra.deselectFeature(border.id);
+      terra.updateFeatureGeometry(border.id, {
+        type: 'Polygon',
+        coordinates: [ring.map(roundPosition)],
+      });
+      terra.clearUndoRedoHistory();
+      autoSteps.current.clear();
+      readDraft();
+      adjustBorder();
+    },
+    [clearVertex, readDraft, adjustBorder]
+  );
+
   // Abbrechen and Esc go back one level and drop only what that level added:
   //   placing (a note tool, or a border half drawn) → the territory, as it opened
   //   the territory → edit mode with nothing picked, asking first if changes would be lost
@@ -1394,6 +1452,7 @@ const useMapEditor = ({
       deleteVertex,
       redrawBorder,
       adjustBorder,
+      replaceBoundary,
       scope,
       tool,
       shape,
@@ -1434,6 +1493,7 @@ const useMapEditor = ({
       deleteVertex,
       redrawBorder,
       adjustBorder,
+      replaceBoundary,
       scope,
       tool,
       shape,

@@ -8,6 +8,8 @@ export { default as IconAdd } from './IconAdd';
 export { default as IconActivityZone } from './IconActivityZone';
 export { default as IconAddLocation } from './IconAddLocation';
 export { default as IconCropFree } from './IconCropFree';
+export { default as IconContentCut } from './IconContentCut';
+export { default as IconCellMerge } from './IconCellMerge';
 export { default as IconMapAdd } from './IconMapAdd';
 export { default as IconFrameInspect } from './IconFrameInspect';
 export { default as IconPolyline } from './IconPolyline';
