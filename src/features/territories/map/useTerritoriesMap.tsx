@@ -110,6 +110,8 @@ const savedProvider = (): MapProviderKey => {
 // the padding a map keeps around the area it opens on
 const FIT_PADDING = 80;
 
+const HOVER_FADE_MS = 140;
+
 // the congregation's outline stands out from the territories' borders at
 // every zoom, and runs just outside them so it hides none
 const BORDER_LINE: maplibregl.ExpressionSpecification = [
@@ -412,19 +414,25 @@ const useTerritoriesMap = () => {
       line: LINE_LAYER,
     });
 
-    // a light wash over the territory under the pointer, filled or not
+    // the territory under the pointer deepens in its own colour (status,
+    // heatmap or drawn fill; the border's colour when it has none); `hover`
+    // runs 0 to 1, eased in and out below
     instance.addLayer(
       {
         id: HOVER_LAYER,
         type: 'fill',
         source: SOURCE_ID,
         paint: {
-          'fill-color': getCSSPropertyValue('--accent-main'),
-          'fill-opacity': [
+          'fill-color': [
             'case',
-            ['boolean', ['feature-state', 'hover'], false],
-            0.22,
-            0,
+            ['!=', ['coalesce', ['get', 'fill'], ''], ''],
+            ['get', 'fill'],
+            ['get', 'color'],
+          ],
+          'fill-opacity': [
+            '*',
+            ['number', ['feature-state', 'hover'], 0],
+            0.35,
           ],
         },
       },
@@ -581,13 +589,30 @@ const useTerritoriesMap = () => {
       instance.getCanvas().style.cursor = 'pointer';
     });
 
+    // a quick fade in and out: feature state doesn't animate by itself
     let hovered: string | number | undefined;
+    const fades = new Map<string | number, number>();
+    const fade = (id: string | number, to: number) => {
+      cancelAnimationFrame(fades.get(id) ?? 0);
+      const from = Number(
+        instance.getFeatureState({ source: SOURCE_ID, id }).hover ?? 0
+      );
+      const start = performance.now();
+      const step = (now: number) => {
+        const t = Math.min((now - start) / HOVER_FADE_MS, 1);
+        const eased = 1 - (1 - t) ** 3;
+        instance.setFeatureState(
+          { source: SOURCE_ID, id },
+          { hover: from + (to - from) * eased }
+        );
+        if (t < 1) fades.set(id, requestAnimationFrame(step));
+        else fades.delete(id);
+      };
+      fades.set(id, requestAnimationFrame(step));
+    };
     const unhover = () => {
       if (hovered === undefined) return;
-      instance.setFeatureState(
-        { source: SOURCE_ID, id: hovered },
-        { hover: false }
-      );
+      fade(hovered, 0);
       hovered = undefined;
     };
     instance.on(
@@ -600,7 +625,7 @@ const useTerritoriesMap = () => {
         unhover();
         if (id === undefined) return;
         hovered = id;
-        instance.setFeatureState({ source: SOURCE_ID, id }, { hover: true });
+        fade(id, 1);
       }
     );
 
