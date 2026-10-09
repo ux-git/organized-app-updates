@@ -75,6 +75,7 @@ import {
   sanitizeBoundary,
   closedRing,
   counterClockwise,
+  softenSharpCorners,
 } from './helpers';
 import {
   applyBasemapOptions,
@@ -281,7 +282,7 @@ const useTerritoriesMap = () => {
                 properties: {},
                 geometry: {
                   type: 'Polygon',
-                  coordinates: [closedRing(borderCoords)],
+                  coordinates: [closedRing(softenSharpCorners(borderCoords))],
                 },
               },
             ]
@@ -866,7 +867,7 @@ const useTerritoriesMap = () => {
       ['get', 'kind'],
       'gap',
       MAP_COLORS.red,
-      MAP_COLORS.orange,
+      MAP_COLORS.purple,
     ];
     instance.addLayer(
       {

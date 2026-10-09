@@ -12,7 +12,8 @@ const Dot = ({ color }: { color: string }) => (
       height: '10px',
       borderRadius: '50%',
       flexShrink: 0,
-      backgroundColor: `var(${color})`,
+      // theme colours come as variables, fixed map colours as values
+      backgroundColor: color.startsWith('--') ? `var(${color})` : color,
     }}
   />
 );
@@ -77,8 +78,14 @@ const Face = ({
 );
 
 // on a phone it stays folded into its dots until tapped, so it leaves the territories free
-export const LegendIsland = ({ items }: { items: Bucket[] }) => {
-  const [open, setOpen] = useState(false);
+export const LegendIsland = ({
+  items,
+  defaultOpen = false,
+}: {
+  items: Bucket[];
+  defaultOpen?: boolean;
+}) => {
+  const [open, setOpen] = useState(defaultOpen);
   const foldedRef = useRef<HTMLDivElement>(null);
   const fullRef = useRef<HTMLDivElement>(null);
   const [sizes, setSizes] = useState<{ folded?: Size; full?: Size }>({});

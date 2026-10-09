@@ -600,5 +600,7 @@
   "Move the map": "Karte bewegen",
   "Gaps and overlaps": "Lücken und Überschneidungen",
   "No gaps or overlaps": "Keine Lücken oder Überschneidungen",
-  "Gaps: {{gaps}} · Overlaps: {{overlaps}}": "Lücken: {{gaps}} · Überschneidungen: {{overlaps}}"
+  "Gaps: {{gaps}} · Overlaps: {{overlaps}}": "Lücken: {{gaps}} · Überschneidungen: {{overlaps}}",
+  "Gaps": "Lücken",
+  "Overlaps": "Überschneidungen"
 }

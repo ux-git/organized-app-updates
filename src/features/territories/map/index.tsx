@@ -37,6 +37,7 @@ import MarkerChip from './marker_chip';
 import MapFilters from './map_filters';
 import MapIsland, { MapAction, NorthAction } from './map_island';
 import { LegendIsland } from './map_legend';
+import { MAP_COLORS } from './constants';
 import TerritoryPicker from './territory_picker';
 import { TerritoriesMapState } from './useTerritoriesMap';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -680,6 +681,25 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             sx={{ ...SECOND_ROW, left: '12px', justifyContent: 'flex-start' }}
           >
             {selectHint}
+          </Box>
+        )}
+
+        {map.coverageCheck && (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: '12px',
+              bottom: '44px',
+              zIndex: 2,
+            }}
+          >
+            <LegendIsland
+              defaultOpen={!compact}
+              items={[
+                { key: 'gap', label: 'Gaps', color: MAP_COLORS.red },
+                { key: 'overlap', label: 'Overlaps', color: MAP_COLORS.purple },
+              ]}
+            />
           </Box>
         )}
 
