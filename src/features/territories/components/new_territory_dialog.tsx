@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { Box } from '@mui/material';
 import { useAtom } from 'jotai';
 import { Button, TextField } from '@components/index';
 import Dialog from '@components/dialog';
@@ -45,22 +46,34 @@ const NewTerritoryDialog = ({ onClose }: { onClose: VoidFunction }) => {
       title={tx('New territory with map')}
       description={tx('Give it a number and a locality, then draw its border.')}
     >
-      <TextField
-        label={tx('Number')}
-        autoFocus
-        value={draft.number}
-        error={isDuplicate || (tried && !usable)}
-        helperText={numberHelp}
-        onChange={(event) => setDraft({ ...draft, number: event.target.value })}
-        onKeyDown={(event) => event.key === 'Enter' && start()}
-      />
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: '3fr 7fr',
+          gap: '16px',
+          width: '100%',
+          alignItems: 'start',
+        }}
+      >
+        <TextField
+          label={tx('Number')}
+          autoFocus
+          value={draft.number}
+          error={isDuplicate || (tried && !usable)}
+          helperText={numberHelp}
+          onChange={(event) =>
+            setDraft({ ...draft, number: event.target.value })
+          }
+          onKeyDown={(event) => event.key === 'Enter' && start()}
+        />
 
-      <TextField
-        label={tx('Locality')}
-        value={draft.city}
-        onChange={(event) => setDraft({ ...draft, city: event.target.value })}
-        onKeyDown={(event) => event.key === 'Enter' && start()}
-      />
+        <TextField
+          label={tx('Locality')}
+          value={draft.city}
+          onChange={(event) => setDraft({ ...draft, city: event.target.value })}
+          onKeyDown={(event) => event.key === 'Enter' && start()}
+        />
+      </Box>
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
