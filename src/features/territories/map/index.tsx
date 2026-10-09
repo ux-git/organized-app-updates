@@ -385,7 +385,6 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
     <ViewToolbar
       compact={compact}
       fullWidth={compact}
-      editing={map.mode === 'edit'}
       selected={map.selected}
       onDetails={() =>
         map.selected &&

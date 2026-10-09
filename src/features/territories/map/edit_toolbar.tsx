@@ -2,10 +2,9 @@ import { cloneElement, ReactElement } from 'react';
 import { Box, ButtonBase, Stack } from '@mui/material';
 import { Typography } from '@components/index';
 import Tooltip from '@components/tooltip';
-import { IconArrowLink, IconLocation } from '@icons/index';
+import { IconArrowLink } from '@icons/index';
 import { STATUS_LABEL, Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
-import { openInMaps, territoryCenter } from '../helpers';
 import { territoryHolderText } from '../group_holder';
 import { DoNotCallBadge } from '../components/territory_badges';
 
@@ -95,18 +94,14 @@ export const ViewToolbar = ({
   onDetails,
   compact = false,
   fullWidth = false,
-  editing = false,
 }: {
   selected: Territory;
   onDetails: VoidFunction;
   compact?: boolean;
-  // navigating there is for the field, not for drawing
-  editing?: boolean;
   // a row of its own, where the name takes the room it needs
   fullWidth?: boolean;
 }) => {
   const drawn = !!selected.boundary?.length;
-  const center = territoryCenter(selected);
 
   const info = [
     selected.city,
@@ -150,15 +145,6 @@ export const ViewToolbar = ({
       </Box>
 
       <DoNotCallBadge territory={selected} />
-
-      {center && !editing && (
-        <ToolButton
-          label={tx('Open in maps')}
-          icon={<IconLocation />}
-          compact
-          onClick={() => openInMaps(center)}
-        />
-      )}
 
       <ToolButton
         label={tx('Details')}
