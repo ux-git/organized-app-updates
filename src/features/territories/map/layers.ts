@@ -211,7 +211,7 @@ export const addDoNotCallLayer = (
         ['exponential', 1.4],
         ['zoom'],
         15,
-        4,
+        3,
         17,
         7,
         19,
