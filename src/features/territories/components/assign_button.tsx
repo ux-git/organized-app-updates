@@ -20,8 +20,8 @@ const lookOf = (isAssigned: boolean, isRequested: boolean) => {
   if (isAssigned) {
     return {
       label: 'Return',
-      color: 'red' as const,
-      icon: <IconCheck color="var(--red-dark)" />,
+      color: 'green' as const,
+      icon: <IconCheck color="var(--done)" />,
     };
   }
 
@@ -97,6 +97,14 @@ const AssignButton = ({
           padding: compact ? '4px' : '2px 8px',
           minWidth: 'unset',
           justifyContent: 'flex-start',
+          // the palette has no green-dark for small buttons, and in the green
+          // schemes green is the accent, so done turns neutral there
+          ...(color === 'green' && {
+            '--done': 'var(--green-main)',
+            '[data-theme^="green"] &': { '--done': 'var(--black)' },
+            color: 'var(--done)',
+            '& svg, & svg g, & svg g path': { fill: 'var(--done)' },
+          }),
           '& .MuiButton-startIcon': compact ? { margin: 0 } : {},
           // 28px to see, 44px to tap
           '&::after': { content: '""', position: 'absolute', inset: '-8px' },
