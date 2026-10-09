@@ -10,8 +10,10 @@ import { Box, ButtonBase, Menu, MenuItem, Popover, Stack } from '@mui/material';
 import { Button, CustomDivider, Typography } from '@components/index';
 import Tooltip from '@components/tooltip';
 import {
+  IconAddLocation,
   IconAddPin,
   IconCheck,
+  IconCongregationBorder,
   IconClose,
   IconDashedLine,
   IconDelete,
@@ -109,6 +111,36 @@ const Divider = ({ vertical }: { vertical: boolean }) => (
     // with the bar's 2px gap, 8px of space on each side of a line across
     sx={vertical ? { margin: '2px 6px' } : { margin: '6px 6px' }}
   />
+);
+
+// edit mode before anything is picked: the same rail, with what can start
+// from here; picking a territory swaps in its drawing tools
+export const IdleRail = ({
+  onNewTerritory,
+  onCongregation,
+}: {
+  onNewTerritory: VoidFunction;
+  onCongregation: VoidFunction;
+}) => (
+  <Stack direction="column" sx={SHELL}>
+    <IconButton
+      label={tx('Move the map')}
+      icon={<IconMoveAround />}
+      active
+      onClick={() => undefined}
+    />
+    <Divider vertical />
+    <IconButton
+      label={tx('New territory with map')}
+      icon={<IconAddLocation />}
+      onClick={onNewTerritory}
+    />
+    <IconButton
+      label={tx('Congregation border')}
+      icon={<IconCongregationBorder />}
+      onClick={onCongregation}
+    />
+  </Stack>
 );
 
 // the tools, Figma-like: down the left on a wide screen, along the bottom on a phone

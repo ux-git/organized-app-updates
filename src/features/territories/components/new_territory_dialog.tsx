@@ -34,6 +34,8 @@ const NewTerritoryDialog = ({ onClose }: { onClose: VoidFunction }) => {
     };
     setTerritories((prev) => [territory, ...prev]);
     navigate(`/territories/map?territory=${territory.id}&edit=1`);
+    // on the map page itself the dialog stays mounted, so it closes here
+    onClose();
   };
 
   return (

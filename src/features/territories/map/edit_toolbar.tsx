@@ -2,11 +2,7 @@ import { cloneElement, ReactElement } from 'react';
 import { Box, ButtonBase, Stack } from '@mui/material';
 import { Typography } from '@components/index';
 import Tooltip from '@components/tooltip';
-import {
-  IconArrowLink,
-  IconLocation,
-  IconCongregationBorder,
-} from '@icons/index';
+import { IconArrowLink, IconLocation } from '@icons/index';
 import { STATUS_LABEL, Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 import { openInMaps, territoryCenter } from '../helpers';
@@ -93,24 +89,6 @@ const SHELL = {
   border: '1px solid var(--accent-200)',
   boxShadow: 'var(--hover-shadow)',
 };
-
-export const IdleToolbar = ({
-  onCongregation,
-  compact = false,
-}: {
-  onCongregation: VoidFunction;
-  compact?: boolean;
-}) => (
-  <Stack direction="row" sx={{ flexShrink: 0, ...SHELL }}>
-    <ToolButton
-      label={tx('Congregation border')}
-      hint={tx('Draw the outer border of everything the congregation covers')}
-      icon={<IconCongregationBorder />}
-      compact={compact}
-      onClick={onCongregation}
-    />
-  </Stack>
-);
 
 export const ViewToolbar = ({
   selected,

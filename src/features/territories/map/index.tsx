@@ -6,8 +6,6 @@ import TabSwitcher from '@components/tab_switcher';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { useNavigate } from 'react-router';
-import { useAtomValue } from 'jotai';
-import { congregationBoundaryState } from '@states/territories';
 import { useBreakpoints } from '@hooks/index';
 import { systemBarInset } from '@utils/common';
 import { tx } from '@services/i18n/translation';
@@ -24,11 +22,13 @@ import {
   IconRemove,
   IconVisibility,
 } from '@icons/index';
-import { IdleToolbar, ViewToolbar } from './edit_toolbar';
+import { ViewToolbar } from './edit_toolbar';
+import NewTerritoryDialog from '../components/new_territory_dialog';
 import {
   ContextSpot,
   EditHeader,
   EditRail,
+  IdleRail,
   MapContextMenu,
   StyleBar,
 } from './edit_tools';
@@ -163,8 +163,6 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
 
   const [spot, setSpot] = useState<ContextSpot>();
 
-  const congregationBoundary = useAtomValue(congregationBoundaryState);
-
   // where the bar along the top ends, so the style bar stays under it
   const topRow = useRef<HTMLDivElement>(null);
   const [topBottom, setTopBottom] = useState(56);
@@ -218,6 +216,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
   // with the text tool, a note follows the pointer, so it's clear a click
   // places it, and where
   const [ghost, setGhost] = useState<{ x: number; y: number }>();
+  const [newTerritory, setNewTerritory] = useState(false);
   // only a mouse moves without clicking, so a touch screen never shows it
   const ghostOn = editor.editing && editor.tool === 'text';
   useEffect(() => {
@@ -348,11 +347,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
       }}
     >
       <IconInfo color="var(--grey-400)" width={20} height={20} />
-      <Typography
-        className="body-small-regular"
-        color="var(--grey-400)"
-        noWrap
-      >
+      <Typography className="body-small-regular" color="var(--grey-400)" noWrap>
         {tx('Select a territory')}
       </Typography>
     </Box>
@@ -575,19 +570,6 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             <Box sx={{ minWidth: 0, ...SWITCH_SHELL }}>{modeSwitch}</Box>
           )}
 
-          {/* once drawn, the outline itself opens it; the button is only for
-              drawing it the first time */}
-          {!editor.editing &&
-            map.mode === 'edit' &&
-            !congregationBoundary?.length && (
-              <Box sx={{ marginLeft: compact ? 'auto' : 0 }}>
-                <IdleToolbar
-                  compact={compact}
-                  onCongregation={() => map.startEditing('congregation')}
-                />
-              </Box>
-            )}
-
           {!compact && map.mode === 'view' && map.selected && viewToolbar}
 
           {tabletUp && selectHint && (
@@ -605,13 +587,24 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
           )}
         </Stack>
 
-        {editor.editing && (
+        {map.mode === 'edit' && (
           <Box
             // down the left on every screen, phones included
             sx={{ position: 'absolute', left: '12px', top: '64px', zIndex: 3 }}
           >
-            <EditRail editor={editor} vertical />
+            {editor.editing ? (
+              <EditRail editor={editor} vertical />
+            ) : (
+              <IdleRail
+                onNewTerritory={() => setNewTerritory(true)}
+                onCongregation={() => map.startEditing('congregation')}
+              />
+            )}
           </Box>
+        )}
+
+        {newTerritory && (
+          <NewTerritoryDialog onClose={() => setNewTerritory(false)} />
         )}
 
         {ghostOn && ghost && (
