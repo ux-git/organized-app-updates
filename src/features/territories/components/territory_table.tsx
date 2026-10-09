@@ -797,7 +797,11 @@ const TerritoryTable = ({
           filter shows and hides them instead of building them anew */}
       <Box
         sx={{
-          '& > div:not([hidden]) ~ div:not([hidden])': {
+          // every row carries the line above it; the first one's is cut off
+          // here, as a sibling rule would restyle all rows on each change
+          marginTop: '-3px',
+          clipPath: 'inset(3px 0 0 0)',
+          '& > div': {
             marginTop: '2px',
             paddingTop: '2px',
             borderTop: '1px solid var(--accent-200)',

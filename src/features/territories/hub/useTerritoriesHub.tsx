@@ -233,8 +233,10 @@ const useTerritoriesHub = () => {
   );
 
   // a selection made in one view isn't carried, unseen, into another
+  // an empty selection stays the same object, so a switch with nothing
+  // checked doesn't render the whole list a second time
   useEffect(() => {
-    setChecked(new Set());
+    setChecked((prev) => (prev.size ? new Set() : prev));
     setSelecting(false);
   }, [tabId, isBoard]);
 
