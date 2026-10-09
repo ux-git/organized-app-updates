@@ -137,12 +137,14 @@ const BORDER_OFFSET: maplibregl.ExpressionSpecification = [
   'interpolate',
   ['linear'],
   ['zoom'],
+  // half the width, plus half a territory border: the whole stroke runs
+  // outside, clear of the territories' own lines
   9,
-  2,
+  2.75,
   13,
-  3,
+  3.75,
   16,
-  4.5,
+  5.25,
 ];
 
 const useTerritoriesMap = () => {
@@ -395,10 +397,10 @@ const useTerritoriesMap = () => {
       id: CONGREGATION_LINE_LAYER,
       type: 'line',
       source: CONGREGATION_SOURCE,
-      layout: {
-        'line-join': detail.lineJoin,
-        'line-cap': detail.lineJoin === 'round' ? 'round' : 'butt',
-      },
+      // an offset line takes mitred corners cleanly; round joins on an
+      // offset leave wedges at the corners. The corners are cut to 90° at
+      // most beforehand, so the mitres stay short
+      layout: { 'line-join': 'miter', 'line-miter-limit': 2 },
       paint: {
         'line-color': MAP_COLORS[borderColorRef.current],
         'line-width': BORDER_LINE,
