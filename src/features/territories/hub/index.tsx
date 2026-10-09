@@ -3,6 +3,7 @@ import {
   useLayoutEffect,
   useMemo,
   useDeferredValue,
+  useTransition,
   useRef,
 } from 'react';
 import { Box, Collapse, Fade, Stack } from '@mui/material';
@@ -293,6 +294,11 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
   // tabs, then the board after them: each change slides in from its side
   const slide = useSlideIn(isBoard ? tabs.length : tab);
 
+  // while the next tab renders, the current one already fades back, so the
+  // swap reads as one motion instead of a pause and a jump
+  const [switching, startSwitch] = useTransition();
+  const switchTab = (next: number) => startSwitch(() => setTab(next));
+
   const manyDoNotCalls = selected
     .filter((territory) => territory.status === 'available')
     .reduce((sum, territory) => sum + territory.doNotCalls.length, 0);
@@ -423,11 +429,17 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
           tabs={tabs}
           tabsShown={!hub.isBoard}
           value={tab}
-          onChange={setTab}
+          onChange={switchTab}
           aside={inlineSwitch}
         />
 
-        <Box ref={slide}>
+        <Box
+          ref={slide}
+          sx={{
+            opacity: switching || isBoard !== hub.isBoard ? 0.6 : 1,
+            transition: `opacity ${DURATION_SHORT}ms ${EASE_STANDARD}`,
+          }}
+        >
           {isBoard && (
             <Stack
               direction="row"

@@ -805,8 +805,6 @@ const TerritoryTable = ({
             marginTop: '2px',
             paddingTop: '2px',
             borderTop: '1px solid var(--accent-200)',
-            contentVisibility: 'auto',
-            containIntrinsicSize: 'auto 60px',
           },
         }}
       >
