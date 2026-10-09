@@ -95,10 +95,13 @@ export const ViewToolbar = ({
   onDetails,
   compact = false,
   fullWidth = false,
+  editing = false,
 }: {
   selected: Territory;
   onDetails: VoidFunction;
   compact?: boolean;
+  // navigating there is for the field, not for drawing
+  editing?: boolean;
   // a row of its own, where the name takes the room it needs
   fullWidth?: boolean;
 }) => {
@@ -148,7 +151,7 @@ export const ViewToolbar = ({
 
       <DoNotCallBadge territory={selected} />
 
-      {center && (
+      {center && !editing && (
         <ToolButton
           label={tx('Open in maps')}
           icon={<IconLocation />}
