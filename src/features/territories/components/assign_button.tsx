@@ -13,6 +13,8 @@ type AssignButtonProps = {
   onDecline: (id: string) => void;
   onReturn: (id: string) => void;
   compact?: boolean;
+  // just the word: no icon, no width shared with the other labels
+  bare?: boolean;
 };
 
 const LABELS = ['Return', 'Review', 'Assign'];
@@ -47,6 +49,7 @@ const AssignButton = ({
   onDecline,
   onReturn,
   compact = false,
+  bare = false,
 }: AssignButtonProps) => {
   const [reviewOpen, setReviewOpen] = useState(false);
 
@@ -91,7 +94,7 @@ const AssignButton = ({
         disableAutoStretch
         color={color}
         onClick={handleClick}
-        startIcon={icon}
+        startIcon={bare && !compact ? undefined : icon}
         ariaLabel={tx(label)}
         sx={{
           minHeight: '28px',
@@ -109,7 +112,8 @@ const AssignButton = ({
           '&::after': { content: '""', position: 'absolute', inset: '-8px' },
         }}
       >
-        {!compact && (
+        {!compact && bare && tx(label)}
+        {!compact && !bare && (
           // every label stacked in one cell, so all buttons share the widest width
           <Box sx={{ display: 'grid', textAlign: 'start' }}>
             {LABELS.map((text) => (

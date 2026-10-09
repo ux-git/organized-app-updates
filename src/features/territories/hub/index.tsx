@@ -5,7 +5,7 @@ import {
   useDeferredValue,
   useRef,
 } from 'react';
-import { Box, Stack } from '@mui/material';
+import { Box, Collapse, Fade, Stack } from '@mui/material';
 import {
   Button,
   CustomDivider,
@@ -44,6 +44,12 @@ import MyHistory from '../components/my_history';
 import SelectionBar from '../components/selection_bar';
 import DialogActions from '@components/dialog_actions';
 import dashedBorder from '@utils/dashed_border';
+import {
+  DURATION_MEDIUM,
+  DURATION_SHORT,
+  EASE_STANDARD,
+  revealSx,
+} from '@utils/motion';
 import TerritoryFilters from '../components/territory_filters';
 import TerritoryTable from '../components/territory_table';
 
@@ -62,7 +68,7 @@ const SearchRow = ({
   applied: number;
   onToggleFilters: VoidFunction;
 }) => (
-  <Stack direction="row" sx={{ alignItems: 'center', gap: '16px' }}>
+  <Stack direction="row" sx={{ alignItems: 'center' }}>
     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
       <SearchBar
         placeholder={tx('Search territories')}
@@ -71,11 +77,19 @@ const SearchRow = ({
       />
     </Box>
 
-    {showFiltersButton && (
+    {/* the button folds away sideways, so the search widens smoothly */}
+    <Collapse
+      orientation="horizontal"
+      in={showFiltersButton}
+      timeout={DURATION_MEDIUM}
+      easing={EASE_STANDARD}
+      inert={!showFiltersButton}
+      sx={{ flexShrink: 0 }}
+    >
       <Button
         variant="secondary"
         disableAutoStretch
-        sx={{ flexShrink: 0 }}
+        sx={{ flexShrink: 0, marginLeft: '16px' }}
         onClick={onToggleFilters}
         endIcon={filtersOpen ? <IconPanelOpen /> : <IconPanelClose />}
       >
@@ -102,7 +116,7 @@ const SearchRow = ({
           </Box>
         )}
       </Button>
-    )}
+    </Collapse>
   </Stack>
 );
 
@@ -181,11 +195,14 @@ const TabsRow = ({
   value,
   onChange,
   aside,
+  tabsShown = true,
 }: {
   tabs: TerritoriesHubProps['hub']['tabs'];
   value: number;
   onChange: (value: number) => void;
   aside?: ReactNode;
+  // hidden tabs fade but keep their row, so nothing below moves
+  tabsShown?: boolean;
 }) => {
   if (tabs.length === 0 && !aside) return null;
 
@@ -197,12 +214,16 @@ const TabsRow = ({
       >
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
           {tabs.length > 0 && (
-            <ScrollableTabs
-              appearance="plain"
-              tabs={tabs.map((item) => ({ ...item }))}
-              value={value}
-              onChange={onChange}
-            />
+            <Fade in={tabsShown} timeout={DURATION_SHORT}>
+              <Box inert={!tabsShown}>
+                <ScrollableTabs
+                  appearance="plain"
+                  tabs={tabs.map((item) => ({ ...item }))}
+                  value={value}
+                  onChange={onChange}
+                />
+              </Box>
+            </Fade>
           )}
         </Box>
 
@@ -361,8 +382,12 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
   // change instead of building or reconnecting a whole view
   const content = canSwitchLayout ? (
     <>
-      <div hidden={isBoard}>{list}</div>
-      <div hidden={!isBoard}>{board}</div>
+      <Box hidden={isBoard} sx={revealSx}>
+        {list}
+      </Box>
+      <Box hidden={!isBoard} sx={revealSx}>
+        {board}
+      </Box>
     </>
   ) : isBoard ? (
     board
@@ -378,7 +403,7 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
         <SearchRow
           search={filters.search}
           onSearch={(value) => setFilters({ ...filters, search: value })}
-          showFiltersButton={!isBoard}
+          showFiltersButton={!hub.isBoard}
           filtersOpen={filtersOpen}
           applied={applied}
           onToggleFilters={() => setFiltersOpen(!filtersOpen)}
@@ -396,7 +421,8 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
       <Box>
         <TabsRow
-          tabs={isBoard ? [] : tabs}
+          tabs={tabs}
+          tabsShown={!hub.isBoard}
           value={tab}
           onChange={setTab}
           aside={inlineSwitch}
@@ -410,8 +436,10 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
               justifyContent: 'space-between',
               flexWrap: 'wrap',
               gap: '12px',
-              padding: '16px 8px 8px',
-              minHeight: '44px',
+              // the list's heading row, so the title stays put on a switch
+              padding: '12px 8px 8px',
+              minHeight: '40px',
+              boxSizing: 'content-box',
             }}
           >
             <Typography className="h3" noWrap>

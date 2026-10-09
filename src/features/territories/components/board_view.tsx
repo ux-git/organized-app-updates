@@ -312,6 +312,7 @@ const BoardView = ({
                             onDecline={onDecline}
                             onReturn={onReturn}
                             compact={!tablet688Up}
+                            bare
                           />
                         </Box>
                       </Stack>
