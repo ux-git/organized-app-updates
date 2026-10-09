@@ -37,6 +37,7 @@ export { default as IconCancelFilled } from './IconCancelFilled';
 export { default as IconCart } from './IconCart';
 export { default as IconCheckCircle } from './IconCheckCircle';
 export { default as IconCheck } from './IconCheck';
+export { default as IconCheckThin } from './IconCheckThin';
 export { default as IconCheckboxEmpty } from './IconCheckboxEmpty';
 export { default as IconCheckboxFilled } from './IconCheckboxFilled';
 export { default as IconCheckboxMultiple } from './IconCheckboxMultiple';

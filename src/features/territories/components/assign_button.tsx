@@ -1,7 +1,7 @@
 import { MouseEvent, useState } from 'react';
 import { Box } from '@mui/material';
 import { Button } from '@components/index';
-import { IconCheck, IconMoveItem, IconRaiseHand } from '@icons/index';
+import { IconCheckThin, IconMoveItem, IconRaiseHand } from '@icons/index';
 import ReviewDialog from './review_dialog';
 import { Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
@@ -21,7 +21,7 @@ const lookOf = (isAssigned: boolean, isRequested: boolean) => {
     return {
       label: 'Return',
       color: 'green' as const,
-      icon: <IconCheck color="var(--done)" />,
+      icon: <IconCheckThin color="var(--done)" />,
     };
   }
 
