@@ -1,16 +1,17 @@
-import { ReactNode, useMemo, useState } from 'react';
+import {
+  ReactNode,
+  memo,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import usePhoneSelection from './usePhoneSelection';
 import { Box, Menu, Stack } from '@mui/material';
 import MenuItem from '@components/menuitem';
 import { dropdownPaper } from '@components/select/index.styles';
 import IconButton from '@components/icon_button';
-import {
-  Button,
-  Checkbox,
-  CustomDivider,
-  InfoNote,
-  Typography,
-} from '@components/index';
+import { Button, Checkbox, InfoNote, Typography } from '@components/index';
 import {
   IconClock,
   IconHome,
@@ -73,6 +74,9 @@ type TerritoryTableProps = {
   layoutSwitch?: ReactNode;
   selecting?: boolean;
   onSelectingChange?: (value: boolean) => void;
+  // every territory the list can show across its tabs and filters; they stay
+  // built and only the ones in `territories` are shown
+  pool?: Territory[];
 };
 
 type SortKey =
@@ -283,6 +287,214 @@ export const Households = ({
   </Stack>
 );
 
+type RowView = {
+  phone: boolean;
+  tablet688Up: boolean;
+  laptopUp: boolean;
+  actions: boolean;
+  showCheckboxes: boolean;
+  showHouseholds: boolean;
+  showHolder: boolean;
+  showRequested: boolean;
+  showDoNotCalls: boolean;
+  pressable: boolean;
+  me: string;
+};
+
+type RowApi = {
+  click: (id: string) => void;
+  check: (id: string) => void;
+  openAssign: (id: string) => void;
+  decline: (id: string) => void;
+  return: (id: string) => void;
+  press: (id: string) => Record<string, (event: never) => void>;
+};
+
+const PRESS_EVENTS = [
+  'onPointerDown',
+  'onPointerMove',
+  'onPointerUp',
+  'onPointerCancel',
+  'onPointerLeave',
+  'onContextMenu',
+];
+
+// a row renders again only when its own territory, check or the layout changes
+const Row = memo(function Row({
+  territory,
+  checked,
+  view,
+  api,
+}: {
+  territory: Territory;
+  checked: boolean;
+  view: RowView;
+  api: RowApi;
+}) {
+  const {
+    phone,
+    tablet688Up,
+    laptopUp,
+    actions,
+    showCheckboxes,
+    showHouseholds,
+    showHolder,
+    showRequested,
+    showDoNotCalls,
+    pressable,
+    me,
+  } = view;
+  const selectionSlot = {
+    display: 'grid',
+    gridTemplateColumns: showCheckboxes ? '1fr' : '0fr',
+    opacity: showCheckboxes ? 1 : 0,
+    marginRight: showCheckboxes ? (tablet688Up ? '12px' : '8px') : 0,
+    transition:
+      'grid-template-columns 150ms ease, opacity 150ms ease, margin-right 150ms ease',
+    '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+  };
+
+  return (
+    <Stack
+      direction="row"
+      // tighter on a phone, where every pixel goes to the name
+      spacing={tablet688Up ? '12px' : '8px'}
+      {...clickableRow(() => api.click(territory.id))}
+      {...(pressable && api.press(territory.id))}
+      sx={{
+        alignItems: 'center',
+        padding: '8px',
+        borderRadius: 'var(--radius-m)',
+        ...rowStates(checked),
+        ...(phone &&
+          actions && { userSelect: 'none', WebkitTouchCallout: 'none' }),
+      }}
+    >
+      {actions && (
+        <Box
+          sx={{
+            ...selectionSlot,
+            '&&': { marginLeft: 0 },
+            flexShrink: 0,
+          }}
+          aria-hidden={!showCheckboxes}
+        >
+          <Box sx={{ overflow: 'hidden', minWidth: 0 }}>
+            <Checkbox
+              stopPropagation
+              disabled={!showCheckboxes}
+              sx={{ padding: 0, margin: 0 }}
+              checked={checked}
+              onChange={() => api.check(territory.id)}
+            />
+          </Box>
+        </Box>
+      )}
+
+      {/* Compact personal lists share the history layout on phones. */}
+      {(tablet688Up || actions) && (
+        <Stack
+          spacing="4px"
+          sx={{
+            width: tablet688Up ? '48px' : '40px',
+            flexShrink: 0,
+            ...(actions && { '&&': { marginLeft: 0 } }),
+          }}
+        >
+          <Typography
+            className="body-small-semibold"
+            color="var(--black)"
+            sx={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            {territory.number}
+          </Typography>
+          {showHouseholds && <Households count={territory.households} />}
+        </Stack>
+      )}
+
+      <Stack spacing="4px" sx={{ flexGrow: 1, minWidth: 0 }}>
+        <TruncatedText
+          className="body-small-semibold"
+          text={[
+            !tablet688Up && !actions && territory.number,
+            [territory.city, territory.name].filter(Boolean).join(' • '),
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        />
+
+        <Stack
+          direction="row"
+          sx={{
+            alignItems: 'center',
+            gap: '4px 12px',
+            flexWrap: 'wrap',
+            minWidth: 0,
+          }}
+        >
+          {!tablet688Up && !actions && showHouseholds && (
+            <Households count={territory.households} />
+          )}
+          <StatusLine territory={territory} showHolder={showHolder} />
+
+          {!laptopUp && (
+            <Stack direction="row" sx={BADGE_ROW}>
+              {badges(territory, showRequested, showDoNotCalls, me)}
+            </Stack>
+          )}
+        </Stack>
+      </Stack>
+
+      {laptopUp && (
+        <Stack
+          direction="row"
+          sx={{ ...BADGE_ROW, flexShrink: 0, maxWidth: '45%' }}
+        >
+          {badges(territory, showRequested, showDoNotCalls, me, false)}
+        </Stack>
+      )}
+
+      {/* on a wide screen the do-not-calls keep a column of their own,
+            and the action sits at the far end of a fixed one, so both line up row by row */}
+      {laptopUp && (
+        <Box
+          sx={{
+            flexShrink: 0,
+            width: '56px',
+            display: 'flex',
+            justifyContent: 'flex-end',
+          }}
+        >
+          {(showDoNotCalls || territory.holder === me) && (
+            <DoNotCallBadge territory={territory} />
+          )}
+        </Box>
+      )}
+
+      {actions && (
+        <Box
+          sx={{
+            flexShrink: 0,
+            ...(laptopUp && {
+              minWidth: '176px',
+              display: 'flex',
+              justifyContent: 'flex-end',
+            }),
+          }}
+        >
+          <AssignButton
+            territory={territory}
+            onOpenAssign={api.openAssign}
+            onDecline={api.decline}
+            onReturn={api.return}
+            compact={!tablet688Up}
+          />
+        </Box>
+      )}
+    </Stack>
+  );
+});
+
 const TerritoryTable = ({
   territories,
   checked,
@@ -304,35 +516,123 @@ const TerritoryTable = ({
   layoutSwitch,
   selecting = false,
   onSelectingChange,
+  pool,
 }: TerritoryTableProps) => {
   const { tablet688Up, tablet600Up, laptopUp } = useBreakpoints();
   const phone = !tablet600Up;
   const selectionMode = selecting || checked.size > 0;
   const showCheckboxes = !phone || selectionMode;
-  const longPress = usePhoneSelection(phone && actions, (id) => {
-    if (!checked.has(id)) onCheck(id);
+  const pressable = phone && actions;
+  const longPress = usePhoneSelection(pressable, (id) => {
+    if (!latest.current.checked.has(id)) latest.current.onCheck(id);
   });
-  const selectionSlot = {
-    display: 'grid',
-    gridTemplateColumns: showCheckboxes ? '1fr' : '0fr',
-    opacity: showCheckboxes ? 1 : 0,
-    marginRight: showCheckboxes ? (tablet688Up ? '12px' : '8px') : 0,
-    transition:
-      'grid-template-columns 150ms ease, opacity 150ms ease, margin-right 150ms ease',
-    '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
-  };
 
   const me = useAtomValue(currentPublisherState);
+
+  // the rows get stable callbacks that reach the newest props, so a parent
+  // render alone does not render all of them again
+  const latest = useRef({
+    checked,
+    onCheck,
+    onOpen,
+    onOpenAssign,
+    onDecline,
+    onReturn,
+    longPress,
+    pressable,
+    selectionMode,
+  });
+  useLayoutEffect(() => {
+    latest.current = {
+      checked,
+      onCheck,
+      onOpen,
+      onOpenAssign,
+      onDecline,
+      onReturn,
+      longPress,
+      pressable,
+      selectionMode,
+    };
+  });
+
+  const api = useMemo<RowApi>(
+    () => ({
+      click: (id) => {
+        const now = latest.current;
+        if (now.longPress.consumeClick(id)) return;
+        if (now.pressable && now.selectionMode) now.onCheck(id);
+        else now.onOpen(id);
+      },
+      check: (id) => latest.current.onCheck(id),
+      openAssign: (id) => latest.current.onOpenAssign(id),
+      decline: (id) => latest.current.onDecline(id),
+      return: (id) => latest.current.onReturn(id),
+      press: (id) =>
+        Object.fromEntries(
+          PRESS_EVENTS.map((name) => [
+            name,
+            (event: never) =>
+              (
+                latest.current.longPress.handlers(id) as Record<
+                  string,
+                  ((event: never) => void) | undefined
+                >
+              )[name]?.(event),
+          ])
+        ),
+    }),
+    []
+  );
+
+  const view = useMemo<RowView>(
+    () => ({
+      phone,
+      tablet688Up,
+      laptopUp,
+      actions,
+      showCheckboxes,
+      showHouseholds,
+      showHolder,
+      showRequested,
+      showDoNotCalls,
+      pressable,
+      me,
+    }),
+    [
+      phone,
+      tablet688Up,
+      laptopUp,
+      actions,
+      showCheckboxes,
+      showHouseholds,
+      showHolder,
+      showRequested,
+      showDoNotCalls,
+      pressable,
+      me,
+    ]
+  );
 
   const [sortBy, setSortBy] = useState<SortKey>('number');
   const [reversed, setReversed] = useState(false);
 
-  const sorted = useMemo(() => {
-    const list = [...territories].sort(compare(sortBy, reversed));
+  const sortedRows = useMemo(() => {
+    const list = [...(pool ?? territories)].sort(compare(sortBy, reversed));
 
     // the person sort flips only the names, so free territories stay last
     return reversed && sortBy !== 'person' ? list.reverse() : list;
-  }, [territories, sortBy, reversed]);
+  }, [pool, territories, sortBy, reversed]);
+
+  const visibleIds = useMemo(
+    () => new Set(territories.map((territory) => territory.id)),
+    [territories]
+  );
+
+  const sorted = useMemo(
+    () => sortedRows.filter((territory) => visibleIds.has(territory.id)),
+    [sortedRows, visibleIds]
+  );
 
   const [sortMenu, setSortMenu] = useState<HTMLElement | null>(null);
 
@@ -420,7 +720,7 @@ const TerritoryTable = ({
     </Typography>
   );
 
-  if (territories.length === 0) {
+  if (territories.length === 0 && !pool) {
     return (
       <Stack spacing="12px" sx={{ paddingTop: subHeading ? '16px' : 0 }}>
         {heading}
@@ -444,7 +744,7 @@ const TerritoryTable = ({
           ...(titleOnTop && { height: '24px', alignContent: 'center' }),
         }}
       >
-        {actions && showCheckboxes && (
+        {actions && showCheckboxes && sorted.length > 0 && (
           <Checkbox
             sx={{ padding: 0, margin: 0 }}
             checked={allChecked}
@@ -491,155 +791,34 @@ const TerritoryTable = ({
         {layoutSwitch}
       </Stack>
 
-      <Stack
-        spacing="2px"
-        divider={<CustomDivider color="var(--accent-200)" />}
+      {sorted.length === 0 && <InfoNote message={emptyMessage} />}
+
+      {/* rows of every tab stay built and only hide, so a tab switch or a
+          filter shows and hides them instead of building them anew */}
+      <Box
+        sx={{
+          '& > div:not([hidden]) ~ div:not([hidden])': {
+            marginTop: '2px',
+            paddingTop: '2px',
+            borderTop: '1px solid var(--accent-200)',
+          },
+          '& > div': {
+            contentVisibility: 'auto',
+            containIntrinsicSize: 'auto 60px',
+          },
+        }}
       >
-        {sorted.map((territory) => (
-          <Stack
-            key={territory.id}
-            direction="row"
-            // tighter on a phone, where every pixel goes to the name
-            spacing={tablet688Up ? '12px' : '8px'}
-            {...clickableRow(() => {
-              if (longPress.consumeClick(territory.id)) return;
-              if (phone && actions && selectionMode) onCheck(territory.id);
-              else onOpen(territory.id);
-            })}
-            {...longPress.handlers(territory.id)}
-            sx={{
-              alignItems: 'center',
-              padding: '8px',
-              borderRadius: 'var(--radius-m)',
-              ...rowStates(checked.has(territory.id)),
-              ...(phone &&
-                actions && { userSelect: 'none', WebkitTouchCallout: 'none' }),
-            }}
-          >
-            {actions && (
-              <Box
-                sx={{
-                  ...selectionSlot,
-                  '&&': { marginLeft: 0 },
-                  flexShrink: 0,
-                }}
-                aria-hidden={!showCheckboxes}
-              >
-                <Box sx={{ overflow: 'hidden', minWidth: 0 }}>
-                  <Checkbox
-                    stopPropagation
-                    disabled={!showCheckboxes}
-                    sx={{ padding: 0, margin: 0 }}
-                    checked={checked.has(territory.id)}
-                    onChange={() => onCheck(territory.id)}
-                  />
-                </Box>
-              </Box>
-            )}
-
-            {/* Compact personal lists share the history layout on phones. */}
-            {(tablet688Up || actions) && (
-              <Stack
-                spacing="4px"
-                sx={{
-                  width: tablet688Up ? '48px' : '40px',
-                  flexShrink: 0,
-                  ...(actions && { '&&': { marginLeft: 0 } }),
-                }}
-              >
-                <Typography
-                  className="body-small-semibold"
-                  color="var(--black)"
-                  sx={{ fontVariantNumeric: 'tabular-nums' }}
-                >
-                  {territory.number}
-                </Typography>
-                {showHouseholds && <Households count={territory.households} />}
-              </Stack>
-            )}
-
-            <Stack spacing="4px" sx={{ flexGrow: 1, minWidth: 0 }}>
-              <TruncatedText
-                className="body-small-semibold"
-                text={[
-                  !tablet688Up && !actions && territory.number,
-                  [territory.city, territory.name].filter(Boolean).join(' • '),
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              />
-
-              <Stack
-                direction="row"
-                sx={{
-                  alignItems: 'center',
-                  gap: '4px 12px',
-                  flexWrap: 'wrap',
-                  minWidth: 0,
-                }}
-              >
-                {!tablet688Up && !actions && showHouseholds && (
-                  <Households count={territory.households} />
-                )}
-                <StatusLine territory={territory} showHolder={showHolder} />
-
-                {!laptopUp && (
-                  <Stack direction="row" sx={BADGE_ROW}>
-                    {badges(territory, showRequested, showDoNotCalls, me)}
-                  </Stack>
-                )}
-              </Stack>
-            </Stack>
-
-            {laptopUp && (
-              <Stack
-                direction="row"
-                sx={{ ...BADGE_ROW, flexShrink: 0, maxWidth: '45%' }}
-              >
-                {badges(territory, showRequested, showDoNotCalls, me, false)}
-              </Stack>
-            )}
-
-            {/* on a wide screen the do-not-calls keep a column of their own,
-                and the action sits at the far end of a fixed one, so both line up row by row */}
-            {laptopUp && (
-              <Box
-                sx={{
-                  flexShrink: 0,
-                  width: '56px',
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                }}
-              >
-                {(showDoNotCalls || territory.holder === me) && (
-                  <DoNotCallBadge territory={territory} />
-                )}
-              </Box>
-            )}
-
-            {actions && (
-              <Box
-                sx={{
-                  flexShrink: 0,
-                  ...(laptopUp && {
-                    minWidth: '176px',
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                  }),
-                }}
-              >
-                <AssignButton
-                  territory={territory}
-                  onOpenAssign={onOpenAssign}
-                  onDecline={onDecline}
-                  onReturn={onReturn}
-                  compact={!tablet688Up}
-                />
-              </Box>
-            )}
-          </Stack>
+        {sortedRows.map((territory) => (
+          <div key={territory.id} hidden={!visibleIds.has(territory.id)}>
+            <Row
+              territory={territory}
+              checked={checked.has(territory.id)}
+              view={view}
+              api={api}
+            />
+          </div>
         ))}
-      </Stack>
+      </Box>
     </Stack>
   );
 };

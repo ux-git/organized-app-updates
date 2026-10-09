@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
 import { ReactSortable } from 'react-sortablejs';
@@ -327,4 +327,5 @@ const BoardView = ({
   );
 };
 
-export default BoardView;
+// stays built while hidden behind the list; renders again only on new props
+export default memo(BoardView);

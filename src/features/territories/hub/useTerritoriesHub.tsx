@@ -211,6 +211,22 @@ const useTerritoriesHub = () => {
     running,
   ]);
 
+  // what the browse tabs can show between them; the list keeps all of it built
+  const pool = useMemo(
+    () =>
+      isBrowsing
+        ? forTab(
+            withStatus,
+            'all',
+            me,
+            isTerritoryEditor,
+            groupHolder,
+            restricted
+          )
+        : undefined,
+    [isBrowsing, withStatus, me, isTerritoryEditor, groupHolder, restricted]
+  );
+
   const boardTerritories = useMemo(
     () => applyFilters(withStatus, filters),
     [withStatus, filters]
@@ -327,6 +343,7 @@ const useTerritoriesHub = () => {
     running,
     visible,
     boardTerritories,
+    pool,
     territories,
     selected,
     checked,

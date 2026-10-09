@@ -1,4 +1,12 @@
-import { ReactNode } from 'react';
+import {
+  Activity,
+  ReactNode,
+  startTransition,
+  useLayoutEffect,
+  useMemo,
+  useOptimistic,
+  useRef,
+} from 'react';
 import { Box, Stack } from '@mui/material';
 import {
   Button,
@@ -27,6 +35,7 @@ import { TerritoriesHubProps } from './index.types';
 import {
   Territory,
   TerritoryFilters as TerritoryFiltersType,
+  TerritoryStatus,
 } from '@definition/territory';
 import Card from '@components/card';
 import BoardView from '../components/board_view';
@@ -233,12 +242,37 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     assignManyOpen,
     setAssignManyOpen,
     assignableCount,
-    handleDrop,
     isBrowsing,
     isOwnTab: isMine,
     isTerritoryEditor,
     setIsBoard,
+    pool,
   } = hub;
+
+  // stable handlers for the memoized board, reaching the newest hub
+  const latest = useRef(hub);
+  useLayoutEffect(() => {
+    latest.current = hub;
+  });
+  const boardHandlers = useMemo(
+    () => ({
+      open: (id: string) => latest.current.handleOpen(id),
+      assign: (id: string) => latest.current.setAssignId(id),
+      decline: (id: string) => latest.current.handleDecline(id),
+      return: (id: string) => latest.current.setReturnId(id),
+      drop: (id: string, status: TerritoryStatus) =>
+        latest.current.handleDrop(id, status),
+    }),
+    []
+  );
+
+  // the switch slides at once; the views swap when the new one is ready
+  const [shownBoard, showBoard] = useOptimistic(isBoard);
+  const switchLayout = (board: boolean) =>
+    startTransition(() => {
+      showBoard(board);
+      setIsBoard(board);
+    });
 
   const { desktopUp, tablet688Up } = useBreakpoints();
 
@@ -271,8 +305,8 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     <TabSwitcher
       ariaLabel={tx('Layout')}
       surface="light"
-      value={isBoard ? 'board' : 'list'}
-      onChange={(value) => setIsBoard(value === 'board')}
+      value={shownBoard ? 'board' : 'list'}
+      onChange={(value) => switchLayout(value === 'board')}
       options={[
         { value: 'list', label: tx('List'), icon: <IconListView /> },
         { value: 'board', label: tx('Board'), icon: <IconInformationBoard /> },
@@ -292,18 +326,20 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     />
   );
 
-  const content = isBoard ? (
+  const board = (
     <BoardView
       territories={boardTerritories}
-      onOpen={handleOpen}
-      onOpenAssign={setAssignId}
-      onDecline={handleDecline}
-      onReturn={setReturnId}
-      onDrop={handleDrop}
+      onOpen={boardHandlers.open}
+      onOpenAssign={boardHandlers.assign}
+      onDecline={boardHandlers.decline}
+      onReturn={boardHandlers.return}
+      onDrop={boardHandlers.drop}
       showHouseholds={showHouseholds}
       overdueMonths={hub.overdueMonths}
     />
-  ) : (
+  );
+
+  const list = (
     <TerritoryTable
       territories={visible}
       checked={checked}
@@ -324,7 +360,21 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
       title={tx('Territories: {{n}}', { n: visible.length })}
       titleOnTop={isMine && tabs.length === 0}
       selectionBar={selectionBar}
+      pool={pool}
     />
+  );
+
+  // both views stay built once seen and only hide, so switching back is
+  // instant; the board also renders ahead while the phone is idle
+  const content = canSwitchLayout ? (
+    <>
+      <Activity mode={isBoard ? 'hidden' : 'visible'}>{list}</Activity>
+      <Activity mode={isBoard ? 'visible' : 'hidden'}>{board}</Activity>
+    </>
+  ) : isBoard ? (
+    board
+  ) : (
+    list
   );
 
   const listCard = (
