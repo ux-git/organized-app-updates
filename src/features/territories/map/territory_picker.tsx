@@ -99,7 +99,7 @@ const TerritoryPicker = ({
               onKeyDown={(event) => handleKey(event, territory.id)}
               sx={{
                 alignItems: 'center',
-                padding: '8px',
+                padding: '6px 8px',
                 cursor: 'pointer',
                 borderRadius: 'var(--radius-m)',
                 backgroundColor:
