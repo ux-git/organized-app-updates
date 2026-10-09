@@ -104,7 +104,8 @@ export const ViewToolbar = ({
   const drawn = !!selected.boundary?.length;
 
   const info = [
-    selected.city,
+    // the title already names it when the territory is called after its place
+    selected.city !== selected.name && selected.city,
     tx(STATUS_LABEL[selected.status]),
     territoryHolderText(selected),
   ]
