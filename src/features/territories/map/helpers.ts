@@ -67,6 +67,74 @@ export const closedRing = (ring: TerritoryBoundary): TerritoryBoundary => {
   return first[0] === last[0] && first[1] === last[1] ? ring : [...ring, first];
 };
 
+// MapLibre offsets a line by pushing each corner out along its mitre, so at
+// a sharp corner the offset border shoots out in spikes. Each corner sharper
+// than a right angle is cut by a few metres, into two gentler ones
+export const softenSharpCorners = (
+  ring: TerritoryBoundary,
+  metres = 6
+): TerritoryBoundary => {
+  if (ring.length < 3) return ring;
+  const kx = 111320 * Math.cos((ring[0][1] * Math.PI) / 180);
+  const ky = 110540;
+
+  const turnAt = (points: TerritoryBoundary, i: number) => {
+    const prev = points[(i - 1 + points.length) % points.length];
+    const point = points[i];
+    const next = points[(i + 1) % points.length];
+    const inX = (point[0] - prev[0]) * kx;
+    const inY = (point[1] - prev[1]) * ky;
+    const outX = (next[0] - point[0]) * kx;
+    const outY = (next[1] - point[1]) * ky;
+    const length = Math.hypot(inX, inY) * Math.hypot(outX, outY);
+    return length ? (inX * outX + inY * outY) / length : 1;
+  };
+
+  // a needle, where the outline runs out and straight back, is a slip of the
+  // hand; no border can be drawn around it, so it is folded away
+  let points = ring;
+  for (let i = 0; i < points.length && points.length > 3; ) {
+    if (turnAt(points, i) < -0.94) {
+      points = points.filter((_, index) => index !== i);
+      i = Math.max(i - 1, 0);
+    } else i++;
+  }
+
+  const result: TerritoryBoundary = [];
+  points.forEach((point, i) => {
+    const prev = points[(i - 1 + points.length) % points.length];
+    const next = points[(i + 1) % points.length];
+    const inX = (point[0] - prev[0]) * kx;
+    const inY = (point[1] - prev[1]) * ky;
+    const outX = (next[0] - point[0]) * kx;
+    const outY = (next[1] - point[1]) * ky;
+    const inLength = Math.hypot(inX, inY);
+    const outLength = Math.hypot(outX, outY);
+    if (!inLength || !outLength) return;
+
+    // the cosine of the turn; below zero the corner is sharper than 90°
+    const turn = (inX * outX + inY * outY) / (inLength * outLength);
+    if (turn > 0) {
+      result.push(point);
+      return;
+    }
+
+    const cut = Math.min(metres, inLength * 0.4, outLength * 0.4);
+    result.push(
+      [
+        point[0] - (inX / inLength) * (cut / kx),
+        point[1] - (inY / inLength) * (cut / ky),
+      ],
+      [
+        point[0] + (outX / outLength) * (cut / kx),
+        point[1] + (outY / outLength) * (cut / ky),
+      ]
+    );
+  });
+
+  return result;
+};
+
 export const counterClockwise = (
   ring: TerritoryBoundary
 ): TerritoryBoundary => {
