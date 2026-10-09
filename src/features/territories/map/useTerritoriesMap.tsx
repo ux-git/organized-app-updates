@@ -47,6 +47,7 @@ import {
   styleUrl,
 } from './constants';
 import { ColorView, colorScheme } from './views';
+import { coverageCollection, coverageProblems } from './coverage_check';
 import {
   addAttribution,
   addHouseIcon,
@@ -112,6 +113,11 @@ const savedProvider = (): MapProviderKey => {
 const FIT_PADDING = 80;
 
 const HOVER_FADE_MS = 140;
+
+const COVERAGE_SOURCE = 'coverage-check';
+const COVERAGE_VEIL = 'coverage-check-veil';
+const COVERAGE_FILL = 'coverage-check-fill';
+const COVERAGE_LINE = 'coverage-check-line';
 
 // the congregation's outline stands out from the territories' borders at
 // every zoom, and runs just outside them so it hides none
@@ -828,6 +834,86 @@ const useTerritoriesMap = () => {
     );
   }, [showNumbers, showHouseholds, provider, styleVersion]);
 
+  // gaps and overlaps: everything else washes out, so only they stand out.
+  // Only while choosing what to edit; editing anything ends it
+  const [coverageCheck, setCoverageCheck] = useState(false);
+  const coverageOn = coverageCheck && editMode && !editor.editing;
+
+  const coverage = useMemo(() => {
+    if (!coverageOn) return undefined;
+    try {
+      return coverageProblems(congregationBoundary, territories);
+    } catch (error) {
+      // a self-crossing border can defeat the geometry; better no check
+      console.error('coverage check failed', error);
+      return null;
+    }
+  }, [coverageOn, congregationBoundary, territories]);
+
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !styleVersion || !coverage) return;
+
+    instance.addSource(COVERAGE_SOURCE, {
+      type: 'geojson',
+      data: coverageCollection(coverage),
+    });
+    const before = instance.getLayer(LABEL_CAPTION_LAYER)
+      ? LABEL_CAPTION_LAYER
+      : undefined;
+    const problemColor: maplibregl.ExpressionSpecification = [
+      'match',
+      ['get', 'kind'],
+      'gap',
+      MAP_COLORS.red,
+      MAP_COLORS.orange,
+    ];
+    instance.addLayer(
+      {
+        id: COVERAGE_VEIL,
+        type: 'fill',
+        source: COVERAGE_SOURCE,
+        filter: ['==', ['get', 'kind'], 'veil'],
+        paint: {
+          'fill-color': getCSSPropertyValue('--white'),
+          'fill-opacity': 0.75,
+        },
+      },
+      before
+    );
+    instance.addLayer(
+      {
+        id: COVERAGE_FILL,
+        type: 'fill',
+        source: COVERAGE_SOURCE,
+        filter: ['!=', ['get', 'kind'], 'veil'],
+        paint: { 'fill-color': problemColor, 'fill-opacity': 0.45 },
+      },
+      before
+    );
+    instance.addLayer(
+      {
+        id: COVERAGE_LINE,
+        type: 'line',
+        source: COVERAGE_SOURCE,
+        filter: ['!=', ['get', 'kind'], 'veil'],
+        paint: { 'line-color': problemColor, 'line-width': 2 },
+      },
+      before
+    );
+
+    return () => {
+      // the style may have been swapped underneath in the meantime
+      if (!instance.getStyle()) return;
+      for (const id of [COVERAGE_LINE, COVERAGE_FILL, COVERAGE_VEIL]) {
+        if (instance.getLayer(id)) instance.removeLayer(id);
+      }
+      if (instance.getSource(COVERAGE_SOURCE)) {
+        instance.removeSource(COVERAGE_SOURCE);
+      }
+    };
+  }, [coverage, styleVersion]);
+
   useEffect(() => {
     if (!ready || !selected?.boundary?.length) return;
 
@@ -1104,6 +1190,11 @@ const useTerritoriesMap = () => {
     zoomOut: () => map.current?.zoomTo(map.current.getZoom() - ZOOM_STEP),
     locate,
     fitAll,
+    coverageCheck: coverageOn,
+    coverageCounts: coverage
+      ? { gaps: coverage.gaps.length, overlaps: coverage.overlaps.length }
+      : undefined,
+    toggleCoverageCheck: () => setCoverageCheck((on) => !on),
     editor,
     startEditing,
     editArea,

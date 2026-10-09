@@ -329,6 +329,16 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
     />
   );
 
+  // while checking, the hint reports what the check found
+  const counts = map.coverageCounts;
+  let coverageHint: string | undefined;
+  if (map.coverageCheck && counts) {
+    coverageHint =
+      counts.gaps + counts.overlaps === 0
+        ? tx('No gaps or overlaps')
+        : tx('Gaps: {{gaps}} · Overlaps: {{overlaps}}', counts);
+  }
+
   // shaped like the switch, so the two read as one control and its state
   const selectHint = map.mode === 'edit' && !editor.editing && (
     <Box
@@ -348,7 +358,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
     >
       <IconInfo color="var(--grey-400)" width={20} height={20} />
       <Typography className="body-small-regular" color="var(--grey-400)" noWrap>
-        {tx('Select a territory')}
+        {coverageHint ?? tx('Select a territory')}
       </Typography>
     </Box>
   );
@@ -598,6 +608,8 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
               <IdleRail
                 onNewTerritory={() => setNewTerritory(true)}
                 onCongregation={() => map.startEditing('congregation')}
+                checking={map.coverageCheck}
+                onCheck={map.toggleCoverageCheck}
               />
             )}
           </Box>

@@ -8,6 +8,7 @@ export { default as IconAdd } from './IconAdd';
 export { default as IconAddLocation } from './IconAddLocation';
 export { default as IconCropFree } from './IconCropFree';
 export { default as IconFence } from './IconFence';
+export { default as IconFrameInspect } from './IconFrameInspect';
 export { default as IconPolyline } from './IconPolyline';
 export { default as IconAdmin } from './IconAdmin';
 export { default as IconAirplaneTicket } from './IconAirplaneTicket';

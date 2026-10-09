@@ -597,5 +597,8 @@
   "New territory with map": "Neues Gebiet mit Karte",
   "Give it a number and a locality, then draw its border.": "Gib ihm eine Nummer und einen Ort, dann zeichne seine Grenze.",
   "Draw border": "Grenze zeichnen",
-  "Move the map": "Karte bewegen"
+  "Move the map": "Karte bewegen",
+  "Gaps and overlaps": "Lücken und Überschneidungen",
+  "No gaps or overlaps": "Keine Lücken oder Überschneidungen",
+  "Gaps: {{gaps}} · Overlaps: {{overlaps}}": "Lücken: {{gaps}} · Überschneidungen: {{overlaps}}"
 }

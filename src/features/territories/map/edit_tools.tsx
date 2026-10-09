@@ -21,6 +21,7 @@ import {
   IconDrawShape,
   IconEdit,
   IconFence,
+  IconFrameInspect,
   IconMoveAround,
   IconRedo,
   IconPolyline,
@@ -118,9 +119,13 @@ const Divider = ({ vertical }: { vertical: boolean }) => (
 export const IdleRail = ({
   onNewTerritory,
   onCongregation,
+  checking,
+  onCheck,
 }: {
   onNewTerritory: VoidFunction;
   onCongregation: VoidFunction;
+  checking: boolean;
+  onCheck: VoidFunction;
 }) => (
   <Stack direction="column" sx={SHELL}>
     <IconButton
@@ -139,6 +144,13 @@ export const IdleRail = ({
       label={tx('Congregation area')}
       icon={<IconCropFree />}
       onClick={onCongregation}
+    />
+    <Divider vertical />
+    <IconButton
+      label={tx('Gaps and overlaps')}
+      icon={<IconFrameInspect />}
+      active={checking}
+      onClick={onCheck}
     />
   </Stack>
 );
