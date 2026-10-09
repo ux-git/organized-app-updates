@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Box } from '@mui/material';
 import {
   IconAdd,
-  IconAddLocation,
+  IconMapAdd,
   IconRaiseHand,
   IconMapOverview,
   IconAssignmetHistory,
@@ -75,7 +75,7 @@ const Territories = () => {
       {isTerritoryEditor && (
         <NavBarButton
           text={tx('New territory with map')}
-          icon={<IconAddLocation />}
+          icon={<IconMapAdd />}
           onClick={() => setNewOnMap(true)}
         />
       )}

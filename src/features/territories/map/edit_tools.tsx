@@ -11,7 +11,7 @@ import { Button, CustomDivider, Typography } from '@components/index';
 import Tooltip from '@components/tooltip';
 import {
   IconActivityZone,
-  IconAddLocation,
+  IconMapAdd,
   IconAddPin,
   IconCheck,
   IconCropFree,
@@ -137,7 +137,7 @@ export const IdleRail = ({
     <Divider vertical />
     <IconButton
       label={tx('New territory with map')}
-      icon={<IconAddLocation />}
+      icon={<IconMapAdd />}
       onClick={onNewTerritory}
     />
     <IconButton

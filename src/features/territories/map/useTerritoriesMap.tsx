@@ -507,7 +507,7 @@ const useTerritoriesMap = () => {
         // the glyph box isn't the ink: the font keeps room above capitals
         // and a wider bearing on the left, so the badge is padded to centre
         // the ink itself (measured within half a pixel)
-        'icon-text-fit-padding': [-1, 4.5, 3, 3.5],
+        'icon-text-fit-padding': [0, 4.5, 2, 3.5],
         'icon-allow-overlap': false,
         // the biggest territories claim their place first
         'symbol-sort-key': ['get', 'labelZoom'],
