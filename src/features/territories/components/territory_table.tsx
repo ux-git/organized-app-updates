@@ -799,14 +799,12 @@ const TerritoryTable = ({
         sx={{
           // every row carries the line above it; the first one's is cut off
           // here, as a sibling rule would restyle all rows on each change
-          marginTop: '-3px',
-          clipPath: 'inset(3px 0 0 0)',
+          marginTop: '-5px',
+          clipPath: 'inset(5px -24px -24px -24px)',
           '& > div': {
             marginTop: '2px',
             paddingTop: '2px',
             borderTop: '1px solid var(--accent-200)',
-          },
-          '& > div': {
             contentVisibility: 'auto',
             containIntrinsicSize: 'auto 60px',
           },
