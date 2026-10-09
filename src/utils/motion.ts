@@ -4,6 +4,8 @@ import { keyframes } from '@mui/material';
 // Material 3 motion tokens, so every view change in the app moves alike
 export const EASE_STANDARD = 'cubic-bezier(0.2, 0, 0, 1)';
 export const EASE_DECELERATE = 'cubic-bezier(0.05, 0.7, 0.1, 1)';
+// iOS's sheet and page curve: quick start, long soft landing
+export const EASE_GLIDE = 'cubic-bezier(0.32, 0.72, 0, 1)';
 export const DURATION_SHORT = 200;
 export const DURATION_MEDIUM = 300;
 
@@ -36,13 +38,15 @@ export const useSlideIn = (step: number) => {
     if (from === step || !element) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
+    // a short glide that settles softly; the content never fades out
+    // fully, so the swap doesn't blink
     const side = step > from ? 1 : -1;
     element.animate(
       [
-        { opacity: 0, transform: `translateX(${side * 24}px)` },
+        { opacity: 0.6, transform: `translateX(${side * 16}px)` },
         { opacity: 1, transform: 'none' },
       ],
-      { duration: DURATION_MEDIUM, easing: EASE_DECELERATE }
+      { duration: 380, easing: EASE_GLIDE }
     );
   }, [step]);
 
