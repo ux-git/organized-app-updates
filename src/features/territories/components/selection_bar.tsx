@@ -4,13 +4,9 @@ import { useBreakpoints } from '@hooks/index';
 import { Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 import { selectionActions } from './selection_actions';
+import { DONE_COLOR } from './done_color';
 
-// like the done button in the rows: green, neutral where green is the accent
-const done = {
-  '--done': 'var(--green-main)',
-  '[data-theme^="green"] &': { '--done': 'var(--black)' },
-  color: 'var(--done)',
-};
+const done = { ...DONE_COLOR, color: 'var(--done)' };
 
 type SelectionBarProps = {
   selected: Territory[];

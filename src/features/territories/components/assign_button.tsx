@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import { Button } from '@components/index';
 import { IconCheckThin, IconMoveItem, IconRaiseHand } from '@icons/index';
 import ReviewDialog from './review_dialog';
+import { DONE_COLOR } from './done_color';
 import { Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
 
@@ -97,11 +98,9 @@ const AssignButton = ({
           padding: compact ? '4px' : '2px 8px',
           minWidth: 'unset',
           justifyContent: 'flex-start',
-          // the palette has no green-dark for small buttons, and in the green
-          // schemes green is the accent, so done turns neutral there
+          // the palette has no green-dark for small buttons
           ...(color === 'green' && {
-            '--done': 'var(--green-main)',
-            '[data-theme^="green"] &': { '--done': 'var(--black)' },
+            ...DONE_COLOR,
             color: 'var(--done)',
             '& svg, & svg g, & svg g path': { fill: 'var(--done)' },
           }),
