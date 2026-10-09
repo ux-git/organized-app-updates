@@ -8,7 +8,7 @@ type IconProps = {
   className?: string;
 };
 
-const IconArrowForward = ({
+const IconMoveItem = ({
   color = '#222222',
   width = 24,
   height = 24,
@@ -18,7 +18,7 @@ const IconArrowForward = ({
   const theme = useTheme();
   return (
     <SvgIcon
-      className={`organized-icon-arrow-forward ${className}`}
+      className={`organized-icon-move-item ${className}`}
       sx={{
         width: `${width}px`,
         height: `${height}px`,
@@ -34,7 +34,7 @@ const IconArrowForward = ({
         xmlns="http://www.w3.org/2000/svg"
       >
         <path
-          d="M647-440H160v-80h487L423-744l57-56 320 320-320 320-57-56 224-224Z"
+          d="M814.85-450H343.08v-60h471.77l-72.77-72.77 42.15-43.38L930.38-480 784.23-333.85l-42.15-43.38L814.85-450ZM608.08-605.39v-142.3q0-5.39-3.46-8.85-3.47-3.46-8.85-3.46H212.31q-5.39 0-8.85 3.46t-3.46 8.85v535.38q0 5.39 3.46 8.85t8.85 3.46h383.46q5.38 0 8.85-3.46 3.46-3.46 3.46-8.85v-142.3h60v142.3q0 29.92-21.2 51.12Q625.69-140 595.77-140H212.31q-29.92 0-51.12-21.19Q140-182.39 140-212.31v-535.38q0-29.92 21.19-51.12Q182.39-820 212.31-820h383.46q29.92 0 51.11 21.19 21.2 21.2 21.2 51.12v142.3h-60Z"
           fill={color}
         />
       </svg>
@@ -42,4 +42,4 @@ const IconArrowForward = ({
   );
 };
 
-export default IconArrowForward;
+export default IconMoveItem;

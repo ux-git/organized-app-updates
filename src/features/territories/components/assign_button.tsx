@@ -1,7 +1,7 @@
 import { MouseEvent, useState } from 'react';
 import { Box } from '@mui/material';
 import { Button } from '@components/index';
-import { IconArrowForward, IconCheck, IconRaiseHand } from '@icons/index';
+import { IconCheck, IconMoveItem, IconRaiseHand } from '@icons/index';
 import ReviewDialog from './review_dialog';
 import { Territory } from '@definition/territory';
 import { tx } from '@services/i18n/translation';
@@ -36,7 +36,7 @@ const lookOf = (isAssigned: boolean, isRequested: boolean) => {
   return {
     label: 'Assign',
     color: undefined,
-    icon: <IconArrowForward color="var(--accent-dark)" />,
+    icon: <IconMoveItem color="var(--accent-dark)" />,
   };
 };
 

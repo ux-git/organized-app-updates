@@ -11,7 +11,7 @@ export { default as IconAirportShuttle } from './IconAirportShuttle';
 export { default as IconApplications } from './IconApplications';
 export { default as IconArrowBack } from './IconArrowBack';
 export { default as IconArrowLink } from './IconArrowLink';
-export { default as IconArrowForward } from './IconArrowForward';
+export { default as IconMoveItem } from './IconMoveItem';
 export { default as IconArrowDown } from './IconArrowDown';
 export { default as IconAssign } from './IconAssign';
 export { default as IconAssigned } from './IconAssigned';
