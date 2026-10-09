@@ -58,6 +58,15 @@ export const sanitizeCoordinates = <
 };
 
 // with the inside on the left, a line offset to the right runs outside
+// a ring stored open is closed for drawing: MapLibre strokes an open ring
+// as a line with two loose ends, which shows as a notch where it starts,
+// worst on an offset border at a sharp corner
+export const closedRing = (ring: TerritoryBoundary): TerritoryBoundary => {
+  if (ring.length < 3) return ring;
+  const [first, last] = [ring[0], ring[ring.length - 1]];
+  return first[0] === last[0] && first[1] === last[1] ? ring : [...ring, first];
+};
+
 export const counterClockwise = (
   ring: TerritoryBoundary
 ): TerritoryBoundary => {
@@ -113,7 +122,7 @@ const boundaryFeature = (
       fill: options.fill || options.color,
       filled: options.fill !== '',
     },
-    geometry: { type: 'Polygon', coordinates: [boundary] },
+    geometry: { type: 'Polygon', coordinates: [closedRing(boundary)] },
   };
 };
 

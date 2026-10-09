@@ -20,10 +20,10 @@ import {
   IconDrawLine,
   IconDrawShape,
   IconEdit,
-  IconEditPoints,
+  IconFence,
   IconMoveAround,
   IconRedo,
-  IconShapes,
+  IconPolyline,
   IconSolidLine,
   IconTypeText,
   IconUndo,
@@ -181,7 +181,7 @@ export const EditRail = ({
           {tool(
             'points',
             tx('Adjust points'),
-            <IconEditPoints />,
+            <IconPolyline />,
             editor.adjustBorder
           )}
         </>
@@ -198,7 +198,7 @@ export const EditRail = ({
       {!congregation && (
         <>
           <Divider vertical={vertical} />
-          {tool('shape', tx('Area'), <IconShapes />)}
+          {tool('shape', tx('Area'), <IconFence />)}
           {tool('line', tx('Line'), <IconDrawLine />)}
           {tool('pin', tx('Pin'), <IconAddPin />)}
           {tool('text', tx('Text'), <IconTypeText />)}
@@ -900,7 +900,7 @@ export const MapContextMenu = ({
     ) {
       entries.push({
         label: tx('Adjust points'),
-        icon: <IconEditPoints />,
+        icon: <IconPolyline />,
         run: () => editor.selectItem(item.id, true),
       });
     }
@@ -947,7 +947,7 @@ export const MapContextMenu = ({
       },
       {
         label: tx('Draw an area'),
-        icon: <IconShapes />,
+        icon: <IconFence />,
         run: () => editor.pickTool('shape'),
       },
       {

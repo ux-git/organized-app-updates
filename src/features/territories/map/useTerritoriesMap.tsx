@@ -72,6 +72,7 @@ import {
   labelCollection,
   mapLocale,
   sanitizeBoundary,
+  closedRing,
   counterClockwise,
 } from './helpers';
 import {
@@ -274,7 +275,7 @@ const useTerritoriesMap = () => {
                 properties: {},
                 geometry: {
                   type: 'Polygon',
-                  coordinates: [borderCoords],
+                  coordinates: [closedRing(borderCoords)],
                 },
               },
             ]
