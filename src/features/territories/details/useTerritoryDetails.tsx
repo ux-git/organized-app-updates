@@ -10,7 +10,7 @@ import { tx } from '@services/i18n/translation';
 import { offerUndo } from '../undo';
 import { restoreTerritory } from '../restore';
 
-const blankTerritory = (): Territory => ({
+export const blankTerritory = (): Territory => ({
   id: `t-${Date.now()}`,
   number: '',
   name: '',
@@ -25,7 +25,7 @@ const blankTerritory = (): Territory => ({
   assignments: [],
 });
 
-const usableNumber = (draft: Territory, territories: Territory[]) => {
+export const usableNumber = (draft: Territory, territories: Territory[]) => {
   const number = draft.number.trim();
 
   return !!number && !territories.some((item) => item.number.trim() === number);

@@ -5,6 +5,7 @@ export { default as IconAddPerson } from './IconAddPerson';
 export { default as IconAddPin } from './IconAddPin';
 export { default as IconAddTime } from './IconAddTime';
 export { default as IconAdd } from './IconAdd';
+export { default as IconAddLocation } from './IconAddLocation';
 export { default as IconAdmin } from './IconAdmin';
 export { default as IconAirplaneTicket } from './IconAirplaneTicket';
 export { default as IconAirportShuttle } from './IconAirportShuttle';

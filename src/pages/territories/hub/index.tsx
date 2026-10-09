@@ -1,7 +1,8 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Box } from '@mui/material';
 import {
   IconAdd,
+  IconAddLocation,
   IconRaiseHand,
   IconMapOverview,
   IconAssignmetHistory,
@@ -15,6 +16,7 @@ import NavBarButton from '@components/nav_bar_button';
 import NavBarButtonGroup from '@components/nav_bar_button_group';
 import PageTitle from '@components/page_title';
 import TerritoriesHub from '@features/territories/hub';
+import NewTerritoryDialog from '@features/territories/components/new_territory_dialog';
 import TerritoriesQuickSettings from '@features/territories/hub/quick_settings';
 import useTerritoriesHub from '@features/territories/hub/useTerritoriesHub';
 import { tx } from '@services/i18n/translation';
@@ -30,6 +32,8 @@ const Territories = () => {
   const localMode = useAtomValue(territoryLocalModeState);
 
   const isFilterSubpage = !desktopUp && hub.filtersOpen;
+
+  const [newOnMap, setNewOnMap] = useState(false);
 
   const { title } = hub;
 
@@ -70,6 +74,13 @@ const Territories = () => {
       )}
       {isTerritoryEditor && (
         <NavBarButton
+          text={tx('New territory with map')}
+          icon={<IconAddLocation />}
+          onClick={() => setNewOnMap(true)}
+        />
+      )}
+      {isTerritoryEditor && (
+        <NavBarButton
           text={tx('Add')}
           icon={<IconAdd />}
           textImportant
@@ -93,6 +104,8 @@ const Territories = () => {
         paddingBottom: tablet688Up ? '0px' : '60px',
       }}
     >
+      {newOnMap && <NewTerritoryDialog onClose={() => setNewOnMap(false)} />}
+
       {hub.quickSettingsOpen && (
         <TerritoriesQuickSettings
           open={hub.quickSettingsOpen}

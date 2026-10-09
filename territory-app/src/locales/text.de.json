@@ -55,7 +55,7 @@
   "Assigned": "Zugeteilt",
   "Assigned date is in the future": "Das Zuteilungsdatum liegt in der Zukunft",
   "Assigned on": "Zugeteilt am",
-  "Assigned to": "Gebiet ausgegeben an",
+  "Assigned to": "Zugeteilt an",
   "Assigned twice": "Doppelt zugeteilt",
   "Assigned twice after a sync: {{names}}. Only the newest assignment should stay open.": "Nach einer Synchronisierung doppelt zugeteilt: {{names}}. Nur die neueste Zuteilung sollte offen bleiben.",
   "Assignment": "Zuteilung",
@@ -587,12 +587,14 @@
   "Request from {{name}} declined": "Anfrage von {{name}} abgelehnt",
   "Assign to": "Zuteilen an",
   "Group": "Gruppe",
-  "Assigned to": "Zugeteilt an",
   "Choose a group": "Wähle eine Gruppe",
   "Choose who it is assigned to": "Wähle, wem es zugeteilt ist",
   "Choose a publisher": "Wähle einen Verkündiger",
   "Out for groups": "Bei Gruppen",
   "Fill in who it is assigned to": "Trag ein, wem es zugeteilt ist",
   "Out for {{group}}, but nobody is named as having it. Open the assignment below and fill in who it is assigned to.": "Zugeteilt an {{group}}, aber ohne Verkündiger. Öffne die Zuteilung unten und trag ein, wem es zugeteilt ist.",
-  "Search groups…": "Gruppe suchen…"
+  "Search groups…": "Gruppe suchen…",
+  "New territory with map": "Neues Gebiet mit Karte",
+  "Give it a number and a locality, then draw its border.": "Gib ihm eine Nummer und einen Ort, dann zeichne seine Grenze.",
+  "Draw border": "Grenze zeichnen"
 }
