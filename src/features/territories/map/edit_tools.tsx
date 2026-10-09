@@ -10,6 +10,7 @@ import { Box, ButtonBase, Menu, MenuItem, Popover, Stack } from '@mui/material';
 import { Button, CustomDivider, Typography } from '@components/index';
 import Tooltip from '@components/tooltip';
 import {
+  IconActivityZone,
   IconAddLocation,
   IconAddPin,
   IconCheck,
@@ -20,7 +21,6 @@ import {
   IconDrawLine,
   IconDrawShape,
   IconEdit,
-  IconFence,
   IconFrameInspect,
   IconMoveAround,
   IconRedo,
@@ -210,7 +210,7 @@ export const EditRail = ({
       {!congregation && (
         <>
           <Divider vertical={vertical} />
-          {tool('shape', tx('Area'), <IconFence />)}
+          {tool('shape', tx('Area'), <IconActivityZone />)}
           {tool('line', tx('Line'), <IconDrawLine />)}
           {tool('pin', tx('Pin'), <IconAddPin />)}
           {tool('text', tx('Text'), <IconTypeText />)}
@@ -959,7 +959,7 @@ export const MapContextMenu = ({
       },
       {
         label: tx('Draw an area'),
-        icon: <IconFence />,
+        icon: <IconActivityZone />,
         run: () => editor.pickTool('shape'),
       },
       {
