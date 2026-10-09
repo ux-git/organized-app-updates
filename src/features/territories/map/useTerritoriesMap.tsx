@@ -36,6 +36,7 @@ import {
   DEFAULT_PROVIDER,
   DEFAULT_ZOOM,
   FILL_LAYER,
+  HOVER_LAYER,
   LABEL_CAPTION_LAYER,
   LABEL_LAYER,
   LABELS_SOURCE,
@@ -357,6 +358,8 @@ const useTerritoriesMap = () => {
     instance.addSource(SOURCE_ID, {
       type: 'geojson',
       data: current.areas,
+      // the territory id names each feature, so hover can mark it
+      promoteId: 'id',
       tolerance: detail.tolerance,
       buffer: detail.buffer,
       maxzoom: detail.sourceMaxZoom,
@@ -408,6 +411,25 @@ const useTerritoriesMap = () => {
       fill: FILL_LAYER,
       line: LINE_LAYER,
     });
+
+    // a light wash over the territory under the pointer, filled or not
+    instance.addLayer(
+      {
+        id: HOVER_LAYER,
+        type: 'fill',
+        source: SOURCE_ID,
+        paint: {
+          'fill-color': getCSSPropertyValue('--accent-main'),
+          'fill-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            0.22,
+            0,
+          ],
+        },
+      },
+      LINE_LAYER
+    );
 
     addDrawingLayers(instance, current.rest, 'drawing', current.selectedId);
     addDoNotCallLayer(instance);
@@ -559,6 +581,29 @@ const useTerritoriesMap = () => {
       instance.getCanvas().style.cursor = 'pointer';
     });
 
+    let hovered: string | number | undefined;
+    const unhover = () => {
+      if (hovered === undefined) return;
+      instance.setFeatureState(
+        { source: SOURCE_ID, id: hovered },
+        { hover: false }
+      );
+      hovered = undefined;
+    };
+    instance.on(
+      'mousemove',
+      FILL_LAYER,
+      (event: maplibregl.MapLayerMouseEvent) => {
+        // while a shape is being drawn, the pointer belongs to the tool
+        const id = editor.active.current ? undefined : event.features?.[0]?.id;
+        if (id === hovered) return;
+        unhover();
+        if (id === undefined) return;
+        hovered = id;
+        instance.setFeatureState({ source: SOURCE_ID, id }, { hover: true });
+      }
+    );
+
     // in edit mode the congregation's outline is something to pick, like a
     // territory: a click opens it
     instance.on('click', CONGREGATION_HIT_LAYER, () => {
@@ -575,6 +620,7 @@ const useTerritoriesMap = () => {
 
     instance.on('mouseleave', FILL_LAYER, () => {
       instance.getCanvas().style.cursor = '';
+      unhover();
     });
 
     const registry = markers.current;

@@ -51,6 +51,7 @@ export const DEFAULT_ZOOM = 13;
 
 export const SOURCE_ID = 'territories';
 export const FILL_LAYER = 'territories-fill';
+export const HOVER_LAYER = 'territories-hover';
 export const LINE_LAYER = 'territories-line';
 export const LABEL_LAYER = 'territories-label';
 export const LABEL_CAPTION_LAYER = 'territories-label-caption';

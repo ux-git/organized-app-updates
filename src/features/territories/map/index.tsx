@@ -347,10 +347,10 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
         border: '1px solid var(--accent-200)',
       }}
     >
-      <IconInfo color="var(--accent-main)" width={20} height={20} />
+      <IconInfo color="var(--grey-400)" width={20} height={20} />
       <Typography
         className="body-small-regular"
-        color="var(--accent-dark)"
+        color="var(--grey-400)"
         noWrap
       >
         {tx('Select a territory')}

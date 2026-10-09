@@ -1,3 +1,4 @@
+import polylabel from 'polylabel';
 import { createElement } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { getCSSPropertyValue } from '@utils/common';
@@ -352,6 +353,20 @@ const labelZoom = (ring: GeoJSON.Position[], box: LabelBox, unknown = 24) => {
 };
 
 // a label on the polygon itself repeats on every tile the area crosses
+// the point deepest inside the area (Mapbox's polylabel), so a number never
+// lands on a border, as an average of the corners can; longitudes are
+// squeezed to true distances first
+const labelPoint = (rings: GeoJSON.Position[][]) => {
+  const lat =
+    rings[0].reduce((sum, point) => sum + point[1], 0) / rings[0].length;
+  const scale = Math.cos((lat * Math.PI) / 180);
+  const squeezed = rings.map((ring) =>
+    ring.map(([x, y]): [number, number] => [x * scale, y])
+  );
+  const [x, y] = polylabel(squeezed, 0.00002);
+  return [x / scale, y];
+};
+
 export const labelCollection = (
   areas: GeoJSON.FeatureCollection<GeoJSON.Polygon>,
   options: { households?: boolean } = {}
@@ -359,8 +374,7 @@ export const labelCollection = (
   type: 'FeatureCollection',
   features: areas.features.map((feature) => {
     const ring = feature.geometry.coordinates[0].slice(0, -1);
-    const lng = ring.reduce((sum, point) => sum + point[0], 0) / ring.length;
-    const lat = ring.reduce((sum, point) => sum + point[1], 0) / ring.length;
+    const [lng, lat] = labelPoint(feature.geometry.coordinates);
 
     const number = String(feature.properties?.number ?? '');
     const detail = String(feature.properties?.detail ?? '');
