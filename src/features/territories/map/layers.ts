@@ -205,10 +205,31 @@ export const addDoNotCallLayer = (
     source: DO_NOT_CALLS,
     minzoom,
     paint: {
-      'circle-radius': 10,
+      // small while the street is still small, growing with the houses
+      'circle-radius': [
+        'interpolate',
+        ['exponential', 1.4],
+        ['zoom'],
+        15,
+        4,
+        17,
+        7,
+        19,
+        11,
+        21,
+        15,
+      ],
       'circle-opacity': 0,
       'circle-stroke-color': MAP_COLORS.red,
-      'circle-stroke-width': 2.5,
+      'circle-stroke-width': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        15,
+        1.5,
+        19,
+        2.5,
+      ],
     },
   });
 };
