@@ -425,9 +425,7 @@ const useTerritoriesMap = () => {
     instance.addSource(CONGREGATION_SOURCE, {
       type: 'geojson',
       data: current.border,
-      // corners closer together than a few pixels at the zoom shown fold
-      // the offset outline over itself, so the tiles drop them
-      tolerance: Math.max(detail.tolerance, 3),
+      tolerance: detail.tolerance,
       buffer: detail.buffer,
       maxzoom: detail.sourceMaxZoom,
     });
