@@ -150,11 +150,11 @@ const BORDER_LINE: maplibregl.ExpressionSpecification = [
   ['linear'],
   ['zoom'],
   9,
-  2.5,
-  13,
-  3,
-  16,
   3.5,
+  13,
+  4.5,
+  16,
+  5,
 ];
 const VEIL_OPACITY = 0.4;
 const WORLD: GeoJSON.Position[] = [
