@@ -60,6 +60,7 @@ export const LABELS_SOURCE = 'territories-labels';
 export const CONGREGATION_SOURCE = 'congregation-boundary';
 export const CONGREGATION_FILL_LAYER = 'congregation-boundary-fill';
 export const CONGREGATION_LINE_LAYER = 'congregation-boundary-line';
+export const CONGREGATION_VEIL_LAYER = 'congregation-boundary-veil';
 export const CONGREGATION_HIT_LAYER = 'congregation-boundary-hit';
 
 // drawings get printed, so they keep a fixed palette instead of the theme

@@ -36,6 +36,7 @@ import {
   CONGREGATION_HIT_LAYER,
   CONGREGATION_LINE_LAYER,
   CONGREGATION_SOURCE,
+  CONGREGATION_VEIL_LAYER,
   DEFAULT_BOUNDARY_STYLE,
   DEFAULT_CENTER,
   DEFAULT_PROVIDER,
@@ -80,7 +81,6 @@ import {
   sanitizeBoundary,
   closedRing,
   counterClockwise,
-  softenSharpCorners,
 } from './helpers';
 import {
   applyBasemapOptions,
@@ -142,31 +142,27 @@ const NOTHING_STAGED: Staged = { created: [], merged: [] };
 
 const NO_PICKS: string[] = [];
 
-// the congregation's outline stands out from the territories' borders at
-// every zoom, and runs just outside them so it hides none
+// the congregation's outline runs on the outline itself, so it lies exactly
+// on the territories' outer borders; a little heavier than theirs, and the
+// land outside is dimmed, so the area reads at a glance
 const BORDER_LINE: maplibregl.ExpressionSpecification = [
   'interpolate',
   ['linear'],
   ['zoom'],
   9,
-  4,
+  2.5,
   13,
-  6,
+  3,
   16,
-  9,
+  3.5,
 ];
-const BORDER_OFFSET: maplibregl.ExpressionSpecification = [
-  'interpolate',
-  ['linear'],
-  ['zoom'],
-  // half the width, plus half a territory border: the whole stroke runs
-  // outside, clear of the territories' own lines
-  9,
-  2.75,
-  13,
-  3.75,
-  16,
-  5.25,
+const VEIL_OPACITY = 0.4;
+const WORLD: GeoJSON.Position[] = [
+  [-180, -85],
+  [180, -85],
+  [180, 85],
+  [-180, 85],
+  [-180, -85],
 ];
 
 const useTerritoriesMap = () => {
@@ -342,10 +338,19 @@ const useTerritoriesMap = () => {
           ? [
               {
                 type: 'Feature',
-                properties: {},
+                properties: { kind: 'area' },
                 geometry: {
                   type: 'Polygon',
-                  coordinates: [closedRing(softenSharpCorners(borderCoords))],
+                  coordinates: [closedRing(borderCoords)],
+                },
+              },
+              // the world with the area cut out
+              {
+                type: 'Feature',
+                properties: { kind: 'veil' },
+                geometry: {
+                  type: 'Polygon',
+                  coordinates: [WORLD, [...closedRing(borderCoords)].reverse()],
                 },
               },
             ]
@@ -445,28 +450,49 @@ const useTerritoriesMap = () => {
       }),
     });
 
+    const isArea: maplibregl.FilterSpecification = [
+      '==',
+      ['get', 'kind'],
+      'area',
+    ];
+
+    instance.addLayer({
+      id: CONGREGATION_VEIL_LAYER,
+      type: 'fill',
+      source: CONGREGATION_SOURCE,
+      filter: ['==', ['get', 'kind'], 'veil'],
+      paint: {
+        'fill-color': getCSSPropertyValue('--white'),
+        'fill-opacity': VEIL_OPACITY,
+      },
+    });
+
     instance.addLayer({
       id: CONGREGATION_FILL_LAYER,
       type: 'fill',
       source: CONGREGATION_SOURCE,
+      filter: isArea,
       paint: {
         'fill-color': getCSSPropertyValue('--accent-main'),
         'fill-opacity': 0.06,
       },
     });
 
+    addBoundaryLayers(instance, SOURCE_ID, {
+      fill: FILL_LAYER,
+      line: LINE_LAYER,
+    });
+
+    // above the territories' borders, which it shares its path with
     instance.addLayer({
       id: CONGREGATION_LINE_LAYER,
       type: 'line',
       source: CONGREGATION_SOURCE,
-      // an offset line takes mitred corners cleanly; round joins on an
-      // offset leave wedges at the corners. The corners are cut to 90° at
-      // most beforehand, so the mitres stay short
-      layout: { 'line-join': 'miter', 'line-miter-limit': 2 },
+      filter: isArea,
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
         'line-color': MAP_COLORS[borderColorRef.current],
         'line-width': BORDER_LINE,
-        'line-offset': BORDER_OFFSET,
         // weak devices draw it solid; dashes cost them frames
         ...(detail.dashedBorder &&
           borderDashedRef.current && { 'line-dasharray': [4, 3] }),
@@ -478,12 +504,8 @@ const useTerritoriesMap = () => {
       id: CONGREGATION_HIT_LAYER,
       type: 'line',
       source: CONGREGATION_SOURCE,
+      filter: isArea,
       paint: { 'line-width': 16, 'line-opacity': 0 },
-    });
-
-    addBoundaryLayers(instance, SOURCE_ID, {
-      fill: FILL_LAYER,
-      line: LINE_LAYER,
     });
 
     // the territory under the pointer deepens in its own colour (status,
@@ -850,6 +872,7 @@ const useTerritoriesMap = () => {
     set(LINE_LAYER, 'line-opacity', fade);
     set(CONGREGATION_FILL_LAYER, 'fill-opacity', 0.06 * fade);
     set(CONGREGATION_LINE_LAYER, 'line-opacity', fade);
+    set(CONGREGATION_VEIL_LAYER, 'fill-opacity', VEIL_OPACITY * fade);
     set('drawing-shapes-fill', 'fill-opacity', 0.35 * fade);
 
     for (const layer of [
