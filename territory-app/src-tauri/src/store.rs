@@ -1960,6 +1960,23 @@ impl Store {
         Ok(())
     }
 
+    /// A one-way transfer shows what its sender holds, with no session to
+    /// say so: kept with what is already known of it, never lowered.
+    pub fn note_held(&self, id: &str, theirs: &Versions) -> Result<()> {
+        let known: Option<String> = self
+            .conn
+            .query_row("SELECT versions FROM peers WHERE id = ?1", [id], |r| r.get(0))
+            .optional()
+            .map_err(err)?;
+        let Some(known) = known else { return Ok(()) };
+        let mut held: Versions = serde_json::from_str(&known).unwrap_or_default();
+        for (origin, seq) in theirs {
+            let entry = held.entry(origin.clone()).or_insert(0);
+            *entry = (*entry).max(*seq);
+        }
+        self.record_sync(id, &held)
+    }
+
     /// Changes no paired phone has received yet. Once one has them, they
     /// travel on through the circle.
     pub fn unsynced(&self) -> Result<i64> {

@@ -209,6 +209,9 @@ pub fn import(store: &mut Store, text: &str) -> Result<Imported> {
             .collect(),
     };
     let applied = store.merge(&contents.cells, &contents.versions, &adopt)?;
+    // the sender holds what it sent from; without this, everything here
+    // would count as still to send to it
+    store.note_held(&peer.id, &contents.versions)?;
     store.log_sync(&peer.id, &peer.name, 0, &[], &applied, &[])?;
     Ok(Imported {
         name: peer.name,
@@ -238,6 +241,8 @@ mod tests {
         assert_eq!(imported.name, "Anna");
         assert_eq!(imported.received, 1);
         assert_eq!(b.list("territories").unwrap(), a.list("territories").unwrap());
+        // the sender already has what it sent, so nothing waits to go back
+        assert_eq!(b.unsynced().unwrap(), 0);
     }
 
     #[test]
