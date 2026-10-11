@@ -101,6 +101,8 @@ const TabSwitcher = <T extends string = string>({
           // eases off gently and lands softly, never past the track's edge
           transition: 'transform 0.42s cubic-bezier(0.65, 0, 0.35, 1)',
           opacity: activeIndex === -1 ? 0 : 1,
+          // over a tab's hover shade, under its label
+          zIndex: 1,
         }}
       >
         <Box
@@ -138,7 +140,6 @@ const TabSwitcher = <T extends string = string>({
             }
             sx={{
               position: 'relative',
-              zIndex: 1,
               flex: 1,
               minWidth: 0,
               display: 'flex',
@@ -150,12 +151,20 @@ const TabSwitcher = <T extends string = string>({
               borderRadius: 'var(--radius-s)',
               fontFamily: 'inherit',
               color: isActive ? 'var(--accent-dark)' : 'var(--accent-400)',
-              transition:
-                'color 0.12s ease-out, background-color 0.12s ease-out',
-              // an inactive tab lightens a shade under the pointer
+              transition: 'color 0.12s ease-out',
+              '& > *': { position: 'relative', zIndex: 2 },
+              // an inactive tab lightens a shade under the pointer; the
+              // shade lies under the thumb, which may still be sliding off it
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                inset: 0,
+                borderRadius: 'inherit',
+                transition: 'background-color 0.12s ease-out',
+              },
               ...(!isActive && {
                 '@media (hover: hover)': {
-                  '&:hover': {
+                  '&:hover::before': {
                     backgroundColor: `color-mix(in srgb, ${palette.track}, var(--accent-200) 40%)`,
                   },
                 },
