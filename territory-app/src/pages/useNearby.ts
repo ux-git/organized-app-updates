@@ -74,8 +74,12 @@ export type NearbyStatus = {
 };
 
 /** Changes some paired phone doesn't have yet: all synced only when none. */
-export const unsynced = (peers: Peer[]) =>
-  peers.length ? Math.max(...peers.map((peer) => peer.pending)) : 0;
+// A phone never synced with this one can't be judged from here: it may well
+// have everything through the others, so it doesn't count the whole store
+export const unsynced = (peers: Peer[]) => {
+  const known = peers.filter((peer) => peer.last_sync);
+  return known.length ? Math.max(...known.map((peer) => peer.pending)) : 0;
+};
 
 // the last answers, so a page opened again starts from them instead of empty
 const known = {

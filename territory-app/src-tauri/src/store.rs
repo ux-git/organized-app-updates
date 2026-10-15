@@ -616,20 +616,26 @@ impl Store {
         Ok(cells)
     }
 
-    /// How many cells `changes_since` would return, without reading them.
+    /// How many records `changes_since` would touch: a new territory is one
+    /// change to the people using it, not one per field.
     fn pending(&self, seen: &Versions) -> Result<i64> {
         let mut stmt = self
             .conn
-            .prepare("SELECT COUNT(*) FROM cells WHERE origin = ?1 AND seq > ?2")
+            .prepare("SELECT DISTINCT tbl, id FROM cells WHERE origin = ?1 AND seq > ?2")
             .map_err(err)?;
-        let mut count = 0;
+        let mut records = std::collections::BTreeSet::new();
         for origin in self.origins()? {
             let since = seen.get(&origin).copied().unwrap_or(0);
-            count += stmt
-                .query_row(params![origin, since], |r| r.get::<_, i64>(0))
+            let rows = stmt
+                .query_map(params![origin, since], |r| {
+                    Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+                })
                 .map_err(err)?;
+            for row in rows {
+                records.insert(row.map_err(err)?);
+            }
         }
-        Ok(count)
+        Ok(records.len() as i64)
     }
 
     /// Paired phones hold more of this phone's changes than it does: it was
@@ -2712,6 +2718,16 @@ mod tests {
         a.add_peer(&peer_of(&b)).unwrap();
         a.record_sync(&b.identity.id, &seen).unwrap();
         assert_eq!(a.peers().unwrap()[0].pending, 2);
+    }
+
+    #[test]
+    fn pending_counts_records_not_fields() {
+        let mut a = Store::in_memory().unwrap();
+        let b = Store::in_memory().unwrap();
+        a.add_peer(&peer_of(&b)).unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "1", "name": "A", "city": "B"})))
+            .unwrap();
+        assert_eq!(a.peers().unwrap()[0].pending, 1);
     }
 
     fn scratch(name: &str) -> std::path::PathBuf {
