@@ -304,6 +304,8 @@
   "Return {{number}}": "{{number}} erledigen",
   "Return: {{n}}": "Erledigen: {{n}}",
   "Return {{n}}": "{{n}} erledigen",
+  "Return {{n}} territories": "{{n}} Gebiete erledigen",
+  "Return {{n}} territory": "{{n}} Gebiet erledigen",
   "Returned before it was assigned": "Vor der Zuteilung zurückgegeben",
   "Returned date is in the future": "Das Rückgabedatum liegt in der Zukunft",
   "Returned by": "Zurückgegeben von",

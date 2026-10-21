@@ -41,6 +41,7 @@ import BoardView from '../components/board_view';
 import CampaignBanner from '../components/campaign_banner';
 import AssignDialog from '../components/assign_dialog';
 import AssignReturnDialogs from '../components/assign_return_dialogs';
+import ReturnManyDialog from '../components/return_many_dialog';
 import MyHistory from '../components/my_history';
 import SelectionBar from '../components/selection_bar';
 import DialogActions from '@components/dialog_actions';
@@ -262,6 +263,9 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     setAssignId,
     assignManyOpen,
     setAssignManyOpen,
+    returnManyOpen,
+    setReturnManyOpen,
+    returnable,
     assignableCount,
     isBrowsing,
     isOwnTab: isMine,
@@ -346,7 +350,7 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     <SelectionBar
       selected={selected}
       onAssignMany={() => setAssignManyOpen(true)}
-      onReturnMany={returnMany}
+      onReturnMany={() => setReturnManyOpen(true)}
       onClear={hub.clearChecked}
     />
   );
@@ -494,6 +498,14 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
           doNotCalls={manyDoNotCalls}
           onClose={() => setAssignManyOpen(false)}
           onAssign={assignMany}
+        />
+      )}
+
+      {returnManyOpen && (
+        <ReturnManyDialog
+          territories={returnable}
+          onClose={() => setReturnManyOpen(false)}
+          onReturn={returnMany}
         />
       )}
 

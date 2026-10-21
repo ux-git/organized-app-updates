@@ -103,6 +103,7 @@ const useTerritoriesHub = () => {
   }, [checked]);
   const [quickSettingsOpen, setQuickSettingsOpen] = useState(false);
   const [assignManyOpen, setAssignManyOpen] = useState(false);
+  const [returnManyOpen, setReturnManyOpen] = useState(false);
   const { desktopUp } = useBreakpoints();
 
   // in the URL, so the device back gesture closes the filters on small screens
@@ -303,16 +304,19 @@ const useTerritoriesHub = () => {
     clearChecked();
   };
 
-  const returnMany = () => {
-    const ids = selected
-      .filter(
-        (territory) =>
-          territory.status === 'in_work' || territory.status === 'overdue'
-      )
-      .map((territory) => territory.id);
+  const returnable = selected.filter(
+    (territory) =>
+      territory.status === 'in_work' || territory.status === 'overdue'
+  );
 
-    actions.returnMany(ids);
+  const returnMany = (returnedOn: Date, publisher?: string) => {
+    actions.returnMany(
+      returnable.map((territory) => territory.id),
+      returnedOn,
+      publisher
+    );
 
+    setReturnManyOpen(false);
     clearChecked();
   };
 
@@ -372,6 +376,9 @@ const useTerritoriesHub = () => {
     setAssignId: actions.openAssign,
     assignManyOpen,
     setAssignManyOpen,
+    returnManyOpen,
+    setReturnManyOpen,
+    returnable,
     assignableCount: selected.filter(
       (territory) => territory.status === 'available'
     ).length,
