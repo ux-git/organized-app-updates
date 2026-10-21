@@ -180,7 +180,9 @@ const SidePanel = ({
     {history && (
       <Box
         sx={{
-          padding: '16px',
+          // the cards' 1px border plus their 16px padding: the dashed line is
+          // drawn inside the box, so their titles and this one line up
+          padding: '17px',
           backgroundColor: 'var(--accent-150)',
           ...dashedBorder({ radius: 12 }),
         }}
