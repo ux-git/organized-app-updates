@@ -7,6 +7,7 @@ import {
 } from './backupApi';
 import {
   dbClearExportState,
+  dbConfirmSentLocalOnly,
   dbExportDataBackup,
   dbGetMetadata,
   dbGetSettings,
@@ -86,6 +87,7 @@ const runBackup = async () => {
 
         if (data.message === 'BACKUP_SENT') {
           backup = 'completed';
+          await dbConfirmSentLocalOnly(reqPayload);
         }
 
         if (retry < 3 && backup !== 'completed') {

@@ -64,6 +64,7 @@ export const TABLE_ENCRYPTION_MAP = {
     attendance_online_record: 'shared',
     attendance_deaf_record: 'shared',
     data_sync: 'public',
+    local_only_categories: 'public',
     responsabilities: 'shared',
     cong_role: 'public',
     account_type: 'public',

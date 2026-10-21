@@ -19,7 +19,7 @@ import {
 } from '@definition/schedules';
 import { SpeakersCongregationsType } from '@definition/speakers_congregations';
 import { VisitingSpeakerType } from '@definition/visiting_speakers';
-import { SettingsType } from '@definition/settings';
+import { LocalOnlySetting, SettingsType } from '@definition/settings';
 import { SourceWeekType } from '@definition/sources';
 import { FieldServiceGroupType } from '@definition/field_service_groups';
 import { UserBibleStudyType } from '@definition/user_bible_studies';
@@ -29,6 +29,7 @@ import { BranchFieldServiceReportType } from '@definition/branch_field_service_r
 import { BranchCongAnalysisType } from '@definition/branch_cong_analysis';
 import { MeetingAttendanceType } from '@definition/meeting_attendance';
 import { MetadataRecordType } from '@definition/metadata';
+import { dbMetadataRearm } from '@services/dexie/metadata';
 import { DelegatedFieldServiceReportType } from '@definition/delegated_field_service_reports';
 import { UpcomingEventType } from '@definition/upcoming_events';
 import { formatDate } from '@utils/date';
@@ -37,6 +38,20 @@ import {
   meetingAttendanceSplitDeaf,
 } from '@utils/meeting_attendance';
 import { APP_READ_ONLY_ROLES } from '@constants/index';
+import {
+  confirmSentLocalOnly,
+  getCategoriesToSkip,
+  getConfirmedLocalOnlyCategories,
+  getForcedUploadCategories,
+  getLocalOnlyCategories,
+  getLocalOnlyCategoriesToPurge,
+  getLocalOnlyCategoriesToRearm,
+  hasEditsSince,
+  isLocalOnlySettingPending,
+  mergeRemoteLocalOnlySetting,
+  remoteSupportsLocalOnly,
+  toUploadCongSettings,
+} from '@utils/local_only';
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -400,6 +415,18 @@ export const dbGetMetadata = async () => {
   if (!isAdmin) {
     delete result.branch_cong_analysis;
     delete result.branch_field_service_reports;
+  }
+
+  const localOnly = getConfirmedLocalOnlyCategories(settings);
+
+  for (const category of localOnly) {
+    delete result[category];
+  }
+
+  // the S-4 queue no longer syncs through backups; queued reports reach the
+  // secretary through the updates endpoint
+  if (localOnly.includes('cong_field_service_reports')) {
+    delete result.incoming_reports;
   }
 
   return result;
@@ -1695,12 +1722,66 @@ const dbInsertMetadata = async (metadata: Record<string, string>) => {
 };
 
 const dbRestoreFromBackup = async (
-  backupData: BackupDataType,
+  remoteBackup: BackupDataType,
   accessCode: string,
   masterKey?: string
 ) => {
   try {
-    await dbRestoreSettings(backupData, accessCode, masterKey);
+    const previousSettings = await dbGetSettings();
+
+    await dbRestoreSettings(remoteBackup, accessCode, masterKey);
+
+    const remoteSetting = mergeRemoteLocalOnlySetting(
+      await dbGetSettings(),
+      remoteBackup
+    );
+
+    if (remoteSetting) {
+      await appDb.app_settings.update(1, {
+        'cong_settings.local_only_categories': remoteSetting,
+      });
+    }
+
+    const settings = await dbGetSettings();
+
+    if (!settings) {
+      throw new Error('Settings not found');
+    }
+
+    const localMetadata = await appDb.metadata.get(1);
+
+    // unsynced edits are left for the cleanup prompt, which offers an export
+    for (const category of getLocalOnlyCategoriesToPurge(
+      previousSettings,
+      settings
+    )) {
+      const categoryMetadata = localMetadata?.metadata[category];
+
+      // only report editors can hold edits of their own; everyone else simply
+      // drops the copy
+      if (isReportEditorRole(settings.user_settings.cong_role)) {
+        if (categoryMetadata?.send_local) continue;
+
+        const records = await appDb[category].toArray();
+
+        if (hasEditsSince(records, categoryMetadata?.version ?? '')) continue;
+      }
+
+      await appDb[category].clear();
+    }
+
+    await dbMetadataRearm(
+      getLocalOnlyCategoriesToRearm(previousSettings, settings)
+    );
+
+    // an API that predates local-only categories still sends them
+    const metadata = { ...remoteBackup.metadata };
+    const backupData: BackupDataType = { ...remoteBackup, metadata };
+
+    for (const category of getCategoriesToSkip(settings, remoteBackup)) {
+      delete backupData[category];
+      delete metadata[category];
+    }
 
     await dbRestorePersons(backupData, accessCode, masterKey);
 
@@ -1812,6 +1893,13 @@ export const dbExportDataBackup = async (backupData: BackupDataType) => {
     } = await dbGetTableData();
 
     const dataSync = settings.cong_settings.data_sync.value;
+    const localOnly = getLocalOnlyCategories(settings);
+
+    const forceUpload = getForcedUploadCategories(settings, backupData);
+
+    // resend the settings until the server holds this device's local-only change
+    const localOnlyPending =
+      remoteSupportsLocalOnly(backupData) && isLocalOnlySettingPending(settings);
     const accountType = settings.user_settings.account_type;
     const userRole = settings.user_settings.cong_role;
 
@@ -1879,12 +1967,15 @@ export const dbExportDataBackup = async (backupData: BackupDataType) => {
             obj.app_settings.user_settings = localSettings.user_settings;
           }
 
-          if (metadata.metadata.cong_settings.send_local) {
+          if (metadata.metadata.cong_settings.send_local || localOnlyPending) {
             if (!obj.app_settings) {
               obj.app_settings = { cong_settings: {} };
             }
 
-            obj.app_settings.cong_settings = localSettings.cong_settings;
+            obj.app_settings.cong_settings = toUploadCongSettings(
+              localSettings.cong_settings,
+              backupData
+            );
           }
         }
 
@@ -2019,7 +2110,9 @@ export const dbExportDataBackup = async (backupData: BackupDataType) => {
         // include field service reports
         if (
           isReportEditorRole(userRole) &&
-          metadata.metadata.cong_field_service_reports.send_local
+          (metadata.metadata.cong_field_service_reports.send_local ||
+            forceUpload.includes('cong_field_service_reports')) &&
+          !localOnly.includes('cong_field_service_reports')
         ) {
           const backupReports = cong_field_service_reports.map((report) => {
             encryptObject({
@@ -2088,7 +2181,11 @@ export const dbExportDataBackup = async (backupData: BackupDataType) => {
         // for admin role
         if (adminRole) {
           // include branch reports
-          if (metadata.metadata.branch_field_service_reports.send_local) {
+          if (
+            (metadata.metadata.branch_field_service_reports.send_local ||
+              forceUpload.includes('branch_field_service_reports')) &&
+            !localOnly.includes('branch_field_service_reports')
+          ) {
             const backupBranchReports = branch_field_service_reports.map(
               (report) => {
                 encryptObject({
@@ -2105,7 +2202,11 @@ export const dbExportDataBackup = async (backupData: BackupDataType) => {
           }
 
           // include branch cong analysis
-          if (metadata.metadata.branch_cong_analysis.send_local) {
+          if (
+            (metadata.metadata.branch_cong_analysis.send_local ||
+              forceUpload.includes('branch_cong_analysis')) &&
+            !localOnly.includes('branch_cong_analysis')
+          ) {
             const backupAnalysis = branch_cong_analysis.map((analysis) => {
               encryptObject({
                 data: analysis,
@@ -2398,6 +2499,27 @@ export const dbExportDataBackup = async (backupData: BackupDataType) => {
   } catch (error) {
     console.error(error);
     throw new Error(getErrorMessage(error));
+  }
+};
+
+export const dbConfirmSentLocalOnly = async (payload: BackupDataType) => {
+  const sent = (
+    payload.app_settings?.cong_settings as
+      | { local_only_categories?: LocalOnlySetting }
+      | undefined
+  )?.local_only_categories;
+
+  const settings = await dbGetSettings();
+
+  const confirmed = confirmSentLocalOnly(
+    settings?.cong_settings.local_only_categories,
+    sent
+  );
+
+  if (confirmed) {
+    await appDb.app_settings.update(1, {
+      'cong_settings.local_only_categories': confirmed,
+    });
   }
 };
 

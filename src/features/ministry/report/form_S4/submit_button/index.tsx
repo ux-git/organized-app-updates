@@ -3,6 +3,7 @@ import { useAppTranslation } from '@hooks/index';
 import { FormS4Props } from '../index.types';
 import useSubmitButton from './useSubmitButton';
 import Button from '@components/button';
+import Typography from '@components/typography';
 import SubmitReport from '../submit_report';
 import WithdrawReport from '../withdraw_report';
 
@@ -12,6 +13,7 @@ const SubmitButton = (props: FormS4Props) => {
   const {
     status,
     disabled,
+    showBlockedHint,
     handleCloseSubmit,
     handleCloseWithdraw,
     handleOpenModal,
@@ -48,6 +50,15 @@ const SubmitButton = (props: FormS4Props) => {
       >
         {status === 'pending' ? t('tr_btnSubmit') : t('tr_undoSubmission')}
       </Button>
+
+      {showBlockedHint && (
+        <Typography
+          className="label-small-regular"
+          sx={{ color: 'var(--grey-350)' }}
+        >
+          {t('tr_localOnlyNoSubmit')}
+        </Typography>
+      )}
     </>
   );
 };

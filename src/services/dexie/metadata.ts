@@ -79,3 +79,17 @@ export const dbMetadataReset = async () => {
     console.error(error);
   }
 };
+
+export const dbMetadataRearm = async (keys: string[]) => {
+  if (keys.length === 0) return;
+
+  const metadata = await appDb.metadata.get(1);
+
+  if (!metadata) return;
+
+  for (const key of keys) {
+    if (metadata.metadata[key]) metadata.metadata[key].send_local = true;
+  }
+
+  await appDb.metadata.put(metadata);
+};

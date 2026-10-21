@@ -1,6 +1,8 @@
 import { UpdateSpec } from 'dexie';
 import {
   FirstDayWeekOption,
+  LocalOnlyCategory,
+  LocalOnlyEntry,
   PublishersSortOption,
   SettingsType,
 } from '@definition/settings';
@@ -341,5 +343,24 @@ export const dbAppSettingsUpdateCongNumber = async () => {
 
   await dbAppSettingsUpdate({
     'cong_settings.cong_number': cong_number,
+  });
+};
+
+// reads the current value inside the transaction, so the other categories are
+// taken from the latest stored settings rather than from the rendered ones
+export const dbLocalOnlyCategoryUpdate = async (
+  category: LocalOnlyCategory,
+  getEntry: (previous: LocalOnlyEntry | undefined) => LocalOnlyEntry
+) => {
+  await appDb.transaction('rw', appDb.app_settings, appDb.metadata, async () => {
+    const settings = await appDb.app_settings.get(1);
+    const current = settings?.cong_settings.local_only_categories;
+
+    await dbAppSettingsUpdate({
+      'cong_settings.local_only_categories': {
+        ...current,
+        [category]: getEntry(current?.[category]),
+      },
+    });
   });
 };

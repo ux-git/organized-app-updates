@@ -17,6 +17,7 @@ import {
   SourceFrequency,
 } from '@definition/settings';
 import { LANGUAGE_LIST } from '@constants/index';
+import { getLocalOnlyCategories } from '@utils/local_only';
 import { AssignmentFieldType } from '@definition/assignment';
 
 export const settingsState = atom(settingSchema);
@@ -331,6 +332,12 @@ export const congDataSyncState = atom((get) => {
   const settings = get(settingsState);
 
   return settings.cong_settings.data_sync.value;
+});
+
+export const localOnlyCategoriesState = atom((get) => {
+  const settings = get(settingsState);
+
+  return getLocalOnlyCategories(settings);
 });
 
 export const languageGroupEnabledState = atom((get) => {

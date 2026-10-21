@@ -9,6 +9,7 @@ import useDashboard from './useDashboard';
 import ActivitiesCard from './activities';
 import CongregationCard from './congregation';
 import LanguageGroupSelector from '@features/language_group_selector';
+import LocalOnlyCleanup from '@features/local_only_cleanup';
 import Markup from '@components/text_markup';
 import MinistryCard from './ministry';
 import MeetingsCard from './meetings';
@@ -44,6 +45,7 @@ const Dashboard = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <LocalOnlyCleanup />
       <PageTitle />
       <Box
         sx={{

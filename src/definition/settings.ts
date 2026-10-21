@@ -9,6 +9,25 @@ export enum FullnameOption {
 
 export type AccountTypeState = 'vip' | 'pocket';
 
+export const LOCAL_ONLY_CATEGORIES = [
+  'cong_field_service_reports',
+  'branch_field_service_reports',
+  'branch_cong_analysis',
+] as const;
+
+export type LocalOnlyCategory = (typeof LOCAL_ONLY_CATEGORIES)[number];
+
+export type LocalOnlyEntry = {
+  value: boolean;
+  updatedAt: string;
+  // false while this device's change has not reached the server yet
+  confirmed?: boolean;
+  // true once uploaded but before the server echoed it back
+  sent?: boolean;
+};
+
+export type LocalOnlySetting = Partial<Record<LocalOnlyCategory, LocalOnlyEntry>>;
+
 /**
  * Names of the avatar illustrations shipped in `@components/profile_avatars`.
  * The order here drives the order shown in the profile picture selector, and
@@ -266,6 +285,7 @@ export type SettingsType = {
       _deleted: boolean;
     }[];
     data_sync: { value: boolean; updatedAt: string };
+    local_only_categories?: LocalOnlySetting;
     responsabilities: {
       coordinator: string;
       secretary: string;

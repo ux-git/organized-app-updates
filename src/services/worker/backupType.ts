@@ -1,4 +1,5 @@
 import { AppRoleType } from '@definition/app';
+import { LocalOnlySetting } from '@definition/settings';
 import { OutgoingTalkExportScheduleType } from '@definition/schedules';
 import { UpcomingEventType } from '@definition/upcoming_events';
 
@@ -35,4 +36,5 @@ export type BackupDataType = {
   cong_users?: CongUserType[];
   metadata?: Record<string, string>;
   delegated_field_service_reports?: object;
+  local_only_categories?: LocalOnlySetting;
 };

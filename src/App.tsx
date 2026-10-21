@@ -89,12 +89,12 @@ const App = ({ updatePwa }: { updatePwa: VoidFunction }) => {
     isAppointed,
     isMidweekEditor,
     isWeekendEditor,
-    isGroupOverseer,
-    isSecretary,
     isPublicTalkCoordinator,
     isServiceCommittee,
     isGroup,
     isLanguageGroupOverseer,
+    isFieldServiceReportViewer,
+    isPublisherRecordsViewer,
   } = useCurrentUser();
 
   const [adapterLocale, setAdapterLocale] = useAtom(appLocaleState);
@@ -187,10 +187,20 @@ const App = ({ updatePwa }: { updatePwa: VoidFunction }) => {
                   path: '/congregation-settings',
                   element: <CongregationSettings />,
                 },
-                { path: '/publisher-records', element: <PublisherRecord /> },
                 {
-                  path: '/publisher-records/:id',
-                  element: <PublisherRecordDetails />,
+                  element: (
+                    <RouteProtected allowed={isPublisherRecordsViewer} />
+                  ),
+                  children: [
+                    {
+                      path: '/publisher-records',
+                      element: <PublisherRecord />,
+                    },
+                    {
+                      path: '/publisher-records/:id',
+                      element: <PublisherRecordDetails />,
+                    },
+                  ],
                 },
 
                 // only if connected
@@ -249,13 +259,7 @@ const App = ({ updatePwa }: { updatePwa: VoidFunction }) => {
 
             // secretary routes and group overseer
             {
-              element: (
-                <RouteProtected
-                  allowed={
-                    isGroupOverseer || isLanguageGroupOverseer || isSecretary
-                  }
-                />
-              ),
+              element: <RouteProtected allowed={isFieldServiceReportViewer} />,
               children: [
                 {
                   path: '/reports/field-service',

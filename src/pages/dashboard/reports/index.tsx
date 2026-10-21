@@ -18,9 +18,8 @@ const ReportsCard = () => {
   const {
     isAttendanceEditor,
     isSecretary,
-    isGroupOverseer,
-    isLanguageGroupOverseer,
-    isElder,
+    isFieldServiceReportViewer,
+    isPublisherRecordsViewer,
     isGroup,
   } = useCurrentUser();
 
@@ -36,7 +35,7 @@ const ReportsCard = () => {
         </ListItem>
       )}
 
-      {(isSecretary || isGroupOverseer || isLanguageGroupOverseer) && (
+      {isFieldServiceReportViewer && (
         <ListItem disablePadding>
           <DashboardMenu
             icon={<IconPublishersReports color="var(--black)" />}
@@ -56,7 +55,7 @@ const ReportsCard = () => {
         </ListItem>
       )}
 
-      {isElder && (
+      {isPublisherRecordsViewer && (
         <ListItem disablePadding>
           <DashboardMenu
             icon={<IconPublisherRecordCard color="var(--black)" />}

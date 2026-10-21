@@ -4,6 +4,7 @@ import { formatDate } from '@utils/date';
 import { personsState } from '@states/persons';
 import {
   accountTypeState,
+  localOnlyCategoriesState,
   settingsState,
   userDataViewState,
   userLocalUIDState,
@@ -30,6 +31,7 @@ const useCurrentUser = () => {
   const fieldGroups = useAtomValue(fieldWithLanguageGroupsState);
   const languageGroups = useAtomValue(languageGroupsState);
   const dataView = useAtomValue(userDataViewState);
+  const localOnly = useAtomValue(localOnlyCategoriesState);
 
   const person = useMemo(() => {
     return persons.find((record) => record.person_uid === userUID);
@@ -297,6 +299,27 @@ const useCurrentUser = () => {
     return false;
   }, [isGroup, isAdmin, isLanguageGroupOverseer]);
 
+  const congReportsLocalOnly = localOnly.includes('cong_field_service_reports');
+
+  // only admin devices keep reports once they are local-only
+  const isFieldServiceReportViewer = useMemo(() => {
+    if (!isSecretary && !isGroupOverseer && !isLanguageGroupOverseer) {
+      return false;
+    }
+
+    return isAdmin || !congReportsLocalOnly;
+  }, [
+    isAdmin,
+    isSecretary,
+    isGroupOverseer,
+    isLanguageGroupOverseer,
+    congReportsLocalOnly,
+  ]);
+
+  const isPublisherRecordsViewer = useMemo(() => {
+    return isElder && (isAdmin || !congReportsLocalOnly);
+  }, [isElder, isAdmin, congReportsLocalOnly]);
+
   return {
     person,
     first_report,
@@ -321,6 +344,8 @@ const useCurrentUser = () => {
     languageGroup,
     isLanguageGroupOverseer,
     isSettingsEditor,
+    isFieldServiceReportViewer,
+    isPublisherRecordsViewer,
   };
 };
 
