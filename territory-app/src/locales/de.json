@@ -250,7 +250,10 @@
     "wayMine": "Mein Code",
     "wayMineText": "Zum Scannen zeigen",
     "found_one": "{{count}} Gerät gefunden",
-    "found_other": "{{count}} Geräte gefunden"
+    "found_other": "{{count}} Geräte gefunden",
+    "waitingTitle": "Noch nicht synchronisiert",
+    "waitingText": "Änderungen auf diesem Gerät, die ein gekoppeltes Gerät noch nicht hat.",
+    "waitingMore": "Und {{count}} weitere"
   },
   "receive": {
     "paired": "Gerät gekoppelt",

@@ -250,7 +250,10 @@
     "wayMine": "My code",
     "wayMineText": "For the other to scan",
     "found_one": "{{count}} device found",
-    "found_other": "{{count}} devices found"
+    "found_other": "{{count}} devices found",
+    "waitingTitle": "Not synced yet",
+    "waitingText": "Changes on this device that a paired device doesn’t have yet.",
+    "waitingMore": "And {{count}} more"
   },
   "receive": {
     "paired": "Device paired",

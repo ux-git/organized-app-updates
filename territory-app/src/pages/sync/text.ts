@@ -152,6 +152,18 @@ export const fieldName = (field: string) =>
     ? t(`decisions.${field}`)
     : field.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
 
+const OWN_FIELDS = ['boundaryStyle', 'mapLines', 'mapShapes', 'mapMarkers'];
+
+export const fieldLabel = (field: string) =>
+  OWN_FIELDS.includes(field) ? t(`changes.${field}`) : fieldName(field);
+
+/** A changed record as the core describes it, for its title. */
+export type Described = {
+  table: string;
+  territory: { id: string; number: unknown; name: unknown } | null;
+  context: Record<string, unknown>;
+};
+
 // an assignment's group goes first, as on the territory pages
 export const showHolder = (record: Record<string, unknown>) =>
   typeof record.group === 'string' && record.group
@@ -170,4 +182,28 @@ export const show = (value: unknown) => {
   }
   if (typeof value === 'object') return t('decisions.changed');
   return String(value);
+};
+
+export const title = (change: Described) => {
+  const number = change.territory?.number ?? '?';
+  switch (change.table) {
+    case 'territories':
+      return t('decisions.territory', {
+        number,
+        name: change.territory?.name ?? '',
+      }).trim();
+    case 'assignments':
+      return t('decisions.assignment', {
+        number,
+        publisher: showHolder(change.context),
+      });
+    case 'do_not_calls':
+      return t('decisions.doNotCall', {
+        address: show(change.context.address),
+      });
+    case 'people':
+      return show(change.context.name);
+    default:
+      return t('decisions.setting');
+  }
 };

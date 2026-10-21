@@ -1258,30 +1258,7 @@ impl Store {
                         "by": name_of(d["by"].as_str().unwrap_or_default()),
                     })
                 });
-            let fields = self.record(&table, &record)?;
-            let territory_id = if table == "territories" {
-                Some(record.clone())
-            } else {
-                fields.get("territory").and_then(Value::as_str).map(String::from)
-            };
-            let territory = match &territory_id {
-                Some(tid) => {
-                    let get = |f: &str| self.field("territories", tid, f);
-                    serde_json::json!({ "id": tid, "number": get("number")?, "name": get("name")? })
-                }
-                None => Value::Null,
-            };
-            // a border is drawn with the others' current parts
-            let mut context = Map::new();
-            for (key, value) in fields {
-                let wanted = match table.as_str() {
-                    "territories" => BORDER.contains(&key.as_str()) || key == "number" || key == "name",
-                    _ => !key.starts_with('_') && key != "order",
-                };
-                if wanted {
-                    context.insert(key, value);
-                }
-            }
+            let (territory, context) = self.describe(&table, &record)?;
             let by = if origin == self.identity.id {
                 self.identity.name.clone()
             } else {
@@ -1307,6 +1284,90 @@ impl Store {
                 "context": context,
             }));
         }
+        Ok(list)
+    }
+
+    /// The territory a record belongs to, and the fields that name it.
+    fn describe(&self, table: &str, record: &str) -> Result<(Value, Map<String, Value>)> {
+        let fields = self.record(table, record)?;
+        let territory_id = if table == "territories" {
+            Some(record.to_string())
+        } else {
+            fields.get("territory").and_then(Value::as_str).map(String::from)
+        };
+        let territory = match &territory_id {
+            Some(tid) => {
+                let get = |f: &str| self.field("territories", tid, f);
+                serde_json::json!({ "id": tid, "number": get("number")?, "name": get("name")? })
+            }
+            None => Value::Null,
+        };
+        // a border is drawn with the others' current parts
+        let mut context = Map::new();
+        for (key, value) in fields {
+            let wanted = match table {
+                "territories" => BORDER.contains(&key.as_str()) || key == "number" || key == "name",
+                _ => !key.starts_with('_') && key != "order",
+            };
+            if wanted {
+                context.insert(key, value);
+            }
+        }
+        Ok((territory, context))
+    }
+
+    /// The records counted as waiting to sync: what the paired phone furthest
+    /// behind is missing, as `peers` counts it, newest first.
+    pub fn waiting(&self) -> Result<Vec<Value>> {
+        let mut behind: Option<(i64, Versions)> = None;
+        // as the app counts: a phone never synced with doesn't count
+        for (_, versions) in self.paired_where("last_sync > 0", [])? {
+            let seen: Versions = serde_json::from_str(&versions).unwrap_or_default();
+            let count = self.pending(&seen)?;
+            if behind.as_ref().map_or(true, |(most, _)| count > *most) {
+                behind = Some((count, seen));
+            }
+        }
+        let Some((_, seen)) = behind else {
+            return Ok(Vec::new());
+        };
+        let mut found: BTreeMap<(String, String), (Vec<String>, String)> = BTreeMap::new();
+        for cell in self.changes_since(&seen)? {
+            let (fields, stamp) = found.entry((cell.t, cell.i)).or_default();
+            fields.push(cell.f);
+            if cell.s > *stamp {
+                *stamp = cell.s;
+            }
+        }
+        let mut list = Vec::new();
+        for ((table, record), (mut fields, stamp)) in found {
+            let stored: i64 = self
+                .conn
+                .query_row(
+                    "SELECT count(*) FROM cells WHERE tbl = ?1 AND id = ?2",
+                    [&table, &record],
+                    |r| r.get(0),
+                )
+                .map_err(err)?;
+            let deleted = fields.iter().any(|f| f == DELETED)
+                && self.field(&table, &record, DELETED)? == Some(Value::Bool(true));
+            let added = stored == fields.len() as i64;
+            fields.retain(|f| f != DELETED && f != "order");
+            fields.sort();
+            let (territory, context) = self.describe(&table, &record)?;
+            list.push(serde_json::json!({
+                "table": table,
+                "record": record,
+                "fields": fields,
+                "stamp": stamp,
+                // the other phone has none of it yet
+                "added": added,
+                "deleted": deleted,
+                "territory": territory,
+                "context": context,
+            }));
+        }
+        list.sort_by(|a, b| b["stamp"].as_str().cmp(&a["stamp"].as_str()));
         Ok(list)
     }
 
@@ -2728,6 +2789,36 @@ mod tests {
         a.put("territories", "t1", &fields(json!({"number": "1", "name": "A", "city": "B"})))
             .unwrap();
         assert_eq!(a.peers().unwrap()[0].pending, 1);
+    }
+
+    #[test]
+    fn waiting_lists_what_the_count_counts_newest_first() {
+        let mut a = Store::in_memory().unwrap();
+        let b = Store::in_memory().unwrap();
+        a.add_peer(&peer_of(&b)).unwrap();
+        a.put("territories", "t1", &fields(json!({"number": "M12", "name": "Mitte"})))
+            .unwrap();
+        // not synced yet: the app counts nothing, so nothing is listed
+        assert!(a.waiting().unwrap().is_empty());
+        a.record_sync(&b.identity.id, &a.versions().unwrap()).unwrap();
+        later();
+        a.put("territories", "t1", &fields(json!({"number": "M12", "name": "Mitte Nord"})))
+            .unwrap();
+        later();
+        a.put("assignments", "a1", &fields(json!({"territory": "t1", "publisher": "Max Muster"})))
+            .unwrap();
+        let list = a.waiting().unwrap();
+        assert_eq!(list.len() as i64, a.peers().unwrap()[0].pending);
+        assert_eq!(list[0]["table"], "assignments");
+        assert_eq!(list[0]["added"], true);
+        assert_eq!(list[0]["territory"]["number"], "M12");
+        assert_eq!(list[0]["context"]["publisher"], "Max Muster");
+        assert_eq!(list[1]["record"], "t1");
+        assert_eq!(list[1]["added"], false);
+        assert_eq!(list[1]["fields"], json!(["name"]));
+        assert!(list[0]["stamp"].as_str() > list[1]["stamp"].as_str());
+        a.remove("assignments", "a1").unwrap();
+        assert_eq!(a.waiting().unwrap()[0]["deleted"], true);
     }
 
     fn scratch(name: &str) -> std::path::PathBuf {

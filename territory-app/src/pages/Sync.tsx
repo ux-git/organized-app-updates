@@ -31,6 +31,7 @@ import { confirm } from './confirm';
 import { receive } from './sync/receive';
 import Decisions from './sync/Decisions';
 import History from './sync/History';
+import Waiting from './sync/Waiting';
 import { ago, CARD_PREFIX, notify, ONE_SIDED_REASON, time } from './sync/text';
 import {
   IconBluetooth,
@@ -351,6 +352,8 @@ const Sync = () => {
           />
         )}
       </CardSection>
+
+      <Waiting pending={pending} />
 
       {peers.length > 0 && (
         <CardSection>

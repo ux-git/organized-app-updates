@@ -8,7 +8,7 @@ import { invoke, listen } from '../../native';
 import { t } from '../../i18n';
 import BorderSketch, { Drawing } from './BorderSketch';
 import { Actions } from './parts';
-import { fieldName, notify, show, showHolder } from './text';
+import { fieldLabel, notify, show, showHolder, title } from './text';
 
 type Change = {
   id: number;
@@ -42,7 +42,6 @@ const BORDER = [
   'mapShapes',
   'mapMarkers',
 ];
-const OWN_FIELDS = ['boundaryStyle', 'mapLines', 'mapShapes', 'mapMarkers'];
 
 const isBorder = (change: Change) =>
   change.table === 'territories' && BORDER.includes(change.field);
@@ -80,35 +79,10 @@ const dateOr = (value: unknown) =>
     ? new Date(value).toLocaleDateString()
     : show(value);
 
-const title = (change: Change) => {
-  const number = change.territory?.number ?? '?';
-  switch (change.table) {
-    case 'territories':
-      return t('decisions.territory', {
-        number,
-        name: change.territory?.name ?? '',
-      }).trim();
-    case 'assignments':
-      return t('decisions.assignment', {
-        number,
-        publisher: showHolder(change.context),
-      });
-    case 'do_not_calls':
-      return t('decisions.doNotCall', {
-        address: show(change.context.address),
-      });
-    case 'people':
-      return show(change.context.name);
-    default:
-      return t('decisions.setting');
-  }
-};
-
 const label = (change: Change) => {
   if (change.field === '*') return t('changes.added');
   if (change.field === '_deleted') return t('changes.deletion');
-  if (OWN_FIELDS.includes(change.field)) return t(`changes.${change.field}`);
-  return fieldName(change.field);
+  return fieldLabel(change.field);
 };
 
 const status = (change: Change, name: string) => {

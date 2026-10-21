@@ -165,6 +165,12 @@ fn resolve_conflict(
     Ok(())
 }
 
+/// The records waiting to sync, as many as the app counts.
+#[tauri::command(async)]
+fn unsynced_records() -> Result<Vec<Value>> {
+    store()?.waiting()
+}
+
 #[tauri::command(async)]
 fn sync_changes(sync_id: i64) -> Result<Vec<Value>> {
     store()?.sync_changes(sync_id)
@@ -395,6 +401,7 @@ pub fn run() {
             conflicts,
             resolve_conflict,
             sync_changes,
+            unsynced_records,
             apply_changes,
             undo_changes,
             pairing_card,
