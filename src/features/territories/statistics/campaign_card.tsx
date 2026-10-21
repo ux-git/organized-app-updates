@@ -37,6 +37,7 @@ import {
 } from '../campaign_filter';
 import useAssignReturn from '../useAssignReturn';
 import { holderText } from '../group_holder';
+import { PublisherPicker } from '../components/holder_picker';
 
 const CampaignCard = ({ territories }: { territories: Territory[] }) => {
   const navigate = useNavigate();
@@ -51,6 +52,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
   const [types, setTypes] = useState<TerritoryType[]>([]);
   // set while "Return all" waits for its date
   const [returnOn, setReturnOn] = useState<Date | null>();
+  const [returnedBy, setReturnedBy] = useState('');
 
   const choices = campaignChoices(campaigns, new Date());
   const campaign =
@@ -97,6 +99,10 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
 
     return open && campaignEnded(open, campaigns) ? [{ territory, open }] : [];
   });
+
+  // only one person to check when they all hold the same
+  const heldBy = new Set(stillOut.map(({ open }) => open.publisher));
+  const sharedBy = heldBy.size === 1 ? [...heldBy][0] : '';
 
   const returnIssues = returnOn
     ? stillOut.flatMap(({ open }) =>
@@ -254,13 +260,14 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
             <Button
               variant="small"
               disableAutoStretch
-              onClick={() =>
+              onClick={() => {
+                setReturnedBy(sharedBy);
                 setReturnOn(
                   campaign.end < dayOf(new Date())
                     ? dateOf(campaign.end)
                     : new Date()
-                )
-              }
+                );
+              }}
             >
               {tx('Return all')}
             </Button>
@@ -321,6 +328,15 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
             'The territories still out for this campaign are returned on this date.'
           )}
         >
+          {sharedBy && (
+            <PublisherPicker
+              label={tx('Returned by')}
+              value={returnedBy}
+              onChange={setReturnedBy}
+              current={sharedBy}
+            />
+          )}
+
           <DatePicker
             label={tx('Returned on')}
             value={returnOn}
@@ -346,7 +362,10 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
                 if (!returnOn) return;
                 actions.returnMany(
                   stillOut.map(({ territory }) => territory.id),
-                  returnOn
+                  returnOn,
+                  sharedBy && returnedBy && returnedBy !== sharedBy
+                    ? returnedBy
+                    : undefined
                 );
                 setReturnOn(undefined);
               }}

@@ -23,12 +23,14 @@ type Campaign = TerritoryAssignment['campaign'] | null;
 const daysSince = (date: Date) =>
   Math.max(0, Math.round((Date.now() - date.getTime()) / 86400000));
 
-// undefined leaves the note as it is, an empty string clears it
+// undefined leaves the note and the publisher as they are, an empty note
+// clears it
 const closeOpen = (
   territory: Territory,
   end: Date,
   campaign?: Campaign,
-  note?: string
+  note?: string,
+  publisher?: string
 ) =>
   territory.assignments.map((item) =>
     item.returnedOn
@@ -36,7 +38,7 @@ const closeOpen = (
       : {
           ...assignmentFromDates(
             item,
-            item.publisher,
+            publisher ?? item.publisher,
             parseDate(item.assignedOn) ?? end,
             end
           ),
@@ -151,7 +153,8 @@ const useAssignReturn = () => {
     households?: number,
     returnedOn?: Date,
     campaign?: Campaign,
-    note?: string
+    note?: string,
+    publisher?: string
   ) => {
     const end = returnedOn ?? new Date();
 
@@ -168,7 +171,7 @@ const useAssignReturn = () => {
         // a note is for the editor to read; the list marks it until they do
         reviewNeeded: !!note,
         ...(households === undefined ? {} : { households }),
-        assignments: closeOpen(territory, end, campaign, note),
+        assignments: closeOpen(territory, end, campaign, note, publisher),
       };
     });
   };
@@ -209,9 +212,10 @@ const useAssignReturn = () => {
     households?: number,
     returnedOn?: Date,
     campaign?: Campaign,
-    note?: string
+    note?: string,
+    publisher?: string
   ) => {
-    giveBack(id, households, returnedOn, campaign, note);
+    giveBack(id, households, returnedOn, campaign, note, publisher);
     remember([id], tx('{{number}} returned', { number: numberOf(id) }));
   };
 
@@ -256,8 +260,10 @@ const useAssignReturn = () => {
     );
   };
 
-  const returnMany = (ids: string[], returnedOn?: Date) => {
-    ids.forEach((id) => giveBack(id, undefined, returnedOn));
+  const returnMany = (ids: string[], returnedOn?: Date, publisher?: string) => {
+    ids.forEach((id) =>
+      giveBack(id, undefined, returnedOn, undefined, undefined, publisher)
+    );
 
     remember(
       ids,

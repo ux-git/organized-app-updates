@@ -19,6 +19,7 @@ import {
 import { assignmentIssues, parseDate, toStoredDate } from '../helpers';
 import { parseHouseholds } from '../assignment_issues';
 import CampaignField, { CampaignChoice } from './campaign_field';
+import { PublisherPicker } from './holder_picker';
 import { holderOf } from '../group_holder';
 import {
   AssignmentHolder,
@@ -38,7 +39,8 @@ type ReturnDialogProps = {
     households: number,
     returnedOn: Date,
     campaign?: TerritoryAssignment['campaign'] | null,
-    note?: string
+    note?: string,
+    publisher?: string
   ) => void;
   onAssignAgain?: (
     id: string,
@@ -68,6 +70,7 @@ const ReturnDialog = ({
   );
   const [returnedOn, setReturnedOn] = useState<Date | null>(new Date());
   const [note, setNote] = useState('');
+  const [returnedBy, setReturnedBy] = useState(open?.publisher ?? '');
   const [assignAgain, setAssignAgain] = useState(false);
   const [campaign, setCampaign] = useState<CampaignChoice>({
     checked: !!flagged,
@@ -76,9 +79,14 @@ const ReturnDialog = ({
 
   if (!territory) return null;
 
+  const changedBy =
+    returnedBy && returnedBy !== open?.publisher ? returnedBy : undefined;
+
   // the same publisher, for the same group; an old group record without one
   // goes out again through the assign dialog
-  const holder = open?.publisher ? holderOf(open) : undefined;
+  const publisher = changedBy ?? open?.publisher;
+  const holder =
+    open && publisher ? holderOf({ ...open, publisher }) : undefined;
 
   const issues = returnedOn
     ? assignmentIssues({
@@ -121,6 +129,15 @@ const ReturnDialog = ({
           : tx('Confirm the return date and household count.')
       }
     >
+      {open && !own && (
+        <PublisherPicker
+          label={tx('Returned by')}
+          value={returnedBy}
+          onChange={setReturnedBy}
+          current={open.publisher}
+        />
+      )}
+
       <Stack
         direction={tablet600Up ? 'row' : 'column'}
         spacing="16px"
@@ -227,7 +244,8 @@ const ReturnDialog = ({
               count,
               returnedOn,
               chosen(),
-              note.trim() || undefined
+              note.trim() || undefined,
+              own ? undefined : changedBy
             );
 
             if (assignAgain && holder)

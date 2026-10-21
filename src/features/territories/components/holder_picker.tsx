@@ -187,3 +187,36 @@ export const HolderPickers = ({
     </Stack>
   );
 };
+
+// one person, e.g. who gave a territory back; a name no longer on the list
+// stays choosable
+export const PublisherPicker = ({
+  label,
+  value,
+  onChange,
+  current,
+}: {
+  label: string;
+  value: string;
+  onChange: (publisher: string) => void;
+  current?: string;
+}) => {
+  const assignees = useAtomValue(territoryAssigneesState);
+  const [query, setQuery] = useState('');
+
+  const names = assignees.filter((item) => !item.group).map(({ name }) => name);
+  const people =
+    current && !names.includes(current) ? [...names, current] : names;
+
+  return (
+    <PublisherSearch
+      label={label}
+      options={people}
+      value={value || null}
+      onChange={(publisher) => onChange(publisher ?? '')}
+      getName={(name) => name}
+      onInputChange={setQuery}
+      noOptionsText={<AddName name={query} group={false} onAdded={onChange} />}
+    />
+  );
+};
