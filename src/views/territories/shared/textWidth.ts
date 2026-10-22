@@ -1,19 +1,27 @@
-// react-pdf cannot measure before layout, so Inter's glyph widths by kind
-// stand in; within about 3% of the real width for Latin text
-const NARROW = new Set("ijlftrI.,:;!'|()[]-");
-const WIDE = new Set('mwMW');
-const SAFETY = 0.96;
+import { EXTRA, REGULAR, SEMIBOLD } from './interWidths';
+
+// react-pdf cannot measure before layout, so Inter's own glyph widths
+// stand in; kerning is left out, which only errs on the wide side
+const SAFETY = 0.99;
+
+const table = (hex: string) => {
+  const widths = new Map<string, number>();
+  const chars = [
+    ...Array.from({ length: 0x160 }, (_, i) => String.fromCharCode(0x20 + i)),
+    ...EXTRA,
+  ];
+  chars.forEach((char, i) =>
+    widths.set(char, parseInt(hex.slice(i * 3, i * 3 + 3), 16) / 1000)
+  );
+  return widths;
+};
+const WIDTHS = { regular: table(REGULAR), bold: table(SEMIBOLD) };
 
 const glyph = (char: string, bold: boolean) => {
-  if (char === ' ') return bold ? 0.25 : 0.28;
-  if (NARROW.has(char)) return bold ? 0.34 : 0.32;
-  if (WIDE.has(char)) return bold ? 0.92 : 0.9;
-  if (char === '…') return bold ? 0.96 : 0.87;
-  if (/\d/.test(char)) return bold ? 0.61 : 0.6;
-  // CJK and other full-width scripts
-  if (char.codePointAt(0)! >= 0x2e80) return 1;
-  if (char !== char.toLowerCase()) return bold ? 0.7 : 0.68;
-  return bold ? 0.6 : 0.58;
+  const known = WIDTHS[bold ? 'bold' : 'regular'].get(char);
+  if (known !== undefined) return known;
+  // CJK and other full-width scripts; anything else as a wide letter
+  return char.codePointAt(0)! >= 0x2e80 ? 1 : 0.7;
 };
 
 export const textWidth = (text: string, size: number, bold = false) =>

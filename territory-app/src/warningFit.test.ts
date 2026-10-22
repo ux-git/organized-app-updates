@@ -10,7 +10,7 @@ describe('fitText', () => {
   });
 
   it('ends a long warning in an ellipsis and fills most of the row', () => {
-    for (const room of [60, 120, 200, 365]) {
+    for (const room of [60, 120, 200, 300]) {
       const text = fitText(LONG, 7, room, true);
       expect(text.endsWith('…')).toBe(true);
       expect(textWidth(text, 7, true)).toBeLessThanOrEqual(room);
