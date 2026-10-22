@@ -622,6 +622,6 @@
   "The merged territory would enclose another one.": "Das zusammengeführte Gebiet würde ein anderes umschließen.",
   "Territories merged into {{number}}": "Gebiete zu Nr. {{number}} zusammengeführt",
   "Territory {{number}} split": "Gebiet Nr. {{number}} geteilt",
-  "Important notice": "Wichtiger Hinweis",
+  "Warning (front side)": "Warnhinweis (Vorderseite)",
   "Printed in red on the map. Keep it short.": "Wird rot auf die Karte gedruckt. Halte ihn kurz."
 }

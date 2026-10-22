@@ -175,7 +175,7 @@ const DetailsForm = ({
           />
 
           <TextField
-            label={tx('Important notice')}
+            label={tx('Warning (front side)')}
             helperText={tx('Printed in red on the map. Keep it short.')}
             value={territory.warning ?? ''}
             slotProps={{ htmlInput: { maxLength: MAX_WARNING_LENGTH } }}
