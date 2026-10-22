@@ -43,7 +43,7 @@ const NewTerritoryDialog = ({ onClose }: { onClose: VoidFunction }) => {
     <Dialog
       onClose={onClose}
       open
-      title={tx('New territory with map')}
+      title={tx('New map')}
       description={tx('Give it a number and a locality, then draw its border.')}
     >
       <Box

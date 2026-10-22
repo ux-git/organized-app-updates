@@ -138,7 +138,7 @@ export const IdleRail = ({
     />
     <Divider vertical />
     <IconButton
-      label={tx('New territory with map')}
+      label={tx('New map')}
       icon={<IconMapAdd />}
       onClick={onNewTerritory}
     />

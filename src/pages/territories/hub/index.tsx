@@ -74,7 +74,7 @@ const Territories = () => {
       )}
       {isTerritoryEditor && (
         <NavBarButton
-          text={tx('New territory with map')}
+          text={tx('New map')}
           icon={<IconMapAdd />}
           onClick={() => setNewOnMap(true)}
         />
