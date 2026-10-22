@@ -74,6 +74,8 @@ const NavBarButton = (props: NavBarButtonProps) => {
         },
         '& .MuiSvgIcon-root': {
           fill: iconColor,
+          // stroke-drawn icons follow currentColor, not fill
+          color: iconColor,
           '& g, & g path': {
             fill: `${iconColor} !important`,
           },
