@@ -713,7 +713,6 @@
   },
   "waiting": {
     "title": "Wartet auf Synchronisierung",
-    "open": "Wartende Änderungen anzeigen",
     "summary_one": "{{count}} Änderung von dir wartet",
     "summary_other": "{{count}} Änderungen von dir warten",
     "goesTo_one": "Sie gehen an {{names}}, sobald das Gerät in der Nähe ist.",

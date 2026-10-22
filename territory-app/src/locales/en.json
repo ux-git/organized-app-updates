@@ -676,7 +676,6 @@
   },
   "waiting": {
     "title": "Waiting to sync",
-    "open": "Show changes waiting to sync",
     "summary_one": "{{count}} change of yours is waiting",
     "summary_other": "{{count}} changes of yours are waiting",
     "goesTo_one": "They go to {{names}} the next time it is close.",

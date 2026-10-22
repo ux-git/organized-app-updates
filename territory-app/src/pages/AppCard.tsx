@@ -4,6 +4,7 @@ import {
   IconBackupOrganized,
   IconCalendarClock,
   IconCampaign,
+  IconCloudUpload,
   IconPerson,
   IconSynced,
   IconSettings,
@@ -22,7 +23,6 @@ import useBackup from './useBackup';
 import useNearby, { unsynced } from './useNearby';
 import usePeople from './usePeople';
 import useWaiting from './sync/useWaiting';
-import WaitingPreview from './sync/WaitingPreview';
 
 // Organized's App card (PR 5377): sync, the app's own data and its settings
 const AppCard = () => {
@@ -77,7 +77,13 @@ const AppCard = () => {
       </ListItem>
       {mine.length > 0 && (
         <ListItem disablePadding>
-          <WaitingPreview mine={mine} />
+          <DashboardMenu
+            icon={<IconCloudUpload color="var(--black)" />}
+            primaryText={t('waiting.title')}
+            secondaryText={t('waiting.summary', { count: mine.length })}
+            badgeText={String(mine.length)}
+            path="/settings/waiting"
+          />
         </ListItem>
       )}
       <ListItem disablePadding>

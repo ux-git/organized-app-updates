@@ -1,4 +1,6 @@
-import { Box } from '@mui/material';
+import { useState } from 'react';
+import { Box, ButtonBase, Collapse } from '@mui/material';
+import { IconExpand } from '@icons/index';
 import Typography from '@components/typography';
 import {
   CardSection,
@@ -14,46 +16,70 @@ const SHOWN = 50;
 /** The records counted as waiting to sync, newest first. */
 const Waiting = ({ pending }: { pending: number }) => {
   const records = useWaiting(pending);
+  // a long list would push the rest of the sync page down
+  const [open, setOpen] = useState(false);
 
   if (!records.length) return null;
 
   return (
     <CardSection>
-      <CardSectionHeader
-        title={t('sync.waitingTitle')}
-        description={t('sync.waitingText')}
-      />
-      <CardSectionContent spacing="8px" divider={undefined}>
-        {records.slice(0, SHOWN).map((record) => {
-          const detail = what(record);
-          return (
-            <Box
-              key={`${record.table}/${record.record}`}
-              sx={{
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-l)',
-                border: '1px solid var(--accent-200)',
-                backgroundColor: 'var(--white)',
-              }}
-            >
-              <Typography className="body-small-semibold">
-                {detail ? `${title(record)} · ${detail}` : title(record)}
-              </Typography>
-              <Typography
-                className="label-small-regular"
-                color="var(--grey-400)"
+      <ButtonBase
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        sx={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '12px',
+          textAlign: 'left',
+          borderRadius: 'var(--radius-m)',
+        }}
+      >
+        <CardSectionHeader
+          title={`${t('sync.waitingTitle')} (${records.length})`}
+          description={t('sync.waitingText')}
+          sx={{ flex: 1 }}
+        />
+        <IconExpand
+          color="var(--accent-main)"
+          sx={{
+            transform: open ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.2s ease',
+          }}
+        />
+      </ButtonBase>
+      <Collapse in={open} sx={{ marginTop: open ? undefined : '-24px' }}>
+        <CardSectionContent spacing="8px" divider={undefined}>
+          {records.slice(0, SHOWN).map((record) => {
+            const detail = what(record);
+            return (
+              <Box
+                key={`${record.table}/${record.record}`}
+                sx={{
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-l)',
+                  border: '1px solid var(--accent-200)',
+                  backgroundColor: 'var(--white)',
+                }}
               >
-                {when(seconds(record.stamp))}
-              </Typography>
-            </Box>
-          );
-        })}
-        {records.length > SHOWN && (
-          <Typography className="label-small-regular" color="var(--grey-400)">
-            {t('sync.waitingMore', { count: records.length - SHOWN })}
-          </Typography>
-        )}
-      </CardSectionContent>
+                <Typography className="body-small-semibold">
+                  {detail ? `${title(record)} · ${detail}` : title(record)}
+                </Typography>
+                <Typography
+                  className="label-small-regular"
+                  color="var(--grey-400)"
+                >
+                  {when(seconds(record.stamp))}
+                </Typography>
+              </Box>
+            );
+          })}
+          {records.length > SHOWN && (
+            <Typography className="label-small-regular" color="var(--grey-400)">
+              {t('sync.waitingMore', { count: records.length - SHOWN })}
+            </Typography>
+          )}
+        </CardSectionContent>
+      </Collapse>
     </CardSection>
   );
 };
