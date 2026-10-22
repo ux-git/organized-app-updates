@@ -1,6 +1,6 @@
 import { Image, Text, View } from '@react-pdf/renderer';
 import { TerritoryPrintData } from '../index.types';
-import styles, { COLORS } from '../index.styles';
+import styles, { CHIP_HEIGHT, COLORS } from '../index.styles';
 import { tx } from '@services/i18n/translation';
 import { titleOf } from './title';
 import Shadow from './Shadow';
@@ -14,8 +14,8 @@ const Chip = ({ text }: { text: string }) => (
       // a step darker than the screen chip: printers drop the lightest greys
       backgroundColor: COLORS.divider,
       borderRadius: 2,
-      paddingTop: 2,
-      paddingBottom: 2,
+      height: CHIP_HEIGHT,
+      justifyContent: 'center',
       paddingLeft: 5,
       paddingRight: 5,
     }}
@@ -77,18 +77,32 @@ const MapFront = ({
           gap: 6,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text style={{ flexGrow: 1, flexBasis: 0 }}>
+        {/* the chips stay one row; with a long title they move below it,
+            right-aligned, instead of squeezing the title */}
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            columnGap: 8,
+            rowGap: 6,
+          }}
+        >
+          <Text style={{ flexGrow: 1 }}>
             <Text style={styles.frameTitle}>
               {tx('Territory Map Card')}
               {'\u2002'}
             </Text>
             <Text style={styles.frameName}>{titleOf(territory)}</Text>
           </Text>
-          {territory.warning && <WarningChip text={territory.warning} />}
-          {territory.showHouseholds !== false && territory.households > 0 && (
-            <Chip text={tx('Households: {{n}}', { n: territory.households })} />
-          )}
+          <View style={{ flexDirection: 'row', gap: 4, marginLeft: 'auto' }}>
+            {territory.warning && <WarningChip text={territory.warning} />}
+            {territory.showHouseholds !== false && territory.households > 0 && (
+              <Chip
+                text={tx('Households: {{n}}', { n: territory.households })}
+              />
+            )}
+          </View>
         </View>
 
         <View

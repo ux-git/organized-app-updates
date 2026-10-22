@@ -8,6 +8,9 @@ export const CARD = {
   footerHeight: 38,
 };
 
+// the small chips on a card front share one height, however they are drawn
+export const CHIP_HEIGHT = 13;
+
 export const COLORS = {
   text: '#222222',
   muted: '#757575',

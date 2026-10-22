@@ -1,5 +1,5 @@
 import { Path, Svg, Text, View } from '@react-pdf/renderer';
-import styles, { COLORS } from '../index.styles';
+import styles, { CHIP_HEIGHT, COLORS } from '../index.styles';
 
 // red like the do-not-call marks, with a sign, so it still reads on a black and white print
 const WarningChip = ({
@@ -15,12 +15,11 @@ const WarningChip = ({
       flexDirection: 'row',
       alignItems: 'center',
       gap: 3,
-      maxWidth: 200,
+      maxWidth: 230,
       backgroundColor: COLORS.dncChip,
       border: `0.5px solid ${COLORS.dncText}`,
       borderRadius: radius,
-      paddingTop: 2,
-      paddingBottom: 2,
+      height: CHIP_HEIGHT,
       paddingLeft: 4,
       paddingRight: 5,
     }}

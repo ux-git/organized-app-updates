@@ -1,6 +1,6 @@
 import { Image, Text, View } from '@react-pdf/renderer';
 import { TerritoryPrintData } from '../index.types';
-import styles, { CARD, COLORS } from '../index.styles';
+import styles, { CARD, CHIP_HEIGHT, COLORS } from '../index.styles';
 import { tx } from '@services/i18n/translation';
 import { titleOf } from './title';
 import Shadow from './Shadow';
@@ -79,8 +79,8 @@ const MapBadge = ({ text }: { text: string }) => (
         backgroundColor: COLORS.paper,
         border: `0.5px solid ${COLORS.line}`,
         borderRadius: 4,
-        paddingTop: 2,
-        paddingBottom: 2,
+        height: CHIP_HEIGHT,
+        justifyContent: 'center',
         paddingLeft: 5,
         paddingRight: 5,
       }}
