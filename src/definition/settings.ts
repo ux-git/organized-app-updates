@@ -13,6 +13,7 @@ export const LOCAL_ONLY_CATEGORIES = [
   'cong_field_service_reports',
   'branch_field_service_reports',
   'branch_cong_analysis',
+  'meeting_attendance',
 ] as const;
 
 export type LocalOnlyCategory = (typeof LOCAL_ONLY_CATEGORIES)[number];
@@ -26,7 +27,33 @@ export type LocalOnlyEntry = {
   sent?: boolean;
 };
 
-export type LocalOnlySetting = Partial<Record<LocalOnlyCategory, LocalOnlyEntry>>;
+export type LocalOnlySetting = Partial<
+  Record<LocalOnlyCategory, LocalOnlyEntry>
+>;
+
+export const APP_MODULES = [
+  'field_service_reports',
+  'publisher_records',
+  'branch_reports',
+  'meeting_attendance',
+] as const;
+
+export type AppModuleId = (typeof APP_MODULES)[number];
+
+// server: the congregation's server (hosted or self-hosted)
+// local: only between this congregation's devices, nearby or by file
+// device: this device only
+export const MODULE_SYNC_METHODS = ['server', 'local', 'device'] as const;
+
+export type ModuleSyncMethod = (typeof MODULE_SYNC_METHODS)[number];
+
+export type AppModuleEntry = {
+  enabled: boolean;
+  sync: ModuleSyncMethod;
+  updatedAt: string;
+};
+
+export type AppModulesSetting = Partial<Record<AppModuleId, AppModuleEntry>>;
 
 /**
  * Names of the avatar illustrations shipped in `@components/profile_avatars`.
@@ -105,11 +132,7 @@ export type AvatarIconName = (typeof AVATAR_ICON_NAMES)[number];
  * initials, and `default` the generic silhouette used as fallback.
  */
 export type AvatarType =
-  | 'google'
-  | 'initials'
-  | 'default'
-  | AvatarIconName
-  | AvatarImageName;
+  'google' | 'initials' | 'default' | AvatarIconName | AvatarImageName;
 
 export enum SourceFrequency {
   WEEKLY = 1,
@@ -286,6 +309,7 @@ export type SettingsType = {
     }[];
     data_sync: { value: boolean; updatedAt: string };
     local_only_categories?: LocalOnlySetting;
+    app_modules?: AppModulesSetting;
     responsabilities: {
       coordinator: string;
       secretary: string;

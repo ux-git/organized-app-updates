@@ -1,11 +1,15 @@
 import { UpdateSpec } from 'dexie';
 import {
+  AppModuleEntry,
+  AppModuleId,
   FirstDayWeekOption,
   LocalOnlyCategory,
   LocalOnlyEntry,
   PublishersSortOption,
   SettingsType,
 } from '@definition/settings';
+import { APP_MODULE_DEFINITIONS } from '@definition/app_modules';
+import { getToggleTimestamp } from '@utils/local_only';
 import { settingSchema } from './schema';
 import { AssignmentCode } from '@definition/assignment';
 import { getRandomArrayItem } from '@utils/common';
@@ -352,15 +356,71 @@ export const dbLocalOnlyCategoryUpdate = async (
   category: LocalOnlyCategory,
   getEntry: (previous: LocalOnlyEntry | undefined) => LocalOnlyEntry
 ) => {
-  await appDb.transaction('rw', appDb.app_settings, appDb.metadata, async () => {
-    const settings = await appDb.app_settings.get(1);
-    const current = settings?.cong_settings.local_only_categories;
+  await appDb.transaction(
+    'rw',
+    appDb.app_settings,
+    appDb.metadata,
+    async () => {
+      const settings = await appDb.app_settings.get(1);
+      const current = settings?.cong_settings.local_only_categories;
 
-    await dbAppSettingsUpdate({
-      'cong_settings.local_only_categories': {
-        ...current,
-        [category]: getEntry(current?.[category]),
-      },
-    });
-  });
+      await dbAppSettingsUpdate({
+        'cong_settings.local_only_categories': {
+          ...current,
+          [category]: getEntry(current?.[category]),
+        },
+      });
+    }
+  );
+};
+
+/**
+ * Stores a module's choice together with the local-only entries the server
+ * enforces: a module that does not sync through the server keeps its
+ * categories off it. Returns the categories whose server copy is rebuilt.
+ */
+export const dbAppModuleUpdate = async (
+  module: AppModuleId,
+  change: Pick<AppModuleEntry, 'enabled' | 'sync'>
+) => {
+  const rearm: LocalOnlyCategory[] = [];
+
+  await appDb.transaction(
+    'rw',
+    appDb.app_settings,
+    appDb.metadata,
+    async () => {
+      const settings = await appDb.app_settings.get(1);
+      const modules = settings?.cong_settings.app_modules ?? {};
+      const localOnly = settings?.cong_settings.local_only_categories ?? {};
+      const updatedAt = getToggleTimestamp(modules[module]);
+
+      const nextLocalOnly = { ...localOnly };
+      const offServer = change.sync !== 'server';
+
+      for (const category of APP_MODULE_DEFINITIONS[module].categories) {
+        const current = localOnly[category];
+
+        if ((current?.value ?? false) === offServer) continue;
+
+        nextLocalOnly[category] = {
+          value: offServer,
+          updatedAt: getToggleTimestamp(current),
+          confirmed: false,
+        };
+
+        if (!offServer) rearm.push(category);
+      }
+
+      await dbAppSettingsUpdate({
+        'cong_settings.app_modules': {
+          ...modules,
+          [module]: { ...change, updatedAt },
+        },
+        'cong_settings.local_only_categories': nextLocalOnly,
+      });
+    }
+  );
+
+  return rearm;
 };

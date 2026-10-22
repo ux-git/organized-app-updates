@@ -1,7 +1,6 @@
 import {
   LOCAL_ONLY_CATEGORIES,
   LocalOnlyCategory,
-  LocalOnlyEntry,
   LocalOnlySetting,
   SettingsType,
 } from '@definition/settings';
@@ -95,14 +94,16 @@ export const getConfirmedLocalOnlyCategories = (
 // category local-only; later leftovers are cleared by the user, not silently
 export const getLocalOnlyCategoriesToPurge = (
   previous: SettingsType | undefined,
-  current: SettingsType
+  current: SettingsType,
+  // categories this device keeps because it syncs them with nearby devices
+  keep: readonly LocalOnlyCategory[] = []
 ): LocalOnlyCategory[] => {
   if (isAdminRole(current)) return [];
 
   const before = getLocalOnlyCategories(previous);
 
   return getLocalOnlyCategories(current).filter(
-    (category) => !before.includes(category)
+    (category) => !before.includes(category) && !keep.includes(category)
   );
 };
 
@@ -139,7 +140,7 @@ export const getRemoteLocalOnlyCategories = (
 // never older than the value it replaces, so a device clock running behind
 // cannot lose against the stored entry
 export const getToggleTimestamp = (
-  previous: LocalOnlyEntry | undefined,
+  previous: { updatedAt: string } | undefined,
   now = Date.now()
 ) => {
   const previousTime = Date.parse(previous?.updatedAt ?? '');

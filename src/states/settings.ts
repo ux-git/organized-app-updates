@@ -18,6 +18,7 @@ import {
 } from '@definition/settings';
 import { LANGUAGE_LIST } from '@constants/index';
 import { getLocalOnlyCategories } from '@utils/local_only';
+import { getLocalSyncCategories } from '@utils/app_modules';
 import { AssignmentFieldType } from '@definition/assignment';
 
 export const settingsState = atom(settingSchema);
@@ -338,6 +339,12 @@ export const localOnlyCategoriesState = atom((get) => {
   const settings = get(settingsState);
 
   return getLocalOnlyCategories(settings);
+});
+
+export const localSyncCategoriesState = atom((get) => {
+  const settings = get(settingsState);
+
+  return getLocalSyncCategories(settings);
 });
 
 export const languageGroupEnabledState = atom((get) => {

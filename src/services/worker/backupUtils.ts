@@ -38,6 +38,7 @@ import {
   meetingAttendanceSplitDeaf,
 } from '@utils/meeting_attendance';
 import { APP_READ_ONLY_ROLES } from '@constants/index';
+import { getLocalSyncCategories } from '@utils/app_modules';
 import {
   confirmSentLocalOnly,
   getCategoriesToSkip,
@@ -173,7 +174,7 @@ const personIsPrivilegeActive = (
   return isActive;
 };
 
-const syncFromRemote = <T extends object>(local: T, remote: T): T => {
+export const syncFromRemote = <T extends object>(local: T, remote: T): T => {
   const localRecord = local as Record<string, unknown>;
   const remoteRecord = remote as Record<string, unknown>;
 
@@ -1753,7 +1754,10 @@ const dbRestoreFromBackup = async (
     // unsynced edits are left for the cleanup prompt, which offers an export
     for (const category of getLocalOnlyCategoriesToPurge(
       previousSettings,
-      settings
+      settings,
+      isReportEditorRole(settings.user_settings.cong_role)
+        ? getLocalSyncCategories(settings)
+        : []
     )) {
       const categoryMetadata = localMetadata?.metadata[category];
 
@@ -2163,7 +2167,9 @@ export const dbExportDataBackup = async (backupData: BackupDataType) => {
         // include meeting attendance
         if (
           attendanceTracker &&
-          metadata.metadata.meeting_attendance.send_local
+          (metadata.metadata.meeting_attendance.send_local ||
+            forceUpload.includes('meeting_attendance')) &&
+          !localOnly.includes('meeting_attendance')
         ) {
           const backupAttendance = meeting_attendance.map((attendance) => {
             encryptObject({

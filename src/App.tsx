@@ -18,6 +18,9 @@ import { CacheProvider } from '@emotion/react';
 import createCache from '@emotion/cache';
 import rtlPlugin from '@mui/stylis-plugin-rtl';
 import FeatureFlagsWrapper from '@wrapper/feature_flags';
+import { registerLocalSyncBridge } from '@services/local_sync/nearby';
+
+registerLocalSyncBridge();
 import RouteProtected from '@components/route_protected';
 import { determineAppLocale } from '@services/app';
 import { firstDayWeekState } from '@states/settings';
@@ -61,6 +64,7 @@ const UserDetails = lazy(
 );
 const WeeklySchedules = lazy(() => import('@pages/meetings/schedules'));
 const CongregationSettings = lazy(() => import('@pages/congregation/settings'));
+const LocalSyncPage = lazy(() => import('@pages/congregation/local_sync'));
 const Applications = lazy(() => import('@pages/persons/applications'));
 const ApplicationDetails = lazy(
   () => import('@pages/persons/application_details')
@@ -85,7 +89,6 @@ const App = ({ updatePwa }: { updatePwa: VoidFunction }) => {
     isPublisher,
     isElder,
     isPersonEditor,
-    isAttendanceEditor,
     isAppointed,
     isMidweekEditor,
     isWeekendEditor,
@@ -95,6 +98,9 @@ const App = ({ updatePwa }: { updatePwa: VoidFunction }) => {
     isLanguageGroupOverseer,
     isFieldServiceReportViewer,
     isPublisherRecordsViewer,
+    isBranchReportsViewer,
+    isMeetingAttendanceEditor,
+    isLocalSyncUser,
   } = useCurrentUser();
 
   const [adapterLocale, setAdapterLocale] = useAtom(appLocaleState);
@@ -228,7 +234,7 @@ const App = ({ updatePwa }: { updatePwa: VoidFunction }) => {
 
             // attendance editor routes
             {
-              element: <RouteProtected allowed={isAttendanceEditor} />,
+              element: <RouteProtected allowed={isMeetingAttendanceEditor} />,
               children: [
                 {
                   path: '/reports/meeting-attendance',
@@ -255,6 +261,12 @@ const App = ({ updatePwa }: { updatePwa: VoidFunction }) => {
               children: [
                 { path: '/weekend-meeting', element: <WeekendMeeting /> },
               ],
+            },
+
+            // devices that hold data synced without a server
+            {
+              element: <RouteProtected allowed={isLocalSyncUser} />,
+              children: [{ path: '/local-sync', element: <LocalSyncPage /> }],
             },
 
             // secretary routes and group overseer
@@ -284,7 +296,11 @@ const App = ({ updatePwa }: { updatePwa: VoidFunction }) => {
               element: <RouteProtected allowed={isAdmin} />,
               children: [
                 {
-                  element: <RouteProtected allowed={!isGroup} />,
+                  element: (
+                    <RouteProtected
+                      allowed={!isGroup && isBranchReportsViewer}
+                    />
+                  ),
                   children: [
                     {
                       path: '/reports/branch-office',

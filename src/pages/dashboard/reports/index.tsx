@@ -16,8 +16,8 @@ const ReportsCard = () => {
   const { showMeetingCard } = useSharedHook();
 
   const {
-    isAttendanceEditor,
-    isSecretary,
+    isMeetingAttendanceEditor,
+    isBranchReportsViewer,
     isFieldServiceReportViewer,
     isPublisherRecordsViewer,
     isGroup,
@@ -25,7 +25,7 @@ const ReportsCard = () => {
 
   return (
     <DashboardCard header={t('tr_reports')}>
-      {showMeetingCard && isAttendanceEditor && (
+      {showMeetingCard && isMeetingAttendanceEditor && (
         <ListItem disablePadding>
           <DashboardMenu
             icon={<IconVisitors color="var(--black)" />}
@@ -45,7 +45,7 @@ const ReportsCard = () => {
         </ListItem>
       )}
 
-      {isSecretary && !isGroup && (
+      {isBranchReportsViewer && !isGroup && (
         <ListItem disablePadding>
           <DashboardMenu
             icon={<IconReportToBranch color="var(--black)" />}

@@ -3,6 +3,7 @@ import {
   IconGroups,
   IconManageAccess,
   IconSettings,
+  IconSync,
   IconSynced,
 } from '@icons/index';
 import { useAppTranslation, useCurrentUser } from '@hooks/index';
@@ -13,8 +14,14 @@ import DashboardMenu from '@features/dashboard/menu';
 const CongregationCard = () => {
   const { t } = useAppTranslation();
 
-  const { isPublisher, isAdmin, isElder, isGroup, isLanguageGroupOverseer } =
-    useCurrentUser();
+  const {
+    isPublisher,
+    isAdmin,
+    isElder,
+    isGroup,
+    isLanguageGroupOverseer,
+    isLocalSyncUser,
+  } = useCurrentUser();
 
   const {
     secondaryText,
@@ -45,6 +52,16 @@ const CongregationCard = () => {
             primaryText={t('tr_manageAccess')}
             badgeText={requests_count}
             path="/manage-access"
+          />
+        </ListItem>
+      )}
+
+      {!isGroup && isLocalSyncUser && (
+        <ListItem disablePadding>
+          <DashboardMenu
+            path="/local-sync"
+            icon={<IconSync color="var(--black)" />}
+            primaryText={t('tr_localSync')}
           />
         </ListItem>
       )}

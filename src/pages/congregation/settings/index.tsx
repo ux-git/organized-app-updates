@@ -9,6 +9,7 @@ import useCongregationSettings from './useCongregationSettings';
 import CircuitOverseer from '@features/congregation/settings/circuit_overseer';
 import CongregationBasic from '@features/congregation/settings/congregation_basic';
 import CongregationPrivacy from '@features/congregation/settings/congregation_privacy';
+import AppModules from '@features/congregation/settings/app_modules';
 import ImportExport from '@features/congregation/settings/import_export';
 import LanguageGroups from '@features/congregation/settings/language_groups';
 import MeetingForms from '@features/congregation/settings/meeting_forms';
@@ -73,6 +74,7 @@ const CongregationSettings = () => {
             {!isGroup && (
               <>
                 <LanguageGroups />
+                <AppModules />
                 <CongregationPrivacy />
               </>
             )}
@@ -110,6 +112,7 @@ const CongregationSettings = () => {
               <MinistrySettings />
               <CircuitOverseer />
               <LanguageGroups />
+              <AppModules />
               <CongregationPrivacy />
             </>
           )}

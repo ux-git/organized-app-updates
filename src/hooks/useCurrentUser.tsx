@@ -4,7 +4,6 @@ import { formatDate } from '@utils/date';
 import { personsState } from '@states/persons';
 import {
   accountTypeState,
-  localOnlyCategoriesState,
   settingsState,
   userDataViewState,
   userLocalUIDState,
@@ -15,6 +14,11 @@ import {
   languageGroupsState,
 } from '@states/field_service_groups';
 import usePerson from '@features/persons/hooks/usePerson';
+import {
+  getLocalSyncCategories,
+  getModuleSync,
+  isModuleEnabled,
+} from '@utils/app_modules';
 
 const useCurrentUser = () => {
   const {
@@ -31,7 +35,6 @@ const useCurrentUser = () => {
   const fieldGroups = useAtomValue(fieldWithLanguageGroupsState);
   const languageGroups = useAtomValue(languageGroupsState);
   const dataView = useAtomValue(userDataViewState);
-  const localOnly = useAtomValue(localOnlyCategoriesState);
 
   const person = useMemo(() => {
     return persons.find((record) => record.person_uid === userUID);
@@ -299,26 +302,65 @@ const useCurrentUser = () => {
     return false;
   }, [isGroup, isAdmin, isLanguageGroupOverseer]);
 
-  const congReportsLocalOnly = localOnly.includes('cong_field_service_reports');
+  const reportsSync = getModuleSync(settings, 'field_service_reports');
+  const reportsModule = isModuleEnabled(settings, 'field_service_reports');
 
-  // only admin devices keep reports once they are local-only
+  // with the server out of the picture only admin devices hold reports,
+  // unless the devices sync them among themselves
+  const keepsReports = isAdmin || reportsSync !== 'device';
+
   const isFieldServiceReportViewer = useMemo(() => {
     if (!isSecretary && !isGroupOverseer && !isLanguageGroupOverseer) {
       return false;
     }
 
-    return isAdmin || !congReportsLocalOnly;
+    return reportsModule && keepsReports;
   }, [
-    isAdmin,
     isSecretary,
     isGroupOverseer,
     isLanguageGroupOverseer,
-    congReportsLocalOnly,
+    reportsModule,
+    keepsReports,
   ]);
 
   const isPublisherRecordsViewer = useMemo(() => {
-    return isElder && (isAdmin || !congReportsLocalOnly);
-  }, [isElder, isAdmin, congReportsLocalOnly]);
+    return (
+      isElder && keepsReports && isModuleEnabled(settings, 'publisher_records')
+    );
+  }, [isElder, keepsReports, settings]);
+
+  const isBranchReportsViewer = useMemo(() => {
+    return isAdmin && isModuleEnabled(settings, 'branch_reports');
+  }, [isAdmin, settings]);
+
+  const isMeetingAttendanceEditor = useMemo(() => {
+    return (
+      isAttendanceEditor && isModuleEnabled(settings, 'meeting_attendance')
+    );
+  }, [isAttendanceEditor, settings]);
+
+  // devices that may hold a category that syncs without a server
+  const isLocalSyncUser = useMemo(() => {
+    const categories = getLocalSyncCategories(settings);
+
+    if (categories.length === 0 || accountType === 'pocket') return false;
+
+    if (isAdmin) return true;
+
+    return categories.some((category) =>
+      category === 'meeting_attendance'
+        ? isAttendanceEditor
+        : category === 'cong_field_service_reports' &&
+          (isGroupOverseer || isLanguageGroupOverseer)
+    );
+  }, [
+    settings,
+    accountType,
+    isAdmin,
+    isAttendanceEditor,
+    isGroupOverseer,
+    isLanguageGroupOverseer,
+  ]);
 
   return {
     person,
@@ -346,6 +388,9 @@ const useCurrentUser = () => {
     isSettingsEditor,
     isFieldServiceReportViewer,
     isPublisherRecordsViewer,
+    isBranchReportsViewer,
+    isMeetingAttendanceEditor,
+    isLocalSyncUser,
   };
 };
 

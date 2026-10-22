@@ -95,7 +95,10 @@ const Dashboard = () => {
 
         {isMeetingEditor && <MeetingsMaterialsCard />}
 
-        {(isElder || isAttendanceEditor || isGroupOverseer || isLanguageGroupOverseer) && <ReportsCard />}
+        {(isElder ||
+          isAttendanceEditor ||
+          isGroupOverseer ||
+          isLanguageGroupOverseer) && <ReportsCard />}
 
         <CongregationCard />
       </Box>

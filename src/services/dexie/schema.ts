@@ -342,6 +342,7 @@ export const settingSchema: SettingsType = {
     },
     data_sync: { value: false, updatedAt: '' },
     local_only_categories: {},
+    app_modules: {},
     group_publishers_sort: {
       updatedAt: '',
       value: PublishersSortOption.MANUAL,

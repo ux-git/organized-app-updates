@@ -9,7 +9,6 @@ import useCongregationPrivacy from './useCongregationPrivacy';
 import AccessCodeView from './access_code_view';
 import DataSharing from './data_sharing';
 import DeleteCongregation from './delete_congregation';
-import LocalOnlyCategories from './local_only_categories';
 import MasterKeyView from './master_key_view';
 import OutgoingTalkAccess from './outgoing_talk_access';
 import ShowAwayToAllChange from './time_away_visibility';
@@ -31,8 +30,6 @@ const CongregationPrivacy = () => {
       <CardSectionContent spacing="16px">
         <Stack spacing="16px">
           <DataSharing />
-
-          <LocalOnlyCategories />
 
           <ShowAwayToAllChange />
 
