@@ -1,12 +1,20 @@
 import { Path, Svg, Text, View } from '@react-pdf/renderer';
 import styles, { CHIP_HEIGHT, COLORS } from '../index.styles';
+import { fitText } from './textWidth';
+
+const SIZE = 7;
+// padding, border, sign and gap around the text
+const FRAME = 20;
 
 // red like the do-not-call marks, with a sign, so it still reads on a black and white print
 const WarningChip = ({
   text,
+  maxWidth,
   radius = 2,
 }: {
   text: string;
+  // the room its row has: past it the text ends in an ellipsis
+  maxWidth: number;
   // the badges over the map are rounder than the label's chips
   radius?: number;
 }) => (
@@ -15,7 +23,7 @@ const WarningChip = ({
       flexDirection: 'row',
       alignItems: 'center',
       gap: 3,
-      maxWidth: 230,
+      maxWidth,
       backgroundColor: COLORS.dncChip,
       border: `0.5px solid ${COLORS.dncText}`,
       borderRadius: radius,
@@ -42,10 +50,16 @@ const WarningChip = ({
     <Text
       style={[
         styles.households,
-        { fontSize: 7, fontWeight: 600, color: COLORS.dncText },
+        {
+          fontSize: SIZE,
+          fontWeight: 600,
+          color: COLORS.dncText,
+          // should the estimate run short, the line still breaks at a word
+          maxLines: 1,
+        },
       ]}
     >
-      {text}
+      {fitText(text, SIZE, maxWidth - FRAME, true)}
     </Text>
   </View>
 );

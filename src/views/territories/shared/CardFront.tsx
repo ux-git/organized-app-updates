@@ -182,22 +182,41 @@ const CardFront = ({
           <View
             style={{
               position: 'absolute',
+              left: 8,
               right: 8,
               bottom: 8,
-              flexDirection: 'row',
+              alignItems: 'flex-end',
               gap: 4,
             }}
           >
+            <View style={{ flexDirection: 'row', gap: 4 }}>
+              {printedOn && (
+                <MapBadge
+                  text={tx('Printed on {{date}}', { date: printedOn })}
+                />
+              )}
+              {territory.showHouseholds !== false &&
+                territory.households > 0 && (
+                  <MapBadge
+                    text={tx('Households: {{n}}', { n: territory.households })}
+                  />
+                )}
+            </View>
+            {/* the warning gets the whole bottom row to itself */}
             {territory.warning && (
-              <WarningChip text={territory.warning} radius={4} />
-            )}
-            {printedOn && (
-              <MapBadge text={tx('Printed on {{date}}', { date: printedOn })} />
-            )}
-            {territory.showHouseholds !== false && territory.households > 0 && (
-              <MapBadge
-                text={tx('Households: {{n}}', { n: territory.households })}
-              />
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'flex-end',
+                  width: '100%',
+                }}
+              >
+                <WarningChip
+                  text={territory.warning}
+                  maxWidth={inner - 16}
+                  radius={4}
+                />
+              </View>
             )}
           </View>
         )}

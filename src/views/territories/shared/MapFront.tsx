@@ -5,14 +5,10 @@ import { tx } from '@services/i18n/translation';
 import { titleOf } from './title';
 import Shadow from './Shadow';
 import WarningChip from './WarningChip';
+import { fits, textWidth } from './textWidth';
 
 const INSET = 9;
 const PADDING = 9;
-
-// react-pdf cannot measure before layout, so a rough average glyph width
-// decides whether the warning still fits beside the title
-const textWidth = (text: string, size: number, bold = false) =>
-  text.length * size * (bold ? 0.55 : 0.5);
 
 const Chip = ({ text }: { text: string }) => (
   <View
@@ -53,13 +49,15 @@ const MapFront = ({
     textWidth(`${tx('Territory Map Card')}\u2002`, 9) +
     textWidth(title, 9, true);
   const householdsWidth = households ? textWidth(households, 7) + 10 + 4 : 0;
-  const warningWidth = warning ? textWidth(warning, 7, true) + 19 + 4 : 0;
+  const warningWidth = warning ? textWidth(warning, 7, true) + 20 + 4 : 0;
   // a long title keeps the households beside it; the warning gets its own row
-  const warningInline =
-    titleWidth + 8 + warningWidth + householdsWidth <=
-    width - 2 * INSET - 2 * PADDING;
+  const row = width - 2 * INSET - 2 * PADDING;
+  const warningInline = fits(
+    titleWidth + 8 + warningWidth + householdsWidth,
+    row
+  );
 
-  const warningChip = warning && <WarningChip text={warning} />;
+  const warningChip = warning && <WarningChip text={warning} maxWidth={row} />;
 
   return (
     <View style={{ position: 'relative', width, height }}>
