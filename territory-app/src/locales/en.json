@@ -673,5 +673,26 @@
     "change": "Change",
     "pickYourself": "Find yourself in the publishers",
     "deviceName": "Name on this device"
+  },
+  "waiting": {
+    "title": "Waiting to sync",
+    "open": "Show changes waiting to sync",
+    "summary_one": "{{count}} change of yours is waiting",
+    "summary_other": "{{count}} changes of yours are waiting",
+    "goesTo_one": "They go to {{names}} the next time it is close.",
+    "goesTo_other": "They go to {{names}} the next time one of them is close.",
+    "toSync": "Go to sync",
+    "all": "All",
+    "new": "New",
+    "yesterday": "Yesterday",
+    "allSynced": "Everything is synced",
+    "allSyncedText": "Your paired devices have all the changes you made here.",
+    "kinds": {
+      "territories": "Territories",
+      "assignments": "Assignments",
+      "do_not_calls": "Do not call",
+      "people": "Publishers",
+      "settings": "Settings"
+    }
   }
 }

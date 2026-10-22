@@ -710,5 +710,26 @@
     "change": "Ändern",
     "pickYourself": "Finde dich in den Verkündigern",
     "deviceName": "Name auf diesem Gerät"
+  },
+  "waiting": {
+    "title": "Wartet auf Synchronisierung",
+    "open": "Wartende Änderungen anzeigen",
+    "summary_one": "{{count}} Änderung von dir wartet",
+    "summary_other": "{{count}} Änderungen von dir warten",
+    "goesTo_one": "Sie gehen an {{names}}, sobald das Gerät in der Nähe ist.",
+    "goesTo_other": "Sie gehen an {{names}}, sobald eines davon in der Nähe ist.",
+    "toSync": "Zur Synchronisierung",
+    "all": "Alle",
+    "new": "Neu",
+    "yesterday": "Gestern",
+    "allSynced": "Alles synchronisiert",
+    "allSyncedText": "Deine gekoppelten Geräte haben alle Änderungen, die du hier gemacht hast.",
+    "kinds": {
+      "territories": "Gebiete",
+      "assignments": "Zuteilungen",
+      "do_not_calls": "Nicht besuchen",
+      "people": "Verkündiger",
+      "settings": "Einstellungen"
+    }
   }
 }

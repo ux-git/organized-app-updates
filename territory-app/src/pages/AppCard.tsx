@@ -21,6 +21,8 @@ import { count, when } from './sync/text';
 import useBackup from './useBackup';
 import useNearby, { unsynced } from './useNearby';
 import usePeople from './usePeople';
+import useWaiting from './sync/useWaiting';
+import WaitingPreview from './sync/WaitingPreview';
 
 // Organized's App card (PR 5377): sync, the app's own data and its settings
 const AppCard = () => {
@@ -32,6 +34,7 @@ const AppCard = () => {
 
   const running = campaignsOn(campaigns, new Date())[0];
   const pending = unsynced(peers);
+  const mine = useWaiting(pending).filter((item) => item.mine);
   const last = peers.reduce<(typeof peers)[number] | undefined>(
     (latest, peer) =>
       (peer.last_sync ?? 0) > (latest?.last_sync ?? 0) ? peer : latest,
@@ -72,6 +75,11 @@ const AppCard = () => {
           path="/settings/sync"
         />
       </ListItem>
+      {mine.length > 0 && (
+        <ListItem disablePadding>
+          <WaitingPreview mine={mine} />
+        </ListItem>
+      )}
       <ListItem disablePadding>
         <DashboardMenu
           icon={<IconPerson color="var(--black)" />}
@@ -91,7 +99,11 @@ const AppCard = () => {
         />
       </ListItem>
       <ListItem disablePadding>
-        <DashboardMenu icon={<IconSettings color="var(--black)" />} primaryText={t('preferences.title')} path="/settings/preferences" />
+        <DashboardMenu
+          icon={<IconSettings color="var(--black)" />}
+          primaryText={t('preferences.title')}
+          path="/settings/preferences"
+        />
       </ListItem>
       {android && (
         <ListItem disablePadding>

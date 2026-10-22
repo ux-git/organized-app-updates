@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import Typography from '@components/typography';
 import {
@@ -6,48 +5,17 @@ import {
   CardSectionContent,
   CardSectionHeader,
 } from '@features/congregation/settings/shared_styles';
-import { invoke, listen } from '../../native';
-import { list, t } from '../../i18n';
-import { Described, fieldLabel, title, when } from './text';
-
-type Item = Described & {
-  record: string;
-  fields: string[];
-  stamp: string;
-  added: boolean;
-  deleted: boolean;
-};
+import { t } from '../../i18n';
+import { title, when } from './text';
+import useWaiting, { seconds, what } from './useWaiting';
 
 const SHOWN = 50;
 
-const what = (item: Item) => {
-  if (item.deleted) return t('history.deleted');
-  if (item.added) return t('changes.added');
-  return list(item.fields.map(fieldLabel));
-};
-
-// a stamp starts with its time in milliseconds, as 13 hex digits
-const seconds = (stamp: string) => parseInt(stamp.slice(0, 13), 16) / 1000;
-
 /** The records counted as waiting to sync, newest first. */
 const Waiting = ({ pending }: { pending: number }) => {
-  const [records, setRecords] = useState<Item[]>([]);
+  const records = useWaiting(pending);
 
-  const refresh = useCallback(() => {
-    invoke<Item[]>('unsynced_records')
-      .then(setRecords)
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    refresh();
-    const stop = listen('store-changed', refresh);
-    return () => {
-      stop.then((unlisten) => unlisten());
-    };
-  }, [refresh, pending]);
-
-  if (pending <= 0 || !records.length) return null;
+  if (!records.length) return null;
 
   return (
     <CardSection>

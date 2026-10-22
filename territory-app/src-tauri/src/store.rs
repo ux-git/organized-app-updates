@@ -1331,16 +1331,17 @@ impl Store {
         let Some((_, seen)) = behind else {
             return Ok(Vec::new());
         };
-        let mut found: BTreeMap<(String, String), (Vec<String>, String)> = BTreeMap::new();
+        let mut found: BTreeMap<(String, String), (Vec<String>, String, bool)> = BTreeMap::new();
         for cell in self.changes_since(&seen)? {
-            let (fields, stamp) = found.entry((cell.t, cell.i)).or_default();
+            let (fields, stamp, mine) = found.entry((cell.t, cell.i)).or_default();
             fields.push(cell.f);
             if cell.s > *stamp {
                 *stamp = cell.s;
             }
+            *mine |= cell.o == self.identity.id;
         }
         let mut list = Vec::new();
-        for ((table, record), (mut fields, stamp)) in found {
+        for ((table, record), (mut fields, stamp, mine)) in found {
             let stored: i64 = self
                 .conn
                 .query_row(
@@ -1363,6 +1364,8 @@ impl Store {
                 // the other phone has none of it yet
                 "added": added,
                 "deleted": deleted,
+                // edited on this device, not only passed on from another
+                "mine": mine,
                 "territory": territory,
                 "context": context,
             }));
@@ -2819,6 +2822,22 @@ mod tests {
         assert!(list[0]["stamp"].as_str() > list[1]["stamp"].as_str());
         a.remove("assignments", "a1").unwrap();
         assert_eq!(a.waiting().unwrap()[0]["deleted"], true);
+    }
+
+    #[test]
+    fn waiting_tells_own_edits_from_passed_on_ones() {
+        let mut a = Store::in_memory().unwrap();
+        let b = Store::in_memory().unwrap();
+        let mut c = Store::in_memory().unwrap();
+        a.add_peer(&peer_of(&b)).unwrap();
+        a.record_sync(&b.identity.id, &a.versions().unwrap()).unwrap();
+        c.put("people", "p1", &fields(json!({"name": "Max Muster"}))).unwrap();
+        sync(&mut a, &mut c);
+        a.put("people", "p2", &fields(json!({"name": "Eva Muster"}))).unwrap();
+        let list = a.waiting().unwrap();
+        let mine = |id: &str| list.iter().find(|r| r["record"] == id).unwrap()["mine"].clone();
+        assert_eq!(mine("p1"), false);
+        assert_eq!(mine("p2"), true);
     }
 
     fn scratch(name: &str) -> std::path::PathBuf {

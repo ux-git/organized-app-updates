@@ -12,6 +12,7 @@ import Preferences from './Preferences';
 import Publishers from './Publishers';
 import Sync from './Sync';
 import useNearby from './useNearby';
+import WaitingChanges from './sync/WaitingChanges';
 
 // Each setting is its own page, opened from the account menu or the App card
 const Settings = () => {
@@ -25,6 +26,7 @@ const Settings = () => {
     profile: t('account.profile'),
     preferences: t('preferences.title'),
     sync: t('settings.syncTab'),
+    waiting: t('waiting.title'),
     publishers: t('settings.publishers'),
     campaigns: t('settings.campaigns'),
     ...(android
@@ -59,6 +61,7 @@ const Settings = () => {
       {tab === 'profile' && <Profile />}
       {tab === 'preferences' && <Preferences />}
       {tab === 'sync' && <Sync />}
+      {tab === 'waiting' && <WaitingChanges />}
       {tab === 'backup' && <Backup />}
       {tab === 'automatic' && (
         <>
