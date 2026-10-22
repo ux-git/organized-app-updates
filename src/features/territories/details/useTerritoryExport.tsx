@@ -130,6 +130,8 @@ const useTerritoryExport = (territory: Territory) => {
     const data: TerritoryPrintData[] = [
       {
         ...territory,
+        // a warning of only spaces would print an empty red chip
+        warning: territory.warning?.trim() || undefined,
         mapImage: picture,
         showHouseholds,
       },

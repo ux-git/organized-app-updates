@@ -24,7 +24,7 @@ import {
 import RowAction from '../components/row_action';
 import CategoryEditor from './category_editor';
 
-// fits the map card's label row next to the households
+// fits the S-12 badge row beside the print date and the households
 const MAX_WARNING_LENGTH = 48;
 
 const DetailsForm = ({
@@ -176,7 +176,8 @@ const DetailsForm = ({
 
           <TextField
             label={tx('Warning (front side)')}
-            helperText={tx('Printed in red on the map. Keep it short.')}
+            // the count, so the limit never cuts a word off unnoticed
+            helperText={`${tx('Printed in red on the map. Keep it short.')} ${(territory.warning ?? '').length}/${MAX_WARNING_LENGTH}`}
             value={territory.warning ?? ''}
             slotProps={{ htmlInput: { maxLength: MAX_WARNING_LENGTH } }}
             onChange={(event) =>
