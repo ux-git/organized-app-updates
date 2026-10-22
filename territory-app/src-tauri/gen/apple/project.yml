@@ -54,8 +54,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 0.8.21
-        CFBundleVersion: "0.8.21"
+        CFBundleShortVersionString: 0.8.22
+        CFBundleVersion: "0.8.22"
         CFBundleDisplayName: Territories
         CFBundleName: "Territories: Organized"
         # Siri also understands the full name
