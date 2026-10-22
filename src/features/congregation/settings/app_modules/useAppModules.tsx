@@ -49,8 +49,17 @@ const useAppModules = () => {
 
   const canEnable = canSetModuleEnabled(settings);
 
-  const canChoose = (module: AppModuleId, sync: ModuleSyncMethod) =>
-    canSetModuleSync(settings, module, sync);
+  // syncing between devices needs the mobile app and belongs to the
+  // self-hosted edition, which turns the LOCAL_SYNC flag on
+  const localSyncOffered = FEATURE_FLAGS['LOCAL_SYNC'] ?? false;
+
+  const canChoose = (module: AppModuleId, sync: ModuleSyncMethod) => {
+    if (sync === 'local' && !localSyncOffered) {
+      return getModuleEntry(settings, module).sync === 'local';
+    }
+
+    return canSetModuleSync(settings, module, sync);
+  };
 
   const save = async (
     module: AppModuleId,

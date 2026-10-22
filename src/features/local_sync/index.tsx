@@ -3,6 +3,7 @@ import { IconImportJson, IconShare } from '@components/icons';
 import { useAppTranslation } from '@hooks/index';
 import { LocalOnlyCategory } from '@definition/settings';
 import useLocalSync from './useLocalSync';
+import NearbyDevices from './nearby_devices';
 import Button from '@components/button';
 import Typography from '@components/typography';
 import WaitingLoader from '@components/waiting_loader';
@@ -17,16 +18,8 @@ const CATEGORY_LABELS: Record<LocalOnlyCategory, string> = {
 const LocalSync = () => {
   const { t } = useAppTranslation();
 
-  const {
-    categories,
-    isProcessing,
-    nearbyAvailable,
-    getRootProps,
-    getInputProps,
-    handleShare,
-    handleSyncNearby,
-    handlePairNearby,
-  } = useLocalSync();
+  const { categories, isProcessing, getRootProps, getInputProps, handleShare } =
+    useLocalSync();
 
   return (
     <Stack spacing="24px">
@@ -41,22 +34,7 @@ const LocalSync = () => {
         </Typography>
       </Stack>
 
-      {nearbyAvailable && (
-        <Stack spacing="8px">
-          <Typography className="h3">{t('tr_localSyncNearby')}</Typography>
-          <Typography color="var(--grey-400)">
-            {t('tr_localSyncNearbyDesc')}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <Button variant="main" onClick={handleSyncNearby}>
-              {t('tr_localSyncNow')}
-            </Button>
-            <Button variant="secondary" onClick={handlePairNearby}>
-              {t('tr_localSyncPair')}
-            </Button>
-          </Box>
-        </Stack>
-      )}
+      <NearbyDevices />
 
       <Stack spacing="8px">
         <Typography className="h3">{t('tr_localSyncShare')}</Typography>

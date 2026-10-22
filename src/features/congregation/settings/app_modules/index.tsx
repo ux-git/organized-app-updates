@@ -130,7 +130,17 @@ const AppModules = () => {
                         value={method}
                         disabled={!canChoose(id, method)}
                       >
-                        <Typography>{t(SYNC_LABELS[method])}</Typography>
+                        <Box>
+                          <Typography>{t(SYNC_LABELS[method])}</Typography>
+                          {method === 'local' && (
+                            <Typography
+                              className="label-small-regular"
+                              color="var(--grey-350)"
+                            >
+                              {t('tr_moduleSyncLocalHint')}
+                            </Typography>
+                          )}
+                        </Box>
                       </MenuItem>
                     ))}
                   </Select>

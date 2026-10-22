@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useAtomValue } from 'jotai';
-import { FileWithPath, useDropzone } from 'react-dropzone';
+import { useDropzone } from 'react-dropzone';
 import { saveAs } from 'file-saver';
 import { useAppTranslation } from '@hooks/index';
 import { localSyncCategoriesState } from '@states/settings';
@@ -10,7 +10,6 @@ import {
   exportLocalSyncBundle,
   importLocalSyncBundle,
 } from '@services/local_sync';
-import { hasNearby, nearby } from '@services/local_sync/nearby';
 import { formatDate } from '@utils/date';
 
 const FILE_TYPE = 'application/vnd.organized.local-sync';
@@ -58,7 +57,7 @@ const useLocalSync = () => {
   };
 
   const onDrop = useCallback(
-    async (acceptedFiles: FileWithPath[]) => {
+    async (acceptedFiles: File[]) => {
       try {
         setIsProcessing(true);
 
@@ -95,19 +94,12 @@ const useLocalSync = () => {
     maxFiles: 1,
   });
 
-  const handleSyncNearby = () => nearby('syncNow');
-
-  const handlePairNearby = () => nearby('pair');
-
   return {
     categories,
     isProcessing,
-    nearbyAvailable: hasNearby(),
     getRootProps,
     getInputProps,
     handleShare,
-    handleSyncNearby,
-    handlePairNearby,
   };
 };
 
