@@ -10,7 +10,8 @@ const INSET = 9;
 const Chip = ({ text }: { text: string }) => (
   <View
     style={{
-      backgroundColor: COLORS.chip,
+      // a step darker than the screen chip: printers drop the lightest greys
+      backgroundColor: COLORS.divider,
       borderRadius: 2,
       paddingTop: 2,
       paddingBottom: 2,
