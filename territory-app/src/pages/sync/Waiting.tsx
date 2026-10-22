@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Box, ButtonBase, Collapse } from '@mui/material';
 import { IconExpand } from '@icons/index';
+import Badge from '@components/badge';
 import Typography from '@components/typography';
 import {
   CardSection,
   CardSectionContent,
-  CardSectionHeader,
+  CardSectionDescription,
+  CardSectionTitle,
 } from '@features/congregation/settings/shared_styles';
 import { t } from '../../i18n';
 import { title, when } from './text';
@@ -34,11 +36,15 @@ const Waiting = ({ pending }: { pending: number }) => {
           borderRadius: 'var(--radius-m)',
         }}
       >
-        <CardSectionHeader
-          title={`${t('sync.waitingTitle')} (${records.length})`}
-          description={t('sync.waitingText')}
-          sx={{ flex: 1 }}
-        />
+        <Box
+          sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CardSectionTitle>{t('sync.waitingTitle')}</CardSectionTitle>
+            <Badge size="small" color="accent" text={String(records.length)} />
+          </Box>
+          <CardSectionDescription content={t('sync.waitingText')} />
+        </Box>
         <IconExpand
           color="var(--accent-main)"
           sx={{
