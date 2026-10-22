@@ -140,6 +140,8 @@ export type Territory = {
   reviewNeeded?: boolean;
   // standing information, printed on the card: no names or addresses
   notes?: string;
+  // a short caution printed in red on the map front, e.g. a dog behind a gate
+  warning?: string;
 };
 
 // a publisher or a field service group a territory can go to

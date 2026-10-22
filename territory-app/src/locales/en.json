@@ -395,6 +395,7 @@
     "number": "Number",
     "city": "City",
     "notes": "Notes",
+    "warning": "Important notice",
     "note": "Note",
     "address": "Address",
     "households": "Households",

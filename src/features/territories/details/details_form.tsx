@@ -24,6 +24,9 @@ import {
 import RowAction from '../components/row_action';
 import CategoryEditor from './category_editor';
 
+// fits the map card's label row next to the households
+const MAX_WARNING_LENGTH = 48;
+
 const DetailsForm = ({
   territory,
   onChange,
@@ -168,6 +171,19 @@ const DetailsForm = ({
             slotProps={{ htmlInput: { maxLength: MAX_NOTE_LENGTH } }}
             onChange={(event) =>
               onChange({ ...territory, notes: event.target.value || undefined })
+            }
+          />
+
+          <TextField
+            label={tx('Important notice')}
+            helperText={tx('Printed in red on the map. Keep it short.')}
+            value={territory.warning ?? ''}
+            slotProps={{ htmlInput: { maxLength: MAX_WARNING_LENGTH } }}
+            onChange={(event) =>
+              onChange({
+                ...territory,
+                warning: event.target.value || undefined,
+              })
             }
           />
         </Box>

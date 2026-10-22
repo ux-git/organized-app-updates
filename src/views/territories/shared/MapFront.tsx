@@ -4,6 +4,7 @@ import styles, { COLORS } from '../index.styles';
 import { tx } from '@services/i18n/translation';
 import { titleOf } from './title';
 import Shadow from './Shadow';
+import WarningChip from './WarningChip';
 
 const INSET = 9;
 
@@ -84,6 +85,7 @@ const MapFront = ({
             </Text>
             <Text style={styles.frameName}>{titleOf(territory)}</Text>
           </Text>
+          {territory.warning && <WarningChip text={territory.warning} />}
           {territory.showHouseholds !== false && territory.households > 0 && (
             <Chip text={tx('Households: {{n}}', { n: territory.households })} />
           )}

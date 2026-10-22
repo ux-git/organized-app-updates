@@ -4,6 +4,7 @@ import styles, { CARD, COLORS } from '../index.styles';
 import { tx } from '@services/i18n/translation';
 import { titleOf } from './title';
 import Shadow from './Shadow';
+import WarningChip from './WarningChip';
 
 const COLUMNS = 4;
 
@@ -187,6 +188,9 @@ const CardFront = ({
               gap: 4,
             }}
           >
+            {territory.warning && (
+              <WarningChip text={territory.warning} radius={4} />
+            )}
             {printedOn && (
               <MapBadge text={tx('Printed on {{date}}', { date: printedOn })} />
             )}

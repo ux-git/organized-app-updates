@@ -621,5 +621,7 @@
   "Only neighbouring territories can be merged.": "Nur benachbarte Gebiete lassen sich zusammenführen.",
   "The merged territory would enclose another one.": "Das zusammengeführte Gebiet würde ein anderes umschließen.",
   "Territories merged into {{number}}": "Gebiete zu Nr. {{number}} zusammengeführt",
-  "Territory {{number}} split": "Gebiet Nr. {{number}} geteilt"
+  "Territory {{number}} split": "Gebiet Nr. {{number}} geteilt",
+  "Important notice": "Wichtiger Hinweis",
+  "Printed in red on the map. Keep it short.": "Wird rot auf die Karte gedruckt. Halte ihn kurz."
 }

@@ -139,6 +139,7 @@ const FIELDS = [
   'city',
   'notes',
   'note',
+  'warning',
   'address',
   'households',
   'cardLost',
