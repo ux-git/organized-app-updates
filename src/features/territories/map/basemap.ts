@@ -427,6 +427,17 @@ export const labelsAbove = (map: maplibregl.Map) => {
   }
 };
 
+// while borders are drawn, they matter more than the names: the basemap's
+// labels go back under our layers, starting at `before`
+export const labelsBelow = (map: maplibregl.Map, before: string) => {
+  if (!map.getLayer(before)) return;
+  for (const layer of map.getStyle().layers) {
+    if (layer.type === 'symbol' && sourceLayerOf(layer)) {
+      map.moveLayer(layer.id, before);
+    }
+  }
+};
+
 // shields keep their look; only the layers that write the street's name change
 export const styleStreetName = (
   map: maplibregl.Map,

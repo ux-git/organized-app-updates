@@ -88,6 +88,7 @@ import {
   DEFAULT_BASEMAP,
   hideStylePlaces,
   labelsAbove,
+  labelsBelow,
   LayerSwitch,
   PlaceType,
 } from './basemap';
@@ -788,6 +789,15 @@ const useTerritoriesMap = () => {
       if (map.current.getLayer(id)) map.current.moveLayer(id);
     }
   }, [provider, layers, ready, styleVersion]);
+
+  // looking at the map, the street names come first; drawing, the lines do
+  const drawing = editMode || editor.editing;
+  useEffect(() => {
+    if (!map.current || !ready) return;
+
+    if (drawing) labelsBelow(map.current, CONGREGATION_VEIL_LAYER);
+    else labelsAbove(map.current);
+  }, [drawing, provider, layers, ready, styleVersion]);
 
   // swapping the style drops every other layer, terra draw's too, so only on a real basemap change
   useEffect(() => {
