@@ -419,6 +419,14 @@ const tintWater = (map: maplibregl.Map, id: string, tinted: boolean) => {
   );
 };
 
+// every name and number goes above the fills, borders and drawings, as on
+// the printed card; symbols keep their order, so territory numbers stay on top
+export const labelsAbove = (map: maplibregl.Map) => {
+  for (const layer of map.getStyle().layers) {
+    if (layer.type === 'symbol') map.moveLayer(layer.id);
+  }
+};
+
 // shields keep their look; only the layers that write the street's name change
 export const styleStreetName = (
   map: maplibregl.Map,

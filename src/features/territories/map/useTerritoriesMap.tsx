@@ -87,6 +87,7 @@ import {
   BasemapOptions,
   DEFAULT_BASEMAP,
   hideStylePlaces,
+  labelsAbove,
   LayerSwitch,
   PlaceType,
 } from './basemap';
@@ -605,6 +606,8 @@ const useTerritoriesMap = () => {
         'icon-opacity': labelOpacity(0.92),
       },
     });
+
+    labelsAbove(instance);
   }, []);
 
   useEffect(() => {
@@ -780,6 +783,10 @@ const useTerritoriesMap = () => {
     if (!map.current || !ready) return;
 
     applyBasemapOptions(map.current, provider, layers);
+    // the basemap lifts its street names to the top; the numbers go back over them
+    for (const id of [LABEL_CAPTION_LAYER, LABEL_LAYER]) {
+      if (map.current.getLayer(id)) map.current.moveLayer(id);
+    }
   }, [provider, layers, ready, styleVersion]);
 
   // swapping the style drops every other layer, terra draw's too, so only on a real basemap change

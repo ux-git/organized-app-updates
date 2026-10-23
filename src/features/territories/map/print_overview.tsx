@@ -20,7 +20,7 @@ import {
   MAP_PROVIDER,
   MAP_PROVIDERS,
 } from './constants';
-import { applyBasemapOptions, DEFAULT_BASEMAP } from './basemap';
+import { applyBasemapOptions, DEFAULT_BASEMAP, labelsAbove } from './basemap';
 import { boundaryBounds } from './helpers';
 
 // ---- the whole congregation's map on paper, from A4 up to a wall poster ----
@@ -308,6 +308,7 @@ const captureOverview = (
             'text-halo-width': ['*', ['get', 'size'], 0.15],
           },
         });
+        labelsAbove(map);
       }
     });
 
