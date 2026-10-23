@@ -1,6 +1,6 @@
 [package]
 name = "territories"
-version = "0.8.24"
+version = "0.8.25"
 description = "Organized Territories"
 edition = "2021"
 rust-version = "1.82"
