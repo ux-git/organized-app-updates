@@ -36,6 +36,7 @@ import {
   applyBasemapOptions,
   DEFAULT_BASEMAP,
   hideStylePlaces,
+  labelsAbove,
 } from '../map/basemap';
 import {
   addAttribution,
@@ -49,7 +50,7 @@ import {
   addTerritoryLayers,
   setDoNotCallData,
 } from '../map/layers';
-import { getCSSPropertyValue } from '@utils/common';
+import { getCSSPropertyValue, systemBarInset } from '@utils/common';
 import { captureTerritoryMap } from '../map/capture';
 import { frameZoom, MarkerRegistry, syncMarkers } from '../map/markers';
 import MapIsland, { MapAction, NorthAction } from '../map/map_island';
@@ -136,6 +137,7 @@ const BoundaryPreview = ({
         addDoNotCallLayer(instance, frameZoom(instance, boundary) - 0.05);
         setDoNotCallData(instance, [latest.current]);
       }
+      labelsAbove(instance);
       syncMarkers(
         instance,
         mapMarkers ?? [],
@@ -194,68 +196,104 @@ const FullscreenMap = ({
   };
 
   return (
-    <MuiDialog open fullScreen onClose={onClose}>
-      {/* the paper keeps clear of the system bars, so the map fills what's left */}
-      <Box sx={{ position: 'relative', height: '100%' }}>
+    <MuiDialog
+      open
+      fullScreen
+      onClose={onClose}
+      slotProps={{
+        paper: {
+          // the map runs under the system bars, as in a maps app; the shell
+          // would otherwise pad the paper and leave white bands there
+          sx: {
+            backgroundColor: 'var(--white)',
+            paddingTop: '0 !important',
+            paddingBottom: '0 !important',
+          },
+        },
+      }}
+    >
+      <Box
+        sx={{
+          position: 'relative',
+          height: '100%',
+          '& .maplibregl-ctrl-bottom-left': {
+            bottom: systemBarInset('bottom'),
+            left: systemBarInset('left'),
+          },
+        }}
+      >
         <BoundaryPreview territory={territory} interactive onReady={setMap} />
 
-        <MapIsland corner="top-left">
-          <Typography
-            className="body-small-semibold"
-            color="var(--black)"
-            noWrap
-            // as tall as the Close button beside it
-            sx={{ padding: '10px', maxWidth: 'calc(100vw - 220px)' }}
-          >
-            {[
-              tx('Territory {{number}}', { number: territory.number }),
-              territory.name,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </Typography>
-          {doNotCalls > 0 && (
-            <Badge
-              size="small"
-              color="red"
-              filled={false}
-              text={tx('Do not call: {{n}}', { n: doNotCalls })}
-              sx={{ width: 'fit-content', flexShrink: 0, marginRight: '6px' }}
-            />
-          )}
-        </MapIsland>
+        {/* the controls keep clear of the bars the map runs under */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: systemBarInset('top'),
+            right: systemBarInset('right'),
+            bottom: systemBarInset('bottom'),
+            left: systemBarInset('left'),
+            pointerEvents: 'none',
+            '& > *': { pointerEvents: 'auto' },
+          }}
+        >
+          <MapIsland corner="top-left">
+            <Typography
+              className="body-small-semibold"
+              color="var(--black)"
+              noWrap
+              // as tall as the Close button beside it
+              sx={{ padding: '10px', maxWidth: 'calc(100vw - 220px)' }}
+            >
+              {[
+                tx('Territory {{number}}', { number: territory.number }),
+                territory.name,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Typography>
+            {doNotCalls > 0 && (
+              <Badge
+                size="small"
+                color="red"
+                filled={false}
+                text={tx('Do not call: {{n}}', { n: doNotCalls })}
+                sx={{ width: 'fit-content', flexShrink: 0, marginRight: '6px' }}
+              />
+            )}
+          </MapIsland>
 
-        <MapIsland corner="top-right">
-          <MapAction title={tx('Close')} placement="left" onClick={onClose}>
-            <IconClose color="var(--accent-main)" />
-          </MapAction>
-        </MapIsland>
+          <MapIsland corner="top-right">
+            <MapAction title={tx('Close')} placement="left" onClick={onClose}>
+              <IconClose color="var(--accent-main)" />
+            </MapAction>
+          </MapIsland>
 
-        <MapIsland corner="bottom-right" vertical>
-          <NorthAction map={map} placement="left" />
-          <MapAction
-            title={tx('Zoom in')}
-            placement="left"
-            onClick={() => map?.zoomIn()}
-          >
-            <IconAdd color="var(--accent-main)" />
-          </MapAction>
-          <MapAction
-            title={tx('Zoom out')}
-            placement="left"
-            onClick={() => map?.zoomOut()}
-          >
-            <IconRemove color="var(--accent-main)" />
-          </MapAction>
-          {/* also turns the map back to north up */}
-          <MapAction
-            title={tx('Show the whole territory')}
-            placement="left"
-            onClick={fit}
-          >
-            <IconMapOverview color="var(--accent-main)" />
-          </MapAction>
-        </MapIsland>
+          <MapIsland corner="bottom-right" vertical>
+            <NorthAction map={map} placement="left" />
+            <MapAction
+              title={tx('Zoom in')}
+              placement="left"
+              onClick={() => map?.zoomIn()}
+            >
+              <IconAdd color="var(--accent-main)" />
+            </MapAction>
+            <MapAction
+              title={tx('Zoom out')}
+              placement="left"
+              onClick={() => map?.zoomOut()}
+            >
+              <IconRemove color="var(--accent-main)" />
+            </MapAction>
+            {/* also turns the map back to north up */}
+            <MapAction
+              title={tx('Show the whole territory')}
+              placement="left"
+              onClick={fit}
+            >
+              <IconMapOverview color="var(--accent-main)" />
+            </MapAction>
+          </MapIsland>
+        </Box>
       </Box>
     </MuiDialog>
   );
@@ -420,7 +458,7 @@ const TerritoryMap = ({
                 <Button
                   variant="small"
                   disableAutoStretch
-                  aria-label={tx(label)}
+                  ariaLabel={tx(label)}
                   disabled={disabled}
                   onClick={onClick}
                   sx={{ ...small, width: '28px', padding: '2px' }}
