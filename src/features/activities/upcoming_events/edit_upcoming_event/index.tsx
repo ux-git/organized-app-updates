@@ -22,6 +22,16 @@ import TimePicker from '@components/time_picker';
 import Typography from '@components/typography';
 import InfoNote from '@components/info_note';
 
+const editorTitleKey = (
+  category: UpcomingEventCategory,
+  type: EditUpcomingEventProps['type']
+) => {
+  const isCampaign = category === UpcomingEventCategory.SpecialCampaignWeek;
+  if (type === 'add')
+    return isCampaign ? 'tr_territoryAddCampaign' : 'tr_addUpcomingEvent';
+  return isCampaign ? 'tr_territoryEditCampaign' : 'tr_editUpcomingEvent';
+};
+
 const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
   const { t } = useAppTranslation();
 
@@ -49,16 +59,15 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
     eventTitle,
   } = useEditUpcomingEvent(props);
 
-  const isCampaign =
-    localEvent.event_data.category ===
-    UpcomingEventCategory.SpecialCampaignWeek;
-  const addTitle = isCampaign
-    ? 'tr_territoryAddCampaign'
-    : 'tr_addUpcomingEvent';
-  const editTitle = isCampaign
-    ? 'tr_territoryEditCampaign'
-    : 'tr_editUpcomingEvent';
-  const title = t(props.type === 'add' ? addTitle : editTitle);
+  const rowStyles = {
+    display: 'flex',
+    flexDirection: 'row',
+    gap: '16px',
+    flexWrap: desktopUp ? 'nowrap' : 'wrap',
+    '& > *': { flex: desktopUp ? '1' : 'none' },
+  };
+  const timeWidth = hour24 ? '140px' : '150px';
+  const title = t(editorTitleKey(localEvent.event_data.category, props.type));
 
   return (
     <Box
@@ -132,15 +141,7 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
           gap: '16px',
         }}
       >
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'row',
-            gap: '16px',
-            flexWrap: !desktopUp ? 'wrap' : 'nowrap',
-            '& > *': { flex: !desktopUp ? 'none' : '1' },
-          }}
-        >
+        <Box sx={rowStyles}>
           <Select
             label={t('tr_eventType')}
             disabled={
@@ -204,16 +205,7 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
 
         <Typography className="h4">{t('tr_dateAndTime')}</Typography>
 
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'row',
-            gap: '16px',
-
-            flexWrap: !desktopUp ? 'wrap' : 'nowrap',
-            '& > *': { flex: !desktopUp ? 'none' : '1' },
-          }}
-        >
+        <Box sx={rowStyles}>
           <Select
             label={t('tr_eventDuration')}
             onChange={handleChangeEventDuration}
@@ -277,27 +269,19 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
             />
 
             {!wholeDay && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  gap: '16px',
-                  flexWrap: !desktopUp ? 'wrap' : 'nowrap',
-                  '& > *': { flex: !desktopUp ? 'none' : '1' },
-                }}
-              >
+              <Box sx={rowStyles}>
                 <TimePicker
                   onChange={handleChangeEventStartTime}
                   label={t('tr_startTime')}
                   ampm={!hour24}
-                  sx={{ minWidth: hour24 ? '140px' : '150px' }}
+                  sx={{ minWidth: timeWidth }}
                   value={new Date(localEvent.event_data.start)}
                 />
                 <TimePicker
                   onChange={handleChangeEventEndTime}
                   label={t('tr_endTime')}
                   ampm={!hour24}
-                  sx={{ minWidth: hour24 ? '140px' : '150px' }}
+                  sx={{ minWidth: timeWidth }}
                   value={new Date(localEvent.event_data.end)}
                   error={errors.endTime}
                   helperText={errors.endTime ? t('tr_endTimeAfterStart') : ''}

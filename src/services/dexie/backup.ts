@@ -13,6 +13,20 @@ import { dbUpcomingEventsClear } from '@services/dexie/upcoming_events';
 import appDb from '@db/appDb';
 import type { ImportDbType } from '@definition/backup';
 
+const restoreBackupSettings = async (data: ImportDbType) => {
+  if (data.cong_settings) {
+    await appDb.app_settings.update(1, {
+      cong_settings: data.cong_settings,
+    });
+  }
+
+  if (data.user_settings) {
+    await appDb.app_settings.update(1, {
+      user_settings: data.user_settings,
+    });
+  }
+};
+
 /** Commit the selected backup tables and their sync metadata together. */
 export const dbImportBackupData = async (data: ImportDbType) => {
   const tableNames = new Set(['metadata']);
@@ -91,17 +105,7 @@ export const dbImportBackupData = async (data: ImportDbType) => {
       await appDb.visiting_speakers.bulkPut(data.visiting_speakers);
     }
 
-    if (data.cong_settings) {
-      await appDb.app_settings.update(1, {
-        cong_settings: data.cong_settings,
-      });
-    }
-
-    if (data.user_settings) {
-      await appDb.app_settings.update(1, {
-        user_settings: data.user_settings,
-      });
-    }
+    await restoreBackupSettings(data);
 
     if (data.territories) await appDb.territories.bulkPut(data.territories);
 

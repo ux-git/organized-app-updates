@@ -569,6 +569,89 @@ const BAR_GAP = 14;
 // the rail's width and the gaps around it
 const RAIL_SPACE = 72;
 
+const drawingStyleOptions = (
+  editor: Editor,
+  kind: MapItemKind | undefined,
+  finished: ReactNode,
+  t: ReturnType<typeof useAppTranslation>['t']
+) => {
+  let content: ReactNode = null;
+  const activeShape =
+    !kind && editor.tool === 'shape' ? editor.shape : undefined;
+  const activeLine = !kind && editor.tool === 'line' ? editor.line : undefined;
+  const shape = kind === 'shape' ? editor.selectedStyle : activeShape;
+  const line = kind === 'line' ? editor.selectedLine : activeLine;
+
+  if (shape) {
+    content = (
+      <>
+        <ColorPicker
+          label={t('tr_territoryOutline')}
+          value={shape.border}
+          allowNone
+          onPick={(border) => editor.pickShape({ border })}
+        />
+        {shape.border !== 'transparent' && (
+          <DashToggle
+            dashed={!!shape.dashed}
+            onPick={(dashed) => editor.pickShape({ dashed })}
+          />
+        )}
+        <ColorPicker
+          label={t('tr_territoryFill')}
+          value={shape.fill}
+          allowNone
+          onPick={(fill) => editor.pickShape({ fill })}
+        />
+        {kind && finished}
+      </>
+    );
+  } else if (line) {
+    content = (
+      <>
+        <DashToggle
+          dashed={line.style === 'dashed'}
+          onPick={(dashed) =>
+            editor.pickLine({ style: dashed ? 'dashed' : 'solid' })
+          }
+        />
+        <ColorPicker
+          label={t('tr_territoryColour')}
+          value={line.color}
+          allowNone={false}
+          onPick={(color) =>
+            color !== 'transparent' && editor.pickLine({ color })
+          }
+        />
+        {kind && finished}
+      </>
+    );
+  } else if (kind === 'pin') {
+    const current = (editor.draft.markers.find(
+      (m) => m.id === String(editor.selected)
+    )?.pinType ?? 'normal') as PinType;
+    content = (
+      <>
+        <PinTypes value={current} onPick={editor.pickPinType} />
+        {kind && finished}
+      </>
+    );
+  } else if (kind === 'text') {
+    content = (
+      <>
+        <IconButton
+          label={t('tr_territoryEditText')}
+          icon={<IconEdit />}
+          placement="top"
+          onClick={() => editor.editLabel()}
+        />
+        {finished}
+      </>
+    );
+  }
+  return content;
+};
+
 // the options of what is picked, or of the tool about to draw, next to the drawing
 export const StyleBar = ({
   editor,
@@ -699,80 +782,7 @@ export const StyleBar = ({
       </>
     );
   } else {
-    const activeShape =
-      !kind && editor.tool === 'shape' ? editor.shape : undefined;
-    const activeLine =
-      !kind && editor.tool === 'line' ? editor.line : undefined;
-    const shape = kind === 'shape' ? editor.selectedStyle : activeShape;
-    const line = kind === 'line' ? editor.selectedLine : activeLine;
-
-    if (shape) {
-      content = (
-        <>
-          <ColorPicker
-            label={t('tr_territoryOutline')}
-            value={shape.border}
-            allowNone
-            onPick={(border) => editor.pickShape({ border })}
-          />
-          {shape.border !== 'transparent' && (
-            <DashToggle
-              dashed={!!shape.dashed}
-              onPick={(dashed) => editor.pickShape({ dashed })}
-            />
-          )}
-          <ColorPicker
-            label={t('tr_territoryFill')}
-            value={shape.fill}
-            allowNone
-            onPick={(fill) => editor.pickShape({ fill })}
-          />
-          {kind && finished}
-        </>
-      );
-    } else if (line) {
-      content = (
-        <>
-          <DashToggle
-            dashed={line.style === 'dashed'}
-            onPick={(dashed) =>
-              editor.pickLine({ style: dashed ? 'dashed' : 'solid' })
-            }
-          />
-          <ColorPicker
-            label={t('tr_territoryColour')}
-            value={line.color}
-            allowNone={false}
-            onPick={(color) =>
-              color !== 'transparent' && editor.pickLine({ color })
-            }
-          />
-          {kind && finished}
-        </>
-      );
-    } else if (kind === 'pin') {
-      const current = (editor.draft.markers.find(
-        (m) => m.id === String(editor.selected)
-      )?.pinType ?? 'normal') as PinType;
-      content = (
-        <>
-          <PinTypes value={current} onPick={editor.pickPinType} />
-          {kind && finished}
-        </>
-      );
-    } else if (kind === 'text') {
-      content = (
-        <>
-          <IconButton
-            label={t('tr_territoryEditText')}
-            icon={<IconEdit />}
-            placement="top"
-            onClick={() => editor.editLabel()}
-          />
-          {finished}
-        </>
-      );
-    }
+    content = drawingStyleOptions(editor, kind, finished, t);
   }
 
   if (!content) return null;

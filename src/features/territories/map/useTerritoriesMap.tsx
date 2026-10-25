@@ -1,6 +1,4 @@
-import {
-  territoryRestructureIssue,
-} from '@utils/territory';
+import { territoryRestructureIssue } from '@utils/territory';
 import { territoryMapProviderState } from '@states/territory_preferences';
 import { useAppTranslation } from '@hooks/index';
 import { locateMap } from '@services/maps/location';
@@ -56,6 +54,7 @@ import {
 } from '@features/territories/map/constants';
 import { ColorView, colorScheme } from '@features/territories/map/views';
 import {
+  CoverageProblems,
   coverageCollection,
   coverageProblems,
 } from '@features/territories/map/coverage_check';
@@ -170,6 +169,92 @@ const WORLD: GeoJSON.Position[] = [
   [-180, 85],
   [-180, -85],
 ];
+
+type DialogFields = {
+  selected?: Territory;
+  takenNumbers: (excluded?: string[]) => string[];
+  onConfirm: (fields: TerritoryFields) => void;
+  onClose: VoidFunction;
+};
+
+const splitFieldsDialog = ({
+  selected,
+  enabled,
+  takenNumbers,
+  onConfirm,
+  onClose,
+}: DialogFields & { enabled: boolean }) => {
+  if (!enabled || !selected) return undefined;
+  const taken = takenNumbers();
+  return {
+    initial: {
+      number: nextNumber(selected.number, taken),
+      city: selected.city,
+      name: '',
+    },
+    taken,
+    onConfirm,
+    onClose,
+  };
+};
+
+const mergeFieldsDialog = ({
+  selected,
+  ids,
+  territories,
+  staged,
+  takenNumbers,
+  onConfirm,
+  onClose,
+}: DialogFields & {
+  ids?: string[];
+  territories: Territory[];
+  staged: Staged;
+}) => {
+  if (!ids || !selected) return undefined;
+  const fieldsOf = ({ number, city, name }: Territory): TerritoryFields => ({
+    number,
+    city,
+    name,
+  });
+  return {
+    initial: staged.keep ?? fieldsOf(selected),
+    taken: takenNumbers([selected.id, ...staged.merged, ...ids]),
+    choices: [
+      selected,
+      ...territories.filter((item) => ids.includes(item.id)),
+    ].map(fieldsOf),
+    onConfirm,
+    onClose,
+  };
+};
+
+const mapViewState = ({
+  ready,
+  instance,
+  editMode,
+  editing,
+  territories,
+  editedId,
+  coverage,
+}: {
+  ready: boolean;
+  instance: maplibregl.Map | null;
+  editMode: boolean;
+  editing: boolean;
+  territories: Territory[];
+  editedId?: string;
+  coverage?: CoverageProblems | null;
+}) => ({
+  instance: ready ? instance : null,
+  mode: editMode ? ('edit' as const) : ('view' as const),
+  coverageCounts: coverage
+    ? { gaps: coverage.gaps.length, overlaps: coverage.overlaps.length }
+    : undefined,
+  edited: editing
+    ? territories.find((item) => item.id === editedId)
+    : undefined,
+});
 
 const useTerritoriesMap = () => {
   const { t } = useAppTranslation();
@@ -1356,47 +1441,22 @@ const useTerritoriesMap = () => {
     setMergeTarget(undefined);
   };
 
-  const fieldsOf = (item: Territory): TerritoryFields => ({
-    number: item.number,
-    city: item.city,
-    name: item.name,
+  const splitDialog = splitFieldsDialog({
+    selected,
+    enabled: !!splitting,
+    takenNumbers,
+    onConfirm: confirmSplit,
+    onClose: () => setSplitting(undefined),
   });
-
-  const splitDialog =
-    splitting && selected
-      ? {
-          initial: {
-            number: nextNumber(selected.number, takenNumbers()),
-            city: selected.city,
-            name: '',
-          },
-          taken: takenNumbers(),
-          onConfirm: confirmSplit,
-          onClose: () => setSplitting(undefined),
-        }
-      : undefined;
-
-  const mergeChoices = mergeTarget
-    ? [
-        ...(selected ? [selected] : []),
-        ...territories.filter((item) => mergeTarget.ids.includes(item.id)),
-      ].map(fieldsOf)
-    : [];
-
-  const mergeDialog =
-    mergeTarget && selected
-      ? {
-          initial: staged.keep ?? fieldsOf(selected),
-          taken: takenNumbers([
-            selected.id,
-            ...staged.merged,
-            ...mergeTarget.ids,
-          ]),
-          choices: mergeChoices,
-          onConfirm: confirmMerge,
-          onClose: () => setMergeTarget(undefined),
-        }
-      : undefined;
+  const mergeDialog = mergeFieldsDialog({
+    selected,
+    ids: mergeTarget?.ids,
+    territories,
+    staged,
+    takenNumbers,
+    onConfirm: confirmMerge,
+    onClose: () => setMergeTarget(undefined),
+  });
 
   const save = useCallback(() => {
     const { draft, scope } = editor;
@@ -1428,14 +1488,14 @@ const useTerritoriesMap = () => {
         staged.created,
         staged.keep?.number
       );
+      const errorKey =
+        issue === 'number'
+          ? 'tr_territoryThisNumberIsAlreadyUsed'
+          : 'tr_territoryReturnBeforeRestructuring';
       if (issue || !original) {
         displaySnackNotification({
           header: t('tr_territoryMapNotSaved'),
-          message: t(
-            issue === 'number'
-              ? 'tr_territoryThisNumberIsAlreadyUsed'
-              : 'tr_territoryReturnBeforeRestructuring'
-          ),
+          message: t(errorKey),
           severity: 'error',
         });
         return;
@@ -1520,16 +1580,17 @@ const useTerritoriesMap = () => {
 
       const number = staged.keep?.number ?? original?.number;
 
-      if (original && (absorbed.length || staged.created.length)) {
+      const undoText = absorbed.length
+        ? t('tr_territoryTerritoriesMergedInto', { number })
+        : t('tr_territoryTerritorySplit', { number });
+      if (absorbed.length || staged.created.length) {
         const createdIds = new Set(staged.created.map((item) => item.id));
         const restored = [original, ...absorbed]
           .map((item) => ({ item, index: before.indexOf(item) }))
           .sort((a, b) => a.index - b.index);
 
         offerUndo({
-          text: absorbed.length
-            ? t('tr_territoryTerritoriesMergedInto', { number })
-            : t('tr_territoryTerritorySplit', { number }),
+          text: undoText,
           revert: () => {
             store.set(territoriesState, (prev) =>
               prev.filter((item) => !createdIds.has(item.id))
@@ -1596,13 +1657,20 @@ const useTerritoriesMap = () => {
     reloadMap,
     wrapper,
     container,
-    instance: ready ? map.current : null,
+    ...mapViewState({
+      ready,
+      instance: map.current,
+      editMode: isEditMode,
+      editing: editor.editing,
+      territories,
+      editedId: editingId.current,
+      coverage,
+    }),
     territories: visible,
     mapped,
     selected,
     selectedId,
     pickTerritory,
-    mode: isEditMode ? ('edit' as const) : ('view' as const),
     setMode,
     colorView,
     setColorView,
@@ -1639,15 +1707,8 @@ const useTerritoriesMap = () => {
     locate,
     fitAll,
     coverageCheck: coverageOn,
-    coverageCounts: coverage
-      ? { gaps: coverage.gaps.length, overlaps: coverage.overlaps.length }
-      : undefined,
     toggleCoverageCheck: () => setCoverageCheck((on) => !on),
     editor,
-    // the one being drawn, which a later pick on the map doesn't change
-    edited: editor.editing
-      ? territories.find((item) => item.id === editingId.current)
-      : undefined,
     startEditing,
     editArea,
     leaveTerritory,

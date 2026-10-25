@@ -35,9 +35,6 @@ import {
 } from '@features/territories/helpers';
 import { AssignmentCard, TerritoryAssignment } from '@definition/territory';
 
-const startOfDay = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-
 const AssignmentEditor = ({
   assignment,
   isNew = false,
@@ -87,17 +84,13 @@ const AssignmentEditor = ({
     value: assignment.campaign,
   });
 
-  const returnedTooEarly =
-    !!assignedOn &&
-    !!returnedOn &&
-    startOfDay(returnedOn) < startOfDay(assignedOn);
-
   // allowed, but worth a second look
   const issues = assignmentIssues({
     assignedOn: assignedOn ? toStoredDate(assignedOn) : '',
     returnedOn: returnedOn ? toStoredDate(returnedOn) : undefined,
   });
 
+  const returnedTooEarly = issues.includes('returned_before_assigned');
   const secondOpen = otherOpen && !returnedOn;
   let returnedDateHint = '';
   if (returnedTooEarly)

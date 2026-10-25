@@ -513,6 +513,72 @@ const Row = memo(function Row({
   );
 });
 
+const PhoneSelectionControls = ({
+  actions,
+  phone,
+  selectionMode,
+  count,
+  onChange,
+}: {
+  actions: boolean;
+  phone: boolean;
+  selectionMode: boolean;
+  count: number;
+  onChange?: (selecting: boolean) => void;
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <>
+      {' '}
+      {actions && phone && !selectionMode && (
+        <Button
+          variant="small"
+          disableAutoStretch
+          onClick={() => onChange?.(true)}
+          ariaLabel={t('tr_territorySelectTerritories')}
+        >
+          {t('tr_territorySelect')}
+        </Button>
+      )}
+      {actions && phone && selectionMode && count === 0 && (
+        <Button
+          variant="small"
+          disableAutoStretch
+          onClick={() => onChange?.(false)}
+        >
+          {t('tr_cancel')}
+        </Button>
+      )}
+    </>
+  );
+};
+
+const TableHeading = ({
+  title,
+  actions,
+  subHeading,
+  phone,
+  count,
+}: {
+  title?: string;
+  actions: boolean;
+  subHeading: boolean;
+  phone: boolean;
+  count: number;
+}) => {
+  const { t } = useAppTranslation();
+  if (!title) return null;
+  return (
+    <Typography
+      component={actions ? 'div' : 'h2'}
+      className={subHeading ? 'h3' : 'h2'}
+      noWrap={actions}
+    >
+      {phone && count > 0 ? t('tr_territorySelected', { n: count }) : title}
+    </Typography>
+  );
+};
+
 const TerritoryTable = ({
   territories,
   checked,
@@ -728,16 +794,14 @@ const TerritoryTable = ({
 
   const subHeading = actions && !titleOnTop;
 
-  const heading = title && (
-    <Typography
-      component={actions ? 'div' : 'h2'}
-      className={subHeading ? 'h3' : 'h2'}
-      noWrap={actions}
-    >
-      {phone && checked.size > 0
-        ? t('tr_territorySelected', { n: checked.size })
-        : title}
-    </Typography>
+  const heading = (
+    <TableHeading
+      title={title}
+      actions={actions}
+      subHeading={subHeading}
+      phone={phone}
+      count={checked.size}
+    />
   );
 
   if (territories.length === 0 && !pool) {
@@ -787,25 +851,13 @@ const TerritoryTable = ({
           {sortButton}
         </Stack>
 
-        {actions && phone && !selectionMode && (
-          <Button
-            variant="small"
-            disableAutoStretch
-            onClick={() => onSelectingChange?.(true)}
-            ariaLabel={t('tr_territorySelectTerritories')}
-          >
-            {t('tr_territorySelect')}
-          </Button>
-        )}
-        {actions && phone && selectionMode && checked.size === 0 && (
-          <Button
-            variant="small"
-            disableAutoStretch
-            onClick={() => onSelectingChange?.(false)}
-          >
-            {t('tr_cancel')}
-          </Button>
-        )}
+        <PhoneSelectionControls
+          actions={actions}
+          phone={phone}
+          selectionMode={selectionMode}
+          count={checked.size}
+          onChange={onSelectingChange}
+        />
         {actions && selectionBar}
 
         {layoutSwitch}

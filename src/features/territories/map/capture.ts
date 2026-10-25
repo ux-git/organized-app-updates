@@ -111,11 +111,13 @@ const addPrintDoNotCalls = (
   }
 };
 
-const addPrintLabels = (
-  map: maplibregl.Map,
-  boundary: [number, number][],
-  detail: boolean
-) => {
+const showPrintBuildings = (map: maplibregl.Map) => {
+  for (const layer of map.getStyle().layers) {
+    if (isBuildingOutline(layer)) map.setLayerZoomRange(layer.id, 0, 24);
+  }
+};
+
+const stylePrintLabels = (map: maplibregl.Map, detail: boolean) => {
   const streets: string[] = [];
   // street names and house numbers stay readable on paper, above the
   // veil, the border and every drawing; paper is light whatever the app theme
@@ -144,13 +146,16 @@ const addPrintLabels = (
     }
   }
 
-  // a printed card is read for the streets inside the territory: their names
-  // come at every zoom, packed closer, and are placed before any name outside
-  if (detail) {
-    for (const layer of map.getStyle().layers) {
-      if (isBuildingOutline(layer)) map.setLayerZoomRange(layer.id, 0, 24);
-    }
-  }
+  if (detail) showPrintBuildings(map);
+  return streets;
+};
+
+const addPrintLabels = (
+  map: maplibregl.Map,
+  boundary: [number, number][],
+  detail: boolean
+) => {
+  const streets = stylePrintLabels(map, detail);
 
   const area: maplibregl.ExpressionSpecification = [
     'within',
@@ -343,6 +348,12 @@ const capture = (
 
 // a street too short for its name at the style's size gets a smaller one along its
 // own course; only a name that still finds no room is set level on its middle
+const streetCoordinates = (geometry: GeoJSON.Geometry): number[][][] => {
+  if (geometry.type === 'LineString') return [geometry.coordinates];
+  if (geometry.type === 'MultiLineString') return geometry.coordinates;
+  return [];
+};
+
 const missingStreetRuns = (
   map: maplibregl.Map,
   spec: maplibregl.SymbolLayerSpecification,
@@ -357,13 +368,7 @@ const missingStreetRuns = (
     const name = feature.properties.name;
     if (!name || shown.has(name)) continue;
 
-    const { geometry } = feature;
-    if (geometry.type !== 'LineString' && geometry.type !== 'MultiLineString')
-      continue;
-    const lines =
-      geometry.type === 'LineString'
-        ? [geometry.coordinates]
-        : geometry.coordinates;
+    const lines = streetCoordinates(feature.geometry);
 
     // Tile vertices need not fall inside the boundary. Keep the longest visible run.
     for (const line of lines) {

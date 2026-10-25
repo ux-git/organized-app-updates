@@ -1,3 +1,4 @@
+import { currentAssignmentNote } from '@features/territories/notes';
 import TerritoryNote from '@features/territories/components/note';
 import { ReactNode, useRef, useState } from 'react';
 import { Box, Stack } from '@mui/material';
@@ -103,11 +104,7 @@ const TerritoryDetails = ({
       {showPrivate && (
         <TerritoryNote
           kind="assignment"
-          value={
-            territory.assignments.find(
-              (item) => !item.returnedOn && item.publisher === territory.holder
-            )?.note
-          }
+          value={currentAssignmentNote(territory)}
         />
       )}
 
@@ -193,6 +190,9 @@ const TerritoryDetails = ({
     </Card>
   );
 
+  const doNotCallAccess = heldByMe ? ('own' as const) : ('none' as const);
+  const initialTab = startOnDetails ? 2 : 0;
+
   if (readOnly) {
     const content = isPhone ? (
       showPrivate && (
@@ -219,7 +219,7 @@ const TerritoryDetails = ({
             <DoNotCallPanel
               territory={territory}
               onChange={changeDoNotCalls}
-              access={heldByMe ? 'own' : 'none'}
+              access={doNotCallAccess}
             />
           )}
       </Stack>
@@ -233,7 +233,7 @@ const TerritoryDetails = ({
           {summary}
 
           <TabbedSections
-            start={startOnDetails ? 2 : 0}
+            start={initialTab}
             sections={[
               {
                 label: isPhone

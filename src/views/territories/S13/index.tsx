@@ -116,13 +116,16 @@ const TemplateS13 = ({ createdOn, rows, lang }: TemplateS13Props) => {
 
   const pages = Array.from(
     { length: Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE)) },
-    (_, index) => rows.slice(index * ROWS_PER_PAGE, (index + 1) * ROWS_PER_PAGE)
+    (_, index) => ({
+      number: index + 1,
+      rows: rows.slice(index * ROWS_PER_PAGE, (index + 1) * ROWS_PER_PAGE),
+    })
   );
 
   return (
     <Document title={t('tr_territoryS13')} lang={lang}>
-      {pages.map((chunk, pageIndex) => (
-        <Page key={pageIndex} size="A4" style={styles.page}>
+      {pages.map(({ rows: chunk, number }) => (
+        <Page key={number} size="A4" style={styles.page}>
           <Text style={styles.title}>
             {t('tr_territoryTerritoryAssignmentRecord')}
           </Text>
@@ -142,7 +145,7 @@ const TemplateS13 = ({ createdOn, rows, lang }: TemplateS13Props) => {
 
           <View style={styles.footer}>
             <Text style={styles.created}>S-13</Text>
-            <Text style={styles.created}>{pageIndex + 1}</Text>
+            <Text style={styles.created}>{number}</Text>
           </View>
         </Page>
       ))}

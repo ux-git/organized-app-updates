@@ -133,6 +133,20 @@ const roomiest = (ring: Spot[]) => {
 
 /** Renders the overview off screen as a JPEG data URL; partial when some of
  * the map didn't load. */
+const styleOverviewLabels = (map: maplibregl.Map) => {
+  for (const layer of map.getStyle().layers) {
+    if (layer.type !== 'symbol') continue;
+    // road numbers like B57 only crowd a territory map
+    if (/shield/.test(layer.id)) {
+      map.setLayoutProperty(layer.id, 'visibility', 'none');
+      continue;
+    }
+    if (layer.layout?.['text-field'] === undefined) continue;
+    map.setPaintProperty(layer.id, 'text-color', '#555555');
+    map.setPaintProperty(layer.id, 'text-halo-color', '#FFFFFF');
+  }
+};
+
 const captureOverview = (
   territories: Territory[],
   areas: GeoJSON.FeatureCollection<GeoJSON.Polygon>,
@@ -211,17 +225,7 @@ const captureOverview = (
       styled = true;
       applyBasemapOptions(map, DEFAULT_PROVIDER, DEFAULT_BASEMAP);
 
-      for (const layer of map.getStyle().layers) {
-        if (layer.type !== 'symbol') continue;
-        // road numbers like B57 only crowd a territory map
-        if (/shield/.test(layer.id)) {
-          map.setLayoutProperty(layer.id, 'visibility', 'none');
-          continue;
-        }
-        if (layer.layout?.['text-field'] === undefined) continue;
-        map.setPaintProperty(layer.id, 'text-color', '#555555');
-        map.setPaintProperty(layer.id, 'text-halo-color', '#FFFFFF');
-      }
+      styleOverviewLabels(map);
 
       if (options.territories) {
         map.addSource('print-territories', { type: 'geojson', data: areas });

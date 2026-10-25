@@ -242,6 +242,87 @@ const TabsRow = ({
   );
 };
 
+const LayoutSwitch = ({ hub }: TerritoriesHubProps) => {
+  const { t } = useAppTranslation();
+  const { tablet688Up } = useBreakpoints();
+  return (
+    <TabSwitcher
+      ariaLabel={t('tr_territoryLayout')}
+      surface="light"
+      value={hub.isBoard ? 'board' : 'list'}
+      onChange={(value) => hub.setIsBoard(value === 'board')}
+      options={[
+        { value: 'list', label: t('tr_territoryList'), icon: <IconListView /> },
+        {
+          value: 'board',
+          label: t('tr_territoryBoard'),
+          icon: <IconInformationBoard />,
+        },
+      ]}
+      sx={{ width: tablet688Up ? '240px' : '100%', flexShrink: 0 }}
+    />
+  );
+};
+
+const HubPane = ({
+  hub,
+  children,
+  isBoard,
+  applied,
+  closeFilters,
+}: TerritoriesHubProps & {
+  children: ReactNode;
+  isBoard: boolean;
+  applied: number;
+  closeFilters: VoidFunction;
+}) => {
+  const { desktopUp } = useBreakpoints();
+  if (desktopUp) return <>{children}</>;
+  return (
+    <PaneSwitcher
+      fullBleed
+      value={hub.filtersOpen && !isBoard ? 1 : 0}
+      panes={[
+        { key: 'list', content: children },
+        {
+          key: 'filters',
+          content: (
+            <FiltersPane
+              filters={hub.filters}
+              onChange={hub.setFilters}
+              applied={applied}
+              count={hub.visible.length}
+              onClose={closeFilters}
+            />
+          ),
+        },
+      ]}
+    />
+  );
+};
+
+const TerritoryLayouts = ({
+  isBoard,
+  canSwitchLayout,
+  list,
+  board,
+}: {
+  isBoard: boolean;
+  canSwitchLayout: boolean;
+  list: ReactNode;
+  board: ReactNode;
+}) => {
+  const activeView = isBoard ? board : list;
+  return canSwitchLayout ? (
+    <>
+      <Box hidden={isBoard}>{list}</Box>
+      <Box hidden={!isBoard}>{board}</Box>
+    </>
+  ) : (
+    activeView
+  );
+};
+
 const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
   const { t } = useAppTranslation();
 
@@ -275,7 +356,6 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     isBrowsing,
     isOwnTab: isMine,
     isTerritoryEditor,
-    setIsBoard,
     pool,
   } = hub;
 
@@ -335,23 +415,7 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
   const canSwitchLayout = isTerritoryEditor && isBrowsing;
 
-  const layoutSwitch = canSwitchLayout && (
-    <TabSwitcher
-      ariaLabel={t('tr_territoryLayout')}
-      surface="light"
-      value={hub.isBoard ? 'board' : 'list'}
-      onChange={(value) => setIsBoard(value === 'board')}
-      options={[
-        { value: 'list', label: t('tr_territoryList'), icon: <IconListView /> },
-        {
-          value: 'board',
-          label: t('tr_territoryBoard'),
-          icon: <IconInformationBoard />,
-        },
-      ]}
-      sx={{ width: tablet688Up ? '240px' : '100%', flexShrink: 0 }}
-    />
-  );
+  const layoutSwitch = canSwitchLayout && <LayoutSwitch hub={hub} />;
 
   const inlineSwitch = tablet688Up ? layoutSwitch : undefined;
 
@@ -407,14 +471,13 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
   // both views stay mounted and only hide, so a switch is one attribute
   // change instead of building or reconnecting a whole view
-  const activeView = isBoard ? board : list;
-  const content = canSwitchLayout ? (
-    <>
-      <Box hidden={isBoard}>{list}</Box>
-      <Box hidden={!isBoard}>{board}</Box>
-    </>
-  ) : (
-    activeView
+  const content = (
+    <TerritoryLayouts
+      isBoard={isBoard}
+      canSwitchLayout={canSwitchLayout}
+      list={list}
+      board={board}
+    />
   );
 
   const listCard = (
@@ -519,29 +582,14 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
       {/* the board keeps the same tree as the list, so the layout switch
           stays mounted and slides between the two */}
-      {desktopUp ? (
-        listCard
-      ) : (
-        <PaneSwitcher
-          fullBleed
-          value={filtersOpen && !isBoard ? 1 : 0}
-          panes={[
-            { key: 'list', content: listCard },
-            {
-              key: 'filters',
-              content: (
-                <FiltersPane
-                  filters={filters}
-                  onChange={setFilters}
-                  applied={applied}
-                  count={visible.length}
-                  onClose={closeFilters}
-                />
-              ),
-            },
-          ]}
-        />
-      )}
+      <HubPane
+        hub={hub}
+        isBoard={isBoard}
+        applied={applied}
+        closeFilters={closeFilters}
+      >
+        {listCard}
+      </HubPane>
 
       {hasSidePanel && (
         <SidePanel

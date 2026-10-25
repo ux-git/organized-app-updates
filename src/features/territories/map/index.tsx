@@ -157,6 +157,81 @@ const SECOND_ROW = {
 
 const LONG_PRESS = 550;
 
+const PanelToggle = ({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: VoidFunction;
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <MapIsland corner="static">
+      <MapAction
+        title={
+          open ? t('tr_territoryHideThePanel') : t('tr_territoryShowThePanel')
+        }
+        // the panel slides under the pointer, so the tip waits
+        delaySpeed="slow"
+        onClick={onToggle}
+      >
+        {open ? (
+          <IconPanelClose color="var(--accent-main)" />
+        ) : (
+          <IconPanelOpen color="var(--accent-main)" />
+        )}
+      </MapAction>
+    </MapIsland>
+  );
+};
+
+const FullscreenToggle = ({
+  fullscreen,
+  onToggle,
+}: {
+  fullscreen: boolean;
+  onToggle: VoidFunction;
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <MapAction
+      title={
+        fullscreen
+          ? t('tr_territoryExitFullScreen')
+          : t('tr_territoryFullScreen')
+      }
+      placement="top"
+      onClick={onToggle}
+    >
+      {fullscreen ? (
+        <IconFullscreenExit color="var(--accent-main)" />
+      ) : (
+        <IconFullscreen color="var(--accent-main)" />
+      )}
+    </MapAction>
+  );
+};
+
+const mapViewportStyles = (fullscreen: boolean) =>
+  ({
+    height: fullscreen ? '100%' : 'auto',
+    // takes back the 32px the page layout keeps under every page
+    marginBottom: fullscreen ? 0 : `${BOTTOM_GAP - LAYOUT_GAP}px`,
+    ...(fullscreen && {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 1300,
+      paddingTop: `calc(12px + ${systemBarInset('top')})`,
+      paddingRight: `calc(12px + ${systemBarInset('right')})`,
+      paddingBottom: `calc(12px + ${systemBarInset('bottom')})`,
+      paddingLeft: `calc(12px + ${systemBarInset('left')})`,
+      backgroundColor: 'var(--white)',
+    }),
+  }) as const;
+
 const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
   const { t } = useAppTranslation();
 
@@ -378,24 +453,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
   );
 
   const panelButton = (
-    <MapIsland corner="static">
-      <MapAction
-        title={
-          showPanel
-            ? t('tr_territoryHideThePanel')
-            : t('tr_territoryShowThePanel')
-        }
-        // the panel slides under the pointer, so the tip waits
-        delaySpeed="slow"
-        onClick={() => setPanelOpen(!showPanel)}
-      >
-        {showPanel ? (
-          <IconPanelClose color="var(--accent-main)" />
-        ) : (
-          <IconPanelOpen color="var(--accent-main)" />
-        )}
-      </MapAction>
-    </MapIsland>
+    <PanelToggle open={showPanel} onToggle={() => setPanelOpen(!showPanel)} />
   );
 
   const viewToolbar = map.selected && (
@@ -442,26 +500,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
   );
 
   return (
-    <Box
-      sx={{
-        height: map.fullscreen ? '100%' : 'auto',
-        // takes back the 32px the page layout keeps under every page
-        marginBottom: map.fullscreen ? 0 : `${BOTTOM_GAP - LAYOUT_GAP}px`,
-        ...(map.fullscreen && {
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1300,
-          paddingTop: `calc(12px + ${systemBarInset('top')})`,
-          paddingRight: `calc(12px + ${systemBarInset('right')})`,
-          paddingBottom: `calc(12px + ${systemBarInset('bottom')})`,
-          paddingLeft: `calc(12px + ${systemBarInset('left')})`,
-          backgroundColor: 'var(--white)',
-        }),
-      }}
-    >
+    <Box sx={mapViewportStyles(map.fullscreen)}>
       <Box
         ref={map.wrapper}
         sx={{
@@ -832,21 +871,10 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
               <IconMapOverview color="var(--accent-main)" />
             </MapAction>
 
-            <MapAction
-              title={
-                map.fullscreen
-                  ? t('tr_territoryExitFullScreen')
-                  : t('tr_territoryFullScreen')
-              }
-              placement="top"
-              onClick={map.toggleFullscreen}
-            >
-              {map.fullscreen ? (
-                <IconFullscreenExit color="var(--accent-main)" />
-              ) : (
-                <IconFullscreen color="var(--accent-main)" />
-              )}
-            </MapAction>
+            <FullscreenToggle
+              fullscreen={map.fullscreen}
+              onToggle={map.toggleFullscreen}
+            />
           </MapIsland>
         </Box>
       </Box>

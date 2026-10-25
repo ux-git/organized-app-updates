@@ -38,3 +38,8 @@ export const hasNewNote = (territory: Territory) =>
 // Omitted means unchanged; an explicitly blank input clears the assignment note.
 export const assignmentNoteUpdate = (note?: string) =>
   note === undefined ? {} : { note: note.trim() || undefined };
+
+export const currentAssignmentNote = (territory: Territory) =>
+  territory.assignments.find(
+    (item) => !item.returnedOn && item.publisher === territory.holder
+  )?.note;
