@@ -3,8 +3,6 @@ import type {
   TerritoryBoundary,
   TerritoryCategoryOption,
   TerritoryRecommendations,
-} from '@definition/territory';
-import type {
   Territory,
   TerritoryAccess,
   TerritoryType,

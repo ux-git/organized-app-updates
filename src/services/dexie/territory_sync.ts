@@ -1,15 +1,16 @@
 import type { TerritoryGrant } from '@definition/territory_sync';
 import { TERRITORY_SYNC_BATCH_LIMIT } from '@constants/index';
-export class TerritoryDraftChangedError extends Error {}
 import { coalesceTerritoryChanges } from '@utils/territory_sync_queue';
-import type { TerritoryPendingChange } from '@definition/territory_sync';
-import appDb from '@db/appDb';
-import type { TerritoryRecord } from '@definition/territory_record';
 import type {
+  TerritoryPendingChange,
   TerritoryBatch,
   TerritorySyncState,
   TerritorySharedSettings,
 } from '@definition/territory_sync';
+import appDb from '@db/appDb';
+import type { TerritoryRecord } from '@definition/territory_record';
+
+export class TerritoryDraftChangedError extends Error {}
 
 export const dbTerritorySyncGet = async () =>
   (await appDb.metadata.get(1))?.territorySync;
@@ -86,6 +87,25 @@ export const dbTerritorySyncPrepare = async (
     await appDb.metadata.put(metadata);
   });
 };
+const acknowledgeOperation = (
+  state: TerritorySyncState,
+  acknowledged: string | undefined,
+  remote: Map<string, TerritoryRecord>
+) => {
+  const accepted = state.queue.find((item) => item.id === acknowledged);
+  state.queue = state.queue.filter((item) => item.id !== acknowledged);
+  if (accepted) {
+    const changed = new Set(accepted.changes.map((item) => item.id));
+    for (const operation of state.queue) {
+      for (const change of operation.changes) {
+        if (changed.has(change.id))
+          change.baseRevision =
+            remote.get(change.id)?.remote?.revision ?? change.baseRevision;
+      }
+    }
+  }
+};
+
 /** Replace the authorized remote set, retaining unsent local drafts. Never retain revoked remote records as visible data. */
 export const dbTerritorySyncApply = async (
   scope: string,
@@ -97,19 +117,8 @@ export const dbTerritorySyncApply = async (
     const metadata = await appDb.metadata.get(1);
     const state = metadata?.territorySync ?? { scope, revision: 0, queue: [] };
     assertScope(state, scope);
-    const accepted = state.queue.find((item) => item.id === acknowledged);
     const remote = new Map(records.map((item) => [item.id, item]));
-    state.queue = state.queue.filter((item) => item.id !== acknowledged);
-    if (accepted) {
-      const changed = new Set(accepted.changes.map((item) => item.id));
-      for (const operation of state.queue) {
-        for (const change of operation.changes) {
-          if (changed.has(change.id))
-            change.baseRevision =
-              remote.get(change.id)?.remote?.revision ?? change.baseRevision;
-        }
-      }
-    }
+    acknowledgeOperation(state, acknowledged, remote);
     const pending = new Set(
       state.queue.flatMap((item) => item.changes.map((change) => change.id))
     );

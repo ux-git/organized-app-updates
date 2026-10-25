@@ -45,7 +45,11 @@ export const territoryRestructureIssue = (
   const assigned = [original, ...absorbed].some(
     (item) =>
       item.requestedBy ||
+      item.requestPending ||
       item.holder ||
+      item.holderId ||
+      item.holderGroupId ||
+      item.assignedElsewhere ||
       item.assignments.some((assignment) => !assignment.returnedOn)
   );
   if (restructuring && assigned) return 'changed';

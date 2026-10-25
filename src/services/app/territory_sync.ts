@@ -2,13 +2,31 @@ import {
   mergeTerritoryGrants,
   TerritoryPolicyConflict,
 } from '@utils/territory_policy';
-import { dbTerritoryPolicyBaseline } from '@services/dexie/territory_sync';
-import { TerritoryDraftChangedError } from '@services/dexie/territory_sync';
-import { dbTerritorySyncDiscard } from '@services/dexie/territory_sync';
+import {
+  dbTerritoryPolicyBaseline,
+  TerritoryDraftChangedError,
+  dbTerritorySyncDiscard,
+  dbTerritorySettingsSave,
+  dbTerritorySyncGet,
+  dbTerritorySyncPrepare,
+  dbTerritorySyncApply,
+  dbTerritoriesEnqueue,
+} from '@services/dexie/territory_sync';
 import { territorySharedSettingsState } from '@states/territories';
-import type { TerritorySharedSettings } from '@definition/territory_sync';
-import { dbTerritorySettingsSave } from '@services/dexie/territory_sync';
-import { decryptTerritoryContent } from '@services/app/territory_codec';
+import type {
+  TerritorySharedSettings,
+  TerritorySyncStatus,
+  TerritoryPendingOperation,
+  TerritorySnapshot,
+} from '@definition/territory_sync';
+
+import {
+  decryptTerritoryContent,
+  decodeTerritory,
+  encryptTerritoryContent,
+  territoryRemoteId,
+  TerritoryIdentityError,
+} from '@services/app/territory_codec';
 import { store } from '@states/index';
 import { userIDState, isOnlineState } from '@states/app';
 import {
@@ -27,29 +45,16 @@ import {
   apiSetTerritoryPolicy,
   TerritoryApiError,
 } from '@services/api/territories';
-import {
-  dbTerritorySyncGet,
-  dbTerritorySyncPrepare,
-  dbTerritorySyncApply,
-  dbTerritoriesEnqueue,
-} from '@services/dexie/territory_sync';
+
 import { dbTerritoriesGetAll } from '@services/dexie/territories';
-import {
-  decodeTerritory,
-  encryptTerritoryContent,
-  territoryRemoteId,
-  TerritoryIdentityError,
-} from '@services/app/territory_codec';
+
 import { prepareTerritoryCommands } from '@services/app/territory_commands';
 import {
   buildTerritoryGrants,
   isTerritorySyncManager,
 } from '@services/app/territory_policy';
 import { isTest, TERRITORY_SYNC_BATCH_LIMIT } from '@constants/index';
-import type {
-  TerritoryPendingOperation,
-  TerritorySnapshot,
-} from '@definition/territory_sync';
+
 import type { TerritoryRecord } from '@definition/territory_record';
 
 const scopeNow = () => `${store.get(congIDState)}:${store.get(userIDState)}`;
@@ -130,11 +135,9 @@ const synchronizePolicy = async (
         key
       )
     : {};
-  const settings = state?.settingsDirty
-    ? state.settings
-    : remote.categories
-      ? (remote as TerritorySharedSettings)
-      : store.get(territorySharedSettingsState);
+  let settings = store.get(territorySharedSettingsState);
+  if (remote.categories) settings = remote as TerritorySharedSettings;
+  if (state?.settingsDirty) settings = state.settings;
   if (!settings)
     throw new TerritoryIdentityError('Territory settings are unavailable');
   if (!isTerritorySyncManager()) {
@@ -252,6 +255,25 @@ const run = async () => {
     operation = (await dbTerritorySyncGet())?.queue[0];
   }
 };
+const handleSyncError = async (error: unknown) => {
+  if (error instanceof TerritoryDraftChangedError) {
+    store.set(territorySyncStatusState, 'pending');
+    return;
+  }
+  let status = error instanceof TerritoryApiError ? error.status : 0;
+  if (error instanceof TerritoryPolicyConflict) status = 409;
+  if (status === 403) {
+    const state = await dbTerritorySyncGet();
+    if (state?.scope === scopeNow())
+      await dbTerritorySyncApply(state.scope, state.revision, []);
+  }
+  let nextStatus: TerritorySyncStatus = 'failed';
+  if (error instanceof TerritoryIdentityError) nextStatus = 'identity';
+  else if (status === 409) nextStatus = 'conflict';
+  else if (status === 404) nextStatus = 'unavailable';
+  store.set(territorySyncStatusState, nextStatus);
+};
+
 let running: Promise<void> | undefined;
 export const synchronizeTerritories = () => {
   if (running) return running;
@@ -270,31 +292,7 @@ export const synchronizeTerritories = () => {
       await run();
       store.set(territorySyncStatusState, 'idle');
     } catch (error) {
-      if (error instanceof TerritoryDraftChangedError) {
-        store.set(territorySyncStatusState, 'pending');
-        return;
-      }
-      const status =
-        error instanceof TerritoryPolicyConflict
-          ? 409
-          : error instanceof TerritoryApiError
-            ? error.status
-            : 0;
-      if (status === 403) {
-        const state = await dbTerritorySyncGet();
-        if (state?.scope === scopeNow())
-          await dbTerritorySyncApply(state.scope, state.revision, []);
-      }
-      store.set(
-        territorySyncStatusState,
-        error instanceof TerritoryIdentityError
-          ? 'identity'
-          : status === 409
-            ? 'conflict'
-            : status === 404
-              ? 'unavailable'
-              : 'failed'
-      );
+      await handleSyncError(error);
     } finally {
       store.set(
         territorySyncPendingState,

@@ -1,4 +1,4 @@
-import type { TerritoryAssignee } from '@definition/territory';
+import type { DoNotCall, TerritoryAssignee } from '@definition/territory';
 import type {
   TerritoryCommand,
   TerritoryPendingChange,
@@ -9,6 +9,36 @@ import {
   encryptTerritoryContent,
   TerritoryIdentityError,
 } from '@services/app/territory_codec';
+
+const doNotCallCommands = (
+  before: DoNotCall[],
+  after: DoNotCall[],
+  key: string,
+  expectedRevision: number
+) => {
+  const commands: TerritoryCommand[] = [];
+  for (const entry of after) {
+    if (
+      JSON.stringify(before.find((item) => item.id === entry.id)) !==
+      JSON.stringify(entry)
+    )
+      commands.push({
+        action: 'do_not_call',
+        expectedRevision,
+        entryId: entry.id,
+        content: encryptTerritoryContent(entry, key),
+      });
+  }
+  for (const entry of before) {
+    if (!after.some((item) => item.id === entry.id))
+      commands.push({
+        action: 'do_not_call',
+        expectedRevision,
+        entryId: entry.id,
+      });
+  }
+  return commands;
+};
 
 export const prepareTerritoryCommands = (
   change: TerritoryPendingChange,
@@ -61,22 +91,13 @@ export const prepareTerritoryCommands = (
       notes: encryptTerritoryContent(updated.note ?? '', key),
     });
   }
-  for (const entry of after.doNotCalls) {
-    if (
-      JSON.stringify(before.doNotCalls.find((item) => item.id === entry.id)) !==
-      JSON.stringify(entry)
-    )
-      add({
-        action: 'do_not_call',
-        expectedRevision,
-        entryId: entry.id,
-        content: encryptTerritoryContent(entry, key),
-      });
-  }
-  for (const entry of before.doNotCalls) {
-    if (!after.doNotCalls.some((item) => item.id === entry.id))
-      add({ action: 'do_not_call', expectedRevision, entryId: entry.id });
-  }
+  for (const command of doNotCallCommands(
+    before.doNotCalls,
+    after.doNotCalls,
+    key,
+    expectedRevision
+  ))
+    add(command);
   if (!commands.length)
     throw new TerritoryIdentityError('This change requires a manager');
   return commands;

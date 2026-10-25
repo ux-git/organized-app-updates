@@ -119,3 +119,24 @@ test('restructuring validates current assignments and all resulting numbers', ()
     'number'
   );
 });
+
+test('synced assignment and request flags block restructuring without visible names', () => {
+  const card = (extra: Partial<Territory> = {}) =>
+    ({ id: 'a', number: 'M22', assignments: [], ...extra }) as Territory;
+  const created = { ...card(), id: 'b', number: 'M22A' };
+  for (const extra of [
+    { requestPending: true },
+    { holderId: 'publisher' },
+    { holderGroupId: 'group' },
+    { assignedElsewhere: true },
+  ]) {
+    assert.equal(
+      territoryRestructureIssue([card(extra)], 'a', [], [created]),
+      'changed'
+    );
+    assert.equal(
+      territoryRestructureIssue([card(extra)], 'a', [], []),
+      undefined
+    );
+  }
+});

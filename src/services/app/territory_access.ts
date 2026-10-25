@@ -96,17 +96,13 @@ const publisherDoNotCalls = (
   ];
 };
 
-// A publisher can change their request or their own do-not-call records,
-// without replacing the rest of a territory from a stale details form.
-export const publisherTerritoryChanges = (
+const publisherRequestChanges = (
   current: Territory,
   next: Territory,
-  context: TerritoryAccessContext
+  context: TerritoryAccessContext,
+  permissions: ReturnType<typeof territoryPermissions>
 ): Partial<Territory> => {
-  if (current.id !== next.id) return {};
-  const permissions = territoryPermissions(current, context);
   const changes: Partial<Territory> = {};
-
   if (next.requestedBy !== current.requestedBy) {
     if (permissions.request && next.requestedBy === context.publisher) {
       changes.requestedBy = context.publisher;
@@ -117,6 +113,19 @@ export const publisherTerritoryChanges = (
       if (current.requestPending) changes.requestPending = false;
     }
   }
+  return changes;
+};
+
+// A publisher can change their request or their own do-not-call records,
+// without replacing the rest of a territory from a stale details form.
+export const publisherTerritoryChanges = (
+  current: Territory,
+  next: Territory,
+  context: TerritoryAccessContext
+): Partial<Territory> => {
+  if (current.id !== next.id) return {};
+  const permissions = territoryPermissions(current, context);
+  const changes = publisherRequestChanges(current, next, context, permissions);
 
   if (permissions.editDoNotCalls && next.doNotCalls !== current.doNotCalls) {
     changes.doNotCalls = publisherDoNotCalls(
