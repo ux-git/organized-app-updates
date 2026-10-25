@@ -10,7 +10,6 @@ import {
   useAppTranslation,
   useBreakpoints,
   useCurrentUser,
-  useUpNavigation,
 } from '@hooks/index';
 import useAllPersons from './useAllPersons';
 
@@ -26,7 +25,6 @@ const PersonsAll = () => {
   const { t } = useAppTranslation();
 
   const { desktopUp, tablet688Up } = useBreakpoints();
-  const { goUp } = useUpNavigation();
 
   const { isPersonEditor } = useCurrentUser();
 
@@ -100,7 +98,7 @@ const PersonsAll = () => {
       <PageTitle
         title={isFilterSubpage ? t('tr_filters') : t('tr_personsAll')}
         secondaryTitle={isFilterSubpage ? t('tr_personsAll') : undefined}
-        onBack={isFilterSubpage ? handleCloseFilter : () => goUp('/')}
+        onBack={isFilterSubpage ? handleCloseFilter : undefined}
         buttons={
           !isFilterSubpage &&
           isPersonEditor && (

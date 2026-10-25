@@ -1,10 +1,14 @@
 import { useMemo } from 'react';
 import { useAtom, useSetAtom } from 'jotai';
-import { useAppTranslation, useBreakpoints, useSubpane } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { AssignmentCheckListColors } from '@definition/app';
 import { AssignmentCode } from '@definition/assignment';
 import { PersonsTab } from '@definition/person';
-import { personsFiltersKeyState, personsTabState } from '@states/persons';
+import {
+  personsFilterOpenState,
+  personsFiltersKeyState,
+  personsTabState,
+} from '@states/persons';
 import { primaryTranslation } from '@utils/i18n';
 
 const useFilter = () => {
@@ -15,7 +19,7 @@ const useFilter = () => {
   const [filters, setPersonsFiltersKey] = useAtom(personsFiltersKeyState);
 
   const setActiveTab = useSetAtom(personsTabState);
-  const filtersPane = useSubpane('filters');
+  const setFilterOpen = useSetAtom(personsFilterOpenState);
 
   const checkedItems = filters.filter(
     (record) => typeof record === 'number'
@@ -175,7 +179,7 @@ const useFilter = () => {
   }, [t]);
 
   const handleCloseFilterMobile = () => {
-    filtersPane.close();
+    setFilterOpen(false);
     window.scroll({ top: 0 });
   };
 

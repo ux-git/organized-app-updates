@@ -38,16 +38,8 @@ const NavBarButtonGroup = ({ children }: { children: ReactNode }) => {
   return (
     <>
       {flatChildren.map((child, i) =>
-        cloneElement(child as ReactElement<{ main?: boolean; text?: string }>, {
+        cloneElement(child as ReactElement<{ main?: boolean }>, {
           main: i === lastIndex,
-          // keyed by label: when a page swaps its buttons, React must not reuse
-          // one button's element for another, or the old look animates out
-          // Children.toArray (used here and by the navbar) stamps position
-          // keys like ".0", so the label comes first
-          key:
-            (child.props as { text?: string }).text ??
-            child.key ??
-            `nav-button-${i}`,
         })
       )}
     </>

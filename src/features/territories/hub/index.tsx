@@ -280,6 +280,7 @@ const HubPane = ({
   if (desktopUp) return <>{children}</>;
   return (
     <PaneSwitcher
+      sx={{ gridTemplateColumns: 'minmax(0, 1fr)' }}
       fullBleed
       value={hub.filtersOpen && !isBoard ? 1 : 0}
       panes={[

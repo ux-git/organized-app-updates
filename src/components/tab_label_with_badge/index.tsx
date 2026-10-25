@@ -13,15 +13,15 @@ const LabelBadge = ({
     sx={{
       backgroundColor: 'var(--accent-150)',
       borderRadius: 'var(--radius-s)',
-      minWidth: '20px',
-      padding: '0 5px',
+      width: '24px',
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      height: '20px',
+      height: '24px',
+      fontSize: '14px',
     }}
   >
-    <Typography className="label-small-semibold" sx={{ color: badgeColor }}>
+    <Typography className="body-small-semibold" sx={{ color: badgeColor }}>
       {value.toString()}
     </Typography>
   </Box>

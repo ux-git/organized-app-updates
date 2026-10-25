@@ -88,7 +88,15 @@ const TabSwitcher = <T extends string = string>({
           <ButtonBase
             key={option.value}
             role="tab"
-            className={isActive ? 'body-small-semibold' : 'body-small-regular'}
+            className={
+              surface === 'light'
+                ? isActive
+                  ? 'body-small-semibold'
+                  : 'body-small-regular'
+                : isActive
+                  ? 'h4'
+                  : 'body-regular'
+            }
             aria-selected={isActive}
             aria-label={iconOnly || collapse ? option.label : undefined}
             disabled={option.disabled}
@@ -102,8 +110,12 @@ const TabSwitcher = <T extends string = string>({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
-              padding: iconOnly ? '4px 8px' : '4px 12px',
+              gap: surface === 'light' ? '6px' : '8px',
+              padding: iconOnly
+                ? '4px 8px'
+                : surface === 'light'
+                  ? '4px 12px'
+                  : '4px 16px',
               minHeight: '28px',
               borderRadius: 'var(--radius-m)',
               fontFamily: 'inherit',
@@ -129,7 +141,10 @@ const TabSwitcher = <T extends string = string>({
                 component="span"
                 sx={{ display: 'inline-flex', flexShrink: 0 }}
               >
-                {cloneElement(option.icon, { width: 18, height: 18 })}
+                {cloneElement(option.icon, {
+                  width: surface === 'light' ? 18 : 20,
+                  height: surface === 'light' ? 18 : 20,
+                })}
               </Box>
             )}
             {!iconOnly && (

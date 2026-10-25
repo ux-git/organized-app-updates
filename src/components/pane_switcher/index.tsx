@@ -76,8 +76,6 @@ const PaneSwitcher = ({ panes, value, fullBleed, sx }: PaneSwitcherProps) => {
     <Box
       sx={{
         display: 'grid',
-        // a fixed track stops the shared cell growing to the widest pane
-        gridTemplateColumns: 'minmax(0, 1fr)',
         overflow: 'clip',
         width: '100%',
         height: containerHeight ? `${containerHeight}px` : 'auto',

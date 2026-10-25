@@ -169,3 +169,5 @@ export const applicationsApprovedState = atom((get) => {
     .filter((record) => record.status === 'approved')
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 });
+
+export const personsFilterOpenState = atom(false);
