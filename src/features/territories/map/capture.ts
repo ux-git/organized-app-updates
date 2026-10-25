@@ -1,3 +1,4 @@
+import { mapExportImage } from '@services/maps/export';
 import {
   streetRuns,
   streetLength,
@@ -318,7 +319,7 @@ const capture = (
         }
         context.drawImage(map.getCanvas(), 0, 0);
         paintMarkers(canvas, map, territory.mapMarkers ?? [], 2);
-        cleanup(canvas.toDataURL('image/png'));
+        cleanup(mapExportImage(canvas));
       } catch {
         cleanup();
       } finally {

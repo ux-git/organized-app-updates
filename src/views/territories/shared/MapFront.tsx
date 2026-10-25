@@ -64,7 +64,7 @@ const MapFront = ({
       {territory.mapImage ? (
         <Image
           src={territory.mapImage}
-          style={{ width, height, objectFit: 'cover' }}
+          style={{ width, height, objectFit: 'contain' }}
         />
       ) : (
         <View

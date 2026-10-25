@@ -174,7 +174,7 @@ const CardFront = ({
             style={{
               width: inner,
               height: mapHeight,
-              objectFit: 'cover',
+              objectFit: 'contain',
               borderRadius: 6,
             }}
           />

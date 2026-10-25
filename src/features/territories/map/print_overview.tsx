@@ -1,3 +1,4 @@
+import { mapExportImage } from '@services/maps/export';
 import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
@@ -206,7 +207,7 @@ const captureOverview = (
       window.clearTimeout(timeout);
       let image: string | undefined;
       try {
-        if (capture) image = map.getCanvas().toDataURL('image/jpeg', 0.92);
+        if (capture) image = mapExportImage(map.getCanvas(), 'image/jpeg', 0.92);
       } catch {
         image = undefined;
       } finally {
@@ -347,11 +348,11 @@ const OverviewDocument = ({
   const paper = sizeOf(options);
   const width = paper.width * POINTS_PER_MM;
   const height = paper.height * POINTS_PER_MM;
-  // printed at home: only the map, edge to edge, on exactly one page
+  // The captured map includes a white inset on every side for printing.
   return (
     <Document title={t('tr_territoryTerritoryOverview')} lang={lang}>
       <Page size={{ width, height }} wrap={false}>
-        <Image src={image} style={{ width, height }} />
+        <Image src={image} style={{ width, height, objectFit: 'contain' }} />
       </Page>
     </Document>
   );
