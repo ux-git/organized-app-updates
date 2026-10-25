@@ -1,3 +1,8 @@
+import {
+  streetRuns,
+  streetLength,
+  streetMidpoint,
+} from '@features/territories/map/street_runs';
 import { mapRequest } from '@services/maps/offline';
 import { mapPerformanceOptions } from '@services/maps/performance';
 import * as maplibregl from 'maplibre-gl';
@@ -324,18 +329,6 @@ const capture = (
     });
   });
 
-const inRing = ([x, y]: number[], ring: [number, number][]) => {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i];
-    const [xj, yj] = ring[j];
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-  return inside;
-};
-
 // a street too short for its name at the style's size gets a smaller one along its
 // own course; only a name that still finds no room is set level on its middle
 const labelShortStreets = (
@@ -350,7 +343,12 @@ const labelShortStreets = (
   const shown = new Set(
     map
       .queryRenderedFeatures({
-        layers: layers.filter((id) => map.getLayer(id)),
+        // An outside label must not suppress a useful label inside the territory.
+        layers: layers.filter(
+          (id) =>
+            map.getLayer(id) &&
+            (id.endsWith('-inside') || id.startsWith('short-streets-'))
+        ),
       })
       .map((feature) => feature.properties.name)
   );
@@ -371,16 +369,12 @@ const labelShortStreets = (
           ? geometry.coordinates
           : [];
 
-    // the longest stretch of the street that stays inside the territory
+    // Tile vertices need not fall inside the boundary. Keep the longest visible run.
     for (const line of lines) {
-      let run: number[][] = [];
-      for (const point of [...line, [NaN, NaN]]) {
-        if (inRing(point, boundary)) {
-          run.push(point);
-          continue;
+      for (const run of streetRuns(line, boundary)) {
+        if (streetLength(run) > streetLength(runs.get(name) ?? [])) {
+          runs.set(name, run);
         }
-        if (run.length > (runs.get(name)?.length ?? 0)) runs.set(name, run);
-        run = [];
       }
     }
   }
@@ -395,7 +389,7 @@ const labelShortStreets = (
         ? { type: 'LineString' as const, coordinates: run }
         : {
             type: 'Point' as const,
-            coordinates: run[Math.floor(run.length / 2)],
+            coordinates: streetMidpoint(run),
           },
     }));
 
@@ -415,13 +409,24 @@ const labelShortStreets = (
       'text-font': spec.layout?.['text-font'],
       'text-size': 10,
       'text-padding': 0,
+      'text-allow-overlap': false,
+      'text-ignore-placement': false,
       ...(along
         ? {
             'symbol-placement': 'line-center' as const,
             'text-max-angle': 80,
             'text-keep-upright': true,
           }
-        : {}),
+        : {
+            'text-variable-anchor': [
+              'center',
+              'top',
+              'bottom',
+              'left',
+              'right',
+            ],
+            'text-radial-offset': 0.6,
+          }),
     },
     paint: {
       'text-color': '#333333',
