@@ -13,7 +13,7 @@ import {
   IconDelete,
   IconMoveBack,
   IconMoveForward,
-  IconPrint,
+  IconExport,
   IconRaiseHand,
 } from '@icons/index';
 import { useAppTranslation, useBreakpoints } from '@hooks/index';
@@ -185,8 +185,8 @@ const TerritoryDetailsPage = () => {
         onClick={() => setDeleteOpen(true)}
       />
       <NavBarButton
-        text={t('tr_territoryPrint')}
-        icon={<IconPrint />}
+        text={t('tr_export')}
+        icon={<IconExport />}
         onClick={() => setExportOpen(true)}
       />
       {isOut ? (

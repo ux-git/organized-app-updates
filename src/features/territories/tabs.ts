@@ -5,7 +5,7 @@ import type {
   TerritoryTab,
 } from '@definition/territory';
 import { addMonths } from 'date-fns';
-import { coveredAge } from '@features/territories/helpers';
+import { coveredAge } from '@features/territories/coverage_rate';
 
 export const NO_RESTRICTIONS: TerritoryRestrictions = {
   categories: [],

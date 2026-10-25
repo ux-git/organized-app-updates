@@ -6,6 +6,7 @@ import {
   olderOpenAssignments,
 } from '@features/territories/assignment_issues';
 import {
+  coveredDays,
   isCoverage,
   returnedWithin,
 } from '@features/territories/coverage_rate';
@@ -586,22 +587,7 @@ export const sortedPublishers = (
       : b.count - a.count
   );
 
-// covered means returned: an open assignment or none at all is no coverage,
-// and the stored daysSinceCovered is only a snapshot (3650 after an import)
-export const coveredDays = (territory: Territory) => {
-  const last = Math.max(
-    0,
-    ...territory.assignments
-      .filter((item) => isCoverage(item))
-      .map((item) => parseDate(item.returnedOn)?.getTime() ?? 0)
-  );
-
-  return last ? Math.max(0, Math.round((Date.now() - last) / DAY)) : null;
-};
-
-// never covered sorts as the longest wait
-export const coveredAge = (territory: Territory) =>
-  coveredDays(territory) ?? Number.MAX_SAFE_INTEGER;
+export { coveredDays, coveredAge } from '@features/territories/coverage_rate';
 
 export const coveredText = (territory: Territory) => {
   const days = coveredDays(territory);

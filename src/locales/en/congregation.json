@@ -868,7 +868,7 @@
   "tr_territoryCoveredIn": "{{n}} covered in {{month}} {{year}}",
   "tr_territoryYouAskedForTerritory": "You asked for territory {{number}}.",
   "tr_territoryYourRequestForTerritoryWasWithdrawn": "Your request for territory {{number}} was withdrawn.",
-  "tr_territoryExportTerritory": "Export territory {{number}}",
+  "tr_territoryExportTerritory": "Export territory: {{number}}",
   "tr_territoryTerritoryPng": "Territory-{{number}}.png",
   "tr_territoryFilters": "Filters ({{applied}})",
   "tr_territoryTerritoriesWithAssignments": "{{length}} territories with {{assignments}} assignments.",
@@ -1189,5 +1189,10 @@
   "tr_showDoNotCallMap": "Show “Do not call” addresses on the map",
   "tr_showDoNotCallMapDescription": "Display a point for each address on a territory map",
   "tr_territoryMonths": "{{count}} months",
-  "tr_territoryOverdue": "Overdue after"
+  "tr_territoryOverdue": "Overdue after",
+  "tr_territoryChooseExportFormat": "Choose the content and format, then export the PDF.",
+  "tr_territoryA5HorizontalOnA4": "A5 horizontal on A4",
+  "tr_territoryA5VerticalOnA4": "A5 vertical on A4",
+  "tr_territoryPrintA4Help": "Print on A4 paper. Choose “Fit to printable area” if available, and turn off borderless printing to avoid cropping. The A5 layouts include an 8 mm margin.",
+  "tr_territoryPrintCardStockHelp": "This PDF uses S-12 card dimensions. For a home or mobile printer, choose “S-12 on A4” and print on A4 paper to avoid cropping."
 }

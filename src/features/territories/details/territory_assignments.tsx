@@ -31,9 +31,9 @@ import { offerUndo } from '@features/territories/undo';
 import { restoreAssignment } from '@features/territories/restore';
 import AssignmentEditor from '@features/territories/details/assignment_editor';
 
-const newestFirst = (a: TerritoryAssignment, b: TerritoryAssignment) =>
-  (parseDate(b.assignedOn)?.getTime() ?? 0) -
-  (parseDate(a.assignedOn)?.getTime() ?? 0);
+const oldestFirst = (a: TerritoryAssignment, b: TerritoryAssignment) =>
+  (parseDate(a.assignedOn)?.getTime() ?? 0) -
+  (parseDate(b.assignedOn)?.getTime() ?? 0);
 
 const blankAssignment = (): TerritoryAssignment =>
   assignmentFromDates(
@@ -79,7 +79,7 @@ const TerritoryAssignments = ({
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <RecordList
         emptyMessage={emptyListMessage()}
-        items={[...assignments].sort(newestFirst).map((assignment) => ({
+        items={[...assignments].sort(oldestFirst).map((assignment) => ({
           id: assignment.id,
           onClick: onChange && (() => setEditing(assignment)),
           title: holderText(assignment),

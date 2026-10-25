@@ -3,6 +3,7 @@ import {
   A5_HORIZONTAL,
   A5_VERTICAL,
   MAP_LABEL_SPACE,
+  printableA5,
 } from '@views/territories/geometry';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
@@ -51,16 +52,19 @@ const cardMapRatio = (width: number, height: number) =>
 const MAP_RATIO: Record<ExportFormat, number> = {
   s12: cardMapRatio(467, 301),
   s12a4: cardMapRatio(467, 301),
-  a5h: cardMapRatio(A5_HORIZONTAL.width, A5_HORIZONTAL.height),
-  a5v: A5_VERTICAL.width / A5_VERTICAL.height,
+  a5h: cardMapRatio(
+    printableA5(A5_HORIZONTAL).width,
+    printableA5(A5_HORIZONTAL).height
+  ),
+  a5v: printableA5(A5_VERTICAL).width / printableA5(A5_VERTICAL).height,
 };
 
 // the longer side of each printed map frame, in points
 const MAP_LONG_SIDE: Record<ExportFormat, number> = {
   s12: 467 - CARD.padding * 2,
   s12a4: 467 - CARD.padding * 2,
-  a5h: A5_HORIZONTAL.width - CARD.padding * 2,
-  a5v: A5_VERTICAL.height,
+  a5h: printableA5(A5_HORIZONTAL).width - CARD.padding * 2,
+  a5v: printableA5(A5_VERTICAL).height,
 };
 
 // houses and their numbers only fit on the larger A5 maps
@@ -76,7 +80,7 @@ const MAP_INSET: Record<ExportFormat, number> = {
   s12: 0,
   s12a4: 0,
   a5h: 0,
-  a5v: MAP_LABEL_SPACE / A5_VERTICAL.height,
+  a5v: MAP_LABEL_SPACE / printableA5(A5_VERTICAL).height,
 };
 
 const FILE_SUFFIX: Record<ExportFormat, string> = {
@@ -96,7 +100,7 @@ const useTerritoryExport = (territory: Territory) => {
 
   const isPhone = territory.type === 'phone';
 
-  const [format, setFormat] = useState<ExportFormat>('s12');
+  const [format, setFormat] = useState<ExportFormat>('s12a4');
   const [parts, setParts] = useState<ExportParts>({ front: true, back: true });
   const [showHouseholds, setShowHouseholds] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -109,6 +113,10 @@ const useTerritoryExport = (territory: Territory) => {
   const mapImages = useRef(
     new Map<ExportFormat, Promise<string | undefined>>()
   );
+
+  useEffect(() => {
+    mapImages.current.clear();
+  }, [territory, showDoNotCalls]);
 
   const build = useCallback(async () => {
     const needsMap = parts.front && !isPhone;
@@ -250,7 +258,8 @@ const useTerritoryExport = (territory: Territory) => {
     showHouseholds,
     setShowHouseholds,
     previewUrl,
-    isProcessing: isProcessing || isExporting,
+    isProcessing,
+    isExporting,
     handleExport,
   };
 };

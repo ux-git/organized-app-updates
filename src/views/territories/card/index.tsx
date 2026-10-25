@@ -5,10 +5,13 @@ import { TerritoryTemplateProps } from '@views/territories/index.types';
 import CardBack from '@views/territories/shared/CardBack';
 import CardFront from '@views/territories/shared/CardFront';
 
-import { A5_HORIZONTAL } from '@views/territories/geometry';
+import {
+  A5_HORIZONTAL,
+  PRINT_MARGIN,
+  printableA5,
+} from '@views/territories/geometry';
 
-const WIDTH = A5_HORIZONTAL.width;
-const HALF = A5_HORIZONTAL.height;
+const { width: WIDTH, height: HALF } = printableA5(A5_HORIZONTAL);
 
 const TemplateTerritoryCard = ({
   territories,
@@ -23,24 +26,36 @@ const TemplateTerritoryCard = ({
       {territories.map((territory) => (
         <Page
           key={territory.id}
+          wrap={false}
           size="A4"
           style={{
             backgroundColor: '#FFFFFF',
           }}
         >
-          <View wrap={false} style={{ position: 'relative', width: WIDTH }}>
+          <View
+            wrap={false}
+            style={{ position: 'relative', width: A5_HORIZONTAL.width }}
+          >
             {parts.front && (
-              <CardFront territory={territory} width={WIDTH} height={HALF} />
+              <View
+                style={{ padding: PRINT_MARGIN, height: A5_HORIZONTAL.height }}
+              >
+                <CardFront territory={territory} width={WIDTH} height={HALF} />
+              </View>
             )}
 
             {parts.back && (
-              <CardBack
-                territory={territory}
-                width={WIDTH}
-                height={HALF}
-                notes={territory.notes}
-                printedOn={printedOn}
-              />
+              <View
+                style={{ padding: PRINT_MARGIN, height: A5_HORIZONTAL.height }}
+              >
+                <CardBack
+                  territory={territory}
+                  width={WIDTH}
+                  height={HALF}
+                  notes={territory.notes}
+                  printedOn={printedOn}
+                />
+              </View>
             )}
           </View>
         </Page>

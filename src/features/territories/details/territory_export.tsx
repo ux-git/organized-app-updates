@@ -1,6 +1,12 @@
 import { ReactNode, useState } from 'react';
 import { Box, FormControlLabel, RadioGroup, Stack } from '@mui/material';
-import { Button, Checkbox, CustomDivider, Typography } from '@components/index';
+import {
+  Button,
+  Checkbox,
+  CustomDivider,
+  InfoNote,
+  Typography,
+} from '@components/index';
 import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import Radio from '@components/radio';
 import Dialog from '@components/dialog';
@@ -17,8 +23,8 @@ type Format = { id: ExportFormat; name: string };
 const MAP_FORMATS: Format[] = [
   { id: 's12', name: 'tr_territoryS122' },
   { id: 's12a4', name: 'tr_territoryS12OnA4' },
-  { id: 'a5h', name: 'tr_territoryA5Horizontal' },
-  { id: 'a5v', name: 'tr_territoryA5Vertical' },
+  { id: 'a5h', name: 'tr_territoryA5HorizontalOnA4' },
+  { id: 'a5v', name: 'tr_territoryA5VerticalOnA4' },
 ];
 
 // a phone territory has no map, so the A5 layouts built around one don't apply
@@ -71,8 +77,8 @@ const TerritoryExport = ({
     <Dialog
       onClose={onClose}
       open
-      title={t('tr_territoryPrintTerritory', { number: territory.number })}
-      description={t('tr_territoryChooseTheContentAndFormatThenSaveOrShare')}
+      title={t('tr_territoryExportTerritory', { number: territory.number })}
+      description={t('tr_territoryChooseExportFormat')}
     >
       <Stack
         direction={tablet600Up ? 'row' : 'column'}
@@ -186,17 +192,33 @@ const TerritoryExport = ({
         )}
       </Box>
 
+      <InfoNote
+        message={t(
+          exporter.format === 's12'
+            ? 'tr_territoryPrintCardStockHelp'
+            : 'tr_territoryPrintA4Help'
+        )}
+      />
+
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
           {t('tr_cancel')}
         </Button>
         <Button
           variant="main"
-          disabled={exporter.isProcessing || !exporter.previewUrl}
-          endIcon={exporter.isProcessing ? <IconLoading /> : undefined}
+          disabled={
+            exporter.isProcessing ||
+            exporter.isExporting ||
+            !exporter.previewUrl
+          }
+          endIcon={
+            exporter.isProcessing || exporter.isExporting ? (
+              <IconLoading width={20} height={20} color="currentColor" />
+            ) : undefined
+          }
           onClick={handleExport}
         >
-          {t('tr_territoryPrint')}
+          {t('tr_export')}
         </Button>
       </DialogActions>
     </Dialog>
