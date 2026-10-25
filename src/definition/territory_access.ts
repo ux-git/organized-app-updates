@@ -14,3 +14,12 @@ export type TerritoryAccessContext = {
   groupHolder?: string;
   restricted: TerritoryRestrictions;
 };
+
+export type TerritoryServerAccess = {
+  scope: string;
+  manager: boolean;
+  eligible: boolean;
+  access: TerritoryAccess;
+  groupIds: string[];
+  restricted: TerritoryRestrictions;
+};

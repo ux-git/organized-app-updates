@@ -12,7 +12,7 @@ import {
   dbTerritorySyncApply,
   dbTerritoriesEnqueue,
 } from '@services/dexie/territory_sync';
-import { territorySharedSettingsState } from '@states/territories';
+import { territorySharedSettingsState, territoryServerAccessState } from '@states/territories';
 import type {
   TerritorySharedSettings,
   TerritorySyncStatus,
@@ -33,6 +33,7 @@ import {
   congIDState,
   congAccessCodeState,
   congDataSyncState,
+  userLocalUIDState,
 } from '@states/settings';
 import {
   territorySyncPendingState,
@@ -89,11 +90,14 @@ const applySnapshot = async (
   acknowledged?: string
 ) => {
   assertAccount(scope);
+  const grant = snapshot.policy.grants.find((item) => item.personId === store.get(userLocalUIDState));
+  store.set(territoryServerAccessState, { scope, manager: snapshot.manager === true, eligible: grant?.eligible ?? false, access: grant?.access ?? 'own', groupIds: grant?.groupIds ?? [], restricted: { categories: grant?.restrictedCategories ?? [], types: grant?.restrictedTypes ?? [] } });
   await dbTerritorySyncApply(
     scope,
     snapshot.revision,
     localSnapshot(snapshot, key),
-    acknowledged
+    acknowledged,
+    snapshot.manager === true
   );
 };
 const prepare = (
@@ -101,7 +105,7 @@ const prepare = (
   snapshot: TerritorySnapshot,
   key: string
 ) => {
-  const manager = isTerritorySyncManager();
+  const manager = snapshot.manager === true && isTerritorySyncManager();
   const assignees = store.get(territoryAssigneesState);
   const commands = operation.changes.flatMap((change) => {
     const territory = change.after ?? change.before;
@@ -142,7 +146,7 @@ const synchronizePolicy = async (
   if (state?.settingsDirty) settings = state.settings;
   if (!settings)
     throw new TerritoryIdentityError('Territory settings are unavailable');
-  if (!isTerritorySyncManager()) {
+  if (!snapshot.manager || !isTerritorySyncManager()) {
     if (remote.categories)
       await dbTerritorySettingsSave(scope, settings, false);
     return snapshot;
@@ -175,7 +179,7 @@ const synchronizePolicy = async (
   return apiGetTerritories(scope);
 };
 const migrateLocal = async (scope: string, snapshot: TerritorySnapshot) => {
-  if (!isTerritorySyncManager()) return;
+  if (!snapshot.manager || !isTerritorySyncManager()) return;
   const state = await dbTerritorySyncGet();
   const pending = new Set(
     state?.queue.flatMap((item) => item.changes.map((change) => change.id))
@@ -268,6 +272,7 @@ const handleSyncError = async (error: unknown) => {
   let status = error instanceof TerritoryApiError ? error.status : 0;
   if (error instanceof TerritoryPolicyConflict) status = 409;
   if (status === 403) {
+    store.set(territoryServerAccessState, { scope: scopeNow(), manager: false, eligible: false, access: 'own', groupIds: [], restricted: { categories: [], types: [] } });
     const state = await dbTerritorySyncGet();
     if (state?.scope === scopeNow())
       await dbTerritorySyncApply(state.scope, state.revision, []);

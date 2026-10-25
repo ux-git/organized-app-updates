@@ -1,5 +1,5 @@
 import type { Territory, DoNotCall } from '@definition/territory';
-import type { TerritoryAccessContext } from '@definition/territory_access';
+import type { TerritoryAccessContext, TerritoryServerAccess } from '@definition/territory_access';
 
 export const territoryPermissions = (
   territory: Territory,
@@ -154,3 +154,10 @@ export const territoryHistoryForPublisher = (
         return assignments.length ? [{ ...territory, assignments }] : [];
       })
     : [];
+
+/** An online snapshot can restrict cached roles immediately, without waiting for the general account backup. */
+export const applyTerritoryServerAccess = (context: TerritoryAccessContext, server?: TerritoryServerAccess): TerritoryAccessContext => {
+  if (!server) return context;
+  const groupAllowed = !!context.groupId && server.groupIds.includes(context.groupId);
+  return { ...context, editor: context.editor && server.manager, eligiblePublisher: context.eligiblePublisher && server.eligible, access: server.access, groupId: groupAllowed ? context.groupId : undefined, groupHolder: groupAllowed ? context.groupHolder : undefined, restricted: server.restricted };
+};

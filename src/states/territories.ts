@@ -1,3 +1,4 @@
+import type { TerritoryServerAccess } from '@definition/territory_access';
 import { isTest } from '@constants/index';
 import type { TerritorySharedSettings } from '@definition/territory_sync';
 import {
@@ -25,6 +26,8 @@ import {
 } from '@features/territories/helpers';
 import { territoryCampaignsState } from '@features/territories/campaigns';
 import { monthShortNamesState } from './app';
+
+export const territoryServerAccessState = atom<TerritoryServerAccess | undefined>();
 
 export const territoriesDbState = atom<Territory[]>([]);
 

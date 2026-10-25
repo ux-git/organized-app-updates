@@ -1,4 +1,6 @@
-import { territoryLocalModeState } from '@states/territories';
+import { applyTerritoryServerAccess } from '@services/app/territory_access';
+import { userIDState } from '@states/app';
+import { territoryLocalModeState, territoryServerAccessState } from '@states/territories';
 import {
   currentPublisherState,
   territoryAssigneesState,
@@ -9,6 +11,7 @@ import { useCurrentUser } from '@hooks/index';
 import { personsActiveState } from '@states/persons';
 import {
   fullnameOptionState,
+  congIDState,
   territoryAccessState,
   territoryRestrictedCategoriesState,
   territoryRestrictedTypesState,
@@ -20,8 +23,10 @@ import type { TerritoryAccessContext } from '@definition/territory_access';
 import { fieldWithLanguageGroupsState } from '@states/field_service_groups';
 
 const useTerritoryAccess = (): TerritoryAccessContext => {
-  const { isElder, isServiceCommittee, isPublisher, my_group } =
+  const { isAdmin, isElder, isServiceCommittee, isPublisher, my_group } =
     useCurrentUser();
+  const server = useAtomValue(territoryServerAccessState);
+  const scope = `${useAtomValue(congIDState)}:${useAtomValue(userIDState)}`;
   const localMode = useAtomValue(territoryLocalModeState);
   const localPublisher = useAtomValue(currentPublisherState);
   const localAssignees = useAtomValue(territoryAssigneesState);
@@ -108,8 +113,8 @@ const useTerritoryAccess = (): TerritoryAccessContext => {
       : undefined;
 
   return useMemo(
-    () => ({
-      editor: isElder || isServiceCommittee,
+    () => applyTerritoryServerAccess({
+      editor: isAdmin || isElder || isServiceCommittee,
       publisher: localPublisher,
       legacyIdentitySafe: !!publisher,
       publisherId: localMode ? localPublisherId : uid,
@@ -118,7 +123,7 @@ const useTerritoryAccess = (): TerritoryAccessContext => {
       access,
       groupHolder,
       restricted: { categories, types },
-    }),
+    }, !localMode && server?.scope === scope ? server : undefined),
     [
       localMode,
       localPublisher,
@@ -126,6 +131,9 @@ const useTerritoryAccess = (): TerritoryAccessContext => {
       uid,
       groupLead,
       my_group?.group_id,
+      isAdmin,
+      server,
+      scope,
       isElder,
       isServiceCommittee,
       publisher,

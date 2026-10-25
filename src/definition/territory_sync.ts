@@ -58,6 +58,7 @@ export type TerritoryWirePolicy = {
   content: string;
 };
 export type TerritorySnapshot = {
+  manager: boolean;
   revision: number;
   policy: TerritoryWirePolicy;
   records: TerritoryWireRecord[];

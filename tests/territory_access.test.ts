@@ -247,3 +247,15 @@ test('personal history contains only the current publisher’s assignments', () 
     false
   );
 });
+
+test('an online permission snapshot removes cached manager and group permissions immediately', async () => {
+  const { applyTerritoryServerAccess } = await import('../src/services/app/territory_access');
+  const cached = context({ editor: true, publisherId: 'alice', groupId: 'group-a', groupHolder: 'Group A' });
+  const current = applyTerritoryServerAccess(cached, { scope: 'cong:alice', manager: false, eligible: false, access: 'own', groupIds: [], restricted: { categories: ['restricted'], types: ['phone'] } });
+  assert.equal(current.editor, false);
+  assert.equal(current.eligiblePublisher, false);
+  assert.equal(current.access, 'own');
+  assert.equal(current.groupId, undefined);
+  assert.equal(current.groupHolder, undefined);
+  assert.deepEqual(current.restricted.types, ['phone']);
+});

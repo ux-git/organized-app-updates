@@ -112,7 +112,8 @@ export const dbTerritorySyncApply = async (
   scope: string,
   revision: number,
   records: TerritoryRecord[],
-  acknowledged?: string
+  acknowledged?: string,
+  retainLocalDrafts = false
 ) => {
   await appDb.transaction('rw', appDb.territories, appDb.metadata, async () => {
     const metadata = await appDb.metadata.get(1);
@@ -128,7 +129,7 @@ export const dbTerritorySyncApply = async (
     const updated: TerritoryRecord[] = [];
     for (const record of local) {
       const incoming = remote.get(record.id);
-      if (record.remote && !incoming) removed.push(record.id);
+      if (!incoming && (record.remote || !retainLocalDrafts)) removed.push(record.id);
       else if (pending.has(record.id) && incoming)
         updated.push({ ...record, remote: incoming.remote });
     }
