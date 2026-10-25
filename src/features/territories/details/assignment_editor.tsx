@@ -1,15 +1,43 @@
+import SwitchWithLabel from '@components/switch_with_label';
+import TerritoryNoteField from '@features/territories/components/note_field';
 import { useState } from 'react';
-import { Box, MenuItem, Stack } from '@mui/material';
-import { Button, InfoNote, Select, Typography } from '@components/index';
+import { useAtomValue } from 'jotai';
+import { Box, Stack } from '@mui/material';
+import { Button, InfoNote } from '@components/index';
 import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
-import MenuSubHeader from '@components/menu_sub_header';
-import { useBreakpoints } from '@hooks/index';
-import { GROUPS, PUBLISHERS_ONLY } from '../mockData';
-import { assignmentFromDates, parseDate } from '../helpers';
-import EditorHeader from './editor_header';
-import { TerritoryAssignment } from '@definition/territory';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
+import { IconCopy } from '@icons/index';
+import { territoryAssigneesState } from '@features/territories/assignees';
+import { territoryCampaignsState } from '@features/territories/campaigns';
+import {
+  campaignChoices,
+  campaignOverlaps,
+  campaignSnapshot,
+} from '@features/territories/campaign_dates';
+import CampaignField, {
+  CampaignChoice,
+} from '@features/territories/components/campaign_field';
+import CardField from '@features/territories/components/card_field';
+import EditorHeader from '@features/territories/components/editor_header';
+import {
+  HolderModeSwitch,
+  HolderPickers,
+} from '@features/territories/components/holder_picker';
+import {
+  chosenHolder,
+  holderMissing,
+  initialHolder,
+  savedCard,
+} from '@features/territories/card_choice';
+import {
+  assignmentFromDates,
+  assignmentIssues,
+  parseDate,
+  toStoredDate,
+} from '@features/territories/helpers';
+import { AssignmentCard, TerritoryAssignment } from '@definition/territory';
 
 const startOfDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -21,6 +49,7 @@ const AssignmentEditor = ({
   onClose,
   onSave,
   onDelete,
+  onAdoptNote,
 }: {
   assignment: TerritoryAssignment;
   isNew?: boolean;
@@ -28,21 +57,55 @@ const AssignmentEditor = ({
   onClose: VoidFunction;
   onSave: (next: TerritoryAssignment) => void;
   onDelete?: VoidFunction;
+  // the note is worth keeping on the territory itself
+  onAdoptNote?: (note: string) => void;
 }) => {
+  const { t } = useAppTranslation();
+
   const { tablet600Up } = useBreakpoints();
 
-  const [publisher, setPublisher] = useState(assignment.publisher);
+  const assignees = useAtomValue(territoryAssigneesState);
+  const campaigns = useAtomValue(territoryCampaignsState);
+
+  const [holder, setHolder] = useState(() =>
+    initialHolder(
+      assignment,
+      assignees.filter((item) => item.group).map(({ name }) => name)
+    )
+  );
+  const [tried, setTried] = useState(false);
   const [assignedOn, setAssignedOn] = useState<Date | null>(
     parseDate(assignment.assignedOn) ?? new Date()
   );
   const [returnedOn, setReturnedOn] = useState<Date | null>(
     parseDate(assignment.returnedOn)
   );
+  const [completed, setCompleted] = useState(assignment.completed !== false);
+  const [note, setNote] = useState(assignment.note ?? '');
+  const [card, setCard] = useState<AssignmentCard | undefined>(
+    assignment.card ?? (isNew ? savedCard() : undefined)
+  );
+
+  const [campaign, setCampaign] = useState<CampaignChoice>({
+    checked: !!assignment.campaign,
+    value: assignment.campaign,
+  });
+
+  const overlapping = campaigns.filter((item) =>
+    campaignOverlaps(item, assignedOn ?? new Date(), returnedOn ?? new Date())
+  );
+  const choices = campaignChoices(campaigns, new Date());
 
   const returnedTooEarly =
     !!assignedOn &&
     !!returnedOn &&
     startOfDay(returnedOn) < startOfDay(assignedOn);
+
+  // allowed, but worth a second look
+  const issues = assignmentIssues({
+    assignedOn: assignedOn ? toStoredDate(assignedOn) : '',
+    returnedOn: returnedOn ? toStoredDate(returnedOn) : undefined,
+  });
 
   const secondOpen = otherOpen && !returnedOn;
 
@@ -52,8 +115,12 @@ const AssignmentEditor = ({
       open
       header={
         <EditorHeader
-          title={isNew ? 'Add assignment' : 'Edit assignment'}
-          description="Who worked the territory, and when it was taken and returned."
+          title={
+            isNew
+              ? t('tr_territoryAddAssignment')
+              : t('tr_territoryEditAssignment')
+          }
+          description={t('tr_territoryWhoWorkedTheTerritoryAndWhenItWasTaken')}
           onDelete={
             onDelete && !isNew
               ? () => {
@@ -65,25 +132,15 @@ const AssignmentEditor = ({
         />
       }
     >
-      <Select
-        label="Publisher"
-        value={publisher}
-        onChange={(event) => setPublisher(event.target.value as string)}
-      >
-        <MenuSubHeader>Groups</MenuSubHeader>
-        {GROUPS.map((name) => (
-          <MenuItem key={name} value={name}>
-            <Typography className="body-regular">{name}</Typography>
-          </MenuItem>
-        ))}
+      <HolderModeSwitch value={holder} onChange={setHolder} />
 
-        <MenuSubHeader>Publishers</MenuSubHeader>
-        {PUBLISHERS_ONLY.map((name) => (
-          <MenuItem key={name} value={name}>
-            <Typography className="body-regular">{name}</Typography>
-          </MenuItem>
-        ))}
-      </Select>
+      <HolderPickers
+        value={holder}
+        onChange={setHolder}
+        showMissing={tried || (!isNew && !assignment.publisher)}
+        autoFocus={!tablet600Up}
+        current={assignment}
+      />
 
       <Stack
         direction={tablet600Up ? 'row' : 'column'}
@@ -92,50 +149,110 @@ const AssignmentEditor = ({
       >
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <DatePicker
-            label="Assigned on"
+            label={t('tr_territoryAssignedOn')}
             value={assignedOn}
+            error={issues.includes('assigned_future')}
+            helperText={
+              issues.includes('assigned_future')
+                ? t('tr_territoryThisDateIsInTheFuture')
+                : ''
+            }
             onChange={(value) => setAssignedOn(value)}
           />
         </Box>
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <DatePicker
-            label="Returned on"
+            label={t('tr_territoryReturnedOn')}
             value={returnedOn}
             minDate={assignedOn}
-            error={returnedTooEarly}
+            error={returnedTooEarly || issues.includes('returned_future')}
             helperText={
-              returnedTooEarly ? 'Cannot be before the assigned date' : ''
+              returnedTooEarly
+                ? t('tr_territoryCannotBeBeforeTheAssignedDate')
+                : issues.includes('returned_future')
+                  ? t('tr_territoryThisDateIsInTheFuture')
+                  : ''
             }
             onChange={(value) => setReturnedOn(value)}
           />
         </Box>
       </Stack>
 
+      <CardField value={card} onChange={setCard} />
+
+      {returnedOn && (
+        <SwitchWithLabel
+          label={t('tr_territoryCompleted')}
+          checked={completed}
+          onChange={setCompleted}
+        />
+      )}
+      <TerritoryNoteField kind="assignment" value={note} onChange={setNote} />
+
+      {onAdoptNote && (
+        <Button
+          variant="small"
+          disableAutoStretch
+          startIcon={<IconCopy color="var(--accent-main)" />}
+          disabled={!note.trim()}
+          onClick={() => onAdoptNote(note)}
+          sx={{ minHeight: '32px', minWidth: 'unset', marginTop: '-8px' }}
+        >
+          {t('tr_territoryAddToTerritoryNotes')}
+        </Button>
+      )}
+
+      {(campaigns.length > 0 || campaign.value) && (
+        <CampaignField
+          label={t('tr_territoryForTheCampaign')}
+          running={overlapping}
+          choices={choices}
+          checked={campaign.checked}
+          value={campaign.value}
+          onChange={setCampaign}
+        />
+      )}
+
       {secondOpen && (
-        <InfoNote message="The territory is already out with someone. Add a returned date, or return the open assignment first." />
+        <InfoNote
+          message={t('tr_territoryTheTerritoryIsAlreadyOutWithSomeoneAddA')}
+        />
       )}
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          Cancel
+          {t('tr_cancel')}
         </Button>
         <Button
           variant="main"
-          disabled={!publisher || returnedTooEarly || secondOpen}
+          disabled={returnedTooEarly || secondOpen}
           onClick={() => {
-            onSave(
-              assignmentFromDates(
+            if (holderMissing(holder)) {
+              setTried(true);
+              return;
+            }
+            const { publisher, group } = chosenHolder(holder);
+            onSave({
+              ...assignmentFromDates(
                 assignment,
                 publisher,
                 assignedOn ?? new Date(),
                 returnedOn
-              )
-            );
+              ),
+              group,
+              campaign:
+                campaign.checked && campaign.value
+                  ? campaignSnapshot(campaign.value)
+                  : undefined,
+              note: note.trim() || undefined,
+              completed: returnedOn ? completed : undefined,
+              card,
+            });
             onClose();
           }}
         >
-          Save
+          {t('tr_save')}
         </Button>
       </DialogActions>
     </Dialog>

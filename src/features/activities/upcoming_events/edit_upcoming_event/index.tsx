@@ -20,6 +20,7 @@ import SwitchWithLabel from '@components/switch_with_label';
 import TextField from '@components/textfield';
 import TimePicker from '@components/time_picker';
 import Typography from '@components/typography';
+import InfoNote from '@components/info_note';
 
 const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
   const { t } = useAppTranslation();
@@ -83,9 +84,18 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
             color: 'var(--black)',
           }}
         >
-          {props.type == 'add'
-            ? t('tr_addUpcomingEvent')
-            : t('tr_editUpcomingEvent')}
+          {localEvent.event_data.category ===
+          UpcomingEventCategory.SpecialCampaignWeek
+            ? t(
+                props.type === 'add'
+                  ? 'tr_territoryAddCampaign'
+                  : 'tr_territoryEditCampaign'
+              )
+            : t(
+                props.type === 'add'
+                  ? 'tr_addUpcomingEvent'
+                  : 'tr_editUpcomingEvent'
+              )}
         </Typography>
 
         {props.type === 'edit' && !tabletUp && (
@@ -110,6 +120,11 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
         )}
       </Box>
 
+      {localEvent.event_data.category ===
+        UpcomingEventCategory.SpecialCampaignWeek && (
+        <InfoNote message={t('tr_territoryCampaignsHelp')} />
+      )}
+
       <Box
         sx={{
           display: 'flex',
@@ -128,10 +143,14 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
         >
           <Select
             label={t('tr_eventType')}
+            disabled={
+              props.data.event_data.category ===
+              UpcomingEventCategory.SpecialCampaignWeek
+            }
             value={localEvent.event_data.category ?? ''}
             onChange={handleChangeEventCategory}
             error={errors.category}
-            helperText={errors.category && t('tr_fillRequiredField')}
+            helperText={errors.category ? t('tr_fillRequiredField') : undefined}
           >
             {decorationsForEvent.map((option, index) => (
               <MenuItem value={index} key={option.translationKey}>
@@ -157,13 +176,20 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
             ))}
           </Select>
 
-          {localEvent.event_data.category === UpcomingEventCategory.Custom && (
+          {(localEvent.event_data.category === UpcomingEventCategory.Custom ||
+            localEvent.event_data.category ===
+              UpcomingEventCategory.SpecialCampaignWeek) && (
             <TextField
-              label={t('tr_eventTitle')}
+              label={t(
+                localEvent.event_data.category ===
+                  UpcomingEventCategory.SpecialCampaignWeek
+                  ? 'tr_territoryCampaignName'
+                  : 'tr_eventTitle'
+              )}
               value={localEvent.event_data.custom}
               onChange={handleChangeEventCustomTitle}
               error={errors.custom}
-              helperText={errors.custom && t('tr_fillRequiredField')}
+              helperText={errors.custom ? t('tr_fillRequiredField') : undefined}
             />
           )}
 
@@ -193,7 +219,7 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
             onChange={handleChangeEventDuration}
             value={localEvent.event_data.duration ?? ''}
             error={errors.duration}
-            helperText={errors.duration && t('tr_fillRequiredField')}
+            helperText={errors.duration ? t('tr_fillRequiredField') : undefined}
           >
             <MenuItem value={UpcomingEventDuration.SingleDay} key={0}>
               <Typography

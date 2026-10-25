@@ -1,22 +1,24 @@
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { shortDateFormatState } from '@states/settings';
 import { Box, Stack } from '@mui/material';
 import { Button } from '@components/index';
-import { IconAdd, IconEdit, IconLocation } from '@icons/index';
+import { IconAdd, IconEdit } from '@icons/index';
 import { DoNotCall, Territory } from '@definition/territory';
-import RecordList from '../components/record_list';
-import RowAction from '../components/row_action';
+import RecordList from '@features/territories/components/record_list';
+import RowAction from '@features/territories/components/row_action';
 import {
   displayDate,
   parseDate,
   upsertById,
   emptyListMessage,
   isDoNotCallNumber,
-  CURRENT_PUBLISHER,
-  openInMaps,
-} from '../helpers';
-import DoNotCallEditor from './do_not_call_editor';
+} from '@features/territories/helpers';
+import { currentPublisherState } from '@features/territories/assignees';
+import DoNotCallEditor from '@features/territories/details/do_not_call_editor';
+import { offerUndo } from '@features/territories/undo';
+import { restoreDoNotCall } from '@features/territories/restore';
 
 const newestFirst = (a: DoNotCall, b: DoNotCall) =>
   (parseDate(b.date)?.getTime() ?? 0) - (parseDate(a.date)?.getTime() ?? 0);
@@ -33,7 +35,10 @@ const DoNotCallPanel = ({
   onChange: (entries: DoNotCall[]) => void;
   access?: DoNotCallAccess;
 }) => {
+  const { t } = useAppTranslation();
+
   const format = useAtomValue(shortDateFormatState);
+  const me = useAtomValue(currentPublisherState);
 
   const [editing, setEditing] = useState<DoNotCall | 'new'>();
 
@@ -42,18 +47,10 @@ const DoNotCallPanel = ({
   const isPhone = territory.type === 'phone';
 
   const canEdit = (entry: DoNotCall) =>
-    access === 'all' ||
-    (access === 'own' && entry.addedBy === CURRENT_PUBLISHER);
+    access === 'all' || (access === 'own' && entry.addedBy === me);
 
-  const showOnMap = (entry: DoNotCall) =>
-    openInMaps([entry.address, territory.city].filter(Boolean).join(', '));
-
-  // a read-only address opens in the maps app; a number never gets a call from here
-  const openEntry = (entry: DoNotCall) => {
-    if (canEdit(entry)) return () => setEditing(entry);
-    if (!isPhone) return () => showOnMap(entry);
-    return undefined;
-  };
+  const openEntry = (entry: DoNotCall) =>
+    canEdit(entry) ? () => setEditing(entry) : undefined;
 
   // a number already marked is not offered again, except the one being edited
   const numbers = isPhone
@@ -74,26 +71,10 @@ const DoNotCallPanel = ({
           title: entry.address,
           subtitle: isPhone ? undefined : entry.name,
           date: displayDate(entry.date, format),
-          actions: (
-            <>
-              {!isPhone && (
-                <RowAction
-                  title="Open in maps"
-                  onClick={() => showOnMap(entry)}
-                >
-                  <IconLocation
-                    color="var(--accent-main)"
-                    width={18}
-                    height={18}
-                  />
-                </RowAction>
-              )}
-              {canEdit(entry) && (
-                <RowAction title="Edit" onClick={() => setEditing(entry)}>
-                  <IconEdit color="var(--accent-main)" width={18} height={18} />
-                </RowAction>
-              )}
-            </>
+          actions: canEdit(entry) && (
+            <RowAction title={t('tr_edit')} onClick={() => setEditing(entry)}>
+              <IconEdit color="var(--accent-main)" width={18} height={18} />
+            </RowAction>
           ),
         }))}
       />
@@ -107,7 +88,7 @@ const DoNotCallPanel = ({
             onClick={() => setEditing('new')}
             sx={{ minHeight: '32px', minWidth: 'unset' }}
           >
-            Add
+            {t('tr_add')}
           </Button>
         </Stack>
       )}
@@ -118,10 +99,17 @@ const DoNotCallPanel = ({
           numbers={numbers}
           onClose={() => setEditing(undefined)}
           onSave={(next) => onChange(upsertById(entries, next))}
-          onDelete={() =>
-            editing !== 'new' &&
-            onChange(entries.filter((item) => item.id !== editing.id))
-          }
+          onDelete={() => {
+            if (editing === 'new') return;
+            const index = entries.findIndex((item) => item.id === editing.id);
+            onChange(entries.filter((item) => item.id !== editing.id));
+            offerUndo({
+              text: isPhone
+                ? t('tr_territoryNumberDeleted')
+                : t('tr_territoryAddressDeleted'),
+              revert: () => restoreDoNotCall(territory.id, editing, index),
+            });
+          }}
         />
       )}
     </Box>

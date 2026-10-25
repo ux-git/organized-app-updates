@@ -1,11 +1,13 @@
 import { Box } from '@mui/material';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import PageTitle from '@components/page_title';
 import TerritoryDoNotCalls from '@features/territories/do_not_calls';
 import useParentPage from '@features/territories/useParentPage';
 
 const DoNotCallsPage = () => {
-  const { parent, goBack } = useParentPage();
+  const { t } = useAppTranslation();
+
+  const { parent, goBack } = useParentPage('tr_territories', '/');
   const { tablet688Up } = useBreakpoints();
 
   return (
@@ -17,7 +19,11 @@ const DoNotCallsPage = () => {
         paddingBottom: tablet688Up ? '0px' : '60px',
       }}
     >
-      <PageTitle title="Do not call" secondaryTitle={parent} onBack={goBack} />
+      <PageTitle
+        title={t('tr_territoryDoNotCallLabel')}
+        secondaryTitle={parent && parent}
+        onBack={goBack}
+      />
 
       <TerritoryDoNotCalls />
     </Box>

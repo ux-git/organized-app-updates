@@ -15,9 +15,16 @@ const RowAction = ({
 }) => (
   <Tooltip title={title}>
     <IconButton
+      aria-label={title}
       color={color}
       onClick={onClick}
-      sx={{ padding: '6px', margin: 0, borderRadius: 'var(--radius-max)' }}
+      sx={{
+        padding: '6px',
+        margin: 0,
+        borderRadius: 'var(--radius-max)',
+        // 30px to see, 44px to tap
+        '&::after': { content: '""', position: 'absolute', inset: '-7px' },
+      }}
     >
       {children}
     </IconButton>

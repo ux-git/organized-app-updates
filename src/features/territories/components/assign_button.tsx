@@ -1,51 +1,58 @@
+import { useAppTranslation } from '@hooks/index';
 import { MouseEvent, useState } from 'react';
 import { Box } from '@mui/material';
 import { Button } from '@components/index';
-import { IconMoveBack, IconMoveForward, IconRaiseHand } from '@icons/index';
-import ReviewDialog from './review_dialog';
+import { IconCheckThin, IconMoveItem, IconRaiseHand } from '@icons/index';
+import ReviewDialog from '@features/territories/components/review_dialog';
+import { DONE_COLOR } from '@features/territories/components/done_color';
 import { Territory } from '@definition/territory';
 
 type AssignButtonProps = {
   territory: Territory;
   onOpenAssign: (id: string) => void;
-  onAssign: (id: string, publisher: string) => void;
   onDecline: (id: string) => void;
   onReturn: (id: string) => void;
   compact?: boolean;
+  // just the word: no icon, no width shared with the other labels
+  bare?: boolean;
 };
+
+const LABELS = ['tr_return', 'tr_territoryReview', 'tr_assign'];
 
 const lookOf = (isAssigned: boolean, isRequested: boolean) => {
   if (isAssigned) {
     return {
-      label: 'Return',
-      color: 'red' as const,
-      icon: <IconMoveBack color="var(--red-main)" />,
+      label: 'tr_return',
+      color: 'green' as const,
+      icon: <IconCheckThin color="var(--done)" />,
     };
   }
 
   if (isRequested) {
     return {
-      label: 'Review',
+      label: 'tr_territoryReview',
       color: 'orange' as const,
       icon: <IconRaiseHand color="var(--orange-dark)" />,
     };
   }
 
   return {
-    label: 'Assign',
+    label: 'tr_assign',
     color: undefined,
-    icon: <IconMoveForward color="var(--accent-main)" />,
+    icon: <IconMoveItem color="var(--accent-dark)" />,
   };
 };
 
 const AssignButton = ({
   territory,
   onOpenAssign,
-  onAssign,
   onDecline,
   onReturn,
   compact = false,
+  bare = false,
 }: AssignButtonProps) => {
+  const { t } = useAppTranslation();
+
   const [reviewOpen, setReviewOpen] = useState(false);
 
   const isAssigned =
@@ -78,7 +85,7 @@ const AssignButton = ({
           <ReviewDialog
             territory={territory}
             onClose={() => setReviewOpen(false)}
-            onAssign={onAssign}
+            onAssign={onOpenAssign}
             onDecline={onDecline}
           />
         </Box>
@@ -89,16 +96,43 @@ const AssignButton = ({
         disableAutoStretch
         color={color}
         onClick={handleClick}
-        startIcon={icon}
-        aria-label={compact ? label : undefined}
+        startIcon={bare && !compact ? undefined : icon}
+        ariaLabel={t(label)}
         sx={{
           minHeight: '28px',
           padding: compact ? '4px' : '2px 8px',
           minWidth: 'unset',
+          justifyContent: 'flex-start',
+          // the palette has no green-dark for small buttons
+          ...(color === 'green' && {
+            ...DONE_COLOR,
+            color: 'var(--done)',
+            '& svg, & svg g, & svg g path': { fill: 'var(--done)' },
+          }),
           '& .MuiButton-startIcon': compact ? { margin: 0 } : {},
+          // 28px to see, 44px to tap
+          '&::after': { content: '""', position: 'absolute', inset: '-8px' },
         }}
       >
-        {!compact && label}
+        {!compact && bare && t(label)}
+        {!compact && !bare && (
+          // every label stacked in one cell, so all buttons share the widest width
+          <Box sx={{ display: 'grid', textAlign: 'start' }}>
+            {LABELS.map((text) => (
+              <Box
+                key={text}
+                component="span"
+                aria-hidden={text !== label}
+                sx={{
+                  gridArea: '1 / 1',
+                  visibility: text === label ? 'visible' : 'hidden',
+                }}
+              >
+                {t(text)}
+              </Box>
+            ))}
+          </Box>
+        )}
       </Button>
     </>
   );

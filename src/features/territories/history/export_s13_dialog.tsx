@@ -1,11 +1,9 @@
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
-import { MenuItem } from '@mui/material';
-import { Button, Select, Typography } from '@components/index';
+import { Button } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
-import { serviceYear } from '../helpers';
-
-const label = (year: number) => `${year - 1}/${year}`;
+import SwitchWithLabel from '@components/switch_with_label';
 
 const ExportS13Dialog = ({
   isProcessing,
@@ -14,42 +12,36 @@ const ExportS13Dialog = ({
 }: {
   isProcessing: boolean;
   onClose: VoidFunction;
-  onExport: (year: number) => void;
+  onExport: (markCampaigns: boolean) => void;
 }) => {
-  const current = serviceYear();
-  const years = [current, current - 1, current - 2];
+  const { t } = useAppTranslation();
 
-  const [year, setYear] = useState(current);
+  const [withCampaigns, setWithCampaigns] = useState(false);
 
   return (
     <Dialog
       onClose={onClose}
       open
-      title="Export S-13"
-      description="The territory assignment record of one service year, September to August."
+      title={t('tr_territoryExportS13')}
+      description={t('tr_territoryAllRecordedAssignmentsThroughToday')}
     >
-      <Select
-        label="Service year"
-        value={year}
-        onChange={(event) => setYear(Number(event.target.value))}
-      >
-        {years.map((item) => (
-          <MenuItem key={item} value={item}>
-            <Typography className="body-regular">{label(item)}</Typography>
-          </MenuItem>
-        ))}
-      </Select>
+      <SwitchWithLabel
+        label={t('tr_territoryMarkCampaignAssignments')}
+        helper={t('tr_territoryMarkCampaignDatesAllAssignmentsStayIncluded')}
+        checked={withCampaigns}
+        onChange={setWithCampaigns}
+      />
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          Cancel
+          {t('tr_cancel')}
         </Button>
         <Button
           variant="main"
           disabled={isProcessing}
-          onClick={() => onExport(year)}
+          onClick={() => onExport(withCampaigns)}
         >
-          Export
+          {t('tr_export')}
         </Button>
       </DialogActions>
     </Dialog>

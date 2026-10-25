@@ -25,6 +25,7 @@ const DatabaseWrapper = ({ children }: PropsWithChildren) => {
     loadDbNotifications,
     loadDbDelegatedReports,
     loadUpcomingEvents,
+    loadTerritories,
     loadPublicTalks,
     loadSongs,
     loadAppLocals,
@@ -79,6 +80,8 @@ const DatabaseWrapper = ({ children }: PropsWithChildren) => {
     loadSongs,
     loadAppLocals,
   ]);
+
+  useEffect(() => loadTerritories(), [loadTerritories]);
 
   return children;
 };

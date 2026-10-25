@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
 import { ReactSortable } from 'react-sortablejs';
 import { Badge, Typography } from '@components/index';
@@ -8,16 +9,24 @@ import {
   TerritoryStatus,
   TYPE_LABEL,
 } from '@definition/territory';
-import { useBreakpoints } from '@hooks/index';
-import AssignButton from './assign_button';
-import { clickableRow } from './table_styles';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
+import { territoryLocalModeState } from '@states/territories';
+import AssignButton from '@features/territories/components/assign_button';
+import { clickableRow } from '@features/territories/components/table_styles';
 import {
+  AssignedTwiceBadge,
   CardLostBadge,
   CategoryBadges,
   CoveredBadge,
-} from './territory_badges';
-import TruncatedText from './truncated_text';
-import { emptyListMessage } from '../helpers';
+  ListDoNotCallBadge as DoNotCallBadge,
+} from '@features/territories/components/territory_badges';
+import TruncatedText from '@features/territories/components/truncated_text';
+import {
+  coveredAge,
+  coveredDays,
+  emptyListMessage,
+} from '@features/territories/helpers';
+import { territoryHolderText } from '@features/territories/group_holder';
 
 type Column = 'available' | 'requested' | 'in_work' | 'overdue';
 
@@ -26,7 +35,7 @@ const COLUMNS: Column[] = ['requested', 'available', 'in_work', 'overdue'];
 
 const COLUMN_LABEL: Record<Column, string> = {
   available: STATUS_LABEL.available,
-  requested: 'Requested',
+  requested: 'tr_territoryRequested',
   in_work: STATUS_LABEL.in_work,
   overdue: STATUS_LABEL.overdue,
 };
@@ -43,7 +52,6 @@ type BoardViewProps = {
   territories: Territory[];
   onOpen: (id: string) => void;
   onOpenAssign: (id: string) => void;
-  onAssign: (id: string, publisher: string) => void;
   onDecline: (id: string) => void;
   onReturn: (id: string) => void;
   onDrop: (id: string, status: TerritoryStatus) => void;
@@ -55,14 +63,16 @@ const BoardView = ({
   territories,
   onOpen,
   onOpenAssign,
-  onAssign,
   onDecline,
   onReturn,
   onDrop,
   showHouseholds = true,
   overdueMonths,
 }: BoardViewProps) => {
+  const { t } = useAppTranslation();
+
   const { tablet688Up } = useBreakpoints();
+  const localMode = useAtomValue(territoryLocalModeState);
 
   const [dragging, setDragging] = useState(false);
   const [dragFrom, setDragFrom] = useState<Column>();
@@ -89,13 +99,18 @@ const BoardView = ({
     if (!moved) return;
 
     if (columnOf(moved) === 'requested' && moved.requestedBy) {
-      if (target === 'in_work') onAssign(moved.id, moved.requestedBy);
+      // the dialog comes prefilled with whoever asked
+      if (target === 'in_work') onOpenAssign(moved.id);
       if (target === 'available') onDecline(moved.id);
       return;
     }
 
     onDrop(moved.id, target as TerritoryStatus);
   };
+
+  const columns = localMode
+    ? COLUMNS.filter((column) => column !== 'requested')
+    : COLUMNS;
 
   return (
     <Box
@@ -118,10 +133,10 @@ const BoardView = ({
         },
       }}
     >
-      {COLUMNS.map((status) => {
+      {columns.map((status) => {
         const column = territories
           .filter((territory) => columnOf(territory) === status)
-          .sort((a, b) => b.daysSinceCovered - a.daysSinceCovered);
+          .sort((a, b) => coveredAge(b) - coveredAge(a));
 
         const canDrop = DROPPABLE.has(status);
 
@@ -153,14 +168,14 @@ const BoardView = ({
                   className="body-small-semibold"
                   color="var(--black)"
                 >
-                  {COLUMN_LABEL[status]}
+                  {t(COLUMN_LABEL[status])}
                 </Typography>
                 {status === 'overdue' && overdueMonths && (
                   <Typography
                     className="label-small-regular"
                     color="var(--grey-350)"
                   >
-                    {`Out longer than ${overdueMonths} months`}
+                    {t('tr_territoryOutLongerThanMonths', { n: overdueMonths })}
                   </Typography>
                 )}
               </Stack>
@@ -190,7 +205,7 @@ const BoardView = ({
                     className="label-small-regular"
                     color="var(--grey-350)"
                   >
-                    {canDrop ? 'Drop here' : emptyListMessage()}
+                    {canDrop ? t('tr_territoryDropHere') : emptyListMessage()}
                   </Typography>
                 </Stack>
               )}
@@ -260,9 +275,9 @@ const BoardView = ({
                       <TruncatedText
                         className="label-small-regular"
                         color="var(--grey-350)"
-                        text={`${territory.holder ?? TYPE_LABEL[territory.type]}${
+                        text={`${territoryHolderText(territory) || t(TYPE_LABEL[territory.type])}${
                           showHouseholds
-                            ? ` · ${territory.households} households`
+                            ? ` · ${t('tr_territoryHouseholdCount', { n: territory.households })}`
                             : ''
                         }`}
                       />
@@ -281,7 +296,16 @@ const BoardView = ({
                             overflow: 'hidden',
                           }}
                         >
-                          <CoveredBadge days={territory.daysSinceCovered} />
+                          <DoNotCallBadge territory={territory} />
+                          <CoveredBadge
+                            days={coveredAge(territory)}
+                            label={
+                              coveredDays(territory) === null
+                                ? t('tr_territoryNeverCovered')
+                                : undefined
+                            }
+                          />
+                          <AssignedTwiceBadge territory={territory} />
                           <CardLostBadge territory={territory} />
                           <CategoryBadges territory={territory} />
                         </Stack>
@@ -290,10 +314,10 @@ const BoardView = ({
                           <AssignButton
                             territory={territory}
                             onOpenAssign={onOpenAssign}
-                            onAssign={onAssign}
                             onDecline={onDecline}
                             onReturn={onReturn}
                             compact={!tablet688Up}
+                            bare
                           />
                         </Box>
                       </Stack>
@@ -309,4 +333,5 @@ const BoardView = ({
   );
 };
 
-export default BoardView;
+// stays built while hidden behind the list; renders again only on new props
+export default memo(BoardView);

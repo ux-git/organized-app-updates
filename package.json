@@ -18,7 +18,8 @@
     "generate:css": "node converter/css/convert.js && prettier  converter/css/tokens.json src/global/global.css src/global/global.ts --write",
     "generate:icons": "node converter/svg/convert.js && prettier src/components/icons --write",
     "locales:unused": "tsx unused-i18n-keys.ts",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test:territories": "node --import tsx --test tests/territory_*.test.ts"
   },
   "eslintConfig": {
     "extends": [
@@ -62,6 +63,8 @@
     "node-html-parser": "^7.1.0",
     "papaparse": "^5.7.0",
     "pdfjs-dist": "^6.3.289",
+    "polygon-clipping": "^0.15.7",
+    "polylabel": "^2.1.0",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -96,6 +99,7 @@
     "@types/file-saver": "^2.0.7",
     "@types/mocha": "^10.0.10",
     "@types/papaparse": "^5.5.2",
+    "@types/polylabel": "^2.0.0",
     "@types/react": "^19.3.0",
     "@types/react-beautiful-dnd": "^13.1.8",
     "@types/react-dom": "^19.3.0",

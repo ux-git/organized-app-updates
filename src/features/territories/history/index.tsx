@@ -1,21 +1,38 @@
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
+import { territoryHistoryForPublisher } from '@services/app/territory_access';
 import { useState } from 'react';
 import { Box } from '@mui/material';
 import { useNavigate, useParams } from 'react-router';
-import { useAtomValue } from 'jotai';
+import { useAtom } from 'jotai';
 import { InfoNote } from '@components/index';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { territoriesState } from '@states/territories';
 import Card from '@components/card';
-import AssignmentHistory from '../components/assignment_history';
-import TerritoryHistory from './territory_history';
+import AssignmentHistory from '@features/territories/components/assignment_history';
+import TerritoryHistory from '@features/territories/history/territory_history';
+import { Territory } from '@definition/territory';
 
 const TerritoriesHistory = () => {
+  const { t } = useAppTranslation();
+
   const { id } = useParams();
   const navigate = useNavigate();
 
   const { laptopUp } = useBreakpoints();
 
-  const territories = useAtomValue(territoriesState);
+  const { editor, publisher } = useTerritoryAccess();
+  const [allTerritories, setTerritories] = useAtom(territoriesState);
+
+  const territories = editor
+    ? allTerritories
+    : territoryHistoryForPublisher(allTerritories, publisher);
+
+  const onChange = editor
+    ? (next: Territory) =>
+        setTerritories((prev) =>
+          prev.map((item) => (item.id === next.id ? next : item))
+        )
+    : undefined;
 
   const [picked, setPicked] = useState<string | undefined>();
 
@@ -29,15 +46,15 @@ const TerritoriesHistory = () => {
     }
 
     navigate(`/territories/history/${territoryId}`, {
-      state: { parent: 'Assignment history' },
+      state: { parent: 'tr_assignmentHistory' },
     });
   };
 
   if (id && !laptopUp) {
     return selected ? (
-      <TerritoryHistory territory={selected} />
+      <TerritoryHistory territory={selected} onChange={onChange} />
     ) : (
-      <InfoNote message="This territory no longer exists." />
+      <InfoNote message={t('tr_territoryThisTerritoryNoLongerExists')} />
     );
   }
 
@@ -61,7 +78,9 @@ const TerritoriesHistory = () => {
         />
       </Card>
 
-      {laptopUp && selected && <TerritoryHistory territory={selected} />}
+      {laptopUp && selected && (
+        <TerritoryHistory territory={selected} onChange={onChange} />
+      )}
     </Box>
   );
 };

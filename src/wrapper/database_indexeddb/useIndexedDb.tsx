@@ -1,3 +1,13 @@
+import { useAtomValue, useStore } from 'jotai';
+import { isTest } from '@constants/index';
+import { dbTerritoriesGetAll } from '@services/dexie/territories';
+import {
+  territoriesDbState,
+  territoryWritesPendingState,
+  territoryLoadedViewState,
+} from '@states/territories';
+import { userDataViewState } from '@states/settings';
+import { sampleTerritories } from '@features/territories/mockData';
 import { useCallback } from 'react';
 import { useSetAtom } from 'jotai';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -26,6 +36,35 @@ import { songsState } from '@states/songs';
 import { appLocalsState } from '@states/app_locals';
 
 const useIndexedDb = () => {
+  const store = useStore();
+  const dataView = useAtomValue(userDataViewState);
+  const writesPending = useAtomValue(territoryWritesPendingState);
+  const dbTerritories = useLiveQuery(dbTerritoriesGetAll);
+  const setTerritories = useSetAtom(territoriesDbState);
+  const setTerritoryView = useSetAtom(territoryLoadedViewState);
+  const loadTerritories = useCallback(() => {
+    if (!dbTerritories || writesPending) return;
+    const records = new Map(
+      (isTest ? sampleTerritories(store.get) : []).map((item) => [
+        item.id,
+        item,
+      ])
+    );
+    for (const record of dbTerritories) {
+      if (record.dataView !== dataView) continue;
+      if (record.deleted) records.delete(record.data.id);
+      else records.set(record.data.id, record.data);
+    }
+    setTerritories([...records.values()]);
+    setTerritoryView(dataView);
+  }, [
+    dbTerritories,
+    store,
+    dataView,
+    setTerritories,
+    writesPending,
+    setTerritoryView,
+  ]);
   const dbSettings = useLiveQuery(() => appDb.app_settings.toArray());
   const dbPersons = useLiveQuery(() => appDb.persons.toArray());
   const dbWeekType = useLiveQuery(() => appDb.week_type.toArray());
@@ -237,6 +276,7 @@ const useIndexedDb = () => {
     loadDbNotifications,
     loadDbDelegatedReports,
     loadUpcomingEvents,
+    loadTerritories,
     loadPublicTalks,
     loadSongs,
     loadAppLocals,

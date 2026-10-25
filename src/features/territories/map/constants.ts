@@ -6,27 +6,16 @@ import { MapColor, MapStyle, PinType } from '@definition/territory';
  * keeps the download small and lets the style follow the app theme.
  *
  * - openfreemap: unlimited and free forever, fully self-hostable; the default
- * - carto: light and dark siblings of the same design, attribution required
  * - versatiles: community hosted, ships a dark style of its own
  */
 export const MAP_PROVIDERS = {
-  carto: {
-    name: 'CARTO',
-    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-    // a label can only use fonts the provider's glyph server has
-    fonts: {
-      regular: ['Open Sans Regular'],
-      bold: ['Open Sans Bold'],
-      number: ['Open Sans Semibold'],
-    },
-  },
   openfreemap: {
     name: 'OpenFreeMap',
     // the clearest contrast of the free light styles: real colours for streets, water and parks
     light: 'https://tiles.openfreemap.org/styles/liberty',
     dark: 'https://tiles.openfreemap.org/styles/dark',
-    // no medium weight on this glyph server; bold reads too heavy for numbers
+    // a label can only use fonts the provider's glyph server has; no medium
+    // weight on this one, and bold reads too heavy for numbers
     fonts: {
       regular: ['Noto Sans Regular'],
       bold: ['Noto Sans Bold'],
@@ -57,11 +46,12 @@ export const styleUrl = (provider: MapProviderKey, isDark: boolean) => {
   return isDark ? styles.dark : styles.light;
 };
 
-export { MAP_CENTER as DEFAULT_CENTER } from '../mockData';
+export { MAP_CENTER as DEFAULT_CENTER } from '@features/territories/mockData';
 export const DEFAULT_ZOOM = 13;
 
 export const SOURCE_ID = 'territories';
 export const FILL_LAYER = 'territories-fill';
+export const HOVER_LAYER = 'territories-hover';
 export const LINE_LAYER = 'territories-line';
 export const LABEL_LAYER = 'territories-label';
 export const LABEL_CAPTION_LAYER = 'territories-label-caption';
@@ -70,6 +60,8 @@ export const LABELS_SOURCE = 'territories-labels';
 export const CONGREGATION_SOURCE = 'congregation-boundary';
 export const CONGREGATION_FILL_LAYER = 'congregation-boundary-fill';
 export const CONGREGATION_LINE_LAYER = 'congregation-boundary-line';
+export const CONGREGATION_VEIL_LAYER = 'congregation-boundary-veil';
+export const CONGREGATION_HIT_LAYER = 'congregation-boundary-hit';
 
 // drawings get printed, so they keep a fixed palette instead of the theme
 export const MAP_COLORS: Record<MapColor, string> = {
@@ -88,27 +80,27 @@ export const DEFAULT_BOUNDARY_STYLE: MapStyle = {
 };
 
 export const MAP_COLOR_LABEL: Record<MapColor, string> = {
-  red: 'Red',
-  blue: 'Blue',
-  green: 'Green',
-  orange: 'Orange',
-  purple: 'Purple',
-  black: 'Black',
+  red: 'tr_territoryRed',
+  blue: 'tr_blue',
+  green: 'tr_green',
+  orange: 'tr_orange',
+  purple: 'tr_purple',
+  black: 'tr_territoryBlack',
 };
 
 export const PIN_TYPES: { id: PinType; label: string }[] = [
-  { id: 'normal', label: 'Normal pin' },
-  { id: 'parking', label: 'Parking' },
-  { id: 'restaurant', label: 'Restaurant' },
-  { id: 'transport', label: 'Transportation stop' },
-  { id: 'shop', label: 'Shop' },
-  { id: 'nature', label: 'Nature' },
-  { id: 'gas', label: 'Gas station' },
-  { id: 'sight', label: 'Sight place' },
-  { id: 'building', label: 'Known building' },
-  { id: 'school', label: 'School' },
-  { id: 'cart', label: 'Cart point' },
+  { id: 'normal', label: 'tr_territoryPin' },
+  { id: 'parking', label: 'tr_territoryParking' },
+  { id: 'restaurant', label: 'tr_territoryFood' },
+  { id: 'transport', label: 'tr_timerLabelStop' },
+  { id: 'shop', label: 'tr_territoryShopping' },
+  { id: 'nature', label: 'tr_territoryNature' },
+  { id: 'gas', label: 'tr_territoryFuel' },
+  { id: 'sight', label: 'tr_territorySight' },
+  { id: 'building', label: 'tr_territoryBuilding' },
+  { id: 'school', label: 'tr_territorySchool' },
+  { id: 'cart', label: 'tr_territoryCart' },
 ];
 
 export const pinLabel = (type?: PinType) =>
-  PIN_TYPES.find((item) => item.id === type)?.label ?? 'Pin';
+  PIN_TYPES.find((item) => item.id === type)?.label ?? 'tr_territoryPin';

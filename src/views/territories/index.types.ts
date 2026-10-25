@@ -2,7 +2,7 @@ import { Territory } from '@definition/territory';
 
 export type TerritoryPrintData = Territory & {
   mapImage?: string;
-  qrImage?: string;
+  showHouseholds?: boolean;
   notes?: string;
 };
 

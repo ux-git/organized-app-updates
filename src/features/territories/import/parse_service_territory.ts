@@ -1,11 +1,17 @@
-import type { Database, SqlValue } from 'sql.js';
+import { territoryNumberKey } from '@utils/territory';
+import { getTranslation } from '@services/i18n/translation';
+import type { Database, SqlValue, SqlJsStatic } from 'sql.js';
 import {
   DoNotCall,
   Territory,
   TerritoryAssignment,
   TerritoryType,
 } from '@definition/territory';
-import { assignmentFromDates, toStoredDate, withAssignments } from '../helpers';
+import {
+  assignmentFromDates,
+  toStoredDate,
+  withAssignments,
+} from '@features/territories/helpers';
 
 export type ServiceTerritoryImport = {
   territories: Territory[];
@@ -35,7 +41,13 @@ const dateOf = (day: SqlValue, month: SqlValue, year: SqlValue) => {
   if (typeof day !== 'number' || typeof month !== 'number') return null;
   if (typeof year !== 'number' || year < 1900) return null;
 
-  return new Date(year, month, day);
+  if (![day, month, year].every(Number.isInteger)) return null;
+  const date = new Date(year, month, day);
+  return date.getFullYear() === year &&
+    date.getMonth() === month &&
+    date.getDate() === day
+    ? date
+    : null;
 };
 
 const typeFromName = (name: string): TerritoryType => {
@@ -49,30 +61,41 @@ const typeFromName = (name: string): TerritoryType => {
   return 'door_to_door';
 };
 
+let sqlRuntime: Promise<SqlJsStatic> | undefined;
 const loadDatabase = async (buffer: ArrayBuffer) => {
-  const [{ default: initSqlJs }, { default: wasmUrl }] = await Promise.all([
+  sqlRuntime ??= Promise.all([
     import('sql.js'),
     import('sql.js/dist/sql-wasm.wasm?url'),
-  ]);
-
-  const SQL = await initSqlJs({ locateFile: () => wasmUrl });
-
+  ])
+    .then(([{ default: initSqlJs }, { default: wasmUrl }]) =>
+      initSqlJs({ locateFile: () => wasmUrl })
+    )
+    .catch((error) => {
+      sqlRuntime = undefined;
+      throw error;
+    });
+  const SQL = await sqlRuntime;
   return new SQL.Database(new Uint8Array(buffer));
+};
+
+const groupByTerritory = (items: Row[]) => {
+  const grouped = new Map<SqlValue, Row[]>();
+  for (const item of items) {
+    const group = grouped.get(item.idTerritory);
+    if (group) group.push(item);
+    else grouped.set(item.idTerritory, [item]);
+  }
+  return grouped;
 };
 
 export const parseServiceTerritory = async (
   buffer: ArrayBuffer
 ): Promise<ServiceTerritoryImport> => {
-  let db: Database;
+  let db: Database | undefined;
 
   try {
     db = await loadDatabase(buffer);
     db.exec('SELECT count(*) FROM territories');
-  } catch {
-    throw new Error('This file is not a Service Territory backup.');
-  }
-
-  try {
     const types = new Map(
       rows(db, 'SELECT _id, Name FROM territories_types').map((row) => [
         row._id,
@@ -87,12 +110,14 @@ export const parseServiceTerritory = async (
       ])
     );
 
-    const assignmentRows = rows(
-      db,
-      'SELECT * FROM assignments ORDER BY YearIni, MonthIni, DayIni, _id'
+    const assignmentRows = groupByTerritory(
+      rows(
+        db,
+        'SELECT * FROM assignments ORDER BY YearIni, MonthIni, DayIni, _id'
+      )
     );
 
-    const doNotCallRows = rows(db, 'SELECT * FROM visit_not');
+    const doNotCallRows = groupByTerritory(rows(db, 'SELECT * FROM visit_not'));
 
     const driveMaps = rows(
       db,
@@ -111,8 +136,7 @@ export const parseServiceTerritory = async (
       .map((row) => {
         const id = `st-${row._id}`;
 
-        const history = assignmentRows
-          .filter((item) => item.idTerritory === row._id)
+        const history = (assignmentRows.get(row._id) ?? [])
           .map((item) => ({
             item,
             start: dateOf(item.DayIni, item.MonthIni, item.YearIni),
@@ -142,9 +166,8 @@ export const parseServiceTerritory = async (
 
         assignments += records.length;
 
-        const dncs: DoNotCall[] = doNotCallRows
-          .filter((item) => item.idTerritory === row._id)
-          .map((item) => {
+        const dncs: DoNotCall[] = (doNotCallRows.get(row._id) ?? []).map(
+          (item) => {
             const date = dateOf(item.Day, item.Month, item.Year);
             const city = text(item.City);
 
@@ -156,20 +179,29 @@ export const parseServiceTerritory = async (
               date: date ? toStoredDate(date) : '',
               addedBy: publishers.get(item.idPublisher) ?? '',
             };
-          });
+          }
+        );
 
         doNotCalls += dncs.length;
 
         const territory: Territory = {
           id,
-          number: text(row.Number),
+          number:
+            typeof row.Number === 'number' && Number.isFinite(row.Number)
+              ? String(row.Number)
+              : text(row.Number),
           name: text(row.Description) || text(row.City),
           city: text(row.City),
           type: types.get(row.idGroup) ?? 'door_to_door',
           status: 'available',
           categories: [],
           daysSinceCovered: 0,
-          households: typeof row.Doors === 'number' ? row.Doors : 0,
+          households:
+            typeof row.Doors === 'number' &&
+            Number.isSafeInteger(row.Doors) &&
+            row.Doors >= 0
+              ? row.Doors
+              : 0,
           cardLost: row.Lost === 1,
           doNotCalls: dncs,
           assignments: [],
@@ -186,6 +218,12 @@ export const parseServiceTerritory = async (
         a.number.localeCompare(b.number, undefined, { numeric: true })
       );
 
+    const numbers = new Set<string>();
+    for (const territory of territories) {
+      const key = territoryNumberKey(territory.number);
+      if (!key || numbers.has(key)) throw new Error('Invalid territory number');
+      numbers.add(key);
+    }
     return {
       territories,
       assignments,
@@ -194,7 +232,13 @@ export const parseServiceTerritory = async (
       skippedDisabled,
       driveMaps: driveMaps ?? 0,
     };
+  } catch {
+    throw new Error(
+      getTranslation({
+        key: 'tr_territoryThisFileIsNotAServiceTerritoryBackup',
+      })
+    );
   } finally {
-    db.close();
+    db?.close();
   }
 };

@@ -103,6 +103,8 @@ export const dbImportBackupData = async (data: ImportDbType) => {
       });
     }
 
+    if (data.territories) await appDb.territories.bulkPut(data.territories);
+
     if (data.upcoming_events) {
       await dbUpcomingEventsClear();
       await appDb.upcoming_events.bulkPut(data.upcoming_events);

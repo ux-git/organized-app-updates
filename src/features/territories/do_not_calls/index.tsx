@@ -18,6 +18,7 @@ import { dropdownPaper } from '@components/select/index.styles';
 import {
   IconAdd,
   IconArrowLink,
+  IconCancelCicle,
   IconCollapse,
   IconEdit,
   IconLocation,
@@ -25,7 +26,7 @@ import {
   IconSortDown,
   IconSortUp,
 } from '@icons/index';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { shortDateFormatState } from '@states/settings';
 import { territoriesState } from '@states/territories';
 import { DoNotCall, Territory } from '@definition/territory';
@@ -36,21 +37,39 @@ import {
   emptyListMessage,
   NO_MATCHES,
   openInMaps,
-} from '../helpers';
-import { clickableRow, rowStates } from '../components/table_styles';
-import RecordList from '../components/record_list';
-import RowAction from '../components/row_action';
-import TruncatedText from '../components/truncated_text';
-import DoNotCallEditor from '../details/do_not_call_editor';
+} from '@features/territories/helpers';
+import { offerUndo } from '@features/territories/undo';
+import { restoreDoNotCall } from '@features/territories/restore';
+import {
+  clickableRow,
+  rowStates,
+} from '@features/territories/components/table_styles';
+import RecordList from '@features/territories/components/record_list';
+import RowAction from '@features/territories/components/row_action';
+import TruncatedText from '@features/territories/components/truncated_text';
+import DoNotCallEditor from '@features/territories/details/do_not_call_editor';
+import { getTranslation } from '@services/i18n/translation';
 
 type SortKey = 'territory' | 'locality' | 'street' | 'date';
 
 const SORTS: Record<SortKey, { label: string; directions: [string, string] }> =
   {
-    territory: { label: 'Territory', directions: ['1 → 9', '9 → 1'] },
-    locality: { label: 'Locality', directions: ['A → Z', 'Z → A'] },
-    street: { label: 'Street', directions: ['A → Z', 'Z → A'] },
-    date: { label: 'Date added', directions: ['Newest first', 'Oldest first'] },
+    territory: {
+      label: 'tr_territoryLabel',
+      directions: ['tr_territory19', 'tr_territory91'],
+    },
+    locality: {
+      label: 'tr_territoryLocality',
+      directions: ['tr_territoryAZ', 'tr_territoryZA'],
+    },
+    street: {
+      label: 'tr_territoryStreet',
+      directions: ['tr_territoryAZ', 'tr_territoryZA'],
+    },
+    date: {
+      label: 'tr_territoryDateAdded',
+      directions: ['tr_territoryNewestFirst', 'tr_territoryOldestFirst'],
+    },
   };
 
 // past this many addresses the sections start closed, so the page stays scannable
@@ -88,14 +107,20 @@ const groupOf = (
   if (sortBy === 'territory') {
     return {
       key: territory.id,
-      label: place(territory) || `Territory ${territory.number}`,
+      label:
+        place(territory) ||
+        getTranslation({
+          key: 'tr_territoryTerritory',
+          params: { number: territory.number },
+        }),
     };
   }
 
   if (sortBy === 'locality') {
     return {
       key: territory.city || '',
-      label: territory.city || 'No locality',
+      label:
+        territory.city || getTranslation({ key: 'tr_territoryNoLocality' }),
     };
   }
 
@@ -105,7 +130,10 @@ const groupOf = (
   }
 
   const year = parseDate(entry.date)?.getFullYear();
-  return { key: String(year ?? ''), label: year ? String(year) : 'No date' };
+  return {
+    key: String(year ?? ''),
+    label: year ? String(year) : getTranslation({ key: 'tr_territoryNoDate' }),
+  };
 };
 
 const GROUP_ORDER: Record<SortKey, (a: Group, b: Group) => number> = {
@@ -157,6 +185,8 @@ const groupBy = (
 };
 
 const DoNotCalls = () => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
 
   const { tablet688Up } = useBreakpoints();
@@ -232,13 +262,13 @@ const DoNotCalls = () => {
 
   const openTerritory = (territory: Territory) =>
     navigate(`/territories/${territory.id}`, {
-      state: { parent: 'Do not call' },
+      state: { parent: 'tr_territoryDoNotCallLabel' },
     });
 
   return (
     <Card>
       <SearchBar
-        placeholder="Search addresses, names or territories"
+        placeholder={t('tr_territorySearchAddressesNamesOrTerritories')}
         value={search}
         onSearch={setSearch}
       />
@@ -254,13 +284,15 @@ const DoNotCalls = () => {
         }}
       >
         <Stack direction="row" sx={{ alignItems: 'center', gap: '4px' }}>
-          <Typography className="h3">{`Addresses: ${entries.length}`}</Typography>
+          <Typography className="h3">
+            {t('tr_territoryAddresses', { n: entries.length })}
+          </Typography>
 
           <Tooltip
-            title={`${SORTS[sortBy].label} · ${SORTS[sortBy].directions[reversed ? 1 : 0]}`}
+            title={`${t(SORTS[sortBy].label)} · ${t(SORTS[sortBy].directions[reversed ? 1 : 0])}`}
           >
             <IconButton
-              aria-label="Sort"
+              aria-label={t('tr_territorySort')}
               onClick={(event) => setSortMenu(event.currentTarget)}
               sx={{
                 padding: '6px',
@@ -296,7 +328,7 @@ const DoNotCalls = () => {
                   sx={{ alignItems: 'center', gap: '12px', width: '100%' }}
                 >
                   <Typography className="body-regular" sx={{ flexGrow: 1 }}>
-                    {SORTS[key].label}
+                    {t(SORTS[key].label)}
                   </Typography>
                   {key === sortBy && arrow}
                 </Stack>
@@ -319,13 +351,13 @@ const DoNotCalls = () => {
             onClick={toggleAll}
             sx={{ minHeight: '32px', minWidth: 'unset' }}
           >
-            {allOpen ? 'Collapse all' : 'Expand all'}
+            {allOpen ? t('tr_collapseAll') : t('tr_expandAll')}
           </Button>
         )}
       </Stack>
 
       {groups.length === 0 && (
-        <InfoNote message={term ? NO_MATCHES : emptyListMessage()} />
+        <InfoNote message={term ? t(NO_MATCHES) : emptyListMessage()} />
       )}
 
       <Stack
@@ -398,9 +430,10 @@ const DoNotCalls = () => {
 
                 <Badge
                   size="small"
-                  color="grey"
+                  color="red"
                   filled={false}
                   text={String(group.entries.length)}
+                  icon={<IconCancelCicle color="var(--red-dark)" />}
                   sx={{ width: 'fit-content', flexShrink: 0 }}
                 />
 
@@ -411,7 +444,7 @@ const DoNotCalls = () => {
                     sx={{ marginLeft: 'auto', flexShrink: 0, gap: '2px' }}
                   >
                     <RowAction
-                      title="Add address"
+                      title={t('tr_territoryAddAddress')}
                       onClick={() =>
                         setEditing({ territoryId: group.territory!.id })
                       }
@@ -424,7 +457,7 @@ const DoNotCalls = () => {
                     </RowAction>
 
                     <RowAction
-                      title="Open territory"
+                      title={t('tr_territoryOpenTerritory')}
                       onClick={() => openTerritory(group.territory!)}
                     >
                       <IconArrowLink
@@ -457,7 +490,7 @@ const DoNotCalls = () => {
                       <>
                         {territory.type !== 'phone' && (
                           <RowAction
-                            title="Open in maps"
+                            title={t('tr_territoryOpenInMaps')}
                             onClick={() =>
                               openInMaps(
                                 [entry.address, territory.city]
@@ -474,7 +507,7 @@ const DoNotCalls = () => {
                           </RowAction>
                         )}
                         <RowAction
-                          title="Edit"
+                          title={t('tr_edit')}
                           onClick={() =>
                             setEditing({ territoryId: territory.id, entry })
                           }
@@ -505,13 +538,31 @@ const DoNotCalls = () => {
               upsertById(editingTerritory.doNotCalls, next)
             )
           }
-          onDelete={() =>
+          onDelete={() => {
+            const entry = editing.entry;
+            if (!entry) return;
+            const index = editingTerritory.doNotCalls.findIndex(
+              (item) => item.id === entry.id
+            );
             saveEntries(
               editingTerritory.id,
-              editingTerritory.doNotCalls.filter(
-                (item) => item.id !== editing.entry?.id
-              )
-            )
+              editingTerritory.doNotCalls.filter((item) => item.id !== entry.id)
+            );
+            offerUndo({
+              text:
+                editingTerritory.type === 'phone'
+                  ? t('tr_territoryNumberDeleted')
+                  : t('tr_territoryAddressDeleted'),
+              revert: () => restoreDoNotCall(editingTerritory.id, entry, index),
+            });
+          }}
+          onOpenInMaps={
+            editingTerritory.type !== 'phone'
+              ? (address) =>
+                  openInMaps(
+                    [address, editingTerritory.city].filter(Boolean).join(', ')
+                  )
+              : undefined
           }
         />
       )}

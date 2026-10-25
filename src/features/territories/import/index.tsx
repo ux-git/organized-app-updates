@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useAppTranslation } from '@hooks/index';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, FormControlLabel, RadioGroup, Stack } from '@mui/material';
 import { useDropzone } from 'react-dropzone';
 import { useSetAtom } from 'jotai';
@@ -8,26 +9,30 @@ import WaitingLoader from '@components/waiting_loader';
 import { IconImportFile } from '@icons/index';
 import { getMessageByCode } from '@services/i18n/translation';
 import { displaySnackNotification } from '@services/states/app';
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
+import { territoryNumberKey } from '@utils/territory';
 import { territoriesState } from '@states/territories';
 import {
   parseServiceTerritory,
   ServiceTerritoryImport,
-} from './parse_service_territory';
+} from '@features/territories/import/parse_service_territory';
 
 type Mode = 'merge' | 'replace';
 
-const numberKey = (value: string) => value.trim().toLowerCase();
+const numberKey = territoryNumberKey;
 
 const Summary = ({ result }: { result: ServiceTerritoryImport }) => {
+  const { t } = useAppTranslation();
+
   const lines = [
-    ['Territories', result.territories.length],
-    ['Assignments', result.assignments],
+    [t('tr_territories'), result.territories.length],
+    [t('tr_assignments'), result.assignments],
     [
-      'Out right now',
+      t('tr_territoryOutRightNow'),
       result.territories.filter((territory) => territory.holder).length,
     ],
-    ['Do not call', result.doNotCalls],
-    ['Publishers named', result.publishers],
+    [t('tr_territoryDoNotCallLabel'), result.doNotCalls],
+    [t('tr_territoryPublishersNamed'), result.publishers],
   ] as const;
 
   return (
@@ -62,29 +67,49 @@ const TerritoryImport = ({
   open: boolean;
   onClose: VoidFunction;
 }) => {
+  const { t } = useAppTranslation();
+
+  const { editor } = useTerritoryAccess();
+  const operation = useRef(0);
+  useEffect(
+    () => () => {
+      operation.current++;
+    },
+    [open]
+  );
   const setTerritories = useSetAtom(territoriesState);
 
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<ServiceTerritoryImport>();
   const [mode, setMode] = useState<Mode>('merge');
 
-  const onDrop = useCallback(async (files: File[]) => {
-    const file = files.at(0);
-    if (!file) return;
+  const onDrop = useCallback(
+    async (files: File[]) => {
+      const file = files.at(0);
+      if (!file || !editor) return;
+      const current = ++operation.current;
 
-    try {
-      setProcessing(true);
-      setResult(await parseServiceTerritory(await file.arrayBuffer()));
-    } catch (error) {
-      displaySnackNotification({
-        severity: 'error',
-        header: getMessageByCode('error_app_generic-title'),
-        message: (error as Error).message,
-      });
-    } finally {
-      setProcessing(false);
-    }
-  }, []);
+      try {
+        setProcessing(true);
+        setResult(undefined);
+        const parsed = await parseServiceTerritory(await file.arrayBuffer());
+        if (current === operation.current) setResult(parsed);
+      } catch (error) {
+        if (current !== operation.current) return;
+        displaySnackNotification({
+          severity: 'error',
+          header: getMessageByCode('error_app_generic-title'),
+          message:
+            error instanceof Error
+              ? error.message
+              : t('tr_territoryTheTerritoryBackupCouldNotBeImportedCheckThe'),
+        });
+      } finally {
+        if (current === operation.current) setProcessing(false);
+      }
+    },
+    [t, editor]
+  );
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
@@ -94,7 +119,7 @@ const TerritoryImport = ({
   });
 
   const handleImport = () => {
-    if (!result) return;
+    if (!result || processing || !editor) return;
 
     setTerritories((current) => {
       if (mode === 'replace') return result.territories;
@@ -117,6 +142,10 @@ const TerritoryImport = ({
           ...match,
           id: territory.id,
           categories: territory.categories,
+          notes: territory.notes,
+          warning: territory.warning,
+          phoneNumbers: territory.phoneNumbers,
+          boundaryStyle: territory.boundaryStyle,
           boundary: territory.boundary,
           mapShapes: territory.mapShapes,
           mapLines: territory.mapLines,
@@ -129,8 +158,11 @@ const TerritoryImport = ({
 
     displaySnackNotification({
       severity: 'success',
-      header: 'Territories imported',
-      message: `${result.territories.length} territories with ${result.assignments} assignments.`,
+      header: t('tr_territoryTerritoriesImported'),
+      message: t('tr_territoryTerritoriesWithAssignments', {
+        length: result.territories.length,
+        assignments: result.assignments,
+      }),
     });
 
     onClose();
@@ -140,8 +172,10 @@ const TerritoryImport = ({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Import territories"
-      description="Bring territories, their assignment history and do-not-call addresses over from a Service Territory backup (.bkt)."
+      title={t('tr_territoryImportTerritories')}
+      description={t(
+        'tr_territoryBringTerritoriesTheirAssignmentHistoryAndDoNotCall'
+      )}
     >
       <Stack spacing="16px" sx={{ width: '100%' }}>
         {processing && <WaitingLoader variant="standard" size={60} />}
@@ -166,7 +200,7 @@ const TerritoryImport = ({
             <Stack direction="row" spacing="8px" sx={{ alignItems: 'center' }}>
               <IconImportFile color="var(--accent-dark)" />
               <Typography className="button-caps" color="var(--accent-dark)">
-                Drag or click to choose
+                {t('tr_territoryDragOrClickToChoose')}
               </Typography>
             </Stack>
             <Typography
@@ -186,9 +220,13 @@ const TerritoryImport = ({
               <InfoNote
                 message={[
                   result.driveMaps > 0 &&
-                    `${result.driveMaps} maps are Google Drive links and were not imported; draw the borders on the map instead.`,
+                    t('tr_territoryMapsAreGoogleDriveLinksAndWereNotImported', {
+                      driveMaps: result.driveMaps,
+                    }),
                   result.skippedDisabled > 0 &&
-                    `${result.skippedDisabled} disabled territories were skipped.`,
+                    t('tr_territoryDisabledTerritoriesWereSkipped', {
+                      skippedDisabled: result.skippedDisabled,
+                    }),
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -204,7 +242,9 @@ const TerritoryImport = ({
                 control={<Radio />}
                 label={
                   <Typography className="body-regular">
-                    Update territories with the same number, add the rest
+                    {t(
+                      'tr_territoryUpdateTerritoriesWithTheSameNumberAddTheRest'
+                    )}
                   </Typography>
                 }
               />
@@ -213,7 +253,7 @@ const TerritoryImport = ({
                 control={<Radio />}
                 label={
                   <Typography className="body-regular">
-                    Replace all territories
+                    {t('tr_territoryReplaceAllTerritories')}
                   </Typography>
                 }
               />
@@ -224,11 +264,11 @@ const TerritoryImport = ({
         <Stack spacing="8px">
           {result && (
             <Button variant="main" onClick={handleImport}>
-              Import
+              {t('tr_import')}
             </Button>
           )}
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t('tr_cancel')}
           </Button>
         </Stack>
       </Stack>

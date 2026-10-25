@@ -1,17 +1,20 @@
 import { ReactNode } from 'react';
 import { Box, Stack } from '@mui/material';
-import { Typography } from '@components/index';
+import { Badge, Typography } from '@components/index';
 import Card from '@components/card';
 
 export const ChartCard = ({
   title,
   hint,
+  note,
   action,
   children,
   span = 4,
 }: {
   title: string;
   hint?: string;
+  // for the cards that don't follow the chosen period
+  note?: string;
   action?: ReactNode;
   children: ReactNode;
   span?: number;
@@ -45,6 +48,15 @@ export const ChartCard = ({
             <Typography className="label-small-regular" color="var(--grey-350)">
               {hint}
             </Typography>
+          )}
+          {note && (
+            <Badge
+              size="small"
+              filled={false}
+              color="grey"
+              text={note}
+              sx={{ width: 'fit-content', marginTop: '6px' }}
+            />
           )}
         </Box>
         {action && (
@@ -137,7 +149,6 @@ export const Gauge = ({ value, label }: { value: number; label: string }) => {
       }}
     >
       <svg
-        aria-hidden="true"
         width={size}
         height={size / 2 + 12}
         viewBox={`0 0 ${size} ${size / 2 + 12}`}
@@ -188,32 +199,41 @@ export const ColumnChart = ({
   const height = 150;
   const max = Math.max(...values, 1);
 
+  // past a year the columns get narrow: fewer month names, the numbers on hover
+  const step = Math.ceil(values.length / 12);
+  const named = (index: number) => (values.length - 1 - index) % step === 0;
+  const spacing = step > 1 ? '3px' : '6px';
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <Stack
         direction="row"
-        spacing="6px"
+        spacing={spacing}
         sx={{ alignItems: 'flex-end', height: `${height}px` }}
       >
+        {/* month names repeat in a range over a year, so the place is the key */}
         {values.map((value, index) => (
           <Box
-            key={labels[index]}
+            key={index}
             title={`${labels[index]}: ${value}`}
             sx={{
               flex: 1,
+              minWidth: 0,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'flex-end',
               height: '100%',
             }}
           >
-            <Typography
-              className="label-small-medium"
-              color="var(--grey-400)"
-              sx={{ textAlign: 'center', marginBottom: '4px' }}
-            >
-              {value}
-            </Typography>
+            {step === 1 && (
+              <Typography
+                className="label-small-medium"
+                color="var(--grey-400)"
+                sx={{ textAlign: 'center', marginBottom: '4px' }}
+              >
+                {value}
+              </Typography>
+            )}
             <Box
               sx={{
                 height: `${Math.max((value / max) * (height - 26), 3)}px`,
@@ -226,15 +246,20 @@ export const ColumnChart = ({
         ))}
       </Stack>
 
-      <Stack direction="row" spacing="6px">
-        {labels.map((label) => (
+      <Stack direction="row" spacing={spacing}>
+        {labels.map((label, index) => (
           <Typography
-            key={label}
+            key={index}
             className="label-small-regular"
             color="var(--grey-350)"
-            sx={{ flex: 1, textAlign: 'center' }}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+            }}
           >
-            {label}
+            {named(index) ? label : ''}
           </Typography>
         ))}
       </Stack>

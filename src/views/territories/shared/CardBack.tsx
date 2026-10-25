@@ -1,82 +1,121 @@
-import { Text, View } from '@react-pdf/renderer';
-import { TerritoryPrintData } from '../index.types';
-import styles, { COLORS } from '../index.styles';
-import DoNotCallTable, { DoNotCallChip, MoreEntries } from './DoNotCallTable';
-import QrNote from './QrNote';
+import { useAppTranslation } from '@hooks/index';
+import { Path, Svg, Text, View } from '@react-pdf/renderer';
+import { INFO_PATH } from '@icons/info_path';
+import { TerritoryPrintData } from '@views/territories/index.types';
+import styles, { COLORS } from '@views/territories/index.styles';
+import DoNotCallTable, {
+  DoNotCallHeader,
+  MoreEntries,
+  ROW,
+} from '@views/territories/shared/DoNotCallTable';
+import { titleOf } from '@views/territories/shared/title';
+import { parseDate } from '@features/territories/helpers';
+
+const PADDING = 12;
+const GAP = 6;
+// title, red header and the table's column row with its border
+const CHROME = 12 + 19 + ROW + 2 + GAP * 2;
+
+// react-pdf drops text inside a clipped view, so the ruled lines are counted to fit instead
+const noteHeight = (notes: string, width: number) => {
+  const perLine = Math.floor((width - PADDING * 2 - 28) / 3.9);
+  const lines = notes
+    .split('\n')
+    .reduce(
+      (sum, line) => sum + Math.max(1, Math.ceil(line.length / perLine)),
+      0
+    );
+
+  return GAP + 10 + lines * 10;
+};
 
 const CardBack = ({
   territory,
   width,
   height,
-  rowsPerColumn,
   notes,
   printedOn,
 }: {
   territory: TerritoryPrintData;
   width: number;
   height: number;
-  rowsPerColumn: number;
   notes?: string;
   printedOn: string;
 }) => {
-  const entries = territory.doNotCalls;
-  const phone = territory.type === 'phone';
+  const { t } = useAppTranslation();
 
-  // split evenly, so the list uses the card's width instead of growing tall
-  const shown = entries.slice(0, rowsPerColumn * 2);
-  const half = Math.ceil(shown.length / 2);
-  const left = shown.slice(0, half);
-  const right = shown.slice(half);
+  // oldest at the top, as they are written in by hand; what does not fit are the
+  // oldest, which stay in the app
+  const entries = [...territory.doNotCalls].sort(
+    (a, b) =>
+      (parseDate(a.date)?.getTime() ?? 0) - (parseDate(b.date)?.getTime() ?? 0)
+  );
 
+  const space =
+    height - PADDING * 2 - CHROME - (notes ? noteHeight(notes, width) : 0);
+  const rows = Math.floor(space / ROW);
+
+  // at least one empty line stays free for writing; when the list is longer than the
+  // card, every line is filled and one line's room counts the rest
+  const fits = entries.length < rows ? entries.length : rows - 1;
+  const shown = entries.slice(entries.length - Math.max(0, fits));
+  const blank = shown.length < entries.length ? 0 : rows - shown.length;
   return (
     <View
       style={{
         width,
         height,
         backgroundColor: '#FFFFFF',
-        padding: 12,
-        justifyContent: 'space-between',
+        padding: PADDING,
+        gap: GAP,
       }}
     >
-      {entries.length > 0 ? (
-        <View style={{ gap: 2 }}>
-          <DoNotCallChip />
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'baseline',
+          gap: 8,
+        }}
+      >
+        <Text style={[styles.labelName, { flexGrow: 1, flexBasis: 0 }]}>
+          {titleOf(territory)}
+        </Text>
+        <Text style={styles.printedOn}>
+          {t('tr_territoryPrintedOn', { date: printedOn })}
+        </Text>
+      </View>
 
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={{ flexGrow: 1, flexBasis: 0 }}>
-              <DoNotCallTable entries={left} phone={phone} />
-            </View>
-            <View style={{ flexGrow: 1, flexBasis: 0 }}>
-              {right.length > 0 && (
-                <DoNotCallTable entries={right} phone={phone} />
-              )}
-            </View>
-          </View>
-
-          <MoreEntries count={entries.length - shown.length} />
+      {!!notes && (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 5,
+            backgroundColor: COLORS.chip,
+            borderRadius: 3,
+            paddingTop: 5,
+            paddingBottom: 5,
+            paddingLeft: 5,
+            paddingRight: 7,
+          }}
+        >
+          <Svg width={11} height={11} viewBox="0 0 24 24">
+            <Path d={INFO_PATH} fill={COLORS.note} />
+          </Svg>
+          <Text style={[styles.noteText, { flexGrow: 1, flexBasis: 0 }]}>
+            {notes}
+          </Text>
         </View>
-      ) : (
-        <View />
       )}
 
-      <View style={{ flexDirection: 'row', gap: 15, alignItems: 'flex-end' }}>
-        <View style={{ gap: 5, flexGrow: 1, flexBasis: 0 }}>
-          {!!notes && (
-            <>
-              <View style={[styles.chip, { backgroundColor: COLORS.chip }]}>
-                <Text style={[styles.chipText, { color: COLORS.text }]}>
-                  Notes
-                </Text>
-              </View>
-              <Text style={styles.notes}>{notes}</Text>
-            </>
-          )}
-        </View>
-
-        <QrNote qrImage={territory.qrImage} printedOn={printedOn} />
-      </View>
+      <DoNotCallHeader count={entries.length} />
+      <DoNotCallTable
+        entries={shown}
+        blank={Math.max(0, blank)}
+        phone={territory.type === 'phone'}
+      />
+      <MoreEntries count={entries.length - shown.length} />
     </View>
   );
 };
-
 export default CardBack;

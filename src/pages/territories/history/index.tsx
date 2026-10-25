@@ -1,6 +1,7 @@
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
 import { useState } from 'react';
 import { Box } from '@mui/material';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { IconExport } from '@icons/index';
 import PageTitle from '@components/page_title';
 import NavBarButton from '@components/nav_bar_button';
@@ -11,7 +12,10 @@ import ExportS13Dialog from '@features/territories/history/export_s13_dialog';
 import useParentPage from '@features/territories/useParentPage';
 
 const TerritoryHistoryPage = () => {
-  const { parent, goBack } = useParentPage();
+  const { t } = useAppTranslation();
+  const { editor } = useTerritoryAccess();
+
+  const { parent, goBack } = useParentPage('tr_territories', '/');
   const { tablet688Up } = useBreakpoints();
 
   const { handleExport, isProcessing } = useExportS13();
@@ -28,26 +32,28 @@ const TerritoryHistoryPage = () => {
       }}
     >
       <PageTitle
-        title="Assignment history"
-        secondaryTitle={parent}
+        title={t('tr_assignmentHistory')}
+        secondaryTitle={parent && parent}
         onBack={goBack}
         buttons={
-          <NavBarButtonGroup>
-            <NavBarButton
-              text="Export S-13"
-              icon={<IconExport />}
-              onClick={() => setExportOpen(true)}
-            />
-          </NavBarButtonGroup>
+          editor && (
+            <NavBarButtonGroup>
+              <NavBarButton
+                text={t('tr_territoryExportS13')}
+                icon={<IconExport />}
+                onClick={() => setExportOpen(true)}
+              />
+            </NavBarButtonGroup>
+          )
         }
       />
 
-      {exportOpen && (
+      {editor && exportOpen && (
         <ExportS13Dialog
           isProcessing={isProcessing}
           onClose={() => setExportOpen(false)}
-          onExport={async (year) => {
-            await handleExport(year);
+          onExport={async (markCampaigns) => {
+            await handleExport(markCampaigns);
             setExportOpen(false);
           }}
         />

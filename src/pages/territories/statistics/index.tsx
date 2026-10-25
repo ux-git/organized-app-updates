@@ -1,9 +1,15 @@
 import { Box } from '@mui/material';
-import { useBreakpoints, useUpNavigation } from '@hooks/index';
+import {
+  useAppTranslation,
+  useBreakpoints,
+  useUpNavigation,
+} from '@hooks/index';
 import PageTitle from '@components/page_title';
 import TerritoriesStatistics from '@features/territories/statistics';
 
 const TerritoryStatisticsPage = () => {
+  const { t } = useAppTranslation();
+
   const { goUp } = useUpNavigation();
   const { tablet688Up } = useBreakpoints();
 
@@ -17,7 +23,7 @@ const TerritoryStatisticsPage = () => {
       }}
     >
       <PageTitle
-        title="Territory coverage statistics"
+        title={t('tr_territoryTerritoryCoverageStatistics')}
         onBack={() => goUp('/')}
       />
 

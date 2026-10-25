@@ -1,17 +1,23 @@
-import { useState } from 'react';
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
+import { territoryPermissions } from '@services/app/territory_access';
+import { getTranslation } from '@services/i18n/translation';
+import { useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import { Navigate } from 'react-router';
-import { InfoNote } from '@components/index';
+import { Button, InfoNote } from '@components/index';
+import Dialog from '@components/dialog';
+import DialogActions from '@components/dialog_actions';
 import {
   IconCheckCircle,
   IconClose,
   IconDelete,
+  IconMoveBack,
+  IconMoveForward,
   IconPrint,
   IconRaiseHand,
 } from '@icons/index';
-import { useBreakpoints, useCurrentUser } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { displaySnackNotification } from '@services/states/app';
-import { CURRENT_PUBLISHER } from '@features/territories/helpers';
 import useTerritoryDetails from '@features/territories/details/useTerritoryDetails';
 import PageTitle from '@components/page_title';
 import NavBarButton from '@components/nav_bar_button';
@@ -19,52 +25,82 @@ import NavBarButtonGroup from '@components/nav_bar_button_group';
 import TerritoryDetailsContainer from '@features/territories/details';
 import TerritoryDelete from '@features/territories/details/territory_delete';
 import TerritoryExport from '@features/territories/details/territory_export';
+import AssignReturnDialogs from '@features/territories/components/assign_return_dialogs';
+import useAssignReturn from '@features/territories/useAssignReturn';
 import useParentPage from '@features/territories/useParentPage';
+import { territoryHolderText } from '@features/territories/group_holder';
 import { Territory } from '@definition/territory';
 
-const publisherNoteOf = (territory: Territory) => {
-  if (territory.holder === CURRENT_PUBLISHER) {
-    return 'You are working this territory.';
+const publisherNoteOf = (territory: Territory, me: string) => {
+  if (territory.holder === me) {
+    return getTranslation({ key: 'tr_territoryYouAreWorkingThisTerritory' });
   }
-  if (territory.requestedBy === CURRENT_PUBLISHER) {
-    return 'You asked for this territory. You will hear back when it is assigned.';
+  if (territory.requestedBy === me) {
+    return getTranslation({
+      key: 'tr_territoryYouAskedForThisTerritoryYouWillHearBack',
+    });
   }
   if (territory.requestedBy) {
-    return 'Someone else has already asked for this territory.';
+    return getTranslation({
+      key: 'tr_territorySomeoneElseHasAlreadyAskedForThisTerritory',
+    });
   }
   if (territory.status !== 'available') {
-    return 'This territory is being worked right now.';
+    return getTranslation({
+      key: 'tr_territoryThisTerritoryIsBeingWorkedRightNow',
+    });
   }
   return undefined;
 };
 
 const titleOf = (territory: Territory, isNew: boolean) =>
   isNew
-    ? 'New territory'
-    : [`Territory ${territory.number}`, territory.name]
+    ? getTranslation({ key: 'tr_territoryNewTerritory' })
+    : [
+        getTranslation({
+          key: 'tr_territoryTerritory',
+          params: { number: territory.number },
+        }),
+        territory.name,
+      ]
         .filter(Boolean)
         .join(' · ');
 
 const TerritoryDetailsPage = () => {
+  const { t } = useAppTranslation();
+
   const { parent, goBack } = useParentPage();
 
   const [exportOpen, setExportOpen] = useState(false);
   const { tablet688Up } = useBreakpoints();
 
-  const { isElder, isServiceCommittee } = useCurrentUser();
-  const isTerritoryEditor = isElder || isServiceCommittee;
+  const context = useTerritoryAccess();
+  const { editor: isTerritoryEditor, publisher: me } = context;
 
   const {
     territory,
     isNew,
+    isNewPage,
     handleChange,
+    commitNew,
     handleDelete,
     deleteOpen,
     setDeleteOpen,
+    blocker,
   } = useTerritoryDetails();
 
+  const actions = useAssignReturn();
+
+  // the "new note" mark is for an editor who has not looked yet
+  const unread = isTerritoryEditor && !!territory?.reviewNeeded;
+  useEffect(() => {
+    if (unread && territory)
+      handleChange({ ...territory, reviewNeeded: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unread, territory?.id]);
+
   if (!territory) {
-    return <InfoNote message="This territory no longer exists." />;
+    return <InfoNote message={t('tr_territoryThisTerritoryNoLongerExists')} />;
   }
 
   // only those who manage territories add new ones
@@ -72,24 +108,45 @@ const TerritoryDetailsPage = () => {
     return <Navigate to="/territories" replace />;
   }
 
-  const requestedByMe = territory.requestedBy === CURRENT_PUBLISHER;
-  const heldByMe = territory.holder === CURRENT_PUBLISHER;
+  const permissions = territoryPermissions(territory, context);
+  if (!isNew && !permissions.view)
+    return <Navigate to="/territories" replace />;
+  const requestedByMe = permissions.cancelRequest;
+  const heldByMe = !!me && territory.holder === me;
 
-  const canRequest = territory.status === 'available' && !territory.requestedBy;
+  const canRequest = permissions.request;
 
-  const publisherNote = publisherNoteOf(territory);
+  const isOut =
+    territory.status === 'in_work' || territory.status === 'overdue';
+
+  const returnButton = (
+    <NavBarButton
+      text={t('tr_return')}
+      icon={<IconMoveBack />}
+      main
+      onClick={() => actions.openReturn(territory.id)}
+    />
+  );
+
+  const publisherNote = publisherNoteOf(territory, me);
 
   const setRequest = (requested: boolean) => {
     handleChange({
       ...territory,
-      requestedBy: requested ? CURRENT_PUBLISHER : undefined,
+      requestedBy: requested ? me : undefined,
     });
 
     displaySnackNotification({
-      header: requested ? 'Request sent' : 'Request cancelled',
+      header: requested
+        ? t('tr_territoryRequestSent')
+        : t('tr_territoryRequestCancelled'),
       message: requested
-        ? `You asked for territory ${territory.number}.`
-        : `Your request for territory ${territory.number} was withdrawn.`,
+        ? t('tr_territoryYouAskedForTerritory', {
+            number: territory.number,
+          })
+        : t('tr_territoryYourRequestForTerritoryWasWithdrawn', {
+            number: territory.number,
+          }),
       severity: 'success',
       icon: <IconCheckCircle color="var(--white)" />,
     });
@@ -99,35 +156,49 @@ const TerritoryDetailsPage = () => {
     <NavBarButtonGroup>
       {requestedByMe && (
         <NavBarButton
-          text="Cancel request"
+          text={t('tr_territoryCancelRequest')}
           icon={<IconClose />}
           onClick={() => setRequest(false)}
         />
       )}
       {canRequest && (
         <NavBarButton
-          text="Request"
+          text={t('tr_territoryRequest')}
           icon={<IconRaiseHand />}
           main
           onClick={() => setRequest(true)}
         />
       )}
+      {permissions.return && returnButton}
     </NavBarButtonGroup>
   );
+
+  // an empty group still draws the bar's backdrop
+  const hasPublisherButtons = requestedByMe || canRequest || permissions.return;
 
   const editorButtons = !isNew && (
     <NavBarButtonGroup>
       <NavBarButton
-        text="Delete"
+        text={t('tr_delete')}
         color="red"
         icon={<IconDelete />}
         onClick={() => setDeleteOpen(true)}
       />
       <NavBarButton
-        text="Export"
+        text={t('tr_territoryPrint')}
         icon={<IconPrint />}
         onClick={() => setExportOpen(true)}
       />
+      {isOut ? (
+        returnButton
+      ) : (
+        <NavBarButton
+          text={t('tr_assign')}
+          icon={<IconMoveForward />}
+          main
+          onClick={() => actions.openAssign(territory.id)}
+        />
+      )}
     </NavBarButtonGroup>
   );
 
@@ -147,19 +218,42 @@ const TerritoryDetailsPage = () => {
         />
       )}
 
+      <AssignReturnDialogs actions={actions} canAssign={isTerritoryEditor} />
+
+      {blocker.state === 'blocked' && (
+        <Dialog
+          onClose={blocker.reset}
+          open
+          title={t('tr_territoryDiscardTheNewTerritory')}
+          description={t('tr_territoryItIsSavedOnceItHasANumberNo')}
+        >
+          <DialogActions>
+            <Button variant="secondary" onClick={blocker.reset}>
+              {t('tr_territoryKeepEditing')}
+            </Button>
+            <Button variant="main" color="red" onClick={blocker.proceed}>
+              {t('tr_territoryDiscard')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
       <TerritoryDelete
         open={deleteOpen}
         number={territory.number}
+        holder={territoryHolderText(territory)}
         onClose={() => setDeleteOpen(false)}
         onDelete={handleDelete}
       />
 
       <PageTitle
         title={titleOf(territory, isNew)}
-        secondaryTitle={parent}
+        secondaryTitle={parent && parent}
         onBack={goBack}
         buttons={
-          isTerritoryEditor ? editorButtons || undefined : publisherButtons
+          isTerritoryEditor
+            ? editorButtons || undefined
+            : (hasPublisherButtons && publisherButtons) || undefined
         }
       />
 
@@ -170,8 +264,10 @@ const TerritoryDetailsPage = () => {
       <TerritoryDetailsContainer
         territory={territory}
         onChange={handleChange}
+        onCommit={commitNew}
+        openOnDetails={isNewPage}
         readOnly={!isTerritoryEditor}
-        showPrivate={isTerritoryEditor || heldByMe}
+        showPrivate={permissions.private}
         heldByMe={heldByMe}
       />
     </Box>

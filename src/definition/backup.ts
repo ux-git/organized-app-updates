@@ -1,3 +1,4 @@
+import { TerritoryRecord } from '@definition/territory_record';
 import { BranchCongAnalysisType } from '@definition/branch_cong_analysis';
 import { BranchFieldServiceReportType } from '@definition/branch_field_service_reports';
 import { CongFieldServiceReportType } from '@definition/cong_field_service_reports';
@@ -36,6 +37,7 @@ export type ImportDbType = {
   sources?: SourceWeekType[];
   sched?: SchedWeekType[];
   upcoming_events?: UpcomingEventType[];
+  territories?: TerritoryRecord[];
   cong_settings?: SettingsType['cong_settings'];
   user_settings?: SettingsType['user_settings'];
 };

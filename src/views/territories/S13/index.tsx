@@ -1,6 +1,7 @@
+import { useAppTranslation } from '@hooks/index';
 import { Page, Text, View } from '@react-pdf/renderer';
 import { Document } from '@views/components';
-import styles from './index.styles';
+import styles from '@views/territories/S13/index.styles';
 
 type S13Entry = {
   publisher: string;
@@ -15,7 +16,6 @@ export type S13Row = {
 };
 
 type TemplateS13Props = {
-  serviceYear: number;
   createdOn: string;
   rows: S13Row[];
   lang: string;
@@ -48,31 +48,40 @@ const Cell = ({
   </View>
 );
 
-const HeaderRow = () => (
-  <View style={[styles.row, { height: 40 }]} fixed>
-    <Cell width={35} head>
-      No.
-    </Cell>
-    <Cell width={63} head>
-      Last date completed
-    </Cell>
-    {Array.from({ length: GROUPS }, (_, index) => (
-      <View key={index} style={[styles.group, styles.head]}>
-        <View style={[styles.groupTop, { height: 18 }]}>
-          <Text style={[styles.text, styles.headText]}>Assigned to</Text>
-        </View>
-        <View style={styles.groupBottom}>
-          <View style={[styles.half, { height: 22 }]}>
-            <Text style={[styles.text, styles.headText]}>Date assigned</Text>
+const HeaderRow = () => {
+  const { t } = useAppTranslation();
+  return (
+    <View style={[styles.row, { height: 40 }]} fixed>
+      <Cell width={35} head>
+        {t('tr_shortNumberLabel')}
+      </Cell>
+      <Cell width={63} head>
+        {t('tr_territoryLastDateCompleted')}
+      </Cell>
+      {Array.from({ length: GROUPS }, (_, index) => (
+        <View key={index} style={[styles.group, styles.head]}>
+          <View style={[styles.groupTop, { height: 18 }]}>
+            <Text style={[styles.text, styles.headText]}>
+              {t('tr_territoryAssignedTo')}
+            </Text>
           </View>
-          <View style={[styles.half, styles.halfLast, { height: 22 }]}>
-            <Text style={[styles.text, styles.headText]}>Date completed</Text>
+          <View style={styles.groupBottom}>
+            <View style={[styles.half, { height: 22 }]}>
+              <Text style={[styles.text, styles.headText]}>
+                {t('tr_territoryDateAssigned')}
+              </Text>
+            </View>
+            <View style={[styles.half, styles.halfLast, { height: 22 }]}>
+              <Text style={[styles.text, styles.headText]}>
+                {t('tr_territoryDateCompleted')}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
-    ))}
-  </View>
-);
+      ))}
+    </View>
+  );
+};
 
 const BodyRow = ({ row }: { row: S13Row }) => (
   <View style={[styles.row, { height: 32 }]} wrap={false}>
@@ -102,30 +111,26 @@ const BodyRow = ({ row }: { row: S13Row }) => (
   </View>
 );
 
-const TemplateS13 = ({
-  serviceYear,
-  createdOn,
-  rows,
-  lang,
-}: TemplateS13Props) => {
+const TemplateS13 = ({ createdOn, rows, lang }: TemplateS13Props) => {
+  const { t } = useAppTranslation();
+
   const pages = Array.from(
     { length: Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE)) },
     (_, index) => rows.slice(index * ROWS_PER_PAGE, (index + 1) * ROWS_PER_PAGE)
   );
 
   return (
-    <Document title="S-13" lang={lang}>
+    <Document title={t('tr_territoryS13')} lang={lang}>
       {pages.map((chunk, pageIndex) => (
-        <Page
-          key={`page-${chunk[0]?.number ?? 'empty'}`}
-          size="A4"
-          style={styles.page}
-        >
-          <Text style={styles.title}>Territory assignment record</Text>
+        <Page key={pageIndex} size="A4" style={styles.page}>
+          <Text style={styles.title}>
+            {t('tr_territoryTerritoryAssignmentRecord')}
+          </Text>
 
           <View style={styles.meta}>
-            <Text style={styles.year}>Service year: {serviceYear}</Text>
-            <Text style={styles.created}>Created: {createdOn}</Text>
+            <Text style={styles.created}>
+              {t('tr_territoryCreated', { date: createdOn })}
+            </Text>
           </View>
 
           <View style={styles.table}>

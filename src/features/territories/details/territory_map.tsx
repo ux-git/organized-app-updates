@@ -1,11 +1,17 @@
+import { useAppTranslation } from '@hooks/index';
+import { mapRequest } from '@services/maps/offline';
+import {
+  downgradeMapTier,
+  mapPerformanceOptions,
+  watchMapPerformance,
+} from '@services/maps/performance';
 import { useEffect, useRef, useState } from 'react';
 import { Box, Dialog as MuiDialog, Stack } from '@mui/material';
-import { saveAs } from 'file-saver';
+import { exportFile } from '@services/files/export';
 import { displaySnackNotification } from '@services/states/app';
 import { useNavigate } from 'react-router';
 import { useAtomValue } from 'jotai';
 import * as maplibregl from 'maplibre-gl';
-import '../map/worker';
 import { Badge, Button, Typography } from '@components/index';
 import {
   IconAdd,
@@ -18,18 +24,46 @@ import {
   IconRemove,
   IconShare,
 } from '@icons/index';
-import { openInMaps, territoryCenter } from '../helpers';
+import { openInMaps, territoryCenter } from '@features/territories/helpers';
 import { isDarkThemeState } from '@states/app';
-import { territoriesState } from '@states/territories';
+import {
+  territoriesShowDoNotCallMapState,
+  territoriesState,
+} from '@states/territories';
 import { Territory } from '@definition/territory';
-import { DEFAULT_PROVIDER, MAP_PROVIDER } from '../map/constants';
-import { applyBasemapOptions, DEFAULT_BASEMAP } from '../map/basemap';
-import { addAttribution, boundaryBounds } from '../map/helpers';
-import { addOutsideVeil, addTerritoryLayers } from '../map/layers';
-import { getCSSPropertyValue } from '@utils/common';
-import { captureTerritoryMap } from '../map/capture';
-import { MarkerRegistry, syncMarkers } from '../map/markers';
-import MapIsland, { MapAction } from '../map/map_island';
+import {
+  DEFAULT_PROVIDER,
+  MAP_PROVIDER,
+} from '@features/territories/map/constants';
+import {
+  applyBasemapOptions,
+  DEFAULT_BASEMAP,
+  hideStylePlaces,
+  labelsAbove,
+} from '@features/territories/map/basemap';
+import {
+  addAttribution,
+  boundaryBounds,
+  letterFrames,
+  mapLocale,
+} from '@features/territories/map/helpers';
+import {
+  addDoNotCallLayer,
+  addOutsideVeil,
+  addTerritoryLayers,
+  setDoNotCallData,
+} from '@features/territories/map/layers';
+import { getCSSPropertyValue, systemBarInset } from '@utils/common';
+import { captureTerritoryMap } from '@features/territories/map/capture';
+import {
+  frameZoom,
+  MarkerRegistry,
+  syncMarkers,
+} from '@features/territories/map/markers';
+import MapIsland, {
+  MapAction,
+  NorthAction,
+} from '@features/territories/map/map_island';
 import Tooltip from '@components/tooltip';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -44,6 +78,7 @@ const BoundaryPreview = ({
   onReady?: (map?: maplibregl.Map) => void;
 }) => {
   const isDark = useAtomValue(isDarkThemeState);
+  const showDoNotCalls = useAtomValue(territoriesShowDoNotCallMapState);
 
   const container = useRef<HTMLDivElement>(null);
 
@@ -79,8 +114,14 @@ const BoundaryPreview = ({
       bounds,
       fitBoundsOptions: { padding: padding() },
       interactive,
+      transformRequest: mapRequest,
       attributionControl: false,
+      locale: mapLocale(),
+      ...mapPerformanceOptions(),
     });
+
+    instance.on('webglcontextlost', downgradeMapTier);
+    if (interactive) watchMapPerformance(instance);
 
     // the card settles its size after the map starts, and changes with the window;
     // the small map follows, the full-screen one keeps wherever the user moved it
@@ -98,9 +139,22 @@ const BoundaryPreview = ({
 
     instance.on('style.load', () => {
       applyBasemapOptions(instance, DEFAULT_PROVIDER, DEFAULT_BASEMAP);
+      hideStylePlaces(instance);
       addOutsideVeil(instance, boundary, getCSSPropertyValue('--white'));
-      addTerritoryLayers(instance, latest.current, 0.12);
-      syncMarkers(instance, mapMarkers ?? [], registry);
+      addTerritoryLayers(instance, latest.current);
+      // the marked houses come with the part letters, once the territory fills the view
+      if (showDoNotCalls) {
+        addDoNotCallLayer(instance, frameZoom(instance, boundary) - 0.05);
+        setDoNotCallData(instance, [latest.current]);
+      }
+      labelsAbove(instance);
+      syncMarkers(
+        instance,
+        mapMarkers ?? [],
+        registry,
+        undefined,
+        letterFrames([latest.current])
+      );
       instance.triggerRepaint();
     });
 
@@ -110,9 +164,23 @@ const BoundaryPreview = ({
       syncMarkers(instance, [], registry);
       instance.remove();
     };
-  }, [boundary, mapShapes, mapLines, mapMarkers, isDark, interactive, onReady]);
+  }, [
+    boundary,
+    mapShapes,
+    mapLines,
+    mapMarkers,
+    isDark,
+    interactive,
+    onReady,
+    showDoNotCalls,
+  ]);
 
-  return <Box ref={container} sx={{ height: '100%', width: '100%' }} />;
+  return (
+    <Box
+      ref={container}
+      sx={{ height: '100%', width: '100%', minWidth: 0, overflow: 'hidden' }}
+    />
+  );
 };
 
 const FullscreenMap = ({
@@ -125,6 +193,8 @@ const FullscreenMap = ({
   doNotCalls: number;
   onClose: VoidFunction;
 }) => {
+  const { t } = useAppTranslation();
+
   const [map, setMap] = useState<maplibregl.Map>();
 
   const fit = () => {
@@ -138,63 +208,104 @@ const FullscreenMap = ({
   };
 
   return (
-    <MuiDialog open fullScreen onClose={onClose}>
-      <Box sx={{ position: 'relative', height: '100dvh' }}>
+    <MuiDialog
+      open
+      fullScreen
+      onClose={onClose}
+      slotProps={{
+        paper: {
+          // the map runs under the system bars, as in a maps app; the shell
+          // would otherwise pad the paper and leave white bands there
+          sx: {
+            backgroundColor: 'var(--white)',
+            paddingTop: '0 !important',
+            paddingBottom: '0 !important',
+          },
+        },
+      }}
+    >
+      <Box
+        sx={{
+          position: 'relative',
+          height: '100%',
+          '& .maplibregl-ctrl-bottom-left': {
+            bottom: systemBarInset('bottom'),
+            left: systemBarInset('left'),
+          },
+        }}
+      >
         <BoundaryPreview territory={territory} interactive onReady={setMap} />
 
-        <MapIsland corner="top-left">
-          <Typography
-            className="body-small-semibold"
-            color="var(--black)"
-            noWrap
-            // as tall as the Close button beside it
-            sx={{ padding: '10px', maxWidth: 'calc(100vw - 220px)' }}
-          >
-            {[`Territory ${territory.number}`, territory.name]
-              .filter(Boolean)
-              .join(' · ')}
-          </Typography>
-          {doNotCalls > 0 && (
-            <Badge
-              size="small"
-              color="red"
-              filled={false}
-              text={`Do not call: ${doNotCalls}`}
-              sx={{ width: 'fit-content', flexShrink: 0, marginRight: '6px' }}
-            />
-          )}
-        </MapIsland>
+        {/* the controls keep clear of the bars the map runs under */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: systemBarInset('top'),
+            right: systemBarInset('right'),
+            bottom: systemBarInset('bottom'),
+            left: systemBarInset('left'),
+            pointerEvents: 'none',
+            '& > *': { pointerEvents: 'auto' },
+          }}
+        >
+          <MapIsland corner="top-left">
+            <Typography
+              className="body-small-semibold"
+              color="var(--black)"
+              noWrap
+              // as tall as the Close button beside it
+              sx={{ padding: '10px', maxWidth: 'calc(100vw - 220px)' }}
+            >
+              {[
+                t('tr_territoryTerritory', { number: territory.number }),
+                territory.name,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Typography>
+            {doNotCalls > 0 && (
+              <Badge
+                size="small"
+                color="red"
+                filled={false}
+                text={t('tr_territoryDoNotCall', { n: doNotCalls })}
+                sx={{ width: 'fit-content', flexShrink: 0, marginRight: '6px' }}
+              />
+            )}
+          </MapIsland>
 
-        <MapIsland corner="top-right">
-          <MapAction title="Close" placement="left" onClick={onClose}>
-            <IconClose color="var(--accent-main)" />
-          </MapAction>
-        </MapIsland>
+          <MapIsland corner="top-right">
+            <MapAction title={t('tr_close')} placement="left" onClick={onClose}>
+              <IconClose color="var(--accent-main)" />
+            </MapAction>
+          </MapIsland>
 
-        <MapIsland corner="bottom-right" vertical>
-          <MapAction
-            title="Zoom in"
-            placement="left"
-            onClick={() => map?.zoomIn()}
-          >
-            <IconAdd color="var(--accent-main)" />
-          </MapAction>
-          <MapAction
-            title="Zoom out"
-            placement="left"
-            onClick={() => map?.zoomOut()}
-          >
-            <IconRemove color="var(--accent-main)" />
-          </MapAction>
-          {/* also turns the map back to north up */}
-          <MapAction
-            title="Show the whole territory"
-            placement="left"
-            onClick={fit}
-          >
-            <IconMapOverview color="var(--accent-main)" />
-          </MapAction>
-        </MapIsland>
+          <MapIsland corner="bottom-right" vertical>
+            <NorthAction map={map} placement="left" />
+            <MapAction
+              title={t('tr_territoryZoomIn')}
+              placement="left"
+              onClick={() => map?.zoomIn()}
+            >
+              <IconAdd color="var(--accent-main)" />
+            </MapAction>
+            <MapAction
+              title={t('tr_territoryZoomOut')}
+              placement="left"
+              onClick={() => map?.zoomOut()}
+            >
+              <IconRemove color="var(--accent-main)" />
+            </MapAction>
+            {/* also turns the map back to north up */}
+            <MapAction
+              title={t('tr_territoryShowTheWholeTerritory')}
+              placement="left"
+              onClick={fit}
+            >
+              <IconMapOverview color="var(--accent-main)" />
+            </MapAction>
+          </MapIsland>
+        </Box>
       </Box>
     </MuiDialog>
   );
@@ -210,6 +321,8 @@ const TerritoryMap = ({
   readOnly?: boolean;
   showDoNotCalls?: boolean;
 }) => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
 
   const [fullscreen, setFullscreen] = useState(false);
@@ -239,30 +352,25 @@ const TerritoryMap = ({
 
       if (!image) {
         displaySnackNotification({
-          header: 'Sharing failed',
-          message: 'The map picture could not be created. Please try again.',
+          header: t('tr_territorySharingFailed'),
+          message: t('tr_territoryTheMapPictureCouldNotBeCreatedPleaseTry'),
           severity: 'error',
         });
         return;
       }
 
-      const name = `Territory-${territory.number}.png`;
+      const name = `${t('tr_territoryLabel')}-${territory.number}.png`;
       const blob = await (await fetch(image)).blob();
-      const file = new File([blob], name, { type: blob.type || 'image/png' });
-
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `Territory ${territory.number}`,
-        });
-      } else {
-        saveAs(blob, name);
-      }
+      await exportFile(blob, name);
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         displaySnackNotification({
-          header: 'Sharing failed',
-          message: (error as Error).message,
+          header: t('tr_territorySharingFailed'),
+          message: t((error as Error).message, {
+            defaultValue: t(
+              'tr_territoryTheTerritoryMapCouldNotBeSharedTryAgain'
+            ),
+          }),
           severity: 'error',
         });
       }
@@ -273,9 +381,9 @@ const TerritoryMap = ({
 
   const small = { minHeight: '28px', padding: '2px 8px', minWidth: 'unset' };
 
-  let emptyText = 'No borders yet.';
-  if (!isSaved) emptyText = 'Save first to draw borders.';
-  if (readOnly) emptyText = 'No map yet.';
+  let emptyText = t('tr_territoryNoBordersYet');
+  if (!isSaved) emptyText = t('tr_territoryEnterANumberFirstToDrawBorders');
+  if (readOnly) emptyText = t('tr_territoryNoMapYet');
 
   return (
     <Stack spacing="16px">
@@ -291,7 +399,8 @@ const TerritoryMap = ({
           position: 'relative',
           // a shape rather than a height, so wide screens don't zoom the territory out
           aspectRatio: '3 / 2',
-          minHeight: '240px',
+          width: '100%',
+          minWidth: 0,
           overflow: 'hidden',
           borderRadius: 'var(--radius-l)',
           clipPath: 'inset(0 round var(--radius-l))',
@@ -304,7 +413,9 @@ const TerritoryMap = ({
           justifyContent: 'center',
         }}
       >
-        {hasBoundary && <BoundaryPreview territory={territory} />}
+        {hasBoundary && !fullscreen && (
+          <BoundaryPreview territory={territory} />
+        )}
 
         {!hasBoundary && (
           <Stack
@@ -326,7 +437,7 @@ const TerritoryMap = ({
                 startIcon={<IconDrawShape color="var(--accent-main)" />}
                 onClick={openMap}
               >
-                Draw borders
+                {t('tr_territoryDrawBorders')}
               </Button>
             )}
           </Stack>
@@ -337,7 +448,7 @@ const TerritoryMap = ({
           <MapIsland corner="top-right">
             {[
               {
-                label: 'Share',
+                label: 'tr_share',
                 icon: IconShare,
                 onClick: handleShare,
                 disabled: sharing,
@@ -345,7 +456,7 @@ const TerritoryMap = ({
               ...(center
                 ? [
                     {
-                      label: 'Open in maps',
+                      label: 'tr_territoryOpenInMaps',
                       icon: IconLocation,
                       onClick: () => openInMaps(center),
                       disabled: false,
@@ -353,17 +464,17 @@ const TerritoryMap = ({
                   ]
                 : []),
               {
-                label: 'Full screen',
+                label: 'tr_territoryFullScreen',
                 icon: IconFullscreen,
                 onClick: () => setFullscreen(true),
                 disabled: false,
               },
             ].map(({ label, icon: Icon, onClick, disabled }) => (
-              <Tooltip key={label} title={label}>
+              <Tooltip key={label} title={t(label)}>
                 <Button
                   variant="small"
                   disableAutoStretch
-                  aria-label={label}
+                  ariaLabel={t(label)}
                   disabled={disabled}
                   onClick={onClick}
                   sx={{ ...small, width: '28px', padding: '2px' }}
@@ -384,7 +495,7 @@ const TerritoryMap = ({
               onClick={openMap}
               sx={small}
             >
-              Edit
+              {t('tr_edit')}
             </Button>
           </MapIsland>
         )}

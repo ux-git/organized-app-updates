@@ -1,21 +1,12 @@
+import { useAppTranslation } from '@hooks/index';
 import { cloneElement, ReactElement } from 'react';
 import { Box, ButtonBase, Stack } from '@mui/material';
-import { CustomDivider, Typography } from '@components/index';
+import { Typography } from '@components/index';
 import Tooltip from '@components/tooltip';
-import {
-  IconArrowLink,
-  IconLocation,
-  IconCongregationBorder,
-  IconEditPoints,
-  IconMoveAround,
-  IconRedo,
-  IconUndo,
-} from '@icons/index';
+import { IconArrowLink } from '@icons/index';
 import { STATUS_LABEL, Territory } from '@definition/territory';
-import useMapEditor from './useMapEditor';
-import { openInMaps, territoryCenter } from '../helpers';
-
-type Editor = ReturnType<typeof useMapEditor>;
+import { territoryHolderText } from '@features/territories/group_holder';
+import { DoNotCallBadge } from '@features/territories/components/territory_badges';
 
 const ToolButton = ({
   label,
@@ -98,52 +89,52 @@ const SHELL = {
   boxShadow: 'var(--hover-shadow)',
 };
 
-const Divider = () => (
-  <CustomDivider
-    orientation="vertical"
-    flexItem
-    color="var(--accent-200)"
-    sx={{ margin: '6px 2px' }}
-  />
-);
-
-export const IdleToolbar = ({
-  onCongregation,
-  compact = false,
-}: {
-  onCongregation: VoidFunction;
-  compact?: boolean;
-}) => (
-  <Stack direction="row" sx={{ flexShrink: 0, ...SHELL }}>
-    <ToolButton
-      label="Congregation border"
-      hint="Draw the outer border of everything the congregation covers"
-      icon={<IconCongregationBorder />}
-      compact={compact}
-      onClick={onCongregation}
-    />
-  </Stack>
-);
-
 export const ViewToolbar = ({
   selected,
   onDetails,
   compact = false,
+  fullWidth = false,
 }: {
   selected: Territory;
   onDetails: VoidFunction;
   compact?: boolean;
+  // a row of its own, where the name takes the room it needs
+  fullWidth?: boolean;
 }) => {
-  const drawn = !!selected.boundary?.length;
-  const center = territoryCenter(selected);
+  const { t } = useAppTranslation();
 
-  const info = [selected.city, STATUS_LABEL[selected.status], selected.holder]
+  const drawn = !!selected.boundary?.length;
+
+  const info = [
+    // the title already names it when the territory is called after its place
+    selected.city !== selected.name && selected.city,
+    t(STATUS_LABEL[selected.status]),
+    territoryHolderText(selected),
+  ]
     .filter(Boolean)
     .join(' · ');
 
   return (
-    <Stack direction="row" sx={{ flexShrink: 1, minWidth: 0, ...SHELL }}>
-      <Box sx={{ padding: '0 10px', minWidth: 0, maxWidth: '320px' }}>
+    <Stack
+      direction="row"
+      sx={{
+        flexShrink: 1,
+        minWidth: 0,
+        ...SHELL,
+        // as tall as the mode switch beside it
+        height: '46px',
+        boxSizing: 'border-box',
+        ...(fullWidth && { flex: 1 }),
+      }}
+    >
+      <Box
+        sx={{
+          padding: '0 10px',
+          minWidth: 0,
+          maxWidth: '320px',
+          ...(fullWidth && { flex: 1, maxWidth: 'none' }),
+        }}
+      >
         <Typography className="body-small-semibold" color="var(--black)" noWrap>
           {selected.number} · {selected.name}
         </Typography>
@@ -152,21 +143,14 @@ export const ViewToolbar = ({
           color={drawn ? 'var(--grey-350)' : 'var(--orange-dark)'}
           noWrap
         >
-          {drawn ? info : 'No borders drawn yet'}
+          {drawn ? info : t('tr_territoryNoBordersDrawnYet')}
         </Typography>
       </Box>
 
-      {center && (
-        <ToolButton
-          label="Open in maps"
-          icon={<IconLocation />}
-          compact
-          onClick={() => openInMaps(center)}
-        />
-      )}
+      <DoNotCallBadge territory={selected} />
 
       <ToolButton
-        label="Details"
+        label={t('tr_details')}
         icon={<IconArrowLink />}
         compact={compact}
         onClick={onDetails}
@@ -174,54 +158,3 @@ export const ViewToolbar = ({
     </Stack>
   );
 };
-
-const EditToolbar = ({
-  editor,
-  compact = false,
-}: {
-  editor: Editor;
-  compact?: boolean;
-}) => {
-  const hasBorder = !!editor.draft.boundary?.length;
-
-  return (
-    <Stack direction="row" sx={{ flexShrink: 0, ...SHELL }}>
-      <ToolButton
-        label="Undo"
-        icon={<IconUndo />}
-        compact={compact}
-        onClick={editor.undo}
-      />
-      <ToolButton
-        label="Redo"
-        icon={<IconRedo />}
-        compact={compact}
-        onClick={editor.redo}
-      />
-
-      <Divider />
-
-      <ToolButton
-        label="Adjust points"
-        hint="Drag corners and midpoints of the border, areas and lines"
-        active={editor.tool === 'points'}
-        disabled={!hasBorder}
-        icon={<IconEditPoints />}
-        compact={compact}
-        onClick={editor.adjustBorder}
-      />
-
-      <ToolButton
-        label="Move items"
-        hint="Drag whole pins, notes, lines and areas"
-        active={editor.tool === 'move'}
-        disabled={!hasBorder}
-        icon={<IconMoveAround />}
-        compact={compact}
-        onClick={() => editor.pickTool('move')}
-      />
-    </Stack>
-  );
-};
-
-export default EditToolbar;

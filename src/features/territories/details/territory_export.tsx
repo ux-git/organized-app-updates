@@ -1,28 +1,30 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Box, FormControlLabel, RadioGroup, Stack } from '@mui/material';
 import { Button, Checkbox, CustomDivider, Typography } from '@components/index';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import Radio from '@components/radio';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import IconLoading from '@components/icon_loading';
 import { Territory } from '@definition/territory';
-import PdfPreview from './pdf_preview';
-import useTerritoryExport, { ExportFormat } from './useTerritoryExport';
+import PdfPreview from '@features/territories/details/pdf_preview';
+import useTerritoryExport, {
+  ExportFormat,
+} from '@features/territories/details/useTerritoryExport';
 
 type Format = { id: ExportFormat; name: string };
 
 const MAP_FORMATS: Format[] = [
-  { id: 's12', name: 'S-12' },
-  { id: 's12a4', name: 'S-12 on A4' },
-  { id: 'a5h', name: 'A5 horizontal' },
-  { id: 'a5v', name: 'A5 vertical' },
+  { id: 's12', name: 'tr_territoryS122' },
+  { id: 's12a4', name: 'tr_territoryS12OnA4' },
+  { id: 'a5h', name: 'tr_territoryA5Horizontal' },
+  { id: 'a5v', name: 'tr_territoryA5Vertical' },
 ];
 
 // a phone territory has no map, so the A5 layouts built around one don't apply
 const PHONE_FORMATS: Format[] = [
-  { id: 's12', name: 'S-12 phone card' },
-  { id: 's12a4', name: 'S-12 phone card on A4' },
+  { id: 's12', name: 'tr_territoryS12PhoneCard' },
+  { id: 's12a4', name: 'tr_territoryS12PhoneCardOnA4' },
 ];
 
 const OptionGroup = ({
@@ -47,7 +49,13 @@ const TerritoryExport = ({
   territory: Territory;
   onClose: VoidFunction;
 }) => {
+  const { t } = useAppTranslation();
+
   const exporter = useTerritoryExport(territory);
+  const [renderedUrl, setRenderedUrl] = useState<string>();
+  const loadingPreview =
+    exporter.isProcessing ||
+    (!!exporter.previewUrl && renderedUrl !== exporter.previewUrl);
 
   const { tablet600Up } = useBreakpoints();
 
@@ -55,20 +63,16 @@ const TerritoryExport = ({
 
   const formats = isPhone ? PHONE_FORMATS : MAP_FORMATS;
 
-  // the QR code sits on the back, and on the A5 vertical page under the map
-  const qrShown = parts.back || (exporter.format === 'a5v' && parts.front);
-
-  const handleExport = () => {
-    exporter.handleExport();
-    onClose();
+  const handleExport = async () => {
+    if (await exporter.handleExport()) onClose();
   };
 
   return (
     <Dialog
       onClose={onClose}
       open
-      title={`Export territory ${territory.number}`}
-      description="Choose what to include and the format. The PDF is saved to your device."
+      title={t('tr_territoryPrintTerritory', { number: territory.number })}
+      description={t('tr_territoryChooseTheContentAndFormatThenSaveOrShare')}
     >
       <Stack
         direction={tablet600Up ? 'row' : 'column'}
@@ -84,32 +88,7 @@ const TerritoryExport = ({
         }
         sx={{ width: '100%', '& > .MuiStack-root': { flex: 1, minWidth: 0 } }}
       >
-        <OptionGroup label="Include">
-          <Checkbox
-            label={isPhone ? 'Phone numbers' : 'Map'}
-            checked={parts.front}
-            disabled={parts.front && !parts.back}
-            onChange={() => exporter.toggleSide('front')}
-            className="body-regular"
-          />
-          <Checkbox
-            label="Do not call"
-            checked={parts.back}
-            disabled={parts.back && !parts.front}
-            onChange={() => exporter.toggleSide('back')}
-            className="body-regular"
-          />
-          {qrShown && (
-            <Checkbox
-              label="QR code"
-              checked={exporter.showQr}
-              onChange={(_, checked) => exporter.setShowQr(checked)}
-              className="body-regular"
-            />
-          )}
-        </OptionGroup>
-
-        <OptionGroup label="Format">
+        <OptionGroup label={t('tr_territoryFormat')}>
           <RadioGroup
             value={exporter.format}
             onChange={(event) =>
@@ -122,10 +101,37 @@ const TerritoryExport = ({
                 key={item.id}
                 value={item.id}
                 control={<Radio />}
-                label={<Typography>{item.name}</Typography>}
+                label={<Typography>{t(item.name)}</Typography>}
               />
             ))}
           </RadioGroup>
+        </OptionGroup>
+
+        <OptionGroup label={t('tr_territoryInclude')}>
+          <Checkbox
+            label={
+              isPhone ? t('tr_territoryPhoneNumbers') : t('tr_territoryMap')
+            }
+            checked={parts.front}
+            disabled={parts.front && !parts.back}
+            onChange={() => exporter.toggleSide('front')}
+            className="body-regular"
+          />
+          <Checkbox
+            label={t('tr_territoryDoNotCallLabel')}
+            checked={parts.back}
+            disabled={parts.back && !parts.front}
+            onChange={() => exporter.toggleSide('back')}
+            className="body-regular"
+          />
+          {!isPhone && parts.front && (
+            <Checkbox
+              label={t('tr_territoryHouseholds')}
+              checked={exporter.showHouseholds}
+              onChange={(_, checked) => exporter.setShowHouseholds(checked)}
+              className="body-regular"
+            />
+          )}
         </OptionGroup>
       </Stack>
 
@@ -143,9 +149,9 @@ const TerritoryExport = ({
           overflow: 'hidden',
         }}
       >
-        <PdfPreview file={exporter.preview} />
+        <PdfPreview url={exporter.previewUrl} onSettled={setRenderedUrl} />
 
-        {exporter.isProcessing && (
+        {loadingPreview && (
           <Stack
             sx={{
               position: 'absolute',
@@ -155,24 +161,42 @@ const TerritoryExport = ({
               backgroundColor: 'var(--white-semi-l)',
             }}
           >
-            <Typography className="body-small-regular" color="var(--grey-400)">
-              Preparing the preview…
-            </Typography>
+            <Stack
+              role="status"
+              aria-live="polite"
+              direction="row"
+              sx={{
+                alignItems: 'center',
+                gap: 'var(--radius-l)',
+                margin: 'var(--radius-l)',
+                padding: 'var(--radius-xl)',
+                borderRadius: 'var(--radius-l)',
+                backgroundColor: 'var(--white)',
+                boxShadow: 'var(--small-card-shadow)',
+              }}
+            >
+              <Box aria-hidden="true">
+                <IconLoading color="var(--accent-main)" />
+              </Box>
+              <Typography className="body-small-regular" color="var(--black)">
+                {t('tr_territoryPreparingThePreview')}
+              </Typography>
+            </Stack>
           </Stack>
         )}
       </Box>
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          Cancel
+          {t('tr_cancel')}
         </Button>
         <Button
           variant="main"
-          disabled={exporter.isProcessing}
+          disabled={exporter.isProcessing || !exporter.previewUrl}
           endIcon={exporter.isProcessing ? <IconLoading /> : undefined}
           onClick={handleExport}
         >
-          Export
+          {t('tr_territoryPrint')}
         </Button>
       </DialogActions>
     </Dialog>

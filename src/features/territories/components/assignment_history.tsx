@@ -1,14 +1,26 @@
+import TerritoryNote from '@features/territories/components/note';
 import { useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { useAtomValue } from 'jotai';
 import { Button, CustomDivider, InfoNote, Typography } from '@components/index';
 import { IconCheck, IconPerson } from '@icons/index';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { monthNamesState } from '@states/app';
 import { shortDateFormatState } from '@states/settings';
-import { displayDate, parseDate, emptyListMessage } from '../helpers';
-import { clickableRow, rowStates } from './table_styles';
-import TruncatedText from './truncated_text';
+import {
+  assignmentIssues,
+  displayDate,
+  issuesText,
+  parseDate,
+  emptyListMessage,
+} from '@features/territories/helpers';
+import { holderText } from '@features/territories/group_holder';
+import {
+  clickableRow,
+  rowStates,
+} from '@features/territories/components/table_styles';
+import { CampaignBadge } from '@features/territories/components/territory_badges';
+import TruncatedText from '@features/territories/components/truncated_text';
 import { Territory } from '@definition/territory';
 
 type Row = {
@@ -27,6 +39,8 @@ const AssignmentHistory = ({
   selectedId?: string;
   onSelect?: (id: string) => void;
 }) => {
+  const { t } = useAppTranslation();
+
   const { tablet688Up } = useBreakpoints();
 
   const shortDateFormat = useAtomValue(shortDateFormatState);
@@ -84,6 +98,7 @@ const AssignmentHistory = ({
           >
             {group.rows.map(({ territory, assignment }) => {
               const open = !assignment.returnedOn;
+              const warning = issuesText(assignmentIssues(assignment));
 
               return (
                 <Stack
@@ -136,9 +151,21 @@ const AssignmentHistory = ({
                       <TruncatedText
                         className="label-small-regular"
                         color="var(--grey-400)"
-                        text={assignment.publisher}
+                        text={holderText(assignment)}
                       />
+                      <CampaignBadge assignment={assignment} />
                     </Stack>
+
+                    <TerritoryNote kind="assignment" value={assignment.note} />
+
+                    {warning && (
+                      <Typography
+                        className="label-small-regular"
+                        color="var(--red-main)"
+                      >
+                        {warning}
+                      </Typography>
+                    )}
                   </Stack>
 
                   <Stack
@@ -170,7 +197,9 @@ const AssignmentHistory = ({
                         color={open ? 'var(--orange-main)' : 'var(--grey-350)'}
                         noWrap
                       >
-                        {open ? 'In progress' : date(assignment.returnedOn)}
+                        {open
+                          ? t('tr_inProgress')
+                          : date(assignment.returnedOn)}
                       </Typography>
                     </Stack>
                   </Stack>
@@ -188,7 +217,7 @@ const AssignmentHistory = ({
             disableAutoStretch
             onClick={() => setLimit(limit + PAGE)}
           >
-            Show more
+            {t('tr_territoryShowMore')}
           </Button>
         </Box>
       )}

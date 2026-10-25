@@ -4,12 +4,13 @@ import {
   Territory,
   TYPE_LABEL,
 } from '@definition/territory';
+import { getTranslation } from '@services/i18n/translation';
 import {
   daysLabel,
   parseDate,
+  periodWindow,
   serviceYear,
-  serviceYearBounds,
-} from '../helpers';
+} from '@features/territories/helpers';
 
 export type ColorView =
   | 'status'
@@ -18,55 +19,77 @@ export type ColorView =
   | 'type'
   | 'original';
 
-export const HEATMAP_YEARS = () =>
-  [1, 2, 3].map((back) => serviceYear() - back);
+export const HEATMAP_PERIODS = () => [
+  { id: 'last6', label: getTranslation({ key: 'tr_territoryLast6Months' }) },
+  { id: 'last12', label: getTranslation({ key: 'tr_territoryLast12Months' }) },
+  ...[1, 2, 3].map((back) => ({
+    id: `sy${serviceYear() - back}`,
+    label: getTranslation({
+      key: 'tr_territoryServiceYear',
+      params: { year: serviceYear() - back },
+    }),
+  })),
+];
 
 export const COLOR_VIEWS = [
   {
-    id: 'original' as ColorView,
-    label: 'Default',
-  },
-  {
     id: 'status' as ColorView,
-    label: 'Status',
+    label: 'tr_territoryStatus',
+    description: 'tr_territoryAvailableInWorkOrOverdue',
   },
   {
     id: 'lastCovered' as ColorView,
-    label: 'Last covered',
+    label: 'tr_territoryLastCovered',
+    description: 'tr_territoryHowLongAgoItWasLastWorked',
   },
   {
     id: 'heatmap' as ColorView,
-    label: 'Heatmap',
+    label: 'tr_territoryHeatmap',
+    description: 'tr_territoryHowOftenItWasWorkedInAChosenPeriod',
   },
   {
     id: 'type' as ColorView,
-    label: 'Type',
+    label: 'tr_type',
+    description: 'tr_territoryDoorToDoorOrBusiness',
+  },
+  {
+    id: 'original' as ColorView,
+    label: 'tr_territoryOwnColors',
+    description: 'tr_territoryTheColorsPickedForEachTerritory',
   },
 ];
 
-type Bucket = { key: string; label: string; color: string };
+export type Bucket = { key: string; label: string; color: string };
 
 const DAY = 86400000;
 
 const RECENCY: Bucket[] = [
-  { key: 'h0', label: 'Under 3 months', color: '--green-main' },
-  { key: 'h1', label: '3 to 6 months', color: '--orange-main' },
-  { key: 'h2', label: '6 to 12 months', color: '--orange-dark' },
-  { key: 'h3', label: 'Over a year', color: '--red-main' },
-  { key: 'never', label: 'No records yet', color: '--grey-350' },
+  { key: 'h0', label: 'tr_territoryUnder3Months', color: '--green-main' },
+  { key: 'h1', label: 'tr_territory3To6Months', color: '--orange-main' },
+  { key: 'h2', label: 'tr_territory6To12Months', color: '--orange-dark' },
+  { key: 'h3', label: 'tr_territoryOverAYear', color: '--red-main' },
+  { key: 'never', label: 'tr_noRecordsYet', color: '--grey-350' },
 ];
 
 const FREQUENCY: Bucket[] = [
-  { key: 'f0', label: 'Not covered', color: '--accent-300' },
-  { key: 'f1', label: 'Once', color: '--green-main' },
-  { key: 'f2', label: 'Twice', color: '--orange-main' },
-  { key: 'f3', label: '3 times', color: '--orange-dark' },
-  { key: 'f4', label: '4 times or more', color: '--red-main' },
+  { key: 'f0', label: 'tr_territoryNotWorked', color: '--accent-300' },
+  { key: 'f1', label: 'tr_territoryOnce', color: '--green-main' },
+  { key: 'f2', label: 'tr_territoryTwice', color: '--orange-main' },
+  { key: 'f3', label: 'tr_territory3Times', color: '--orange-dark' },
+  { key: 'f4', label: 'tr_territory4TimesOrMore', color: '--red-main' },
 ];
 
 const TYPES: Bucket[] = [
-  { key: 'door_to_door', label: 'Door to door', color: '--accent-main' },
-  { key: 'business', label: 'Business', color: '--orange-main' },
+  {
+    key: 'door_to_door',
+    label: 'tr_territoryTypeDoorToDoor',
+    color: '--accent-main',
+  },
+  {
+    key: 'business',
+    label: 'tr_territoryTypeBusiness',
+    color: '--orange-main',
+  },
 ];
 
 const returns = (territory: Territory) =>
@@ -86,8 +109,10 @@ const recencyKey = (territory: Territory) => {
   return 'h3';
 };
 
-const timesWorked = (territory: Territory, year: number) => {
-  const { start, end } = serviceYearBounds(year);
+const timesWorked = (territory: Territory, period: string) => {
+  const window = periodWindow(period);
+  if (!window) return 0;
+  const { start, end } = window;
 
   return returns(territory).filter(
     (time) => time >= start.getTime() && time <= end.getTime()
@@ -96,12 +121,16 @@ const timesWorked = (territory: Territory, year: number) => {
 
 const lastCoveredText = (territory: Territory) => {
   const last = Math.max(0, ...returns(territory));
-  if (!last) return 'Never';
+  if (!last) return getTranslation({ key: 'tr_territoryNever' });
 
   return daysLabel(Math.round((Date.now() - last) / DAY));
 };
 
-export const colorScheme = (view: ColorView, year = HEATMAP_YEARS()[0]) => {
+export const colorScheme = (
+  view: ColorView,
+  period = 'last12',
+  translate: (key: string) => string = (key) => getTranslation({ key })
+) => {
   if (view === 'lastCovered') {
     return {
       buckets: RECENCY,
@@ -114,8 +143,8 @@ export const colorScheme = (view: ColorView, year = HEATMAP_YEARS()[0]) => {
     return {
       buckets: FREQUENCY,
       keyOf: (territory: Territory) =>
-        `f${Math.min(timesWorked(territory, year), 4)}`,
-      detailOf: (territory: Territory) => `${timesWorked(territory, year)}×`,
+        `f${Math.min(timesWorked(territory, period), 4)}`,
+      detailOf: (territory: Territory) => `${timesWorked(territory, period)}×`,
     };
   }
 
@@ -131,7 +160,7 @@ export const colorScheme = (view: ColorView, year = HEATMAP_YEARS()[0]) => {
     return {
       buckets: TYPES,
       keyOf: (territory: Territory) => territory.type,
-      detailOf: (territory: Territory) => TYPE_LABEL[territory.type],
+      detailOf: (territory: Territory) => translate(TYPE_LABEL[territory.type]),
     };
   }
 
@@ -142,6 +171,7 @@ export const colorScheme = (view: ColorView, year = HEATMAP_YEARS()[0]) => {
       color: `--${STATUS_COLOR[status]}-main`,
     })),
     keyOf: (territory: Territory) => territory.status as string,
-    detailOf: (territory: Territory) => STATUS_LABEL[territory.status],
+    detailOf: (territory: Territory) =>
+      translate(STATUS_LABEL[territory.status]),
   };
 };

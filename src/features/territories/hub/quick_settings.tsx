@@ -1,13 +1,17 @@
-import { Box, MenuItem, Stack } from '@mui/material';
-import { Select, Typography } from '@components/index';
-import SwitchWithLabel from '@components/switch_with_label';
+import { useAppTranslation } from '@hooks/index';
+import { Stack } from '@mui/material';
+import { useAtomValue } from 'jotai';
 import QuickSettings from '@features/quick_settings';
+import { territoryLocalModeState } from '@states/territories';
+import RecommendationSettings from '@features/territories/hub/recommendation_settings';
+import {
+  TerritoryDisplaySettings,
+  TerritoryOverdueSettings,
+} from '@features/territories/hub/preference_controls';
 
 type TerritoriesQuickSettingsProps = {
   open: boolean;
   onClose: VoidFunction;
-  showHouseholds: boolean;
-  onShowHouseholdsChange: (value: boolean) => void;
   overdueMonths: number;
   onOverdueMonthsChange: (value: number) => void;
 };
@@ -15,52 +19,23 @@ type TerritoriesQuickSettingsProps = {
 const TerritoriesQuickSettings = ({
   open,
   onClose,
-  showHouseholds,
-  onShowHouseholdsChange,
   overdueMonths,
   onOverdueMonthsChange,
-}: TerritoriesQuickSettingsProps) => (
-  <QuickSettings title="Territories" open={open} onClose={onClose}>
-    <Stack spacing="16px" sx={{ width: '100%' }}>
-      <SwitchWithLabel
-        label="Show households count"
-        helper="Display the number of households next to every territory"
-        checked={showHouseholds}
-        onChange={onShowHouseholdsChange}
-      />
+}: TerritoriesQuickSettingsProps) => {
+  const { t } = useAppTranslation();
 
-      <Stack
-        direction="row"
-        spacing="16px"
-        sx={{ alignItems: 'center', justifyContent: 'space-between' }}
-      >
-        <Stack spacing="4px">
-          <Typography className="body-regular" color="var(--black)">
-            Overdue period
-          </Typography>
-          <Typography className="label-small-regular" color="var(--grey-350)">
-            Months a publisher may hold a territory before it counts as overdue
-          </Typography>
-        </Stack>
-
-        <Box sx={{ width: '116px', flexShrink: 0 }}>
-          <Select
-            label="Months"
-            value={String(overdueMonths)}
-            onChange={(event) =>
-              onOverdueMonthsChange(Number(event.target.value))
-            }
-          >
-            {[3, 4, 5, 6, 9, 12].map((months) => (
-              <MenuItem key={months} value={String(months)}>
-                <Typography className="body-regular">{months}</Typography>
-              </MenuItem>
-            ))}
-          </Select>
-        </Box>
+  const local = useAtomValue(territoryLocalModeState);
+  return (
+    <QuickSettings title={t('tr_territories')} open={open} onClose={onClose}>
+      <Stack spacing="16px" sx={{ width: '100%' }}>
+        <TerritoryDisplaySettings />
+        <TerritoryOverdueSettings
+          value={overdueMonths}
+          onChange={onOverdueMonthsChange}
+        />
+        {local && <RecommendationSettings />}
       </Stack>
-    </Stack>
-  </QuickSettings>
-);
-
+    </QuickSettings>
+  );
+};
 export default TerritoriesQuickSettings;

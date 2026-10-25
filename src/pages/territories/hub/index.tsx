@@ -1,24 +1,31 @@
+import TerritoryImport from '@features/territories/import';
+import CampaignContext from '@features/territories/components/campaign_context';
 import { ReactNode, useState } from 'react';
 import { Box } from '@mui/material';
 import {
   IconAdd,
+  IconImportFile,
+  IconMapAdd,
   IconRaiseHand,
-  IconVisibility,
-  IconAssignmetHistory,
-  IconCancelCicle,
-  IconImportExport,
+  IconMapOverview,
 } from '@icons/index';
-import { useBreakpoints, useUpNavigation } from '@hooks/index';
+import {
+  useAppTranslation,
+  useBreakpoints,
+  useUpNavigation,
+} from '@hooks/index';
 import { useNavigate } from 'react-router';
 import NavBarButton from '@components/nav_bar_button';
 import NavBarButtonGroup from '@components/nav_bar_button_group';
 import PageTitle from '@components/page_title';
 import TerritoriesHub from '@features/territories/hub';
-import TerritoryImport from '@features/territories/import';
+import NewTerritoryDialog from '@features/territories/components/new_territory_dialog';
 import TerritoriesQuickSettings from '@features/territories/hub/quick_settings';
 import useTerritoriesHub from '@features/territories/hub/useTerritoriesHub';
 
 const Territories = () => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
 
   const { tablet688Up, desktopUp } = useBreakpoints();
@@ -30,6 +37,7 @@ const Territories = () => {
   const isFilterSubpage = !desktopUp && hub.filtersOpen;
 
   const [importOpen, setImportOpen] = useState(false);
+  const [newOnMap, setNewOnMap] = useState(false);
 
   const { title } = hub;
 
@@ -38,50 +46,38 @@ const Territories = () => {
   const mineButtons = hub.canBrowse && (
     <NavBarButtonGroup>
       <NavBarButton
-        text={hub.canRequest ? 'Request' : 'Available'}
-        icon={hub.canRequest ? <IconRaiseHand /> : <IconVisibility />}
+        text={
+          hub.canRequest
+            ? t('tr_territoryRequest')
+            : t('tr_territoryShowAvailableTerritories')
+        }
+        icon={hub.canRequest ? <IconRaiseHand /> : <IconMapOverview />}
         textImportant
         onClick={() => navigate('/territories?tab=recommended')}
       />
     </NavBarButtonGroup>
   );
 
-  // the tools live on the hub itself; the requests page stays a focused review
-  const browseButtons = (
+  const browseButtons = isTerritoryEditor && (
     <NavBarButtonGroup>
-      {isTerritoryEditor && (
-        <NavBarButton
-          text="Do not call"
-          icon={<IconCancelCicle />}
-          onClick={() =>
-            navigate('/territories/do-not-calls', { state: { parent: title } })
-          }
-        />
-      )}
       <NavBarButton
-        text="History"
-        icon={<IconAssignmetHistory />}
+        text={t('tr_import')}
+        icon={<IconImportFile />}
+        onClick={() => setImportOpen(true)}
+      />
+      <NavBarButton
+        text={t('tr_territoryNewMap')}
+        icon={<IconMapAdd />}
+        onClick={() => setNewOnMap(true)}
+      />
+      <NavBarButton
+        text={t('tr_add')}
+        icon={<IconAdd />}
+        textImportant
         onClick={() =>
-          navigate('/territories/history', { state: { parent: title } })
+          navigate('/territories/new', { state: { parent: title } })
         }
       />
-      {isTerritoryEditor && (
-        <NavBarButton
-          text="Import"
-          icon={<IconImportExport />}
-          onClick={() => setImportOpen(true)}
-        />
-      )}
-      {isTerritoryEditor && (
-        <NavBarButton
-          text="Add"
-          icon={<IconAdd />}
-          textImportant
-          onClick={() =>
-            navigate('/territories/new', { state: { parent: title } })
-          }
-        />
-      )}
     </NavBarButtonGroup>
   );
 
@@ -97,23 +93,22 @@ const Territories = () => {
         paddingBottom: tablet688Up ? '0px' : '60px',
       }}
     >
+      {isTerritoryEditor && importOpen && (
+        <TerritoryImport open onClose={() => setImportOpen(false)} />
+      )}
+      {newOnMap && <NewTerritoryDialog onClose={() => setNewOnMap(false)} />}
+
       {hub.quickSettingsOpen && (
         <TerritoriesQuickSettings
           open={hub.quickSettingsOpen}
           onClose={() => hub.setQuickSettingsOpen(false)}
-          showHouseholds={hub.showHouseholds}
-          onShowHouseholdsChange={hub.setShowHouseholds}
           overdueMonths={hub.overdueMonths}
           onOverdueMonthsChange={hub.setOverdueMonths}
         />
       )}
 
-      {importOpen && (
-        <TerritoryImport open onClose={() => setImportOpen(false)} />
-      )}
-
       <PageTitle
-        title={isFilterSubpage ? 'Filters' : title}
+        title={isFilterSubpage ? t('tr_filters') : title}
         secondaryTitle={isFilterSubpage ? title : undefined}
         onBack={
           isFilterSubpage
@@ -127,6 +122,7 @@ const Territories = () => {
         quickSettings={() => hub.setQuickSettingsOpen(true)}
       />
 
+      <CampaignContext />
       <TerritoriesHub hub={hub} />
     </Box>
   );

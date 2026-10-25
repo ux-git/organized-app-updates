@@ -19,6 +19,13 @@ const useFullscreen = (
       return;
     }
 
+    // in the app the overlay is enough: the web view's own full screen paints
+    // the system bars white and drops the bar insets the overlay pads by
+    if ('__TAURI_INTERNALS__' in window) {
+      setFullscreen(true);
+      return;
+    }
+
     try {
       wrapper.current?.requestFullscreen().catch(() => undefined);
     } catch {

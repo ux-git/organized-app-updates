@@ -1,15 +1,26 @@
+import { Getter } from 'jotai';
 import {
   DoNotCall,
   TerritoryBoundary,
   Territory,
   TerritoryAssignment,
+  TerritoryCampaign,
   TerritoryStatus,
   TerritoryType,
 } from '@definition/territory';
+import { isTest } from '@constants/index';
+import {
+  currentPublisherState,
+  territoryAssigneesState,
+} from '@features/territories/assignees';
+import { territoryCampaignsState } from '@features/territories/campaigns';
+import { campaignsOn } from '@features/territories/campaign_dates';
 
-export const GROUPS = ['Group 3 – Kreuzberg', 'Group 5 – Neukölln'];
+const CURRENT_PUBLISHER = 'Mike Wallenter';
 
-export const PUBLISHERS_ONLY = [
+const GROUPS = ['Group 3 – Kreuzberg', 'Group 5 – Neukölln'];
+
+const PUBLISHERS_ONLY = [
   'Mike Wallenter',
   'George Markus',
   'Sandero Schneidertson',
@@ -19,7 +30,7 @@ export const PUBLISHERS_ONLY = [
   'Peter Novak',
 ];
 
-export const PUBLISHERS = [...GROUPS, ...PUBLISHERS_ONLY];
+const PUBLISHERS = [...GROUPS, ...PUBLISHERS_ONLY];
 
 const STREETS = [
   'Oranienstraße',
@@ -49,7 +60,7 @@ const CITIES = [
   'Schöneberg',
 ];
 
-const CATEGORIES: string[] = ['dangerous', 'dogs', 'gated', 'rural'];
+const CATEGORIES: string[] = ['rural'];
 
 const DNC_NAMES = ['Mrs. Kramer', 'Mr. Vogel', 'Family Brinkmann', ''];
 
@@ -276,7 +287,7 @@ const buildTerritory = (index: number, random: () => number): Territory => {
         : 5 + Math.floor(random() * 140);
   }
 
-  const coveredGuess = idle
+  const daysSinceCovered = idle
     ? 820 + index
     : Math.round(
         COVERAGE_MONTHS[index % COVERAGE_MONTHS.length] * 30.4 +
@@ -289,18 +300,6 @@ const buildTerritory = (index: number, random: () => number): Territory => {
   if (holder && daysOut !== undefined) {
     assignments = withOpenAssignment(index, assignments, holder, daysOut);
   }
-
-  // covered means returned as completed, so a territory out for a year still counts from its last return
-  const lastReturn = Math.max(
-    0,
-    ...assignments.map((item) => {
-      const [day, month, year] = (item.returnedOn ?? '').split('.').map(Number);
-      return item.returnedOn ? new Date(year, month - 1, day).getTime() : 0;
-    })
-  );
-  const daysSinceCovered = lastReturn
-    ? Math.round((Date.now() - lastReturn) / DAY_MS)
-    : coveredGuess;
 
   const phoneNumbers = type === 'phone' ? buildPhoneNumbers(random) : undefined;
 
@@ -349,4 +348,107 @@ const buildTerritories = (count: number): Territory[] => {
   return territories;
 };
 
-export const TERRITORIES = buildTerritories(132);
+const TERRITORIES = buildTerritories(132);
+
+// a few worked for the special campaign the test mode seeds, a few still out for it
+const withCampaign = (
+  territory: Territory,
+  index: number,
+  campaign: TerritoryCampaign
+): Territory => {
+  const flag = { id: campaign.id, name: campaign.name };
+
+  if (territory.status === 'available' && index % 8 === 2 && !IDLE.has(index)) {
+    const assigned = new Date(Date.now() - 6 * DAY_MS);
+    const returned = new Date(Date.now() - 2 * DAY_MS);
+
+    return {
+      ...territory,
+      daysSinceCovered: 2,
+      assignments: [
+        ...territory.assignments,
+        {
+          id: `a-${index}-campaign`,
+          publisher: PUBLISHERS_ONLY[index % PUBLISHERS_ONLY.length],
+          assignedOn: storedDate(assigned),
+          returnedOn: storedDate(returned),
+          serviceYear: serviceYearOf(returned),
+          months: 1,
+          startMonth: (assigned.getMonth() + 4) % 12,
+          endMonth: (returned.getMonth() + 4) % 12,
+          campaign: flag,
+        },
+      ],
+    };
+  }
+
+  if (territory.status === 'in_work' && territory.holder && index % 5 === 1) {
+    const daysOut = 1 + (index % 6);
+    const past = territory.assignments.filter((item) => item.returnedOn);
+
+    return {
+      ...territory,
+      daysOut,
+      assignments: withOpenAssignment(
+        index,
+        past,
+        territory.holder,
+        daysOut
+      ).map((item) => (item.returnedOn ? item : { ...item, campaign: flag })),
+    };
+  }
+
+  return territory;
+};
+
+// in test mode the seeded persons and groups hold the samples, the test user
+// in place of the sample "me", so "Mine" and assigning show real people
+export const sampleTerritories = (get: Getter): Territory[] => {
+  const me = get(currentPublisherState);
+  if (!isTest || !me) return TERRITORIES;
+
+  const campaign = campaignsOn(get(territoryCampaignsState), new Date())[0];
+
+  const assignees = get(territoryAssigneesState);
+  const groups = assignees.filter((assignee) => assignee.group);
+  const others = assignees.filter(
+    (assignee) => !assignee.group && assignee.name !== me
+  );
+  const samples = PUBLISHERS_ONLY.filter((name) => name !== CURRENT_PUBLISHER);
+
+  const names = new Map([[CURRENT_PUBLISHER, me]]);
+  if (groups.length) {
+    GROUPS.forEach((name, index) =>
+      names.set(name, groups[index % groups.length].name)
+    );
+  }
+  if (others.length) {
+    // spread over the whole list, not only its first names
+    samples.forEach((name, index) =>
+      names.set(
+        name,
+        others[Math.floor((index * others.length) / samples.length)].name
+      )
+    );
+  }
+
+  const to = (name: string) => names.get(name) ?? name;
+
+  return TERRITORIES.map((sample, index) => {
+    const territory = campaign ? withCampaign(sample, index, campaign) : sample;
+
+    return {
+      ...territory,
+      holder: territory.holder && to(territory.holder),
+      requestedBy: territory.requestedBy && to(territory.requestedBy),
+      assignments: territory.assignments.map((assignment) => ({
+        ...assignment,
+        publisher: to(assignment.publisher),
+      })),
+      doNotCalls: territory.doNotCalls.map((entry) => ({
+        ...entry,
+        addedBy: to(entry.addedBy),
+      })),
+    };
+  });
+};

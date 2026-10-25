@@ -1,15 +1,13 @@
+import { useAppTranslation } from '@hooks/index';
 import { Box } from '@mui/material';
-import { daysLabel } from '../helpers';
-import StatTile from '../components/stat_tile';
+import { coveredText } from '@features/territories/helpers';
+import StatTile from '@features/territories/components/stat_tile';
 import { Territory } from '@definition/territory';
 
-const TerritoryStats = ({
-  territory,
-  showDoNotCalls = true,
-}: {
-  territory: Territory;
-  showDoNotCalls?: boolean;
-}) => {
+// the do-not-call count is the header badge's
+const TerritoryStats = ({ territory }: { territory: Territory }) => {
+  const { t } = useAppTranslation();
+
   const months = territory.assignments.map((assignment) => assignment.months);
 
   const average = months.length
@@ -19,34 +17,20 @@ const TerritoryStats = ({
   const stats = [
     {
       id: 'covered',
-      label: 'Last covered',
-      value: daysLabel(territory.daysSinceCovered),
+      label: t('tr_territoryLastCovered'),
+      value: coveredText(territory),
     },
     {
       id: 'households',
-      label: 'Households',
+      label: t('tr_territoryHouseholds'),
       value: String(territory.households),
     },
     average && {
       id: 'duration',
-      label: 'Usual duration',
-      value: `${average} mo`,
+      label: t('tr_territoryUsualDuration'),
+      value: t('tr_territoryMo', { n: average }),
     },
-    showDoNotCalls &&
-      territory.doNotCalls.length > 0 && {
-        id: 'dnc',
-        label: 'Do not call',
-        value: String(territory.doNotCalls.length),
-      },
   ].filter(Boolean) as { id: string; label: string; value: string }[];
-
-  if (showDoNotCalls && stats.length < 3) {
-    stats.push({
-      id: 'dnc',
-      label: 'Do not call',
-      value: String(territory.doNotCalls.length),
-    });
-  }
 
   return (
     <Box

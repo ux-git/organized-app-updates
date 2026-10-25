@@ -1,5 +1,12 @@
-import { ReactNode } from 'react';
-import { Box, Stack } from '@mui/material';
+import {
+  ReactNode,
+  useLayoutEffect,
+  useMemo,
+  useDeferredValue,
+  useTransition,
+  useRef,
+} from 'react';
+import { Box, Collapse, Fade, Stack } from '@mui/material';
 import {
   Button,
   CustomDivider,
@@ -15,30 +22,37 @@ import {
   IconPanelOpen,
 } from '@icons/index';
 import TabSwitcher from '@components/tab_switcher';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import {
   appliedFilters,
   clearedFilters,
   emptyListMessage,
   NO_MATCHES,
-} from '../helpers';
-import { TerritoriesHubProps } from './index.types';
+} from '@features/territories/helpers';
+import { TerritoriesHubProps } from '@features/territories/hub/index.types';
 import {
   Territory,
   TerritoryFilters as TerritoryFiltersType,
+  TerritoryStatus,
 } from '@definition/territory';
 import Card from '@components/card';
-import BoardView from '../components/board_view';
-import AssignDialog from '../components/assign_dialog';
-import MyHistory from '../components/my_history';
-import ReturnDialog from '../components/return_dialog';
-import SelectionBar from '../components/selection_bar';
+import BoardView from '@features/territories/components/board_view';
+import CampaignBanner from '@features/territories/components/campaign_banner';
+import AssignDialog from '@features/territories/components/assign_dialog';
+import AssignReturnDialogs from '@features/territories/components/assign_return_dialogs';
+import ReturnManyDialog from '@features/territories/components/return_many_dialog';
+import MyHistory from '@features/territories/components/my_history';
+import SelectionBar from '@features/territories/components/selection_bar';
 import DialogActions from '@components/dialog_actions';
 import dashedBorder from '@utils/dashed_border';
-import TerritoryFilters from '../components/territory_filters';
-import TerritoryTable from '../components/territory_table';
-
-const plural = (count: number) => (count === 1 ? 'territory' : 'territories');
+import {
+  DURATION_MEDIUM,
+  DURATION_SHORT,
+  EASE_STANDARD,
+  useSlideIn,
+} from '@utils/motion';
+import TerritoryFilters from '@features/territories/components/territory_filters';
+import TerritoryTable from '@features/territories/components/territory_table';
 
 const SearchRow = ({
   search,
@@ -54,29 +68,61 @@ const SearchRow = ({
   filtersOpen: boolean;
   applied: number;
   onToggleFilters: VoidFunction;
-}) => (
-  <Stack direction="row" sx={{ alignItems: 'center', gap: '16px' }}>
-    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-      <SearchBar
-        placeholder="Search territories"
-        value={search}
-        onSearch={onSearch}
-      />
-    </Box>
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <Stack direction="row" sx={{ alignItems: 'center' }}>
+      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+        <SearchBar
+          placeholder={t('tr_territorySearchTerritories')}
+          value={search}
+          onSearch={onSearch}
+        />
+      </Box>
 
-    {showFiltersButton && (
-      <Button
-        variant="secondary"
-        disableAutoStretch
+      {/* the button folds away sideways, so the search widens smoothly */}
+      <Collapse
+        orientation="horizontal"
+        in={showFiltersButton}
+        timeout={DURATION_MEDIUM}
+        easing={EASE_STANDARD}
+        inert={!showFiltersButton}
         sx={{ flexShrink: 0 }}
-        onClick={onToggleFilters}
-        endIcon={filtersOpen ? <IconPanelOpen /> : <IconPanelClose />}
       >
-        {applied ? `Filters (${applied})` : 'Filters'}
-      </Button>
-    )}
-  </Stack>
-);
+        <Button
+          variant="secondary"
+          disableAutoStretch
+          sx={{ flexShrink: 0, marginLeft: '16px' }}
+          onClick={onToggleFilters}
+          endIcon={filtersOpen ? <IconPanelOpen /> : <IconPanelClose />}
+        >
+          {t('tr_filters')}
+          {/* how many are on, as the tabs show their counts */}
+          {applied > 0 && (
+            <Box
+              component="span"
+              className="label-small-semibold"
+              sx={{
+                display: 'inline-flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minWidth: '20px',
+                height: '20px',
+                marginLeft: '8px',
+                padding: '0 5px',
+                borderRadius: 'var(--radius-s)',
+                backgroundColor: 'var(--accent-150)',
+                color: 'var(--accent-dark)',
+              }}
+            >
+              {applied}
+            </Box>
+          )}
+        </Button>
+      </Collapse>
+    </Stack>
+  );
+};
 
 const FiltersPane = ({
   filters,
@@ -90,29 +136,32 @@ const FiltersPane = ({
   applied: number;
   count: number;
   onClose: VoidFunction;
-}) => (
-  <Card>
-    <TerritoryFilters
-      filters={filters}
-      onChange={onChange}
-      showTitle={false}
-      showClear={false}
-    />
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <Card>
+      <TerritoryFilters
+        filters={filters}
+        onChange={onChange}
+        showTitle={false}
+        showClear={false}
+      />
 
-    <DialogActions>
-      <Button
-        variant="secondary"
-        disabled={applied === 0}
-        onClick={() => onChange(clearedFilters(filters))}
-      >
-        Clear all
-      </Button>
-      <Button variant="main" onClick={onClose}>
-        {`Show ${count} ${plural(count)}`}
-      </Button>
-    </DialogActions>
-  </Card>
-);
+      <DialogActions>
+        <Button
+          variant="secondary"
+          disabled={applied === 0}
+          onClick={() => onChange(clearedFilters(filters))}
+        >
+          {t('tr_clearAll')}
+        </Button>
+        <Button variant="main" onClick={onClose}>
+          {t('tr_territoryShowCount', { count })}
+        </Button>
+      </DialogActions>
+    </Card>
+  );
+};
 
 const SidePanel = ({
   filters,
@@ -135,7 +184,9 @@ const SidePanel = ({
     {history && (
       <Box
         sx={{
-          padding: '16px',
+          // the cards' 1px border plus their 16px padding: the dashed line is
+          // drawn inside the box, so their titles and this one line up
+          padding: '17px',
           backgroundColor: 'var(--accent-150)',
           ...dashedBorder({ radius: 12 }),
         }}
@@ -151,11 +202,14 @@ const TabsRow = ({
   value,
   onChange,
   aside,
+  tabsShown = true,
 }: {
   tabs: TerritoriesHubProps['hub']['tabs'];
   value: number;
   onChange: (value: number) => void;
   aside?: ReactNode;
+  // hidden tabs fade but keep their row, so nothing below moves
+  tabsShown?: boolean;
 }) => {
   if (tabs.length === 0 && !aside) return null;
 
@@ -167,12 +221,16 @@ const TabsRow = ({
       >
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
           {tabs.length > 0 && (
-            <ScrollableTabs
-              appearance="plain"
-              tabs={tabs.map((item) => ({ ...item }))}
-              value={value}
-              onChange={onChange}
-            />
+            <Fade in={tabsShown} timeout={DURATION_SHORT}>
+              <Box inert={!tabsShown}>
+                <ScrollableTabs
+                  appearance="plain"
+                  tabs={tabs.map((item) => ({ ...item }))}
+                  value={value}
+                  onChange={onChange}
+                />
+              </Box>
+            </Fade>
           )}
         </Box>
 
@@ -184,123 +242,9 @@ const TabsRow = ({
   );
 };
 
-const TerritoryDialogs = ({ hub }: TerritoriesHubProps) => {
-  const {
-    assignTarget,
-    territories,
-    setAssignId,
-    handleAssign,
-    assignManyOpen,
-    assignableCount,
-    setAssignManyOpen,
-    assignMany,
-    returnTarget,
-    setReturnId,
-    handleReturn,
-  } = hub;
-  return (
-    <>
-      {/* both dialogs mount per territory so their fields start from it */}
-      {assignTarget && (
-        <AssignDialog
-          title={`Assign ${assignTarget.number}`}
-          subtitle={`${assignTarget.name} · ${assignTarget.city}`}
-          requestedBy={assignTarget.requestedBy}
-          territories={territories}
-          onClose={() => setAssignId(undefined)}
-          onAssign={(publisher, assignedOn) =>
-            handleAssign(assignTarget.id, publisher, assignedOn)
-          }
-        />
-      )}
-
-      {assignManyOpen && (
-        <AssignDialog
-          title={`Assign ${assignableCount} ${plural(assignableCount)}`}
-          territories={territories}
-          onClose={() => setAssignManyOpen(false)}
-          onAssign={assignMany}
-        />
-      )}
-
-      {returnTarget && (
-        <ReturnDialog
-          territory={returnTarget}
-          onClose={() => setReturnId(undefined)}
-          onReturn={handleReturn}
-          onAssignAgain={handleAssign}
-        />
-      )}
-    </>
-  );
-};
-
-const TerritoryResults = ({
-  hub,
-  emptyMessage,
-}: TerritoriesHubProps & { emptyMessage: string }) => {
-  const {
-    isBoard,
-    boardTerritories,
-    handleOpen,
-    setAssignId,
-    handleAssign,
-    handleDecline,
-    setReturnId,
-    handleDrop,
-    showHouseholds,
-    visible,
-    checked,
-    toggleCheck,
-    toggleCheckMany,
-    tabId,
-    isTerritoryEditor,
-    isBrowsing,
-    selected,
-    setAssignManyOpen,
-    returnMany,
-  } = hub;
-  return isBoard ? (
-    <BoardView
-      territories={boardTerritories}
-      onOpen={handleOpen}
-      onOpenAssign={setAssignId}
-      onAssign={handleAssign}
-      onDecline={handleDecline}
-      onReturn={setReturnId}
-      onDrop={handleDrop}
-      showHouseholds={showHouseholds}
-      overdueMonths={hub.overdueMonths}
-    />
-  ) : (
-    <TerritoryTable
-      territories={visible}
-      checked={checked}
-      onCheck={toggleCheck}
-      onCheckMany={toggleCheckMany}
-      onOpen={handleOpen}
-      onOpenAssign={setAssignId}
-      onAssign={handleAssign}
-      onDecline={handleDecline}
-      onReturn={setReturnId}
-      showHouseholds={showHouseholds}
-      showRequested={tabId !== 'requests' && tabId !== 'requested'}
-      actions={isTerritoryEditor || (!isBrowsing && hub.canRequest)}
-      showHolder={isTerritoryEditor}
-      emptyMessage={emptyMessage}
-      title={`Territories: ${visible.length}`}
-      selectionBar={
-        <SelectionBar
-          selected={selected}
-          onAssignMany={() => setAssignManyOpen(true)}
-          onReturnMany={returnMany}
-        />
-      }
-    />
-  );
-};
-
 const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
+  const { t } = useAppTranslation();
+
   const {
     tab,
     tabId,
@@ -311,14 +255,64 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     visible,
     boardTerritories,
     territories,
-    isBoard,
+    selected,
+    checked,
+    toggleCheck,
+    toggleCheckMany,
+    assignMany,
+    returnMany,
+    handleDecline,
+    handleOpen,
+    showHouseholds,
+    setReturnId,
+    setAssignId,
+    assignManyOpen,
+    setAssignManyOpen,
+    returnManyOpen,
+    setReturnManyOpen,
+    returnable,
+    assignableCount,
     isBrowsing,
     isOwnTab: isMine,
     isTerritoryEditor,
     setIsBoard,
+    pool,
   } = hub;
 
+  // stable handlers for the memoized board, reaching the newest hub
+  const latest = useRef(hub);
+  useLayoutEffect(() => {
+    latest.current = hub;
+  });
+  const boardHandlers = useMemo(
+    () => ({
+      open: (id: string) => latest.current.handleOpen(id),
+      assign: (id: string) => latest.current.setAssignId(id),
+      decline: (id: string) => latest.current.handleDecline(id),
+      return: (id: string) => latest.current.setReturnId(id),
+      drop: (id: string, status: TerritoryStatus) =>
+        latest.current.handleDrop(id, status),
+    }),
+    []
+  );
+
+  // React's standard split: the switch follows the click at once, the
+  // views follow the deferred value, rendered without blocking the slide
+  const isBoard = useDeferredValue(hub.isBoard);
+
   const { desktopUp, tablet688Up } = useBreakpoints();
+
+  // tabs, then the board after them: each change slides in from its side
+  const slide = useSlideIn(isBoard ? tabs.length : tab);
+
+  // while the next tab renders, the current one already fades back, so the
+  // swap reads as one motion instead of a pause and a jump
+  const [switching, startSwitch] = useTransition();
+  const switchTab = (next: number) => startSwitch(() => setTab(next));
+
+  const manyDoNotCalls = selected
+    .filter((territory) => territory.status === 'available')
+    .reduce((sum, territory) => sum + territory.doNotCalls.length, 0);
 
   const { filtersOpen, setFiltersOpen } = hub;
 
@@ -336,26 +330,90 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
   // a search or filter explains an empty list; otherwise it's simply empty
   const emptyMessage =
     !isMine && (applied > 0 || filters.search.trim())
-      ? NO_MATCHES
+      ? t(NO_MATCHES)
       : emptyListMessage();
 
   const canSwitchLayout = isTerritoryEditor && isBrowsing;
 
   const layoutSwitch = canSwitchLayout && (
     <TabSwitcher
-      ariaLabel="Layout"
+      ariaLabel={t('tr_territoryLayout')}
       surface="light"
-      value={isBoard ? 'board' : 'list'}
+      value={hub.isBoard ? 'board' : 'list'}
       onChange={(value) => setIsBoard(value === 'board')}
       options={[
-        { value: 'list', label: 'List', icon: <IconListView /> },
-        { value: 'board', label: 'Board', icon: <IconInformationBoard /> },
+        { value: 'list', label: t('tr_territoryList'), icon: <IconListView /> },
+        {
+          value: 'board',
+          label: t('tr_territoryBoard'),
+          icon: <IconInformationBoard />,
+        },
       ]}
       sx={{ width: tablet688Up ? '240px' : '100%', flexShrink: 0 }}
     />
   );
 
   const inlineSwitch = tablet688Up ? layoutSwitch : undefined;
+
+  const selectionBar = selected.length > 0 && (
+    <SelectionBar
+      selected={selected}
+      onAssignMany={() => setAssignManyOpen(true)}
+      onReturnMany={() => setReturnManyOpen(true)}
+      onClear={hub.clearChecked}
+    />
+  );
+
+  const board = (
+    <BoardView
+      territories={boardTerritories}
+      onOpen={boardHandlers.open}
+      onOpenAssign={boardHandlers.assign}
+      onDecline={boardHandlers.decline}
+      onReturn={boardHandlers.return}
+      onDrop={boardHandlers.drop}
+      showHouseholds={showHouseholds}
+      overdueMonths={hub.overdueMonths}
+    />
+  );
+
+  const list = (
+    <TerritoryTable
+      territories={visible}
+      checked={checked}
+      selecting={hub.selecting}
+      onSelectingChange={hub.setSelecting}
+      onCheck={toggleCheck}
+      onCheckMany={toggleCheckMany}
+      onOpen={handleOpen}
+      onOpenAssign={setAssignId}
+      onDecline={handleDecline}
+      onReturn={setReturnId}
+      showHouseholds={showHouseholds}
+      showRequested={tabId !== 'requests' && tabId !== 'requested'}
+      actions={isTerritoryEditor || (!isBrowsing && hub.canRequest)}
+      showHolder={isTerritoryEditor && tabId !== 'mine'}
+      showDoNotCalls={isTerritoryEditor}
+      emptyMessage={emptyMessage}
+      title={t('tr_territoryTerritories', { n: visible.length })}
+      titleOnTop={isMine && tabs.length === 0}
+      selectionBar={selectionBar}
+      pool={pool}
+    />
+  );
+
+  // both views stay mounted and only hide, so a switch is one attribute
+  // change instead of building or reconnecting a whole view
+  const content = canSwitchLayout ? (
+    <>
+      <Box hidden={isBoard}>{list}</Box>
+      <Box hidden={!isBoard}>{board}</Box>
+    </>
+  ) : isBoard ? (
+    board
+  ) : (
+    list
+  );
 
   const listCard = (
     <Card>
@@ -365,40 +423,61 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
         <SearchRow
           search={filters.search}
           onSearch={(value) => setFilters({ ...filters, search: value })}
-          showFiltersButton={!isBoard}
+          showFiltersButton={!hub.isBoard}
           filtersOpen={filtersOpen}
           applied={applied}
           onToggleFilters={() => setFiltersOpen(!filtersOpen)}
         />
       )}
 
+      {!isMine && hub.running && (
+        <CampaignBanner
+          campaign={hub.running}
+          territories={territories}
+          filters={filters}
+          onChange={setFilters}
+        />
+      )}
+
       <Box>
         <TabsRow
-          tabs={isBoard ? [] : tabs}
+          tabs={tabs}
+          tabsShown={!hub.isBoard}
           value={tab}
-          onChange={setTab}
+          onChange={switchTab}
           aside={inlineSwitch}
         />
 
-        {isBoard && (
-          <Stack
-            direction="row"
-            sx={{
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '12px',
-              padding: '16px 8px 8px',
-              minHeight: '44px',
-            }}
-          >
-            <Typography className="h3" noWrap>
-              Territories: {boardTerritories.length}
-            </Typography>
-          </Stack>
-        )}
+        <Box
+          ref={slide}
+          sx={{
+            opacity: switching || isBoard !== hub.isBoard ? 0.6 : 1,
+            transition: `opacity ${DURATION_SHORT}ms ${EASE_STANDARD}`,
+          }}
+        >
+          {isBoard && (
+            <Stack
+              direction="row"
+              sx={{
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+                // the list's heading row, so the title stays put on a switch
+                padding: '12px 8px 8px',
+                minHeight: '40px',
+                boxSizing: 'content-box',
+              }}
+            >
+              <Typography className="h3" noWrap>
+                {t('tr_territoryTerritories', { n: boardTerritories.length })}
+              </Typography>
+              {selectionBar}
+            </Stack>
+          )}
 
-        <TerritoryResults hub={hub} emptyMessage={emptyMessage} />
+          {content}
+        </Box>
       </Box>
     </Card>
   );
@@ -413,14 +492,36 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
         alignItems: 'start',
       }}
     >
-      <TerritoryDialogs hub={hub} />
+      <AssignReturnDialogs
+        actions={hub.actions}
+        canAssign={isTerritoryEditor}
+      />
 
-      {desktopUp || isBoard ? (
+      {assignManyOpen && (
+        <AssignDialog
+          title={t('tr_territoryAssignCount', { count: assignableCount })}
+          doNotCalls={manyDoNotCalls}
+          onClose={() => setAssignManyOpen(false)}
+          onAssign={assignMany}
+        />
+      )}
+
+      {returnManyOpen && (
+        <ReturnManyDialog
+          territories={returnable}
+          onClose={() => setReturnManyOpen(false)}
+          onReturn={returnMany}
+        />
+      )}
+
+      {/* the board keeps the same tree as the list, so the layout switch
+          stays mounted and slides between the two */}
+      {desktopUp ? (
         listCard
       ) : (
         <PaneSwitcher
           fullBleed
-          value={filtersOpen ? 1 : 0}
+          value={filtersOpen && !isBoard ? 1 : 0}
           panes={[
             { key: 'list', content: listCard },
             {

@@ -34,12 +34,16 @@ const TabSwitcher = <T extends string = string>({
   ariaLabel,
   surface = 'tinted',
   iconOnly = false,
+  collapseBelow,
   sx,
 }: TabSwitcherProps<T>) => {
   const palette = PALETTE[surface];
 
   const activeIndex = options.findIndex((option) => option.value === value);
   const gap = 8;
+  const collapse = collapseBelow
+    ? `@container (max-width: ${collapseBelow}px)`
+    : undefined;
 
   return (
     <Box
@@ -53,6 +57,10 @@ const TabSwitcher = <T extends string = string>({
         borderRadius: 'var(--radius-l)',
         backgroundColor: palette.track,
         border: `1px solid ${palette.trackBorder}`,
+        ...(collapse && { containerType: 'inline-size' }),
+        '@media (prefers-reduced-motion: reduce)': {
+          '& *': { transition: 'none' },
+        },
         ...sx,
       }}
     >
@@ -82,7 +90,7 @@ const TabSwitcher = <T extends string = string>({
             role="tab"
             className={isActive ? 'body-small-semibold' : 'body-small-regular'}
             aria-selected={isActive}
-            aria-label={iconOnly ? option.label : undefined}
+            aria-label={iconOnly || collapse ? option.label : undefined}
             disabled={option.disabled}
             disableRipple
             onClick={() => onChange(option.value)}
@@ -106,6 +114,13 @@ const TabSwitcher = <T extends string = string>({
                 fill: isActive ? 'var(--accent-dark)' : 'var(--accent-400)',
                 transition: 'fill 0.16s ease-out',
               },
+              ...(collapse && {
+                [collapse]: {
+                  '& > span:last-of-type:not(:first-of-type)': {
+                    display: 'none',
+                  },
+                },
+              }),
               '&:focus-visible': { outline: 'var(--accent-main) auto 1px' },
             }}
           >

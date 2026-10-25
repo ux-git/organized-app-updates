@@ -1,3 +1,4 @@
+import TerritoryNote from '@features/territories/components/note';
 import { useState } from 'react';
 import { ButtonBase, Collapse, Stack } from '@mui/material';
 import { useNavigate } from 'react-router';
@@ -9,26 +10,43 @@ import {
   InfoNote,
   Typography,
 } from '@components/index';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { IconExpand } from '@icons/index';
 import { Territory } from '@definition/territory';
 import { shortDateFormatState } from '@states/settings';
 import { territoriesShowHouseholdsState } from '@states/territories';
 import {
-  CURRENT_PUBLISHER,
   displayDate,
   parseDate,
   emptyListMessage,
-} from '../helpers';
-import { clickableRow, ROW_DIVIDER, rowStates } from './table_styles';
-import { Households } from './territory_table';
-import TruncatedText from './truncated_text';
+} from '@features/territories/helpers';
+import { currentPublisherState } from '@features/territories/assignees';
+import {
+  clickableRow,
+  ROW_DIVIDER,
+  rowStates,
+} from '@features/territories/components/table_styles';
+import { CampaignBadge } from '@features/territories/components/territory_badges';
+import { Households } from '@features/territories/components/territory_table';
+import TruncatedText from '@features/territories/components/truncated_text';
 
 // the latest ones answer "what did I have lately"; the rest load on request
 const FIRST_PAGE = 10;
 const PAGE = 20;
 
-const MyHistory = ({ territories }: { territories: Territory[] }) => {
+const MyHistory = ({
+  territories,
+  publisher,
+  title,
+  parent,
+}: {
+  territories: Territory[];
+  publisher?: string;
+  title?: string;
+  parent?: string;
+}) => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
 
   const { tablet688Up } = useBreakpoints();
@@ -37,13 +55,16 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
 
   const format = useAtomValue(shortDateFormatState);
   const showHouseholds = useAtomValue(territoriesShowHouseholdsState);
+  const me = useAtomValue(currentPublisherState);
 
   const rows = territories
     .flatMap((territory) =>
       territory.assignments
         .filter(
           (assignment) =>
-            assignment.publisher === CURRENT_PUBLISHER && assignment.returnedOn
+            [assignment.publisher, assignment.group].includes(
+              publisher ?? me
+            ) && assignment.returnedOn
         )
         .map((assignment) => ({ territory, assignment }))
     )
@@ -58,7 +79,9 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
   const remaining = rows.length - visible.length;
 
   const open = (id: string) =>
-    navigate(`/territories/${id}`, { state: { parent: 'My territories' } });
+    navigate(`/territories/${id}`, {
+      state: { parent: parent ?? 'tr_myTerritories' },
+    });
 
   return (
     <Stack>
@@ -78,7 +101,7 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
         }}
       >
         <Typography component="h2" className="h2" color="var(--black)">
-          My previous territories
+          {title ?? t('tr_territoryMyPreviousTerritories')}
         </Typography>
         {/* the accent badge vanishes on the tinted card */}
         <Badge
@@ -160,6 +183,12 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
                     {displayDate(assignment.assignedOn, format)} –{' '}
                     {displayDate(assignment.returnedOn, format)}
                   </Typography>
+                  <TerritoryNote kind="assignment" value={assignment.note} />
+                  {assignment.campaign && (
+                    <Stack direction="row" spacing="4px">
+                      <CampaignBadge assignment={assignment} />
+                    </Stack>
+                  )}
                 </Stack>
               </Stack>
             ))}
@@ -172,7 +201,7 @@ const MyHistory = ({ territories }: { territories: Territory[] }) => {
               endIcon={<IconExpand />}
               sx={{ width: '100%' }}
             >
-              Show more
+              {t('tr_territoryShowMore')}
             </Button>
           )}
         </Stack>

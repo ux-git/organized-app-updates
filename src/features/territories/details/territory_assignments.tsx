@@ -1,20 +1,35 @@
+import TerritoryNote from '@features/territories/components/note';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { shortDateFormatState } from '@states/settings';
 import { Box, Stack } from '@mui/material';
 import { Button } from '@components/index';
-import { IconAdd, IconEdit } from '@icons/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
+import { IconAdd, IconCopy, IconEdit } from '@icons/index';
 import { Territory, TerritoryAssignment } from '@definition/territory';
-import RecordList from '../components/record_list';
-import RowAction from '../components/row_action';
-import { StatusBadge } from '../components/territory_badges';
+import RecordList from '@features/territories/components/record_list';
+import RowAction from '@features/territories/components/row_action';
+import {
+  CampaignBadge,
+  CardBadge,
+  StatusBadge,
+} from '@features/territories/components/territory_badges';
 import {
   assignmentFromDates,
+  assignmentIssues,
   displayDate,
+  issuesText,
   parseDate,
   emptyListMessage,
-} from '../helpers';
-import AssignmentEditor from './assignment_editor';
+} from '@features/territories/helpers';
+import { appendNote } from '@features/territories/notes';
+import {
+  holderText,
+  missingPublisher,
+} from '@features/territories/group_holder';
+import { offerUndo } from '@features/territories/undo';
+import { restoreAssignment } from '@features/territories/restore';
+import AssignmentEditor from '@features/territories/details/assignment_editor';
 
 const newestFirst = (a: TerritoryAssignment, b: TerritoryAssignment) =>
   (parseDate(b.assignedOn)?.getTime() ?? 0) -
@@ -39,16 +54,26 @@ const blankAssignment = (): TerritoryAssignment =>
 const TerritoryAssignments = ({
   territory,
   onChange,
+  onNotes,
 }: {
   territory: Territory;
   onChange?: (assignments: TerritoryAssignment[]) => void;
+  // a note worth keeping goes into the territory's notes
+  onNotes?: (notes: string) => void;
 }) => {
+  const { t } = useAppTranslation();
+
+  const { tablet688Up } = useBreakpoints();
+
   const format = useAtomValue(shortDateFormatState);
 
   const [editing, setEditing] = useState<TerritoryAssignment>();
   const [adding, setAdding] = useState(false);
 
   const assignments = territory.assignments;
+
+  const adoptable = (note?: string) =>
+    !!onNotes && !!note?.trim() && !territory.notes?.includes(note.trim());
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -57,19 +82,50 @@ const TerritoryAssignments = ({
         items={[...assignments].sort(newestFirst).map((assignment) => ({
           id: assignment.id,
           onClick: onChange && (() => setEditing(assignment)),
-          title: assignment.publisher,
+          title: holderText(assignment),
+          content: <TerritoryNote kind="assignment" value={assignment.note} />,
           date: assignment.returnedOn
             ? `${displayDate(assignment.assignedOn, format)} – ${displayDate(assignment.returnedOn, format)}`
-            : `Since: ${displayDate(assignment.assignedOn, format)}`,
-          badge: !assignment.returnedOn && (
-            <Box sx={{ flexShrink: 0 }}>
-              <StatusBadge status="in_work" />
-            </Box>
+            : t('tr_territorySince', {
+                date: displayDate(assignment.assignedOn, format),
+              }),
+          warning: [
+            missingPublisher(assignment) &&
+              t('tr_territoryFillInWhoItIsAssignedTo'),
+            issuesText(assignmentIssues(assignment)),
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          badge: (!assignment.returnedOn ||
+            assignment.campaign ||
+            assignment.card) && (
+            <Stack direction="row" spacing="4px" sx={{ flexShrink: 0 }}>
+              {!assignment.returnedOn && <StatusBadge status="in_work" />}
+              <CardBadge card={assignment.card} text={tablet688Up} />
+              <CampaignBadge assignment={assignment} />
+            </Stack>
           ),
-          actions: onChange && (
-            <RowAction title="Edit" onClick={() => setEditing(assignment)}>
-              <IconEdit color="var(--accent-main)" width={18} height={18} />
-            </RowAction>
+          actions: (onChange || adoptable(assignment.note)) && (
+            <>
+              {adoptable(assignment.note) && (
+                <RowAction
+                  title={t('tr_territoryAddToTerritoryNotes')}
+                  onClick={() =>
+                    onNotes?.(appendNote(territory.notes, assignment.note!))
+                  }
+                >
+                  <IconCopy color="var(--accent-main)" width={18} height={18} />
+                </RowAction>
+              )}
+              {onChange && (
+                <RowAction
+                  title={t('tr_edit')}
+                  onClick={() => setEditing(assignment)}
+                >
+                  <IconEdit color="var(--accent-main)" width={18} height={18} />
+                </RowAction>
+              )}
+            </>
           ),
         }))}
       />
@@ -86,7 +142,7 @@ const TerritoryAssignments = ({
             }}
             sx={{ minHeight: '32px', minWidth: 'unset' }}
           >
-            Add
+            {t('tr_add')}
           </Button>
         </Stack>
       )}
@@ -102,8 +158,20 @@ const TerritoryAssignments = ({
             setEditing(undefined);
             setAdding(false);
           }}
-          onDelete={() =>
-            onChange(assignments.filter((item) => item.id !== editing.id))
+          onDelete={() => {
+            const index = assignments.findIndex(
+              (item) => item.id === editing.id
+            );
+            onChange(assignments.filter((item) => item.id !== editing.id));
+            offerUndo({
+              text: t('tr_territoryAssignmentDeleted'),
+              revert: () => restoreAssignment(territory.id, editing, index),
+            });
+          }}
+          onAdoptNote={
+            onNotes
+              ? (note) => onNotes(appendNote(territory.notes, note))
+              : undefined
           }
           onSave={(next) =>
             onChange(

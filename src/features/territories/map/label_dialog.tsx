@@ -1,26 +1,31 @@
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { Button, TextField } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 
 const LabelDialog = ({
+  initial = '',
   onSave,
   onClose,
 }: {
+  initial?: string;
   onSave: (text: string) => void;
   onClose: VoidFunction;
 }) => {
-  const [text, setText] = useState('');
+  const { t } = useAppTranslation();
+
+  const [text, setText] = useState(initial);
 
   return (
     <Dialog
       onClose={onClose}
       open
-      title="Add text"
-      description="The note is printed on the territory card together with the map."
+      title={initial ? t('tr_territoryEditText') : t('tr_territoryAddText')}
+      description={t('tr_territoryTheNoteIsPrintedOnTheTerritoryCardTogether')}
     >
       <TextField
-        label="Text"
+        label={t('tr_territoryText')}
         autoFocus
         value={text}
         onChange={(event) => setText(event.target.value)}
@@ -28,14 +33,14 @@ const LabelDialog = ({
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          Cancel
+          {t('tr_cancel')}
         </Button>
         <Button
           variant="main"
           disabled={!text.trim()}
           onClick={() => onSave(text)}
         >
-          Save
+          {t('tr_save')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -1,6 +1,14 @@
+import { useAppTranslation } from '@hooks/index';
 import { Image, Text, View } from '@react-pdf/renderer';
-import { TerritoryPrintData } from '../index.types';
-import styles, { CARD, COLORS } from '../index.styles';
+import { TerritoryPrintData } from '@views/territories/index.types';
+import styles, {
+  CARD,
+  CHIP_HEIGHT,
+  COLORS,
+} from '@views/territories/index.styles';
+import { titleOf } from '@views/territories/shared/title';
+import Shadow from '@views/territories/shared/Shadow';
+import WarningChip from '@views/territories/shared/WarningChip';
 
 const COLUMNS = 4;
 
@@ -67,15 +75,41 @@ const PhoneGrid = ({
   );
 };
 
+const MapBadge = ({ text }: { text: string }) => (
+  <View style={{ position: 'relative' }}>
+    <Shadow radius={4} spread={3} drop={2} />
+    <View
+      style={{
+        backgroundColor: COLORS.paper,
+        border: `0.5px solid ${COLORS.line}`,
+        borderRadius: 4,
+        height: CHIP_HEIGHT,
+        justifyContent: 'center',
+        paddingLeft: 5,
+        paddingRight: 5,
+      }}
+    >
+      <Text style={[styles.households, { fontSize: 7, fontWeight: 400 }]}>
+        {text}
+      </Text>
+    </View>
+  </View>
+);
+
 const CardFront = ({
   territory,
   width,
   height,
+  printedOn,
 }: {
   territory: TerritoryPrintData;
   width: number;
   height: number;
+  // the A5 card has its date on the back, so only the S-12 shows it here
+  printedOn?: string;
 }) => {
+  const { t } = useAppTranslation();
+
   const inner = width - CARD.padding * 2;
   const mapHeight = height - CARD.mapTop - CARD.footerHeight;
 
@@ -87,21 +121,24 @@ const CardFront = ({
         backgroundColor: '#FFFFFF',
         paddingLeft: CARD.padding,
         paddingRight: CARD.padding,
-        paddingTop: CARD.headerTop,
       }}
     >
-      <Text style={styles.title}>Territory Map Card</Text>
-
-      <View style={{ flexDirection: 'row', gap: 16, marginTop: 2 }}>
-        <View style={[styles.metaField, { flexGrow: 1 }]}>
-          <Text style={styles.metaLabel}>Locality:</Text>
-          <Text style={styles.metaValue}>{territory.city}</Text>
-        </View>
-
-        <View style={[styles.metaField, { width: 110 }]}>
-          <Text style={styles.metaLabel}>Terr. no:</Text>
-          <Text style={styles.metaValue}>{territory.number}</Text>
-        </View>
+      <View
+        style={{
+          height: CARD.mapTop,
+          paddingTop: 9,
+          flexDirection: 'row',
+        }}
+      >
+        <Text>
+          <Text style={[styles.frameTitle, { fontSize: 11 }]}>
+            {t('tr_territoryTerritoryMapCard')}
+            {'\u2002'}
+          </Text>
+          <Text style={[styles.frameName, { fontSize: 11 }]}>
+            {titleOf(territory)}
+          </Text>
+        </Text>
       </View>
 
       <View
@@ -109,7 +146,6 @@ const CardFront = ({
           position: 'relative',
           width: inner,
           height: mapHeight,
-          marginTop: CARD.mapTop - CARD.headerTop - 24,
         }}
       >
         {territory.type === 'phone' && (
@@ -123,7 +159,12 @@ const CardFront = ({
         {territory.type !== 'phone' && territory.mapImage && (
           <Image
             src={territory.mapImage}
-            style={{ width: inner, height: mapHeight, objectFit: 'cover' }}
+            style={{
+              width: inner,
+              height: mapHeight,
+              objectFit: 'cover',
+              borderRadius: 6,
+            }}
           />
         )}
 
@@ -138,7 +179,7 @@ const CardFront = ({
             }}
           >
             <Text style={styles.fine}>
-              This territory has no borders on the map yet
+              {t('tr_territoryThisTerritoryHasNoBordersOnTheMapYet')}
             </Text>
           </View>
         )}
@@ -147,27 +188,53 @@ const CardFront = ({
           <View
             style={{
               position: 'absolute',
-              right: 0,
-              bottom: 0,
-              backgroundColor: COLORS.paper,
-              paddingTop: 4,
-              paddingBottom: 4,
-              paddingLeft: 6,
-              paddingRight: 6,
+              left: 8,
+              right: 8,
+              bottom: 8,
+              alignItems: 'flex-end',
+              gap: 4,
             }}
           >
-            <Text style={styles.households}>
-              Households: {territory.households}
-            </Text>
+            <View style={{ flexDirection: 'row', gap: 4 }}>
+              {printedOn && (
+                <MapBadge
+                  text={t('tr_territoryPrintedOn', { date: printedOn })}
+                />
+              )}
+              {territory.showHouseholds !== false &&
+                territory.households > 0 && (
+                  <MapBadge
+                    text={t('tr_territoryHouseholdsWithCount', {
+                      n: territory.households,
+                    })}
+                  />
+                )}
+            </View>
+            {/* the warning gets the whole bottom row to itself */}
+            {territory.warning && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'flex-end',
+                  width: '100%',
+                }}
+              >
+                <WarningChip
+                  text={territory.warning}
+                  maxWidth={inner - 16}
+                  radius={4}
+                />
+              </View>
+            )}
           </View>
         )}
       </View>
 
-      <Text style={[styles.fine, { marginTop: 5, width: inner }]}>
-        Please keep this card in the envelope. Do not soil, mark, or bend it.
-        Each time the territory is covered, please inform the brother who cares
-        for the territory files.
-      </Text>
+      <View style={{ height: CARD.footerHeight, justifyContent: 'center' }}>
+        <Text style={[styles.a5CareMessage, { width: inner }]}>
+          {t('tr_territoryPleaseKeepThisCardInTheEnvelopeDoNot')}
+        </Text>
+      </View>
     </View>
   );
 };

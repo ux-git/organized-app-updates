@@ -1,3 +1,4 @@
+import { useAppTranslation } from '@hooks/index';
 import { KeyboardEvent, useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import {
@@ -7,7 +8,8 @@ import {
   Typography,
 } from '@components/index';
 import { Territory } from '@definition/territory';
-import { NO_MATCHES } from '../helpers';
+import { NO_MATCHES } from '@features/territories/helpers';
+import { DoNotCallBadge } from '@features/territories/components/territory_badges';
 
 const TerritoryPicker = ({
   territories,
@@ -20,6 +22,8 @@ const TerritoryPicker = ({
   onSelect: (id: string) => void;
   height: string;
 }) => {
+  const { t } = useAppTranslation();
+
   const [tab, setTab] = useState(0);
 
   const added = territories.filter((territory) => territory.boundary?.length);
@@ -31,8 +35,8 @@ const TerritoryPicker = ({
 
   const emptyTabMessage =
     tab === 0
-      ? 'No territory is on the map yet. Pick one under “No borders” to draw it.'
-      : 'Every territory has its borders drawn.';
+      ? t('tr_territoryNoTerritoryIsOnTheMapYetPickOne')
+      : t('tr_territoryEveryTerritoryHasItsBordersDrawn');
 
   const handleKey = (event: KeyboardEvent, id: string) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -58,8 +62,8 @@ const TerritoryPicker = ({
           appearance="plain"
           layout="stretch"
           tabs={[
-            { label: 'On the map', badge: added.length },
-            { label: 'No borders', badge: notAdded.length },
+            { label: t('tr_territoryDrawn'), badge: added.length },
+            { label: t('tr_territoryUndrawn'), badge: notAdded.length },
           ]}
           value={tab}
           onChange={setTab}
@@ -73,7 +77,7 @@ const TerritoryPicker = ({
         {shown.length === 0 && (
           <InfoNote
             sx={{ padding: '8px 8px 0' }}
-            message={territories.length === 0 ? NO_MATCHES : emptyTabMessage}
+            message={territories.length === 0 ? t(NO_MATCHES) : emptyTabMessage}
           />
         )}
 
@@ -93,7 +97,7 @@ const TerritoryPicker = ({
               onKeyDown={(event) => handleKey(event, territory.id)}
               sx={{
                 alignItems: 'center',
-                padding: '8px',
+                padding: '6px 8px',
                 cursor: 'pointer',
                 borderRadius: 'var(--radius-m)',
                 backgroundColor:
@@ -121,6 +125,8 @@ const TerritoryPicker = ({
                   {territory.city}
                 </Typography>
               </Box>
+
+              <DoNotCallBadge territory={territory} />
             </Stack>
           ))}
         </Stack>

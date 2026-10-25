@@ -308,3 +308,13 @@ export { default as IconWeek } from './IconWeek';
 export { default as IconWine } from './IconWine';
 export { default as IconWork } from './IconWork';
 export { default as IconYahoo } from './IconYahoo';
+
+export { default as IconActivityZone } from './IconActivityZone';
+export { default as IconCellMerge } from './IconCellMerge';
+export { default as IconCheckThin } from './IconCheckThin';
+export { default as IconContentCut } from './IconContentCut';
+export { default as IconCropFree } from './IconCropFree';
+export { default as IconFrameInspect } from './IconFrameInspect';
+export { default as IconMapAdd } from './IconMapAdd';
+export { default as IconMoveItem } from './IconMoveItem';
+export { default as IconPolyline } from './IconPolyline';

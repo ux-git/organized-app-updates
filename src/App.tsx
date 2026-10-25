@@ -125,6 +125,7 @@ const App = ({ updatePwa }: { updatePwa: VoidFunction }) => {
             { index: true, element: <Dashboard /> },
             { path: '/user-profile', element: <MyProfile /> },
             { path: '/territories', element: <Territories /> },
+            { path: '/territories/campaigns', element: <UpcomingEvents /> },
             { path: '/territories/history', element: <TerritoryHistory /> },
             {
               path: '/territories/history/:id',

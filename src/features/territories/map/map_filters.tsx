@@ -1,98 +1,122 @@
+import { useAppTranslation } from '@hooks/index';
 import { MenuItem, Stack } from '@mui/material';
-import { SearchBar, Select, Typography } from '@components/index';
+import { Select, Typography } from '@components/index';
 import IconButton from '@components/icon_button';
 import Tooltip from '@components/tooltip';
 import { IconPanelClose } from '@icons/index';
-import { COLOR_VIEWS, ColorView, HEATMAP_YEARS } from './views';
+import {
+  Bucket,
+  COLOR_VIEWS,
+  ColorView,
+  HEATMAP_PERIODS,
+} from '@features/territories/map/views';
+import MapLegend from '@features/territories/map/map_legend';
 
 type MapFiltersProps = {
-  search: string;
-  onSearch: (value: string) => void;
   colorView: ColorView;
   onColorViewChange: (value: ColorView) => void;
-  heatmapYear: number;
-  onHeatmapYearChange: (value: number) => void;
+  heatmapPeriod: string;
+  onHeatmapPeriodChange: (value: string) => void;
+  legend: Bucket[];
   onCollapse: VoidFunction;
 };
 
 const MapFilters = ({
-  search,
-  onSearch,
   colorView,
   onColorViewChange,
-  heatmapYear,
-  onHeatmapYearChange,
+  heatmapPeriod,
+  onHeatmapPeriodChange,
+  legend,
   onCollapse,
-}: MapFiltersProps) => (
-  <Stack
-    spacing="16px"
-    sx={{
-      padding: '9px 16px 16px 16px',
-      borderRadius: 'var(--radius-l)',
-      backgroundColor: 'var(--white)',
-      border: '1px solid var(--accent-200)',
-    }}
-  >
+}: MapFiltersProps) => {
+  const { t } = useAppTranslation();
+  return (
     <Stack
-      direction="row"
-      sx={{ alignItems: 'center', gap: '16px', marginBottom: '-4px' }}
+      spacing="16px"
+      sx={{
+        padding: '9px 16px 16px 16px',
+        borderRadius: 'var(--radius-l)',
+        backgroundColor: 'var(--white)',
+        border: '1px solid var(--accent-200)',
+      }}
     >
-      <Typography className="h4" color="var(--black)" sx={{ flexGrow: 1 }}>
-        Territories
-      </Typography>
-
-      <Tooltip title="Hide the panel">
-        {/* the same box as the button that opens the panel again */}
-        <IconButton
-          onClick={onCollapse}
-          sx={{
-            padding: '6px',
-            margin: '-6px',
-            borderRadius: 'var(--radius-m)',
-            '&:hover': { backgroundColor: 'var(--accent-150)' },
-          }}
-        >
-          <IconPanelClose color="var(--accent-main)" />
-        </IconButton>
-      </Tooltip>
-    </Stack>
-
-    <SearchBar
-      placeholder="Search territories"
-      value={search}
-      onSearch={onSearch}
-    />
-
-    <Stack spacing="16px">
-      <Select
-        label="Display"
-        value={colorView}
-        onChange={(event) => onColorViewChange(event.target.value as ColorView)}
+      <Stack
+        direction="row"
+        sx={{ alignItems: 'center', gap: '16px', marginBottom: '-4px' }}
       >
-        {COLOR_VIEWS.map((item) => (
-          <MenuItem key={item.id} value={item.id}>
-            <Typography className="body-regular">{item.label}</Typography>
-          </MenuItem>
-        ))}
-      </Select>
+        <Typography className="h4" color="var(--black)" sx={{ flexGrow: 1 }}>
+          {t('tr_territories')}
+        </Typography>
 
-      {colorView === 'heatmap' && (
+        <Tooltip title={t('tr_territoryHideThePanel')} delaySpeed="slow">
+          {/* the same box as the button that opens the panel again */}
+          <IconButton
+            onClick={onCollapse}
+            sx={{
+              padding: '6px',
+              margin: '-6px',
+              borderRadius: 'var(--radius-m)',
+              '&:hover': { backgroundColor: 'var(--accent-150)' },
+            }}
+          >
+            <IconPanelClose color="var(--accent-main)" />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+
+      <Stack spacing="16px">
         <Select
-          label="Service year"
-          value={String(heatmapYear)}
-          onChange={(event) => onHeatmapYearChange(Number(event.target.value))}
+          label={t('tr_display')}
+          value={colorView}
+          onChange={(event) =>
+            onColorViewChange(event.target.value as ColorView)
+          }
+          renderValue={(value) =>
+            t(COLOR_VIEWS.find((item) => item.id === value)?.label ?? '')
+          }
         >
-          {HEATMAP_YEARS().map((year) => (
-            <MenuItem key={year} value={String(year)}>
-              <Typography className="body-regular">
-                {`${year} service year`}
-              </Typography>
+          {COLOR_VIEWS.map((item) => (
+            <MenuItem
+              key={item.id}
+              value={item.id}
+              // all five fit the menu's height without scrolling
+              sx={{ paddingBlock: '3px', minHeight: 0 }}
+            >
+              <Stack>
+                <Typography className="body-regular">
+                  {t(item.label)}
+                </Typography>
+                <Typography
+                  className="label-small-regular"
+                  color="var(--grey-350)"
+                >
+                  {t(item.description)}
+                </Typography>
+              </Stack>
             </MenuItem>
           ))}
         </Select>
-      )}
+
+        {colorView === 'heatmap' && (
+          <Select
+            label={t('tr_period')}
+            value={heatmapPeriod}
+            onChange={(event) =>
+              onHeatmapPeriodChange(String(event.target.value))
+            }
+          >
+            {HEATMAP_PERIODS().map((period) => (
+              <MenuItem key={period.id} value={period.id}>
+                <Typography className="body-regular">{period.label}</Typography>
+              </MenuItem>
+            ))}
+          </Select>
+        )}
+
+        {legend.length > 0 && <MapLegend items={legend} />}
+      </Stack>
     </Stack>
-  </Stack>
-);
+  );
+};
 
 export default MapFilters;

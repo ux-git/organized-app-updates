@@ -1,3 +1,5 @@
+import InfoNote from '@components/info_note';
+import SwitchWithLabel from '@components/switch_with_label';
 import { Box } from '@mui/material';
 import { IconAdd } from '@components/icons';
 import { useAppTranslation, useBreakpoints } from '@hooks/index';
@@ -16,6 +18,10 @@ const UpcomingEvents = () => {
 
   const {
     isAdmin,
+    campaignsOnly,
+    showPast,
+    setShowPast,
+    selectedEvent,
     emptyEvent,
     events,
     handleAddEventButtonClick,
@@ -44,7 +50,7 @@ const UpcomingEvents = () => {
       )}
 
       <PageTitle
-        title={t('tr_upcomingEvents')}
+        title={t(campaignsOnly ? 'tr_territoryCampaigns' : 'tr_upcomingEvents')}
         quickSettings={isAdmin ? handleOpenQuickSettings : undefined}
         buttons={
           isAdmin && (
@@ -60,6 +66,20 @@ const UpcomingEvents = () => {
         }
       />
 
+      {campaignsOnly && (
+        <>
+          {!addEventBoxShow && (
+            <InfoNote message={t('tr_territoryCampaignsHelp')} />
+          )}
+          {!selectedEvent && (
+            <SwitchWithLabel
+              label={t('tr_territoryShowPastCampaigns')}
+              checked={showPast}
+              onChange={setShowPast}
+            />
+          )}
+        </>
+      )}
       {addEventBoxShow && (
         <EditUpcomingEvent
           data={emptyEvent}
@@ -69,7 +89,19 @@ const UpcomingEvents = () => {
         />
       )}
 
-      <UpcomingEventsList data={events} isAdding={addEventBoxShow} />
+      <UpcomingEventsList
+        data={events}
+        isAdding={addEventBoxShow}
+        emptyMessage={
+          campaignsOnly
+            ? t(
+                selectedEvent
+                  ? 'tr_territoryCampaignNotFound'
+                  : 'tr_territoryCampaignsEmpty'
+              )
+            : undefined
+        }
+      />
     </Box>
   );
 };

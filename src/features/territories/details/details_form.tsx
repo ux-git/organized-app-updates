@@ -1,3 +1,5 @@
+import TerritoryNoteField from '@features/territories/components/note_field';
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { Box, MenuItem, Stack } from '@mui/material';
 import {
@@ -15,16 +17,20 @@ import {
   territoryCategoriesState,
 } from '@states/territories';
 import { Territory, TYPE_LABEL, TerritoryType } from '@definition/territory';
-import RowAction from '../components/row_action';
-import CategoryEditor from './category_editor';
+import RowAction from '@features/territories/components/row_action';
+import CategoryEditor from '@features/territories/details/category_editor';
 
 const DetailsForm = ({
   territory,
   onChange,
+  onCommit,
 }: {
   territory: Territory;
   onChange: (territory: Territory) => void;
+  onCommit?: VoidFunction;
 }) => {
+  const { t } = useAppTranslation();
+
   const [categoryEditor, setCategoryEditor] = useState(false);
 
   const categories = useAtomValue(territoryCategoriesState);
@@ -44,8 +50,8 @@ const DetailsForm = ({
   const isDuplicate = !!trimmed && isTaken(trimmed);
   const isBlank = isStored && !trimmed;
 
-  let numberHelp = isBlank ? 'Enter a number' : '';
-  if (isDuplicate) numberHelp = 'This number is already used';
+  let numberHelp = isBlank ? t('tr_territoryEnterANumber') : '';
+  if (isDuplicate) numberHelp = t('tr_territoryThisNumberIsAlreadyUsed');
 
   const handleNumberChange = (value: string) => {
     setNumber(value);
@@ -94,15 +100,19 @@ const DetailsForm = ({
           }}
         >
           <TextField
-            label="Number"
+            label={t('tr_number')}
             value={number}
             error={isDuplicate || isBlank}
             helperText={numberHelp}
             onChange={(event) => handleNumberChange(event.target.value)}
+            onBlur={onCommit}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') onCommit?.();
+            }}
           />
 
           <TextField
-            label="Name"
+            label={t('tr_name')}
             value={territory.name}
             onChange={(event) =>
               onChange({ ...territory, name: event.target.value })
@@ -110,7 +120,7 @@ const DetailsForm = ({
           />
 
           <TextField
-            label="Locality"
+            label={t('tr_territoryLocality')}
             value={territory.city}
             onChange={(event) =>
               onChange({ ...territory, city: event.target.value })
@@ -118,7 +128,7 @@ const DetailsForm = ({
           />
 
           <TextField
-            label="Households"
+            label={t('tr_territoryHouseholds')}
             type="number"
             value={String(territory.households)}
             onChange={(event) =>
@@ -130,7 +140,7 @@ const DetailsForm = ({
           />
 
           <Select
-            label="Type"
+            label={t('tr_type')}
             value={territory.type}
             onChange={(event) =>
               onChange({
@@ -142,11 +152,31 @@ const DetailsForm = ({
             {(Object.keys(TYPE_LABEL) as TerritoryType[]).map((type) => (
               <MenuItem key={type} value={type}>
                 <Typography className="body-regular">
-                  {TYPE_LABEL[type]}
+                  {t(TYPE_LABEL[type])}
                 </Typography>
               </MenuItem>
             ))}
           </Select>
+
+          <TerritoryNoteField
+            kind="territory"
+            value={territory.notes ?? ''}
+            onChange={(notes) =>
+              onChange({ ...territory, notes: notes || undefined })
+            }
+          />
+
+          <TextField
+            label={t('tr_territoryWarningFrontSide')}
+            helperText={t('tr_territoryPrintedInRedOnTheMapKeepItShort')}
+            value={territory.warning ?? ''}
+            onChange={(event) =>
+              onChange({
+                ...territory,
+                warning: event.target.value || undefined,
+              })
+            }
+          />
         </Box>
       </Box>
 
@@ -163,10 +193,13 @@ const DetailsForm = ({
       >
         <Stack direction="row" spacing="4px" sx={{ alignItems: 'center' }}>
           <Typography className="h3" color="var(--black)">
-            Categories
+            {t('tr_categories')}
           </Typography>
 
-          <RowAction title="Edit" onClick={() => setCategoryEditor(true)}>
+          <RowAction
+            title={t('tr_edit')}
+            onClick={() => setCategoryEditor(true)}
+          >
             <IconEdit color="var(--accent-main)" width={18} height={18} />
           </RowAction>
         </Stack>
@@ -189,8 +222,8 @@ const DetailsForm = ({
       <CustomDivider color="var(--accent-200)" />
 
       <SwitchWithLabel
-        label="Card lost"
-        helper="The printed card is missing and has to be printed again"
+        label={t('tr_territoryCardLost')}
+        helper={t('tr_territoryTheCardNeedsReprinting')}
         checked={territory.cardLost}
         onChange={(value) => onChange({ ...territory, cardLost: value })}
       />

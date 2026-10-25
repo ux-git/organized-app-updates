@@ -20,6 +20,8 @@ export type DoNotCall = {
   name?: string;
   date: string;
   addedBy: string;
+  // where the house is on the map, when it could be found
+  position?: [number, number];
 };
 
 // a closed ring of [longitude, latitude] pairs, in GeoJSON order
@@ -58,12 +60,15 @@ export type TerritoryMapShape = MapStyle & {
   id: string;
   path: TerritoryBoundary;
   label?: string;
+  dashed?: boolean;
 };
 
 export type TerritoryMapLine = {
   id: string;
   path: [number, number][];
   style: 'solid' | 'dashed';
+  // drawn before colours existed: solid ones are blue, dashed ones green
+  color?: MapColor;
 };
 
 export type TerritoryMapDraft = {
@@ -74,16 +79,39 @@ export type TerritoryMapDraft = {
   markers: TerritoryMapMarker[];
 };
 
+// how the territory went out: on the phone, or as a printed card to take back
+export type AssignmentCard = 'digital' | 'printed';
+
 export type TerritoryAssignment = {
   id: string;
+  // always a person; empty only on old records that named a group instead
   publisher: string;
+  // the field service group it went out for, by name; the publisher took it
+  group?: string;
   assignedOn: string;
   returnedOn?: string;
+  completed?: boolean;
   // the service year the work was returned in, e.g. 2026 for Sep 2025 - Aug 2026
   serviceYear: number;
   months: number;
   startMonth: number;
   endMonth: number;
+  // Campaign identity; legacy coverage flags are retained for compatibility.
+  campaign?: { id: string; name: string; coverage?: boolean };
+  // what the publisher found this time, e.g. the languages spoken; never printed
+  note?: string;
+  // unset on records from before the choice existed
+  card?: AssignmentCard;
+};
+
+// a "Special campaign" event in Organized, or the territory app's own entry;
+// start and end are calendar days, yyyy-mm-dd
+export type TerritoryCampaign = {
+  id: string;
+  name: string;
+  start: string;
+  end: string;
+  group?: string;
 };
 
 export type Territory = {
@@ -95,6 +123,7 @@ export type Territory = {
   status: TerritoryStatus;
   categories: string[];
   holder?: string;
+  holderGroup?: string;
   daysOut?: number;
   daysSinceCovered: number;
   households: number;
@@ -109,7 +138,17 @@ export type Territory = {
   phoneNumbers?: string[];
   requestedBy?: string;
   reviewNeeded?: boolean;
+  // standing information, printed on the card: no names or addresses
+  notes?: string;
+  // a short caution printed in red on the map front, e.g. a dog behind a gate
+  warning?: string;
 };
+
+// a publisher or a field service group a territory can go to
+export type TerritoryAssignee = { id: string; name: string; group: boolean };
+
+// who a territory goes to: a publisher, for themselves or for a group
+export type AssignmentHolder = Pick<TerritoryAssignment, 'publisher' | 'group'>;
 
 export type TerritoryFilters = {
   search: string;
@@ -118,9 +157,30 @@ export type TerritoryFilters = {
   categories: string[];
   coverage?: { covered: boolean; period: string };
   cardLostOnly: boolean;
+  // out now for a field service group
+  forGroups?: boolean;
+  // how the territory is out now; `unknown` for open records without the field
+  card: (AssignmentCard | 'unknown')[];
+  holder?: string;
+  // the holder's earlier territories too, not only the ones held now
+  holderPast?: boolean;
+  // worked for the special campaign, or not yet assigned for it
+  campaign?: { id: string; worked: boolean };
 };
 
 export type TerritoryAccess = 'own' | 'view' | 'request';
+
+export type TerritoryRecommendations = {
+  cooldownMonths: number;
+  categories: string[];
+  types: TerritoryType[];
+};
+
+export const DEFAULT_RECOMMENDATIONS: TerritoryRecommendations = {
+  cooldownMonths: 0,
+  categories: [],
+  types: [],
+};
 
 export type TerritoryRestrictions = {
   categories: string[];
@@ -136,9 +196,9 @@ export type TerritoryTab =
   | 'requested';
 
 export const STATUS_LABEL: Record<TerritoryStatus, string> = {
-  available: 'Available',
-  in_work: 'In work',
-  overdue: 'Overdue',
+  available: 'tr_territoryAvailable',
+  in_work: 'tr_territoryInWork',
+  overdue: 'tr_overdue',
 };
 
 export const STATUS_COLOR: Record<TerritoryStatus, BadgeColor> = {
@@ -148,17 +208,22 @@ export const STATUS_COLOR: Record<TerritoryStatus, BadgeColor> = {
 };
 
 export const TYPE_LABEL: Record<TerritoryType, string> = {
-  door_to_door: 'Door to door',
-  business: 'Business',
-  phone: 'Call',
+  door_to_door: 'tr_territoryTypeDoorToDoor',
+  business: 'tr_territoryTypeBusiness',
+  phone: 'tr_territoryTypeCall',
+};
+
+export const CARD_LABEL: Record<AssignmentCard, string> = {
+  digital: 'tr_territoryDigitalMap',
+  printed: 'tr_territoryPrintedMap',
 };
 
 export const DEFAULT_CATEGORIES: TerritoryCategoryOption[] = [
-  { id: 'dangerous', name: 'Dangerous', color: 'red' },
-  { id: 'dogs', name: 'Dogs', color: 'orange' },
-  { id: 'gated', name: 'Gated access', color: 'blue' },
   { id: 'rural', name: 'Rural', color: 'green' },
 ];
+
+// once among the defaults; taken out of stored data when it loads
+export const RETIRED_CATEGORIES = ['dangerous', 'dogs', 'gated'];
 
 export const CATEGORY_COLORS: CategoryColor[] = [
   'blue',
@@ -173,10 +238,13 @@ export const MAX_CATEGORIES = CATEGORY_COLORS.length;
 
 export const MAX_CATEGORY_NAME = 20;
 
+// a territory's notes and an assignment's note alike
+export const MAX_NOTE_LENGTH = 500;
+
 export const CATEGORY_COLOR_LABEL: Record<CategoryColor, string> = {
-  blue: 'Blue',
-  green: 'Green',
-  orange: 'Orange',
-  red: 'Red',
-  grey: 'Grey',
+  blue: 'tr_blue',
+  green: 'tr_green',
+  orange: 'tr_orange',
+  red: 'tr_territoryRed',
+  grey: 'tr_slate',
 };
