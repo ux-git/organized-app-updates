@@ -1,4 +1,3 @@
-import { MAP_EXPORT_PADDING, mapExportImage } from '@services/maps/export';
 import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
@@ -19,6 +18,7 @@ import { MapColor, Territory, TerritoryBoundary } from '@definition/territory';
 import {
   DEFAULT_PROVIDER,
   MAP_COLORS,
+  MAP_EXPORT_PADDING,
   MAP_PROVIDER,
   MAP_PROVIDERS,
 } from '@features/territories/map/constants';
@@ -215,7 +215,7 @@ const captureOverview = (
       window.clearTimeout(timeout);
       let image: string | undefined;
       try {
-        if (capture) image = mapExportImage(map.getCanvas(), 'image/jpeg', 0.92);
+        if (capture) image = map.getCanvas().toDataURL('image/jpeg', 0.92);
       } catch {
         image = undefined;
       } finally {
@@ -356,7 +356,7 @@ const OverviewDocument = ({
   const paper = sizeOf(options);
   const width = paper.width * POINTS_PER_MM;
   const height = paper.height * POINTS_PER_MM;
-  // The captured map includes a white inset on every side for printing.
+  // Surrounding map context keeps the boundaries clear of the printed edges.
   return (
     <Document title={t('tr_territoryTerritoryOverview')} lang={lang}>
       <Page size={{ width, height }} wrap={false}>

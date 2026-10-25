@@ -1,4 +1,3 @@
-import { MAP_EXPORT_PADDING, mapExportImage } from '@services/maps/export';
 import {
   streetRuns,
   streetLength,
@@ -11,6 +10,7 @@ import { Territory } from '@definition/territory';
 import {
   DEFAULT_PROVIDER,
   MAP_COLORS,
+  MAP_EXPORT_PADDING,
   MAP_PROVIDER,
 } from '@features/territories/map/constants';
 import {
@@ -214,7 +214,7 @@ const capture = (
     document.body.appendChild(container);
 
     const [west, south, east, north] = boundaryBounds(boundary);
-    // Leave map context around the territory, in addition to the white export inset.
+    // Leave surrounding streets visible between the territory and the map edges.
     const horizontalPadding = Math.round(width * MAP_EXPORT_PADDING);
     const verticalPadding = Math.round(height * MAP_EXPORT_PADDING);
 
@@ -320,7 +320,7 @@ const capture = (
         }
         context.drawImage(map.getCanvas(), 0, 0);
         paintMarkers(canvas, map, territory.mapMarkers ?? [], 2);
-        cleanup(mapExportImage(canvas));
+        cleanup(canvas.toDataURL('image/png'));
       } catch {
         cleanup();
       } finally {

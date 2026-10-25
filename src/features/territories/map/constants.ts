@@ -1,5 +1,8 @@
 import { MapColor, MapStyle, PinType } from '@definition/territory';
 
+// Map context outside the territory boundary, as a fraction of each dimension.
+export const MAP_EXPORT_PADDING = 0.06;
+
 /**
  * Basemaps that cost nothing and need no API key, so a congregation can open
  * the map without signing up anywhere. All of them serve vector tiles, which
