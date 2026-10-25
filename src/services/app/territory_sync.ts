@@ -1,3 +1,4 @@
+import { TerritoryDraftChangedError } from '@services/dexie/territory_sync';
 import { dbTerritorySyncDiscard } from '@services/dexie/territory_sync';
 import { territorySharedSettingsState } from '@states/territories';
 import type { TerritorySharedSettings } from '@definition/territory_sync';
@@ -39,7 +40,7 @@ import {
   buildTerritoryGrants,
   isTerritorySyncManager,
 } from '@services/app/territory_policy';
-import { isTest } from '@constants/index';
+import { isTest, TERRITORY_SYNC_BATCH_LIMIT } from '@constants/index';
 import type {
   TerritoryPendingOperation,
   TerritorySnapshot,
@@ -103,7 +104,8 @@ const prepare = (
       (command) => ({ id, command })
     );
   });
-  if (commands.length > 20) throw new TerritoryApiError(413);
+  if (commands.length > TERRITORY_SYNC_BATCH_LIMIT)
+    throw new TerritoryApiError(413);
   return {
     operationId: operation.id,
     expectedRevision: snapshot.revision,
@@ -169,9 +171,40 @@ const migrateLocal = async (scope: string, snapshot: TerritorySnapshot) => {
       !remote.has(territoryRemoteId(item.dataView, item.data.id))
   );
   // Legacy imports are independent records. User map operations stay atomic in their original queue entry.
-  for (let index = 0; index < local.length; index += 20)
-    await dbTerritoriesEnqueue(local.slice(index, index + 20), scope);
+  for (let index = 0; index < local.length; index += TERRITORY_SYNC_BATCH_LIMIT)
+    await dbTerritoriesEnqueue(
+      local.slice(index, index + TERRITORY_SYNC_BATCH_LIMIT),
+      scope
+    );
 };
+const sendOperation = async (
+  scope: string,
+  key: string,
+  operation: TerritoryPendingOperation,
+  snapshot?: TerritorySnapshot
+) => {
+  const prepared =
+    operation.prepared ??
+    prepare(operation, snapshot ?? (await apiGetTerritories(scope)), key);
+  await dbTerritorySyncPrepare(
+    scope,
+    operation.id,
+    prepared,
+    operation.changes
+  );
+  try {
+    await apiSendTerritories(scope, prepared);
+  } catch (error) {
+    if (!(error instanceof TerritoryApiError) || error.status !== 409)
+      throw error;
+    const current = await apiGetTerritories(scope);
+    // Only an unrelated aggregate revision may be retried. A changed territory fails prepare and retains the draft.
+    const retry = prepare(operation, current, key);
+    await dbTerritorySyncPrepare(scope, operation.id, retry, operation.changes);
+    await apiSendTerritories(scope, retry);
+  }
+};
+
 const run = async () => {
   const scope = scopeNow();
   const key = store.get(congAccessCodeState);
@@ -181,7 +214,7 @@ const run = async () => {
   // Retry the exact persisted ciphertext before any policy update. The server receipt handles a lost acknowledgement.
   if (operation?.prepared) {
     assertAccount(scope);
-    await apiSendTerritories(scope, operation.prepared);
+    await sendOperation(scope, key, operation);
     await applySnapshot(
       scope,
       key,
@@ -200,10 +233,7 @@ const run = async () => {
   operation = (await dbTerritorySyncGet())?.queue[0];
   while (operation) {
     assertAccount(scope);
-    const batch = operation.prepared ?? prepare(operation, snapshot, key);
-    await dbTerritorySyncPrepare(scope, operation.id, batch);
-    assertAccount(scope);
-    await apiSendTerritories(scope, batch);
+    await sendOperation(scope, key, operation, snapshot);
     snapshot = await apiGetTerritories(scope);
     await applySnapshot(scope, key, snapshot, operation.id);
     operation = (await dbTerritorySyncGet())?.queue[0];
@@ -227,7 +257,16 @@ export const synchronizeTerritories = () => {
       await run();
       store.set(territorySyncStatusState, 'idle');
     } catch (error) {
+      if (error instanceof TerritoryDraftChangedError) {
+        store.set(territorySyncStatusState, 'pending');
+        return;
+      }
       const status = error instanceof TerritoryApiError ? error.status : 0;
+      if (status === 403) {
+        const state = await dbTerritorySyncGet();
+        if (state?.scope === scopeNow())
+          await dbTerritorySyncApply(state.scope, state.revision, []);
+      }
       store.set(
         territorySyncStatusState,
         error instanceof TerritoryIdentityError
@@ -262,9 +301,15 @@ export const discardPendingTerritories = async (reviewed: string[]) => {
   const discard = async () => {
     const snapshot = await apiGetTerritories(scope);
     assertAccount(scope);
-    await dbTerritorySyncDiscard(scope, reviewed, localSnapshot(snapshot, key), snapshot.revision);
+    await dbTerritorySyncDiscard(
+      scope,
+      reviewed,
+      localSnapshot(snapshot, key),
+      snapshot.revision
+    );
     store.set(territorySyncStatusState, 'idle');
   };
-  if (navigator.locks) await navigator.locks.request('organized-territories', discard);
+  if (navigator.locks)
+    await navigator.locks.request('organized-territories', discard);
   else await discard();
 };

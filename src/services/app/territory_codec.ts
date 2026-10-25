@@ -1,3 +1,4 @@
+import { millisecondsInDay } from 'date-fns/constants';
 import type {
   Territory,
   TerritoryAssignment,
@@ -16,6 +17,8 @@ export const encryptTerritoryContent = (value: unknown, key: string) =>
 export const decryptTerritoryContent = <T>(value: string, key: string): T =>
   JSON.parse(decryptData(value, key, 'territories'));
 export const territoryRemoteId = (view: string, id: string) => {
+  if (view.length + id.length > 128)
+    throw new TerritoryIdentityError('Territory identifier is too long');
   const value = btoa(
     String.fromCharCode(...new TextEncoder().encode(`${view}:${id}`))
   )
@@ -209,6 +212,17 @@ export const decodeTerritory = (
       requestedById: record.requestedBy,
       assignedElsewhere: !!record.inUse && !record.assignment,
       requestPending: record.requestPending,
+      lastReturnedAt: record.lastReturnedAt,
+      lastCompletedAt: record.lastCompletedAt,
+      daysSinceCovered: record.lastCompletedAt
+        ? Math.max(
+            0,
+            Math.floor(
+              (Date.now() - Date.parse(record.lastCompletedAt)) /
+                millisecondsInDay
+            )
+          )
+        : content.daysSinceCovered,
       requestedBy: assignees.find((item) => item.id === record.requestedBy)
         ?.name,
       doNotCalls: record.doNotCalls.map((entry) => ({
@@ -218,6 +232,14 @@ export const decodeTerritory = (
         ),
         id: entry.id,
         addedById: entry.addedBy,
+        addedBy:
+          assignees.find(
+            (person) => !person.group && person.id === entry.addedBy
+          )?.name ??
+          decryptTerritoryContent<Territory['doNotCalls'][number]>(
+            entry.content,
+            key
+          ).addedBy,
       })),
     },
     assignments

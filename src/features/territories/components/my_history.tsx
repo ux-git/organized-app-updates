@@ -54,9 +54,9 @@ const MyHistory = ({
 
   const format = useAtomValue(shortDateFormatState);
   const showHouseholds = useAtomValue(territoriesShowHouseholdsState);
-  const { publisher } = useTerritoryAccess();
+  const { publisher, publisherId } = useTerritoryAccess();
 
-  const rows = territoryHistoryForPublisher(territories, publisher)
+  const rows = territoryHistoryForPublisher(territories, publisher, publisherId)
     .flatMap((territory) =>
       territory.assignments
         .filter((assignment) => assignment.returnedOn)

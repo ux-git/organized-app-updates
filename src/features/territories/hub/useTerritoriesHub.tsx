@@ -116,7 +116,16 @@ const useTerritoriesHub = () => {
   const canRequest =
     !localMode && !!me && context.eligiblePublisher && access === 'request';
 
-  const ownRequests = forTab(withStatus, 'requested', me).length;
+  const ownRequests = forTab(
+    withStatus,
+    'requested',
+    me,
+    isTerritoryEditor,
+    groupHolder,
+    restricted,
+    recommendations,
+    context
+  ).length;
 
   const tabGroups = territoryTabGroups(context, localMode, ownRequests > 0);
 
@@ -155,7 +164,8 @@ const useTerritoriesHub = () => {
       isTerritoryEditor,
       groupHolder,
       restricted,
-      localMode ? recommendations : undefined
+      recommendations,
+      context
     );
 
     // own territories have no filters, so none left over from other tabs apply
@@ -172,8 +182,8 @@ const useTerritoriesHub = () => {
         )
       : filtered;
   }, [
+    context,
     recommendations,
-    localMode,
     withStatus,
     tabId,
     me,

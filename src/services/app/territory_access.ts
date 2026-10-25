@@ -8,10 +8,16 @@ export const territoryPermissions = (
   const { editor, publisher, access, groupHolder, restricted } = context;
   const held = territory.holderId
     ? territory.holderId === context.publisherId
-    : !!publisher && territory.holder === publisher;
-  const requested = territory.requestedById
-    ? territory.requestedById === context.publisherId
-    : !!publisher && territory.requestedBy === publisher;
+    : context.legacyIdentitySafe !== false &&
+      !!publisher &&
+      territory.holder === publisher;
+  const requested =
+    !!territory.requestedBy &&
+    (territory.requestedById
+      ? territory.requestedById === context.publisherId
+      : context.legacyIdentitySafe !== false &&
+        !!publisher &&
+        territory.requestedBy === publisher);
   const group = territory.holderGroupId
     ? territory.holderGroupId === context.groupId
     : !!groupHolder &&
@@ -30,6 +36,11 @@ export const territoryPermissions = (
       held ||
       group ||
       requested ||
+      territory.assignments.some(
+        (assignment) =>
+          !!assignment.publisherId &&
+          assignment.publisherId === context.publisherId
+      ) ||
       (access !== 'own' && available && offered),
     private: editor || held || group,
     request:
@@ -50,11 +61,16 @@ export const territoryPermissions = (
 const publisherDoNotCalls = (
   current: DoNotCall[],
   next: DoNotCall[],
-  publisher: string
+  publisher: string,
+  publisherId?: string
 ) => {
   const owned = new Set(
     current
-      .filter((entry) => entry.addedBy === publisher)
+      .filter((entry) =>
+        entry.addedById
+          ? entry.addedById === publisherId
+          : entry.addedBy === publisher
+      )
       .map((entry) => entry.id)
   );
   const protectedIds = new Set(
@@ -64,7 +80,13 @@ const publisherDoNotCalls = (
 
   for (const entry of next) {
     if (!entry.id || protectedIds.has(entry.id)) continue;
-    if (entry.addedBy !== publisher || !entry.address.trim()) continue;
+    if (
+      (entry.addedById
+        ? entry.addedById !== publisherId
+        : entry.addedBy !== publisher) ||
+      !entry.address.trim()
+    )
+      continue;
     entries.set(entry.id, entry);
   }
 
@@ -88,8 +110,11 @@ export const publisherTerritoryChanges = (
   if (next.requestedBy !== current.requestedBy) {
     if (permissions.request && next.requestedBy === context.publisher) {
       changes.requestedBy = context.publisher;
+      if (context.publisherId) changes.requestedById = context.publisherId;
     } else if (permissions.cancelRequest && !next.requestedBy) {
       changes.requestedBy = undefined;
+      if (current.requestedById) changes.requestedById = undefined;
+      if (current.requestPending) changes.requestPending = false;
     }
   }
 
@@ -97,7 +122,8 @@ export const publisherTerritoryChanges = (
     changes.doNotCalls = publisherDoNotCalls(
       current.doNotCalls,
       next.doNotCalls,
-      context.publisher
+      context.publisher,
+      context.publisherId
     );
   }
 
@@ -106,12 +132,15 @@ export const publisherTerritoryChanges = (
 
 export const territoryHistoryForPublisher = (
   territories: Territory[],
-  publisher: string
+  publisher: string,
+  publisherId?: string
 ) =>
-  publisher
+  publisher || publisherId
     ? territories.flatMap((territory) => {
-        const assignments = territory.assignments.filter(
-          (assignment) => assignment.publisher === publisher
+        const assignments = territory.assignments.filter((assignment) =>
+          assignment.publisherId
+            ? assignment.publisherId === publisherId
+            : assignment.publisher === publisher
         );
         return assignments.length ? [{ ...territory, assignments }] : [];
       })

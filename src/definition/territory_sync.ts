@@ -39,6 +39,8 @@ export type TerritoryWireRecord = TerritoryWireDetails & {
   requestedBy?: string;
   inUse?: boolean;
   requestPending?: boolean;
+  lastReturnedAt?: string;
+  lastCompletedAt?: string;
   assignment?: TerritoryWireAssignment;
   history: TerritoryWireAssignment[];
   doNotCalls: { id: string; addedBy: string; content: string }[];

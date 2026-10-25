@@ -5,10 +5,15 @@ import {
   territoriesDbState,
   territoryWritesPendingState,
   territoryLoadedViewState,
+  territoryLoadedScopeState,
 } from '@states/territories';
 import { dbTerritorySyncGet } from '@services/dexie/territory_sync';
 import { userIDState } from '@states/app';
-import { congIDState, userDataViewState, settingsState } from '@states/settings';
+import {
+  congIDState,
+  userDataViewState,
+  settingsState,
+} from '@states/settings';
 import { sampleTerritories } from '@features/territories/mockData';
 import { useCallback } from 'react';
 
@@ -41,13 +46,16 @@ const useIndexedDb = () => {
   const dataView = useAtomValue(userDataViewState);
   const writesPending = useAtomValue(territoryWritesPendingState);
   const dbTerritories = useLiveQuery(dbTerritoriesGetAll);
-  const territorySync = useLiveQuery(dbTerritorySyncGet);
+  const territorySync = useLiveQuery(
+    async () => (await dbTerritorySyncGet()) ?? null
+  );
   const territoryUser = useAtomValue(userIDState);
   const territoryCongregation = useAtomValue(congIDState);
   const setTerritories = useSetAtom(territoriesDbState);
+  const setTerritoryScope = useSetAtom(territoryLoadedScopeState);
   const setTerritoryView = useSetAtom(territoryLoadedViewState);
   const loadTerritories = useCallback(() => {
-    if (!dbTerritories || writesPending) return;
+    if (!dbTerritories || writesPending || territorySync === undefined) return;
     const records = new Map(
       (isTest ? sampleTerritories(store.get) : []).map((item) => [
         item.id,
@@ -64,6 +72,7 @@ const useIndexedDb = () => {
     }
     setTerritories([...records.values()]);
     setTerritoryView(dataView);
+    setTerritoryScope(`${territoryCongregation}:${territoryUser}`);
   }, [
     dbTerritories,
     territorySync,
@@ -74,6 +83,7 @@ const useIndexedDb = () => {
     setTerritories,
     writesPending,
     setTerritoryView,
+    setTerritoryScope,
   ]);
   const dbSettings = useLiveQuery(() => appDb.app_settings.toArray());
   const dbPersons = useLiveQuery(() => appDb.persons.toArray());

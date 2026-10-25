@@ -1,5 +1,8 @@
 import { territoryLocalModeState } from '@states/territories';
-import { currentPublisherState } from '@features/territories/assignees';
+import {
+  currentPublisherState,
+  territoryAssigneesState,
+} from '@features/territories/assignees';
 import { useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { useCurrentUser } from '@hooks/index';
@@ -21,6 +24,12 @@ const useTerritoryAccess = (): TerritoryAccessContext => {
     useCurrentUser();
   const localMode = useAtomValue(territoryLocalModeState);
   const localPublisher = useAtomValue(currentPublisherState);
+  const localAssignees = useAtomValue(territoryAssigneesState);
+  const localMatches = localAssignees.filter(
+    (item) => !item.group && item.name === localPublisher
+  );
+  const localPublisherId =
+    localMatches.length === 1 ? localMatches[0].id : undefined;
   const persons = useAtomValue(personsActiveState);
   const groups = useAtomValue(fieldWithLanguageGroupsState);
   const uid = useAtomValue(userLocalUIDState);
@@ -101,8 +110,9 @@ const useTerritoryAccess = (): TerritoryAccessContext => {
   return useMemo(
     () => ({
       editor: isElder || isServiceCommittee,
-      publisher,
-      publisherId: localMode ? undefined : uid,
+      publisher: localPublisher,
+      legacyIdentitySafe: !!publisher,
+      publisherId: localMode ? localPublisherId : uid,
       groupId: !localMode && groupLead ? my_group?.group_id : undefined,
       eligiblePublisher,
       access,
@@ -111,6 +121,8 @@ const useTerritoryAccess = (): TerritoryAccessContext => {
     }),
     [
       localMode,
+      localPublisher,
+      localPublisherId,
       uid,
       groupLead,
       my_group?.group_id,

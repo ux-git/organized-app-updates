@@ -27,6 +27,8 @@ export const pastCooldown = (
   now = new Date()
 ) => {
   if (!months) return true;
+  if (territory.lastReturnedAt)
+    return addMonths(new Date(territory.lastReturnedAt), months) <= now;
   const returned = territory.assignments
     .flatMap((item) => {
       if (!item.returnedOn) return [];
@@ -49,6 +51,7 @@ const recommendedTerritories = (
         territory.status === 'available' &&
         !territory.cardLost &&
         !territory.requestedBy &&
+        !territory.requestPending &&
         isOffered(territory, restricted) &&
         (!recommendations ||
           (isOffered(territory, recommendations) &&
@@ -64,14 +67,19 @@ export const forTab = (
   isEditor = true,
   groupHolder?: string,
   restricted: TerritoryRestrictions = NO_RESTRICTIONS,
-  recommendations?: TerritoryRecommendations
+  recommendations?: TerritoryRecommendations,
+  identity?: Pick<
+    TerritoryAccessContext,
+    'publisherId' | 'groupId' | 'legacyIdentitySafe'
+  >
 ) => {
   if (tab === 'group') {
     return groupHolder
-      ? territories.filter(
-          (territory) =>
-            territory.holderGroup === groupHolder ||
-            territory.holder === groupHolder
+      ? territories.filter((territory) =>
+          territory.holderGroupId
+            ? territory.holderGroupId === identity?.groupId
+            : territory.holderGroup === groupHolder ||
+              territory.holder === groupHolder
         )
       : [];
   }
@@ -81,8 +89,12 @@ export const forTab = (
   }
 
   if (tab === 'requested') {
-    return territories.filter(
-      (territory) => !!me && territory.requestedBy === me
+    return territories.filter((territory) =>
+      territory.requestedById
+        ? territory.requestedById === identity?.publisherId
+        : identity?.legacyIdentitySafe !== false &&
+          !!me &&
+          territory.requestedBy === me
     );
   }
 
@@ -102,7 +114,13 @@ export const forTab = (
   }
 
   if (tab === 'mine') {
-    return territories.filter((territory) => !!me && territory.holder === me);
+    return territories.filter((territory) =>
+      territory.holderId
+        ? territory.holderId === identity?.publisherId
+        : identity?.legacyIdentitySafe !== false &&
+          !!me &&
+          territory.holder === me
+    );
   }
 
   return territories;

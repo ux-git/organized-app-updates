@@ -1,4 +1,11 @@
-import { territorySharedSettingsState } from '@states/territories';
+import {
+  TERRITORY_SYNC_REFRESH_INTERVAL,
+  TERRITORY_SYNC_DEBOUNCE,
+} from '@constants/index';
+import {
+  territorySharedSettingsState,
+  DEFAULT_TERRITORY_SHARED_SETTINGS,
+} from '@states/territories';
 import { userIDState } from '@states/app';
 import { useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
@@ -18,19 +25,27 @@ const useTerritorySync = () => {
   const state = useLiveQuery(dbTerritorySyncGet);
   const setPending = useSetAtom(territorySyncPendingState);
   useEffect(() => {
+    setSettings(DEFAULT_TERRITORY_SHARED_SETTINGS);
+  }, [congregation, user, setSettings]);
+  useEffect(() => {
     if (state?.scope === `${congregation}:${user}` && state.settings)
       setSettings(state.settings);
   }, [state, congregation, user, setSettings]);
   useEffect(() => {
-    setPending(state?.queue.length ?? 0);
-  }, [state, setPending]);
+    setPending(
+      state?.scope === `${congregation}:${user}` ? state.queue.length : 0
+    );
+  }, [state, setPending, congregation, user]);
   useEffect(() => {
     if (!enabled || !online) return;
     const refresh = () => {
-      void synchronizeTerritories();
+      if (document.visibilityState === 'visible') void synchronizeTerritories();
     };
-    const timer = window.setTimeout(refresh, 500);
-    const interval = window.setInterval(refresh, 30000);
+    const timer = window.setTimeout(refresh, TERRITORY_SYNC_DEBOUNCE);
+    const interval = window.setInterval(() => {
+      if (state?.queue.length || window.location.hash.includes('/territories'))
+        refresh();
+    }, TERRITORY_SYNC_REFRESH_INTERVAL);
     window.addEventListener('online', refresh);
     window.addEventListener('focus', refresh);
     return () => {
@@ -41,6 +56,7 @@ const useTerritorySync = () => {
     };
   }, [
     congregation,
+    user,
     enabled,
     online,
     state?.queue.length,

@@ -6,6 +6,8 @@ import {
 } from '@services/app/territories';
 import { displaySnackNotification } from '@services/states/app';
 import { getTranslation } from '@services/i18n/translation';
+import { congIDState } from '@states/settings';
+import { userIDState } from '@states/app';
 import { userDataViewState } from '@states/settings';
 /*
 This file holds the source of the truth for congregation territories.
@@ -27,11 +29,15 @@ import { monthShortNamesState } from './app';
 export const territoriesDbState = atom<Territory[]>([]);
 
 export const territoryWritesPendingState = atom(0);
+export const territoryLoadedScopeState = atom('');
 export const territoryLoadedViewState = atom<string | null>(null);
 
 export const territoriesState = atom(
   (get) =>
-    get(territoryLoadedViewState) === get(userDataViewState)
+    get(territoryLoadedViewState) === get(userDataViewState) &&
+    (isTest ||
+      get(territoryLoadedScopeState) ===
+        `${get(congIDState)}:${get(userIDState)}`)
       ? get(territoriesDbState)
       : [],
   async (
@@ -60,14 +66,17 @@ export const territoriesState = atom(
   }
 );
 
-export const territorySharedSettingsState = atom<TerritorySharedSettings>({
+export const DEFAULT_TERRITORY_SHARED_SETTINGS: TerritorySharedSettings = {
   categories: DEFAULT_CATEGORIES,
   boundary: isTest ? CONGREGATION_BOUNDARY : undefined,
   borderColor: 'red',
   borderDashed: false,
   recommendations: DEFAULT_RECOMMENDATIONS,
   overdueMonths: 4,
-});
+};
+export const territorySharedSettingsState = atom<TerritorySharedSettings>(
+  DEFAULT_TERRITORY_SHARED_SETTINGS
+);
 
 const sharedSetting = <K extends keyof TerritorySharedSettings>(key: K) =>
   atom(

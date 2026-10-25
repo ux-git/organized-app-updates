@@ -129,6 +129,8 @@ export type Territory = {
   holderId?: string;
   assignedElsewhere?: boolean;
   requestPending?: boolean;
+  lastReturnedAt?: string;
+  lastCompletedAt?: string;
   holderGroupId?: string;
   holderGroup?: string;
   daysOut?: number;
@@ -176,6 +178,8 @@ export type TerritoryFilters = {
   holderId?: string;
   assignedElsewhere?: boolean;
   requestPending?: boolean;
+  lastReturnedAt?: string;
+  lastCompletedAt?: string;
   holderGroupId?: string;
   // the holder's earlier territories too, not only the ones held now
   holderPast?: boolean;

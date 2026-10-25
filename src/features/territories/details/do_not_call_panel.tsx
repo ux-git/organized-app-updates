@@ -38,7 +38,7 @@ const DoNotCallPanel = ({
   const { t } = useAppTranslation();
 
   const format = useAtomValue(shortDateFormatState);
-  const { publisher: me } = useTerritoryAccess();
+  const { publisher: me, publisherId } = useTerritoryAccess();
 
   const [editing, setEditing] = useState<DoNotCall | 'new'>();
 
@@ -47,7 +47,11 @@ const DoNotCallPanel = ({
   const isPhone = territory.type === 'phone';
 
   const canEdit = (entry: DoNotCall) =>
-    access === 'all' || (access === 'own' && entry.addedBy === me);
+    access === 'all' ||
+    (access === 'own' &&
+      (entry.addedById
+        ? entry.addedById === publisherId
+        : entry.addedBy === me));
 
   const openEntry = (entry: DoNotCall) =>
     canEdit(entry) ? () => setEditing(entry) : undefined;

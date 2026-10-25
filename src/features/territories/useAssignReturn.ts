@@ -147,6 +147,8 @@ const useAssignReturn = () => {
         holderGroup: group,
         daysOut: daysSince(start),
         requestedBy: undefined,
+        requestedById: undefined,
+        requestPending: false,
         assignments: [
           ...closeOpen(
             territory,
@@ -306,7 +308,7 @@ const useAssignReturn = () => {
     if (!requestedBy) return;
 
     patch(id, (territory) =>
-      territory.requestedBy === requestedBy ? { requestedBy: undefined } : {}
+      territory.requestedBy === requestedBy ? { requestedBy: undefined, requestedById: undefined, requestPending: false } : {}
     );
     offerUndo({
       text: t('tr_territoryRequestFromDeclined', { name: requestedBy }),
