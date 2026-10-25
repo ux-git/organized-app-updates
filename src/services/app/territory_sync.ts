@@ -1,5 +1,6 @@
 import {
   mergeTerritoryGrants,
+  mergeTerritorySettings,
   TerritoryPolicyConflict,
 } from '@utils/territory_policy';
 import {
@@ -12,12 +13,16 @@ import {
   dbTerritorySyncApply,
   dbTerritoriesEnqueue,
 } from '@services/dexie/territory_sync';
-import { territorySharedSettingsState, territoryServerAccessState } from '@states/territories';
+import {
+  territorySharedSettingsState,
+  territoryServerAccessState,
+} from '@states/territories';
 import type {
   TerritorySharedSettings,
   TerritorySyncStatus,
   TerritoryPendingOperation,
   TerritorySnapshot,
+  TerritoryPendingReview,
 } from '@definition/territory_sync';
 
 import {
@@ -90,8 +95,20 @@ const applySnapshot = async (
   acknowledged?: string
 ) => {
   assertAccount(scope);
-  const grant = snapshot.policy.grants.find((item) => item.personId === store.get(userLocalUIDState));
-  store.set(territoryServerAccessState, { scope, manager: snapshot.manager === true, eligible: grant?.eligible ?? false, access: grant?.access ?? 'own', groupIds: grant?.groupIds ?? [], restricted: { categories: grant?.restrictedCategories ?? [], types: grant?.restrictedTypes ?? [] } });
+  const grant = snapshot.policy.grants.find(
+    (item) => item.personId === store.get(userLocalUIDState)
+  );
+  store.set(territoryServerAccessState, {
+    scope,
+    manager: snapshot.manager === true,
+    eligible: grant?.eligible ?? false,
+    access: grant?.access ?? 'own',
+    groupIds: grant?.groupIds ?? [],
+    restricted: {
+      categories: grant?.restrictedCategories ?? [],
+      types: grant?.restrictedTypes ?? [],
+    },
+  });
   await dbTerritorySyncApply(
     scope,
     snapshot.revision,
@@ -133,24 +150,35 @@ const synchronizePolicy = async (
 ) => {
   assertAccount(scope);
   const state = await dbTerritorySyncGet();
+  const sentSettings =
+    state?.settings ?? store.get(territorySharedSettingsState);
   const remote = snapshot.policy.content
     ? decryptTerritoryContent<Partial<TerritorySharedSettings>>(
         snapshot.policy.content,
         key
       )
     : {};
-  let settings: TerritorySharedSettings | undefined = store.get(
-    territorySharedSettingsState
-  );
-  if (remote.categories) settings = remote as TerritorySharedSettings;
-  if (state?.settingsDirty) settings = state.settings;
-  if (!settings)
-    throw new TerritoryIdentityError('Territory settings are unavailable');
   if (!snapshot.manager || !isTerritorySyncManager()) {
+    if (state?.settingsDirty) throw new TerritoryPolicyConflict();
     if (remote.categories)
-      await dbTerritorySettingsSave(scope, settings, false);
+      await dbTerritorySettingsSave(scope, remote as TerritorySharedSettings, {
+        dirty: false,
+      });
     return snapshot;
   }
+  let settings: TerritorySharedSettings | undefined = remote.categories
+    ? (remote as TerritorySharedSettings)
+    : store.get(territorySharedSettingsState);
+  if (state?.settingsDirty && state.settings)
+    settings = remote.categories
+      ? mergeTerritorySettings(
+          state.settingsBaseline,
+          state.settings,
+          remote as TerritorySharedSettings
+        )
+      : state.settings;
+  if (!settings)
+    throw new TerritoryIdentityError('Territory settings are unavailable');
   const localGrants = buildTerritoryGrants();
   if (!localGrants.length) return snapshot;
   const grants = mergeTerritoryGrants(
@@ -164,7 +192,7 @@ const synchronizePolicy = async (
     remote.categories &&
     JSON.stringify(grants) === JSON.stringify(snapshot.policy.grants)
   ) {
-    await dbTerritorySettingsSave(scope, settings, false);
+    await dbTerritorySettingsSave(scope, settings, { dirty: false });
     await dbTerritoryPolicyBaseline(scope, localGrants);
     return snapshot;
   }
@@ -174,7 +202,10 @@ const synchronizePolicy = async (
     content: encryptTerritoryContent(settings, key),
   });
   assertAccount(scope);
-  await dbTerritorySettingsSave(scope, settings, false);
+  await dbTerritorySettingsSave(scope, settings, {
+    dirty: false,
+    sent: sentSettings,
+  });
   await dbTerritoryPolicyBaseline(scope, localGrants);
   return apiGetTerritories(scope);
 };
@@ -245,14 +276,13 @@ const run = async () => {
       operation.id
     );
   }
-  let snapshot = await synchronizePolicy(
-    scope,
-    await apiGetTerritories(scope),
-    key
-  );
+  let snapshot = await apiGetTerritories(scope);
+  await applySnapshot(scope, key, snapshot);
+  const synchronized = await synchronizePolicy(scope, snapshot, key);
+  if (synchronized !== snapshot) await applySnapshot(scope, key, synchronized);
+  snapshot = synchronized;
   assertAccount(scope);
   await migrateLocal(scope, snapshot);
-  await applySnapshot(scope, key, snapshot);
   operation = (await dbTerritorySyncGet())?.queue[0];
   // Each operation depends on the previous server revision and acknowledged snapshot.
   // Sending these concurrently would create conflicts or replay already-accepted drafts.
@@ -264,7 +294,11 @@ const run = async () => {
     operation = (await dbTerritorySyncGet())?.queue[0];
   }
 };
-const handleSyncError = async (error: unknown) => {
+const handleSyncError = async (error: unknown, scope: string) => {
+  if (scope !== scopeNow()) {
+    store.set(territorySyncStatusState, 'idle');
+    return;
+  }
   if (error instanceof TerritoryDraftChangedError) {
     store.set(territorySyncStatusState, 'pending');
     return;
@@ -272,7 +306,14 @@ const handleSyncError = async (error: unknown) => {
   let status = error instanceof TerritoryApiError ? error.status : 0;
   if (error instanceof TerritoryPolicyConflict) status = 409;
   if (status === 403) {
-    store.set(territoryServerAccessState, { scope: scopeNow(), manager: false, eligible: false, access: 'own', groupIds: [], restricted: { categories: [], types: [] } });
+    store.set(territoryServerAccessState, {
+      scope: scopeNow(),
+      manager: false,
+      eligible: false,
+      access: 'own',
+      groupIds: [],
+      restricted: { categories: [], types: [] },
+    });
     const state = await dbTerritorySyncGet();
     if (state?.scope === scopeNow())
       await dbTerritorySyncApply(state.scope, state.revision, []);
@@ -285,6 +326,12 @@ const handleSyncError = async (error: unknown) => {
 };
 
 let running: Promise<void> | undefined;
+const pendingTerritoryCount = async () => {
+  const state = await dbTerritorySyncGet().catch(() => undefined);
+  return state?.scope === scopeNow()
+    ? state.queue.length + Number(!!state.settingsDirty)
+    : 0;
+};
 export const synchronizeTerritories = () => {
   if (running) return running;
   if (
@@ -297,17 +344,15 @@ export const synchronizeTerritories = () => {
   )
     return Promise.resolve();
   const execute = async () => {
+    const scope = scopeNow();
     store.set(territorySyncStatusState, 'syncing');
     try {
       await run();
       store.set(territorySyncStatusState, 'idle');
     } catch (error) {
-      await handleSyncError(error);
+      await handleSyncError(error, scope);
     } finally {
-      store.set(
-        territorySyncPendingState,
-        (await dbTerritorySyncGet().catch(() => undefined))?.queue.length ?? 0
-      );
+      store.set(territorySyncPendingState, await pendingTerritoryCount());
     }
   };
   running = (
@@ -320,7 +365,9 @@ export const synchronizeTerritories = () => {
   return running;
 };
 
-export const discardPendingTerritories = async (reviewed: string[]) => {
+export const discardPendingTerritories = async (
+  reviewed: TerritoryPendingReview
+) => {
   if (running) await running;
   const scope = scopeNow();
   const key = store.get(congAccessCodeState);
@@ -331,8 +378,16 @@ export const discardPendingTerritories = async (reviewed: string[]) => {
       scope,
       reviewed,
       localSnapshot(snapshot, key),
-      snapshot.revision
+      snapshot.revision,
+      snapshot.policy.content
+        ? decryptTerritoryContent<TerritorySharedSettings>(
+            snapshot.policy.content,
+            key
+          )
+        : undefined
     );
+    await applySnapshot(scope, key, snapshot);
+    store.set(territorySyncPendingState, await pendingTerritoryCount());
     store.set(territorySyncStatusState, 'idle');
   };
   if (navigator.locks)

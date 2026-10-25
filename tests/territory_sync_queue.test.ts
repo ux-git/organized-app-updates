@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { coalesceTerritoryChanges } from '../src/utils/territory_sync_queue';
+import {
+  coalesceTerritoryChanges,
+  matchesTerritoryReview,
+} from '../src/utils/territory_sync_queue';
 import type { TerritoryPendingOperation } from '../src/definition/territory_sync';
 import type { Territory } from '../src/definition/territory';
 const original = { id: 'a', name: 'Original' } as Territory;
@@ -36,4 +39,37 @@ test('undoing an unsent edit removes its queued change', () => {
   ];
   assert.equal(coalesceTerritoryChanges(queue, [change('Original')]), true);
   assert.equal(queue[0].changes.length, 0);
+});
+
+test('review confirmation cannot discard a later coalesced edit with the same operation ID', () => {
+  const state = {
+    scope: 'cong:alice',
+    revision: 3,
+    queue: [{ id: 'one', changes: [change('Reviewed')] }],
+  };
+  const reviewed = structuredClone({ queue: state.queue });
+  assert.equal(matchesTerritoryReview(state, reviewed), true);
+  coalesceTerritoryChanges(state.queue, [change('Newer edit')]);
+  assert.equal(matchesTerritoryReview(state, reviewed), false);
+});
+
+test('settings added after a review are protected from discard', () => {
+  const state = {
+    scope: 'cong:alice',
+    revision: 3,
+    queue: [],
+    settingsDirty: true,
+    settings: {
+      categories: [],
+      borderColor: 'red' as const,
+      borderDashed: false,
+      recommendations: { cooldownMonths: 0, categories: [], types: [] },
+      overdueMonths: 4,
+    },
+  };
+  assert.equal(matchesTerritoryReview(state, { queue: [] }), false);
+  assert.equal(
+    matchesTerritoryReview(state, { queue: [], settings: state.settings }),
+    true
+  );
 });

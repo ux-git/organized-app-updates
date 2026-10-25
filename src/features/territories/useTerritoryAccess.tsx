@@ -1,6 +1,9 @@
 import { applyTerritoryServerAccess } from '@services/app/territory_access';
 import { userIDState } from '@states/app';
-import { territoryLocalModeState, territoryServerAccessState } from '@states/territories';
+import {
+  territoryLocalModeState,
+  territoryServerAccessState,
+} from '@states/territories';
 import {
   currentPublisherState,
   territoryAssigneesState,
@@ -113,17 +116,21 @@ const useTerritoryAccess = (): TerritoryAccessContext => {
       : undefined;
 
   return useMemo(
-    () => applyTerritoryServerAccess({
-      editor: isAdmin || isElder || isServiceCommittee,
-      publisher: localPublisher,
-      legacyIdentitySafe: !!publisher,
-      publisherId: localMode ? localPublisherId : uid,
-      groupId: !localMode && groupLead ? my_group?.group_id : undefined,
-      eligiblePublisher,
-      access,
-      groupHolder,
-      restricted: { categories, types },
-    }, !localMode && server?.scope === scope ? server : undefined),
+    () =>
+      applyTerritoryServerAccess(
+        {
+          editor: isAdmin || isElder || isServiceCommittee,
+          publisher: localPublisher,
+          legacyIdentitySafe: !!publisher,
+          publisherId: localMode ? localPublisherId : uid,
+          groupId: !localMode && groupLead ? my_group?.group_id : undefined,
+          eligiblePublisher,
+          access,
+          groupHolder,
+          restricted: { categories, types },
+        },
+        !localMode && server?.scope === scope ? server : undefined
+      ),
     [
       localMode,
       localPublisher,

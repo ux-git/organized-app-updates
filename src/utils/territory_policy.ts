@@ -1,3 +1,4 @@
+import type { TerritorySharedSettings } from '@definition/territory_sync';
 import type { TerritoryGrant } from '@definition/territory_sync';
 
 export class TerritoryPolicyConflict extends Error {}
@@ -57,4 +58,26 @@ export const mergeTerritoryGrants = (
   return [...result.values()].sort((a, b) =>
     a.personId.localeCompare(b.personId)
   );
+};
+
+/** Merge independent setting edits and stop when two devices changed the same setting differently. */
+export const mergeTerritorySettings = (
+  baseline: TerritorySharedSettings | undefined,
+  local: TerritorySharedSettings,
+  remote: TerritorySharedSettings
+): TerritorySharedSettings => {
+  if (same(local, remote)) return remote;
+  if (!baseline) throw new TerritoryPolicyConflict();
+  const result = { ...remote };
+  const keys = new Set([
+    ...Object.keys(baseline),
+    ...Object.keys(local),
+  ] as (keyof TerritorySharedSettings)[]);
+  for (const key of keys) {
+    if (same(local[key], baseline[key])) continue;
+    if (!same(remote[key], baseline[key]) && !same(remote[key], local[key]))
+      throw new TerritoryPolicyConflict();
+    Object.assign(result, { [key]: local[key] });
+  }
+  return result;
 };

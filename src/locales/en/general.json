@@ -190,7 +190,8 @@
   "tr_territorySyncFailed": "Your changes are saved on this device. Check your connection and account access, then try again.",
   "tr_territorySyncRetry": "Try again",
   "tr_territorySyncReview": "Review pending changes",
-  "tr_territorySyncReviewDescription": "These territories have changes saved only on this device. You can export a copy to keep them. Choosing the server version discards all listed pending changes and reloads the latest shared records.",
+  "tr_territorySyncReviewDescription": "These territories or settings have changes saved only on this device. You can export a copy to keep them. Choosing the server version discards the reviewed pending changes and reloads the latest shared records and settings.",
   "tr_territorySyncExportDraft": "Export local changes",
-  "tr_territorySyncUseServer": "Discard changes and reload"
+  "tr_territorySyncUseServer": "Discard changes and reload",
+  "tr_territorySyncSettingsPending": "Territory settings also have pending changes."
 }

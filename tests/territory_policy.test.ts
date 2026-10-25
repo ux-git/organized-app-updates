@@ -60,3 +60,52 @@ test('removing a local grant preserves unrelated remote grants and detects simul
     TerritoryPolicyConflict
   );
 });
+
+const preferences = () => ({
+  categories: [],
+  borderColor: 'red' as const,
+  borderDashed: false,
+  recommendations: { cooldownMonths: 0, categories: [], types: [] },
+  overdueMonths: 4,
+});
+
+test('independent manager setting edits merge without replacing the other device settings', async () => {
+  const { mergeTerritorySettings } =
+    await import('../src/utils/territory_policy');
+  const base = preferences();
+  const result = mergeTerritorySettings(
+    base,
+    { ...base, borderColor: 'blue' },
+    { ...base, borderDashed: true }
+  );
+  assert.equal(result.borderColor, 'blue');
+  assert.equal(result.borderDashed, true);
+});
+
+test('conflicting changes to the same setting require review', async () => {
+  const { mergeTerritorySettings } =
+    await import('../src/utils/territory_policy');
+  const base = preferences();
+  assert.throws(
+    () =>
+      mergeTerritorySettings(
+        base,
+        { ...base, borderColor: 'blue' },
+        { ...base, borderColor: 'green' }
+      ),
+    TerritoryPolicyConflict
+  );
+});
+
+test('an acknowledgement rebases later local settings without losing the remote edit', async () => {
+  const { mergeTerritorySettings } =
+    await import('../src/utils/territory_policy');
+  const sent = { ...preferences(), borderColor: 'blue' as const };
+  const result = mergeTerritorySettings(
+    sent,
+    { ...sent, overdueMonths: 6 },
+    { ...sent, borderDashed: true }
+  );
+  assert.equal(result.overdueMonths, 6);
+  assert.equal(result.borderDashed, true);
+});

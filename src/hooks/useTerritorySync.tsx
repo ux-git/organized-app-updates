@@ -32,7 +32,9 @@ const useTerritorySync = () => {
   }, [state, congregation, user, setSettings]);
   useEffect(() => {
     setPending(
-      state?.scope === `${congregation}:${user}` ? state.queue.length : 0
+      state?.scope === `${congregation}:${user}`
+        ? state.queue.length + Number(!!state.settingsDirty)
+        : 0
     );
   }, [state, setPending, congregation, user]);
   useEffect(() => {
@@ -42,7 +44,11 @@ const useTerritorySync = () => {
     };
     const timer = window.setTimeout(refresh, TERRITORY_SYNC_DEBOUNCE);
     const interval = window.setInterval(() => {
-      if (state?.queue.length || window.location.hash.includes('/territories'))
+      if (
+        state?.queue.length ||
+        state?.settingsDirty ||
+        window.location.hash.includes('/territories')
+      )
         refresh();
     }, TERRITORY_SYNC_REFRESH_INTERVAL);
     window.addEventListener('online', refresh);

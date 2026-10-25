@@ -2,7 +2,7 @@ import { congIDState } from '@states/settings';
 import { userIDState } from '@states/app';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
-import type { TerritoryPendingOperation } from '@definition/territory_sync';
+import type { TerritoryPendingReview } from '@definition/territory_sync';
 import {
   territorySyncPendingState,
   territorySyncStatusState,
@@ -18,7 +18,7 @@ const useTerritorySyncStatus = () => {
   const status = useAtomValue(territorySyncStatusState);
   const pending = useAtomValue(territorySyncPendingState);
   const local = useAtomValue(territoryLocalModeState);
-  const [review, setReview] = useState<TerritoryPendingOperation[]>();
+  const [review, setReview] = useState<TerritoryPendingReview>();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const openReview = async () => {
@@ -26,7 +26,10 @@ const useTerritorySyncStatus = () => {
       const data = await dbTerritorySyncGet();
       if (data?.scope !== scope) return;
       setReviewScope(scope);
-      setReview(data.queue);
+      setReview({
+        queue: data.queue,
+        settings: data.settingsDirty ? data.settings : undefined,
+      });
       setFailed(false);
     } catch {
       setFailed(true);
@@ -37,7 +40,17 @@ const useTerritorySyncStatus = () => {
     try {
       await exportFile(
         new Blob(
-          [JSON.stringify({ version: 1, operations: review }, null, 2)],
+          [
+            JSON.stringify(
+              {
+                version: 1,
+                operations: review?.queue,
+                settings: review?.settings,
+              },
+              null,
+              2
+            ),
+          ],
           { type: 'application/json' }
         ),
         'territory-pending-changes.json'
@@ -51,7 +64,7 @@ const useTerritorySyncStatus = () => {
     setBusy(true);
     setFailed(false);
     try {
-      await discardPendingTerritories(review.map((item) => item.id));
+      await discardPendingTerritories(review);
       setReview(undefined);
     } catch {
       setFailed(true);
@@ -61,7 +74,7 @@ const useTerritorySyncStatus = () => {
   };
   const territories = [
     ...new Map(
-      (review ?? []).flatMap((item) =>
+      (review?.queue ?? []).flatMap((item) =>
         item.changes.map(
           (change) => [change.id, change.after ?? change.before] as const
         )

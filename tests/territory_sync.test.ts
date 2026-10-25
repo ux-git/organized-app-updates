@@ -200,3 +200,26 @@ test('return and reassign resolves the new publisher ID while retaining the grou
     undefined
   );
 });
+
+test('historical groups that no longer exist retain their encrypted labels without blocking migration', () => {
+  const value = territory();
+  value.assignments[0].returnedOn = '24.10.2026';
+  value.assignments[0].group = 'Retired group';
+  value.assignments[0].groupId = undefined;
+  const record = wire(value);
+  assert.equal(record.history[0].groupId, 'legacy_a1_group');
+  assert.equal(
+    decodeTerritory(record, people, key).assignments[0].group,
+    'Retired group'
+  );
+});
+
+test('ambiguous historical do-not-call authors never grant ownership to the first matching name', () => {
+  const value = territory();
+  const duplicate = [
+    ...people,
+    { id: 'other-alice', name: 'Alice', group: false },
+  ];
+  const encoded = encodeTerritory(value, 'main', duplicate, key);
+  assert.equal(encoded.doNotCalls[0].addedBy, 'legacy_d1');
+});

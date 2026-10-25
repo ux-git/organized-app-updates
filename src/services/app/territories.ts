@@ -55,11 +55,15 @@ export const saveTerritoryChanges = async (
 };
 
 export const saveTerritorySettings = async (
-  settings: TerritorySharedSettings
+  settings: TerritorySharedSettings,
+  baseline?: TerritorySharedSettings
 ) => {
   if (isTest) return;
   const congregation = store.get(congIDState);
   const user = store.get(userIDState);
   if (!congregation || !user) return;
-  await dbTerritorySettingsSave(`${congregation}:${user}`, settings);
+  await dbTerritorySettingsSave(`${congregation}:${user}`, settings, {
+    dirty: true,
+    baseline,
+  });
 };

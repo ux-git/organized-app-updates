@@ -104,6 +104,7 @@ export type TerritorySyncState = {
   scope: string;
   settings?: TerritorySharedSettings;
   settingsDirty?: boolean;
+  settingsBaseline?: TerritorySharedSettings;
   localGrants?: TerritoryGrant[];
   queue: TerritoryPendingOperation[];
   revision: number;
@@ -124,4 +125,14 @@ export type TerritorySharedSettings = {
   borderDashed: boolean;
   recommendations: TerritoryRecommendations;
   overdueMonths: number;
+};
+
+export type TerritoryPendingReview = {
+  queue: TerritoryPendingOperation[];
+  settings?: TerritorySharedSettings;
+};
+export type TerritorySettingsUpdate = {
+  dirty: boolean;
+  baseline?: TerritorySharedSettings;
+  sent?: TerritorySharedSettings;
 };

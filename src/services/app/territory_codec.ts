@@ -72,6 +72,33 @@ const historicalPersonId = (
     return `legacy_${assignment.id}`;
   }
 };
+const historicalGroupId = (
+  assignment: TerritoryAssignment,
+  assignees: TerritoryAssignee[]
+) => {
+  if (!assignment.group) return undefined;
+  try {
+    return territoryPersonId(
+      assignment.group,
+      assignment.groupId,
+      assignees,
+      true
+    );
+  } catch (error) {
+    if (!assignment.returnedOn) throw error;
+    return `legacy_${assignment.id}_group`;
+  }
+};
+const doNotCallAuthorId = (
+  entry: Territory['doNotCalls'][number],
+  assignees: TerritoryAssignee[]
+) => {
+  if (entry.addedById) return entry.addedById;
+  const matches = assignees.filter(
+    (person) => !person.group && person.name === entry.addedBy
+  );
+  return matches.length === 1 ? matches[0].id : `legacy_${entry.id}`;
+};
 export const encodeTerritoryAssignment = (
   assignment: TerritoryAssignment,
   assignees: TerritoryAssignee[],
@@ -79,9 +106,7 @@ export const encodeTerritoryAssignment = (
 ): TerritoryWireAssignment => ({
   id: assignment.id,
   personId: historicalPersonId(assignment, assignees),
-  groupId: assignment.group
-    ? territoryPersonId(assignment.group, assignment.groupId, assignees, true)
-    : undefined,
+  groupId: historicalGroupId(assignment, assignees),
   campaignId: assignment.campaign?.id,
   assignedAt: isoDate(assignment.assignedOn),
   returnedAt: assignment.returnedOn
@@ -140,12 +165,7 @@ export const encodeTerritory = (
       : undefined,
     doNotCalls: doNotCalls.map((entry) => ({
       id: entry.id,
-      addedBy:
-        entry.addedById ??
-        assignees.find(
-          (person) => !person.group && person.name === entry.addedBy
-        )?.id ??
-        `legacy_${entry.id}`,
+      addedBy: doNotCallAuthorId(entry, assignees),
       content: encryptTerritoryContent(entry, key),
     })),
   };

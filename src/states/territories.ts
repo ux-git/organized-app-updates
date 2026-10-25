@@ -27,7 +27,9 @@ import {
 import { territoryCampaignsState } from '@features/territories/campaigns';
 import { monthShortNamesState } from './app';
 
-export const territoryServerAccessState = atom<TerritoryServerAccess | undefined>();
+export const territoryServerAccessState = atom<
+  TerritoryServerAccess | undefined
+>();
 
 export const territoriesDbState = atom<Territory[]>([]);
 
@@ -97,7 +99,7 @@ const sharedSetting = <K extends keyof TerritorySharedSettings>(key: K) =>
       const next = { ...previous, [key]: value };
       set(territorySharedSettingsState, next);
       try {
-        await saveTerritorySettings(next);
+        await saveTerritorySettings(next, previous);
       } catch {
         if (get(territorySharedSettingsState) === next)
           set(territorySharedSettingsState, previous);

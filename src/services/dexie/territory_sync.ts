@@ -1,3 +1,8 @@
+import { mergeTerritorySettings } from '@utils/territory_policy';
+import type {
+  TerritoryPendingReview,
+  TerritorySettingsUpdate,
+} from '@definition/territory_sync';
 import type {
   TerritoryGrant,
   TerritoryPendingChange,
@@ -6,7 +11,10 @@ import type {
   TerritorySharedSettings,
 } from '@definition/territory_sync';
 import { TERRITORY_SYNC_BATCH_LIMIT } from '@constants/index';
-import { coalesceTerritoryChanges } from '@utils/territory_sync_queue';
+import {
+  coalesceTerritoryChanges,
+  matchesTerritoryReview,
+} from '@utils/territory_sync_queue';
 
 import appDb from '@db/appDb';
 import type { TerritoryRecord } from '@definition/territory_record';
@@ -129,7 +137,8 @@ export const dbTerritorySyncApply = async (
     const updated: TerritoryRecord[] = [];
     for (const record of local) {
       const incoming = remote.get(record.id);
-      if (!incoming && (record.remote || !retainLocalDrafts)) removed.push(record.id);
+      if (!incoming && (record.remote || !retainLocalDrafts))
+        removed.push(record.id);
       else if (pending.has(record.id) && incoming)
         updated.push({ ...record, remote: incoming.remote });
     }
@@ -151,23 +160,41 @@ export const dbTerritorySyncApply = async (
 export const dbTerritorySettingsSave = async (
   scope: string,
   settings: TerritorySharedSettings,
-  dirty = true
+  options: TerritorySettingsUpdate = { dirty: true }
 ) => {
   await appDb.transaction('rw', appDb.metadata, async () => {
     const metadata = await appDb.metadata.get(1);
     const state = metadata?.territorySync ?? { scope, queue: [], revision: 0 };
     assertScope(state, scope);
     if (
-      !dirty &&
+      !options.dirty &&
       state.settingsDirty &&
       JSON.stringify(state.settings) !== JSON.stringify(settings)
-    )
-      return;
+    ) {
+      if (!options.sent || !state.settings) return;
+      const rebased = mergeTerritorySettings(
+        options.sent,
+        state.settings,
+        settings
+      );
+      Object.assign(state, {
+        settings: rebased,
+        settingsBaseline: settings,
+        settingsDirty: JSON.stringify(rebased) !== JSON.stringify(settings),
+      });
+    } else
+      Object.assign(state, {
+        settings,
+        settingsDirty: options.dirty,
+        settingsBaseline: options.dirty
+          ? (state.settingsBaseline ?? options.baseline)
+          : undefined,
+      });
     await appDb.metadata.put({
       ...metadata,
       id: 1,
       metadata: metadata?.metadata ?? {},
-      territorySync: { ...state, settings, settingsDirty: dirty },
+      territorySync: state,
     });
   });
 };
@@ -175,20 +202,16 @@ export const dbTerritorySettingsSave = async (
 /** Discard only the operations the user reviewed; concurrent local edits are never discarded implicitly. */
 export const dbTerritorySyncDiscard = async (
   scope: string,
-  reviewed: string[],
+  reviewed: TerritoryPendingReview,
   records: TerritoryRecord[],
-  revision: number
+  revision: number,
+  settings?: TerritorySharedSettings
 ) => {
   await appDb.transaction('rw', appDb.territories, appDb.metadata, async () => {
     const metadata = await appDb.metadata.get(1);
     const state = metadata?.territorySync;
     assertScope(state, scope);
-    if (
-      !state ||
-      !metadata ||
-      JSON.stringify(state.queue.map((item) => item.id)) !==
-        JSON.stringify(reviewed)
-    )
+    if (!state || !metadata || !matchesTerritoryReview(state, reviewed))
       throw new Error('Pending changes changed during review');
     const ids = state.queue.flatMap((item) =>
       item.changes.map((change) => change.id)
@@ -197,7 +220,14 @@ export const dbTerritorySyncDiscard = async (
     await appDb.territories.bulkPut(records);
     await appDb.metadata.put({
       ...metadata,
-      territorySync: { ...state, revision, queue: [] },
+      territorySync: {
+        ...state,
+        revision,
+        queue: [],
+        settings: settings ?? state.settings,
+        settingsDirty: false,
+        settingsBaseline: undefined,
+      },
     });
   });
 };

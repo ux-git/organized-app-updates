@@ -1,5 +1,7 @@
 import type {
   TerritoryPendingChange,
+  TerritoryPendingReview,
+  TerritorySyncState,
   TerritoryPendingOperation,
 } from '@definition/territory_sync';
 
@@ -27,3 +29,13 @@ export const coalesceTerritoryChanges = (
   );
   return true;
 };
+
+/** A coalesced edit can keep its operation ID; compare all reviewed data before discarding. */
+export const matchesTerritoryReview = (
+  state: TerritorySyncState,
+  reviewed: TerritoryPendingReview
+) =>
+  JSON.stringify({
+    queue: state.queue,
+    settings: state.settingsDirty ? state.settings : undefined,
+  }) === JSON.stringify(reviewed);
