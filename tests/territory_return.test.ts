@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import {
   parseTerritoryHouseholds,
   territoryReturnDateError,
+  territoryAssignmentDateError,
+  territoryHolderAvailable,
 } from '../src/utils/territory_assignments';
 
 const today = new Date(2026, 9, 25);
@@ -80,4 +82,67 @@ test('completed historical assignments do not prevent returning the current one'
     ),
     undefined
   );
+});
+
+test('new assignments reject future, invalid, and backwards transfer dates', () => {
+  assert.equal(
+    territoryAssignmentDateError([], new Date(2026, 9, 26), today),
+    'tr_territoryAssignedDateIsInTheFuture'
+  );
+  assert.equal(
+    territoryAssignmentDateError([], new Date('invalid'), today),
+    'tr_territoryDateRequired'
+  );
+  assert.equal(
+    territoryAssignmentDateError([], null, today),
+    'tr_territoryDateRequired'
+  );
+  assert.equal(
+    territoryAssignmentDateError(assignments, new Date(2026, 9, 19), today),
+    'tr_territoryTransferBeforeAssigned'
+  );
+  assert.equal(
+    territoryAssignmentDateError([{ assignedOn: '31.02.2026' }], today, today),
+    'tr_territoryOpenAssignmentDateInvalid'
+  );
+});
+
+test('a transfer validates every open assignment and accepts the same day', () => {
+  const open = [...assignments, { assignedOn: '24.10.2026' }];
+  assert.equal(
+    territoryAssignmentDateError(open, new Date(2026, 9, 23), today),
+    'tr_territoryTransferBeforeAssigned'
+  );
+  assert.equal(
+    territoryAssignmentDateError(open, new Date(2026, 9, 24), today),
+    undefined
+  );
+});
+
+test('assignments require current, unambiguous publishers and groups', () => {
+  const people = [
+    { id: 'p', name: 'Anna', group: false },
+    { id: 'g', name: 'Group 1', group: true },
+  ];
+  assert.equal(territoryHolderAvailable({ publisher: 'Anna' }, people), true);
+  assert.equal(
+    territoryHolderAvailable({ publisher: 'Anna', group: 'Group 1' }, people),
+    true
+  );
+  for (const holder of [
+    { publisher: '' },
+    { publisher: 'Former publisher' },
+    { publisher: 'Group 1' },
+    { publisher: 'Anna', group: 'Missing group' },
+  ])
+    assert.equal(territoryHolderAvailable(holder, people), false);
+  for (const group of [true, false]) {
+    assert.equal(
+      territoryHolderAvailable({ publisher: 'Anna' }, [
+        ...people,
+        { id: 'duplicate', name: 'Anna', group },
+      ]),
+      false
+    );
+  }
 });

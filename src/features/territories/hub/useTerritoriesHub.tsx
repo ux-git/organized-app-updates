@@ -1,3 +1,4 @@
+import { territoryTabGroups } from '@features/territories/tabs';
 import useTerritoryAccess from '@features/territories/useTerritoryAccess';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
@@ -29,12 +30,6 @@ import {
   TerritoryTab,
 } from '@definition/territory';
 import useAssignReturn from '@features/territories/useAssignReturn';
-
-const TAB_GROUPS: TerritoryTab[][] = [
-  ['recommended', 'all'],
-  ['mine', 'group', 'requested'],
-  ['requests'],
-];
 
 const OWN_TABS = new Set<TerritoryTab>(['mine', 'group', 'requested']);
 
@@ -121,15 +116,9 @@ const useTerritoriesHub = () => {
   const canRequest =
     !localMode && !!me && context.eligiblePublisher && access === 'request';
 
-  const tabGroups = TAB_GROUPS.map((ids) =>
-    ids.filter(
-      (id) =>
-        (id !== 'group' || groupHolder) &&
-        (canBrowse || !BROWSE_TABS.has(id)) &&
-        (canRequest || id !== 'requested') &&
-        (id !== 'requests' || (isTerritoryEditor && !localMode))
-    )
-  ).filter((ids) => ids.length > 0);
+  const ownRequests = forTab(withStatus, 'requested', me).length;
+
+  const tabGroups = territoryTabGroups(context, localMode, ownRequests > 0);
 
   const groupIndex = tabGroups.findIndex((item) => item.includes(requested));
   const group = tabGroups[Math.max(groupIndex, 0)];
@@ -143,8 +132,6 @@ const useTerritoriesHub = () => {
     // keeps the entry's state, which tells an open pane how to close
     setSearchParams(searchParams, { replace: true, state: location.state });
   };
-
-  const ownRequests = forTab(withStatus, 'requested', me).length;
 
   const tabs =
     group.length > 1
@@ -294,10 +281,12 @@ const useTerritoriesHub = () => {
       .filter((territory) => territory.status === 'available')
       .map((territory) => territory.id);
 
-    actions.assignMany(ids, holder, assignedOn, campaign, card, note);
+    if (!actions.assignMany(ids, holder, assignedOn, campaign, card, note))
+      return false;
 
     setAssignManyOpen(false);
     clearChecked();
+    return true;
   };
 
   const returnable = selected.filter(
@@ -306,12 +295,13 @@ const useTerritoriesHub = () => {
   );
 
   const returnMany = (returnedOn: Date, publisher?: string) => {
-    actions.returnMany(
+    const returned = actions.returnMany(
       returnable.map((territory) => territory.id),
       returnedOn,
       publisher
     );
 
+    if (!returned) return;
     setReturnManyOpen(false);
     clearChecked();
   };
@@ -340,6 +330,7 @@ const useTerritoriesHub = () => {
     isTerritoryEditor,
     canBrowse,
     canRequest,
+    canReturn: access === 'request',
     setTab,
     tabs,
     filters,

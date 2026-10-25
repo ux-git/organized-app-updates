@@ -5,6 +5,7 @@ import { JWLangLocaleState } from '@states/settings';
 import * as maplibregl from 'maplibre-gl';
 import { Image, Page, pdf } from '@react-pdf/renderer';
 import { FormControlLabel, Radio, RadioGroup, Stack } from '@mui/material';
+import IconLoading from '@components/icon_loading';
 import { Button, Checkbox, Typography } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
@@ -189,12 +190,16 @@ const captureOverview = (
       if (done) return;
       done = true;
       window.clearTimeout(timeout);
-      const image = capture
-        ? map.getCanvas().toDataURL('image/jpeg', 0.92)
-        : undefined;
-      map.remove();
-      container.remove();
-      resolve(image ? { image, partial } : undefined);
+      let image: string | undefined;
+      try {
+        if (capture) image = map.getCanvas().toDataURL('image/jpeg', 0.92);
+      } catch {
+        image = undefined;
+      } finally {
+        map.remove();
+        container.remove();
+        resolve(image ? { image, partial } : undefined);
+      }
     };
     // a big sheet loads many tiles; what has come by then still prints
     const timeout = window.setTimeout(() => {
@@ -384,39 +389,43 @@ export const PrintOverviewDialog = ({
     !hasBorder && !territories.some((item) => item.boundary?.length);
 
   const save = async () => {
+    if (busy || empty) return;
     setBusy(true);
     try {
-      const result = await captureOverview(
-        territories,
-        areas,
-        congregation,
-        borderColor,
-        borderDashed,
-        {
-          ...options,
-          border: options.border && hasBorder,
-        }
-      );
-      if (!result) throw new Error(t('tr_territoryTheMapCouldNotBeDrawn'));
-      const blob = await pdf(
-        <OverviewDocument
-          image={result.image}
-          options={options}
-          lang={locale}
-        />
-      ).toBlob();
+      let partial = false;
       const saved = await exportFile(
-        blob,
+        async () => {
+          const result = await captureOverview(
+            territories,
+            areas,
+            congregation,
+            borderColor,
+            borderDashed,
+            {
+              ...options,
+              border: options.border && hasBorder,
+            }
+          );
+          if (!result) throw new Error(t('tr_territoryTheMapCouldNotBeDrawn'));
+          partial = result.partial;
+          return pdf(
+            <OverviewDocument
+              image={result.image}
+              options={options}
+              lang={locale}
+            />
+          ).toBlob();
+        },
         `${t('tr_territoryOverviewFilename')}-${t(FORMAT_LABEL[options.format])}.pdf`
       );
-      if (saved && result.partial) {
+      if (saved && partial) {
         displaySnackNotification({
           header: t('tr_territoryPartsOfTheMapAreMissing'),
           message: t('tr_territorySomeMapTilesCouldNotBeLoadedPrintAgain'),
           severity: 'error',
         });
       }
-      onClose();
+      if (saved) onClose();
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         displaySnackNotification({
@@ -493,7 +502,12 @@ export const PrintOverviewDialog = ({
         <Button variant="secondary" onClick={onClose}>
           {t('tr_cancel')}
         </Button>
-        <Button variant="main" disabled={busy || empty} onClick={save}>
+        <Button
+          variant="main"
+          disabled={busy || empty}
+          onClick={save}
+          startIcon={busy ? <IconLoading width={20} height={20} /> : undefined}
+        >
           {busy ? t('tr_territoryPreparing') : t('tr_export')}
         </Button>
       </DialogActions>

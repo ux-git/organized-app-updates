@@ -15,7 +15,7 @@ import {
   emptyListMessage,
   isDoNotCallNumber,
 } from '@features/territories/helpers';
-import { currentPublisherState } from '@features/territories/assignees';
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
 import DoNotCallEditor from '@features/territories/details/do_not_call_editor';
 import { offerUndo } from '@features/territories/undo';
 import { restoreDoNotCall } from '@features/territories/restore';
@@ -38,7 +38,7 @@ const DoNotCallPanel = ({
   const { t } = useAppTranslation();
 
   const format = useAtomValue(shortDateFormatState);
-  const me = useAtomValue(currentPublisherState);
+  const { publisher: me } = useTerritoryAccess();
 
   const [editing, setEditing] = useState<DoNotCall | 'new'>();
 

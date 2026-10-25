@@ -1,22 +1,18 @@
 import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
-import { Button } from '@components/index';
+import { Button, InfoNote } from '@components/index';
+import IconLoading from '@components/icon_loading';
+import useExportS13 from '@features/territories/history/useExportS13';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import SwitchWithLabel from '@components/switch_with_label';
 
-const ExportS13Dialog = ({
-  isProcessing,
-  onClose,
-  onExport,
-}: {
-  isProcessing: boolean;
-  onClose: VoidFunction;
-  onExport: (markCampaigns: boolean) => void;
-}) => {
+const ExportS13Dialog = ({ onClose }: { onClose: VoidFunction }) => {
   const { t } = useAppTranslation();
 
   const [withCampaigns, setWithCampaigns] = useState(false);
+  const { handleExport, isProcessing, failed, retry } =
+    useExportS13(withCampaigns);
 
   return (
     <Dialog
@@ -32,6 +28,14 @@ const ExportS13Dialog = ({
         onChange={setWithCampaigns}
       />
 
+      {failed && (
+        <InfoNote
+          message={t(
+            'tr_territoryTheTerritoryDocumentCouldNotBeGeneratedTryAgain'
+          )}
+        />
+      )}
+
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
           {t('tr_cancel')}
@@ -39,9 +43,18 @@ const ExportS13Dialog = ({
         <Button
           variant="main"
           disabled={isProcessing}
-          onClick={() => onExport(withCampaigns)}
+          startIcon={
+            isProcessing ? <IconLoading width={20} height={20} /> : undefined
+          }
+          onClick={async () => {
+            if (failed) {
+              retry();
+              return;
+            }
+            if (await handleExport()) onClose();
+          }}
         >
-          {t('tr_export')}
+          {t(failed ? 'tr_territoryRetryExport' : 'tr_export')}
         </Button>
       </DialogActions>
     </Dialog>

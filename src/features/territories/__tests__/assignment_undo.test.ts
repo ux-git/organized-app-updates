@@ -57,7 +57,7 @@ const after: Territory = {
 };
 
 test('undo puts the assignment back and keeps edits made meanwhile', () => {
-  const result = revertAssignment(after, before, ['a2']);
+  const result = revertAssignment(after, before, ['a2'], after);
 
   assert.deepEqual(result.assignments, [
     { ...before.assignments[0], note: 'Dog' },
@@ -82,7 +82,8 @@ test('an assignment added by hand meanwhile stays', () => {
   const result = revertAssignment(
     { ...after, assignments: [...after.assignments, extra] },
     before,
-    ['a2']
+    ['a2'],
+    after
   );
 
   assert.deepEqual(result.assignments.at(-1), extra);
@@ -113,9 +114,40 @@ test('undo of a transfer gives the group back with its publisher', () => {
     ],
   };
 
-  const result = revertAssignment(transferred, forGroup, ['b1']);
+  const result = revertAssignment(transferred, forGroup, ['b1'], transferred);
 
   assert.equal(result.holder, 'Max');
   assert.equal(result.holderGroup, 'Group 3');
   assert.deepEqual(result.assignments, forGroup.assignments);
+});
+
+test('undo cannot overwrite a later transfer or return', () => {
+  for (const current of [
+    { ...after, holder: 'Cleo' },
+    { ...after, status: 'available' as const, holder: undefined },
+    { ...after, households: 50 },
+    { ...after, requestedBy: 'Cleo' },
+  ])
+    assert.equal(revertAssignment(current, before, ['a2'], after), current);
+});
+
+test('undo preserves a note edited on the affected assignment', () => {
+  const current = {
+    ...after,
+    assignments: after.assignments.map((item) =>
+      item.id === 'a2' ? { ...item, note: 'New information' } : item
+    ),
+  };
+  assert.equal(revertAssignment(current, before, ['a2'], after), current);
+});
+
+test('undo cannot leave two open assignments after a concurrent assignment', () => {
+  const current = {
+    ...after,
+    assignments: [
+      ...after.assignments,
+      { ...base, id: 'concurrent', publisher: 'Ben', assignedOn: '06.10.2026' },
+    ],
+  };
+  assert.equal(revertAssignment(current, before, ['a2'], after), current);
 });

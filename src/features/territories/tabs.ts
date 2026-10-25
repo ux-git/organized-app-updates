@@ -1,3 +1,4 @@
+import type { TerritoryAccessContext } from '@definition/territory_access';
 import type {
   Territory,
   TerritoryRecommendations,
@@ -105,4 +106,34 @@ export const forTab = (
   }
 
   return territories;
+};
+
+export const territoryTabGroups = (
+  context: TerritoryAccessContext,
+  localMode: boolean,
+  hasRequests: boolean
+): TerritoryTab[][] => {
+  const { editor, access, publisher, eligiblePublisher, groupHolder } = context;
+  const groups: TerritoryTab[][] = [
+    ['recommended', 'all'],
+    ['mine', 'group', 'requested'],
+    ['requests'],
+  ];
+  return groups
+    .map((tabs) =>
+      tabs.filter((tab) => {
+        if (tab === 'group') return !!groupHolder;
+        if (tab === 'recommended' || tab === 'all')
+          return editor || access !== 'own';
+        if (tab === 'requested')
+          return (
+            !!publisher &&
+            (hasRequests ||
+              (!localMode && eligiblePublisher && access === 'request'))
+          );
+        if (tab === 'requests') return editor && !localMode;
+        return true;
+      })
+    )
+    .filter((tabs) => tabs.length > 0);
 };

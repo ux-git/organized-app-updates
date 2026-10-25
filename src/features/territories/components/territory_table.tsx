@@ -29,7 +29,7 @@ import {
   parseDate,
   emptyListMessage,
 } from '@features/territories/helpers';
-import { currentPublisherState } from '@features/territories/assignees';
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
 import { isCoverage } from '@features/territories/coverage_rate';
 import { territoryCampaignsState } from '@features/territories/campaigns';
 import { campaignEnded } from '@features/territories/campaign_filter';
@@ -546,7 +546,7 @@ const TerritoryTable = ({
     if (!latest.current.checked.has(id)) latest.current.onCheck(id);
   });
 
-  const me = useAtomValue(currentPublisherState);
+  const { publisher: me } = useTerritoryAccess();
 
   // the rows get stable callbacks that reach the newest props, so a parent
   // render alone does not render all of them again

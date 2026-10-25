@@ -5,17 +5,19 @@ import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { Territory } from '@definition/territory';
-import { assignmentIssues, toStoredDate } from '@features/territories/helpers';
+import { territoryReturnDateError } from '@utils/territory_assignments';
 import { PublisherPicker } from '@features/territories/components/holder_picker';
 
 type ReturnManyDialogProps = {
   territories: Territory[];
+  own?: boolean;
   onClose: VoidFunction;
   onReturn: (returnedOn: Date, publisher?: string) => void;
 };
 
 const ReturnManyDialog = ({
   territories,
+  own = false,
   onClose,
   onReturn,
 }: ReturnManyDialogProps) => {
@@ -32,16 +34,7 @@ const ReturnManyDialog = ({
   const [returnedOn, setReturnedOn] = useState<Date | null>(new Date());
   const [returnedBy, setReturnedBy] = useState(sharedBy);
 
-  const issues = returnedOn
-    ? opens.flatMap((item) =>
-        assignmentIssues({
-          assignedOn: item.assignedOn,
-          returnedOn: toStoredDate(returnedOn),
-        })
-      )
-    : [];
-  const tooEarly = issues.includes('returned_before_assigned');
-  const future = issues.includes('returned_future');
+  const dateError = territoryReturnDateError(opens, returnedOn);
 
   const n = territories.length;
 
@@ -55,7 +48,7 @@ const ReturnManyDialog = ({
           : t('tr_territoryReturnTerritories', { n })
       }
     >
-      {sharedBy && (
+      {sharedBy && !own && (
         <PublisherPicker
           label={t('tr_territoryReturnedBy')}
           value={returnedBy}
@@ -67,14 +60,8 @@ const ReturnManyDialog = ({
       <DatePicker
         label={t('tr_territoryReturnedOn')}
         value={returnedOn}
-        error={tooEarly || future}
-        helperText={
-          tooEarly
-            ? t('tr_territoryCannotBeBeforeTheAssignedDate')
-            : future
-              ? t('tr_territoryThisDateIsInTheFuture')
-              : ''
-        }
+        error={!!dateError}
+        helperText={dateError ? t(dateError) : ''}
         onChange={(value) => setReturnedOn(value)}
       />
 
@@ -84,13 +71,13 @@ const ReturnManyDialog = ({
         </Button>
         <Button
           variant="main"
-          disabled={!returnedOn || tooEarly || future}
+          disabled={!returnedOn || !!dateError || n === 0}
           onClick={() => {
-            if (!returnedOn || tooEarly || future) return;
+            if (!returnedOn || !!dateError || n === 0) return;
 
             onReturn(
               returnedOn,
-              sharedBy && returnedBy && returnedBy !== sharedBy
+              !own && sharedBy && returnedBy && returnedBy !== sharedBy
                 ? returnedBy
                 : undefined
             );

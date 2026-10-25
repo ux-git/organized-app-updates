@@ -28,13 +28,15 @@ import {
 } from '@features/territories/card_choice';
 import { holderText } from '@features/territories/group_holder';
 import {
-  assignmentIssues,
   displayDate,
   doNotCallLabel,
   toStoredDate,
 } from '@features/territories/helpers';
 import { latestReturnNote } from '@features/territories/notes';
-import { startsBeforeOpen } from '@features/territories/assignment_issues';
+import {
+  territoryAssignmentDateError,
+  territoryHolderAvailable,
+} from '@utils/territory_assignments';
 import CampaignField, {
   CampaignChoice,
 } from '@features/territories/components/campaign_field';
@@ -66,7 +68,7 @@ type AssignDialogProps = {
     card?: AssignmentCard,
     // optional, shown under the name in the assignment history
     note?: string
-  ) => void;
+  ) => boolean;
 };
 
 const AssignDialog = ({
@@ -109,21 +111,22 @@ const AssignDialog = ({
   const running = assignedOn ? campaignsOn(campaigns, assignedOn) : [];
   const choices = campaignChoices(campaigns, new Date());
 
-  // the assigned-on date decides until the checkbox is touched
+  // Regular work stays the default unless a campaign was explicitly selected.
   const [manual, setManual] = useState<CampaignChoice>({
     checked: !!selectedCampaign,
     value: selectedCampaign,
   });
   const campaign = manual ?? { checked: false, value: undefined };
 
-  const future =
-    !!assignedOn &&
-    assignmentIssues({ assignedOn: toStoredDate(assignedOn) }).length > 0;
+  const dateError = territoryAssignmentDateError(
+    territory?.assignments ?? [],
+    assignedOn
+  );
 
-  const beforeOpen =
-    !!territory &&
-    !!assignedOn &&
-    startsBeforeOpen(territory.assignments, toStoredDate(assignedOn));
+  const holderAvailable = territoryHolderAvailable(
+    chosenHolder(holder),
+    assignees
+  );
 
   return (
     <Dialog
@@ -209,20 +212,15 @@ const AssignDialog = ({
         autoFocus={!tablet600Up}
       />
 
+      {tried && !holderAvailable && (
+        <InfoNote message={t('tr_territoryAssigneeUnavailable')} />
+      )}
+
       <DatePicker
         label={t('tr_territoryAssignedOn')}
         value={assignedOn}
-        error={future || beforeOpen}
-        helperText={
-          beforeOpen && open
-            ? t('tr_territoryCannotBeBeforeGotItOn', {
-                name: holderText(open),
-                date: displayDate(open.assignedOn, format),
-              })
-            : future
-              ? t('tr_territoryThisDateIsInTheFuture')
-              : ''
-        }
+        error={!!dateError}
+        helperText={dateError ? t(dateError) : ''}
         onChange={(value) => setAssignedOn(value)}
       />
 
@@ -247,17 +245,15 @@ const AssignDialog = ({
         </Button>
         <Button
           variant="main"
-          disabled={!assignedOn || beforeOpen}
+          disabled={!!dateError}
           onClick={() => {
-            if (!assignedOn || beforeOpen) return;
-            if (holderMissing(holder)) {
+            if (!assignedOn || dateError) return;
+            if (holderMissing(holder) || !holderAvailable) {
               setTried(true);
               return;
             }
             const chosen = chosenHolder(holder);
-            rememberCard(card);
-            rememberHolder(chosen.group);
-            onAssign(
+            const assigned = onAssign(
               chosen,
               assignedOn,
               campaign.checked && campaign.value
@@ -266,6 +262,9 @@ const AssignDialog = ({
               card,
               note.trim() || undefined
             );
+            if (!assigned) return;
+            rememberCard(card);
+            rememberHolder(chosen.group);
             onClose();
           }}
         >

@@ -94,7 +94,7 @@ export const HolderModeSwitch = ({
       onChange={(mode: HolderMode) => onChange({ ...value, mode })}
       options={[
         { value: 'publisher', label: t('tr_publisher') },
-        { value: 'group', label: t('tr_languageGroupShort') },
+        { value: 'group', label: t('tr_fieldServiceGroup') },
       ]}
       sx={{ width: '100%', '& button': { minHeight: '36px' } }}
     />
@@ -144,7 +144,7 @@ export const HolderPickers = ({
       {isGroup && (
         <Stack spacing="4px" sx={{ flex: 1, minWidth: 0 }}>
           <PublisherSearch
-            label={t('tr_languageGroupShort')}
+            label={t('tr_fieldServiceGroup')}
             placeholder={t('tr_territorySearchGroups')}
             options={groups}
             value={value.group}

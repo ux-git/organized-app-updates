@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useAtomValue } from 'jotai';
 import { Box, MenuItem, Stack } from '@mui/material';
 import { Button, Select, TextField, Typography } from '@components/index';
 import DatePicker from '@components/date_picker';
@@ -9,7 +8,7 @@ import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { IconLocation } from '@icons/index';
 import { DoNotCall } from '@definition/territory';
 import { parseDate, toStoredDate } from '@features/territories/helpers';
-import { currentPublisherState } from '@features/territories/assignees';
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
 import EditorHeader from '@features/territories/components/editor_header';
 
 const DoNotCallEditor = ({
@@ -33,7 +32,7 @@ const DoNotCallEditor = ({
 
   const { tablet600Up } = useBreakpoints();
 
-  const me = useAtomValue(currentPublisherState);
+  const { publisher: me } = useTerritoryAccess();
 
   const [address, setAddress] = useState(entry?.address ?? '');
   const [name, setName] = useState(entry?.name ?? '');

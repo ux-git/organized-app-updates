@@ -20,7 +20,8 @@ import {
   parseDate,
   emptyListMessage,
 } from '@features/territories/helpers';
-import { currentPublisherState } from '@features/territories/assignees';
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
+import { territoryHistoryForPublisher } from '@services/app/territory_access';
 import {
   clickableRow,
   ROW_DIVIDER,
@@ -36,12 +37,10 @@ const PAGE = 20;
 
 const MyHistory = ({
   territories,
-  publisher,
   title,
   parent,
 }: {
   territories: Territory[];
-  publisher?: string;
   title?: string;
   parent?: string;
 }) => {
@@ -55,17 +54,12 @@ const MyHistory = ({
 
   const format = useAtomValue(shortDateFormatState);
   const showHouseholds = useAtomValue(territoriesShowHouseholdsState);
-  const me = useAtomValue(currentPublisherState);
+  const { publisher } = useTerritoryAccess();
 
-  const rows = territories
+  const rows = territoryHistoryForPublisher(territories, publisher)
     .flatMap((territory) =>
       territory.assignments
-        .filter(
-          (assignment) =>
-            [assignment.publisher, assignment.group].includes(
-              publisher ?? me
-            ) && assignment.returnedOn
-        )
+        .filter((assignment) => assignment.returnedOn)
         .map((assignment) => ({ territory, assignment }))
     )
     .sort(
@@ -79,7 +73,7 @@ const MyHistory = ({
   const remaining = rows.length - visible.length;
 
   const open = (id: string) =>
-    navigate(`/territories/${id}`, {
+    navigate(`/territories/history/${id}`, {
       state: { parent: parent ?? 'tr_myTerritories' },
     });
 

@@ -7,7 +7,6 @@ import PageTitle from '@components/page_title';
 import NavBarButton from '@components/nav_bar_button';
 import NavBarButtonGroup from '@components/nav_bar_button_group';
 import TerritoriesHistory from '@features/territories/history';
-import useExportS13 from '@features/territories/history/useExportS13';
 import ExportS13Dialog from '@features/territories/history/export_s13_dialog';
 import useParentPage from '@features/territories/useParentPage';
 
@@ -17,8 +16,6 @@ const TerritoryHistoryPage = () => {
 
   const { parent, goBack } = useParentPage('tr_territories', '/');
   const { tablet688Up } = useBreakpoints();
-
-  const { handleExport, isProcessing } = useExportS13();
 
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -49,14 +46,7 @@ const TerritoryHistoryPage = () => {
       />
 
       {editor && exportOpen && (
-        <ExportS13Dialog
-          isProcessing={isProcessing}
-          onClose={() => setExportOpen(false)}
-          onExport={async (markCampaigns) => {
-            await handleExport(markCampaigns);
-            setExportOpen(false);
-          }}
-        />
+        <ExportS13Dialog onClose={() => setExportOpen(false)} />
       )}
 
       <TerritoriesHistory />

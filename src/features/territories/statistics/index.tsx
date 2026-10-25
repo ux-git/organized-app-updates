@@ -81,14 +81,19 @@ const TerritoriesStatistics = () => {
     periodWindow(defaultPeriod())!;
   const months = rangeMonths(range).map(({ month }) => monthNames[month]);
 
-  const fromError = custom && !from ? t('tr_territoryPickADate') : '';
+  const fromError =
+    custom && (!from || !Number.isFinite(from.getTime()))
+      ? t('tr_territoryPickADate')
+      : '';
   const toError = !custom
     ? ''
-    : !to
+    : !to || !Number.isFinite(to.getTime())
       ? t('tr_territoryPickADate')
-      : from && from > to
-        ? t('tr_territoryBeforeTheStartDate')
-        : '';
+      : to > today
+        ? t('tr_territoryThisDateIsInTheFuture')
+        : from && from > to
+          ? t('tr_territoryBeforeTheStartDate')
+          : '';
 
   const rangeText = `${format(range.start, 'PP', { locale })} – ${format(
     range.end,
@@ -117,7 +122,7 @@ const TerritoriesStatistics = () => {
     setFrom(start);
     setTo(end);
 
-    if (start && end && start <= end) {
+    if (start && end && start <= end && end <= today) {
       setCustomRange({ start, end: dayEnd(end) });
     }
   };

@@ -1,3 +1,5 @@
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
+import { territoryPermissions } from '@services/app/territory_access';
 import { useAppTranslation } from '@hooks/index';
 import { MouseEvent, useState } from 'react';
 import { Box } from '@mui/material';
@@ -54,11 +56,15 @@ const AssignButton = ({
   const { t } = useAppTranslation();
 
   const [reviewOpen, setReviewOpen] = useState(false);
+  const context = useTerritoryAccess();
+  const permissions = territoryPermissions(territory, context);
 
   const isAssigned =
     territory.status === 'in_work' || territory.status === 'overdue';
 
   const isRequested = Boolean(territory.requestedBy);
+
+  if (!context.editor && !permissions.return) return null;
 
   const handleClick = (event: MouseEvent<HTMLElement>) => {
     event.stopPropagation();
@@ -80,7 +86,7 @@ const AssignButton = ({
 
   return (
     <>
-      {reviewOpen && (
+      {context.editor && reviewOpen && (
         <Box onClick={(event) => event.stopPropagation()}>
           <ReviewDialog
             territory={territory}

@@ -391,7 +391,10 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
       onReturn={setReturnId}
       showHouseholds={showHouseholds}
       showRequested={tabId !== 'requests' && tabId !== 'requested'}
-      actions={isTerritoryEditor || (!isBrowsing && hub.canRequest)}
+      actions={
+        isTerritoryEditor ||
+        ((tabId === 'mine' || tabId === 'group') && hub.canReturn)
+      }
       showHolder={isTerritoryEditor && tabId !== 'mine'}
       showDoNotCalls={isTerritoryEditor}
       emptyMessage={emptyMessage}
@@ -497,7 +500,7 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
         canAssign={isTerritoryEditor}
       />
 
-      {assignManyOpen && (
+      {isTerritoryEditor && assignManyOpen && (
         <AssignDialog
           title={t('tr_territoryAssignCount', { count: assignableCount })}
           doNotCalls={manyDoNotCalls}
@@ -506,9 +509,10 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
         />
       )}
 
-      {returnManyOpen && (
+      {(isTerritoryEditor || hub.canReturn) && returnManyOpen && (
         <ReturnManyDialog
           territories={returnable}
+          own={!isTerritoryEditor}
           onClose={() => setReturnManyOpen(false)}
           onReturn={returnMany}
         />

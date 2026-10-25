@@ -348,20 +348,15 @@ const TerritoryMap = ({
     setSharing(true);
 
     try {
-      const image = await captureTerritoryMap(territory);
-
-      if (!image) {
-        displaySnackNotification({
-          header: t('tr_territorySharingFailed'),
-          message: t('tr_territoryTheMapPictureCouldNotBeCreatedPleaseTry'),
-          severity: 'error',
-        });
-        return;
-      }
-
       const name = `${t('tr_territoryLabel')}-${territory.number}.png`;
-      const blob = await (await fetch(image)).blob();
-      await exportFile(blob, name);
+      await exportFile(async () => {
+        const image = await captureTerritoryMap(territory);
+        if (!image)
+          throw new Error(
+            t('tr_territoryTheMapPictureCouldNotBeCreatedPleaseTry')
+          );
+        return (await fetch(image)).blob();
+      }, name);
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         displaySnackNotification({

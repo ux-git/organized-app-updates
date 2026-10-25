@@ -86,6 +86,53 @@ test('browser export awaits a completed write and preserves picker cancellation'
   assert.equal(calls.at(-1), 'abort');
 });
 
+test('generated exports choose a destination before expensive work and skip it on cancellation', async () => {
+  const calls: string[] = [];
+  window.showSaveFilePicker = async () => {
+    calls.push('pick');
+    return {
+      createWritable: async () => ({
+        write: async () => {
+          calls.push('write');
+        },
+        close: async () => {
+          calls.push('close');
+        },
+        abort: async () => {},
+      }),
+    };
+  };
+  const generate = async () => {
+    calls.push('generate');
+    return new Blob(['PDF']);
+  };
+  const exporting = exportFile(generate, 'map.pdf');
+  assert.deepEqual(calls, ['pick']);
+  assert.equal(await exporting, true);
+  assert.deepEqual(calls, ['pick', 'generate', 'write', 'close']);
+  calls.length = 0;
+  window.showSaveFilePicker = async () => {
+    throw new DOMException('Cancelled', 'AbortError');
+  };
+  assert.equal(await exportFile(generate, 'map.pdf'), false);
+  assert.deepEqual(calls, []);
+});
+
+test('generation failure does not truncate an existing destination', async () => {
+  const failure = new Error('Map unavailable');
+  window.showSaveFilePicker = async () => ({
+    createWritable: async () => {
+      assert.fail('must not open a stream until the file is ready');
+    },
+  });
+  await assert.rejects(
+    exportFile(async () => {
+      throw failure;
+    }, 'map.pdf'),
+    failure
+  );
+});
+
 test('native export receives a portable filename and propagates the save result', async () => {
   registerFileExporter(async (_, name) => {
     assert.equal(name, 'M22-M23.pdf');

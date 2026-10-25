@@ -9,9 +9,13 @@ export const registerFileExporter = (exporter: Exporter) => {
 };
 
 /** False means the user cancelled; cancellation is never reported as a failure. */
-export const exportFile: Exporter = async (blob, name) => {
+export const exportFile = async (
+  source: Blob | (() => Promise<Blob>),
+  name: string
+): Promise<boolean> => {
+  const createBlob = () => (typeof source === 'function' ? source() : source);
   const filename = exportFileName(name);
-  if (nativeExporter) return nativeExporter(blob, filename);
+  if (nativeExporter) return nativeExporter(await createBlob(), filename);
 
   // Invoke the picker before any asynchronous work so the click remains a user gesture.
   const browser = window as FileExportWindow;
@@ -20,6 +24,7 @@ export const exportFile: Exporter = async (blob, name) => {
       const handle = await browser.showSaveFilePicker({
         suggestedName: filename,
       });
+      const blob = await createBlob();
       const stream = await handle.createWritable();
       try {
         await stream.write(blob);
@@ -36,6 +41,7 @@ export const exportFile: Exporter = async (blob, name) => {
   }
 
   // Safari and Firefox use a download. Do not substitute sharing for saving.
+  const blob = typeof source === 'function' ? await source() : source;
   saveAs(blob, filename);
   return true;
 };

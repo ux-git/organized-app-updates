@@ -1194,5 +1194,9 @@
   "tr_territoryA5HorizontalOnA4": "A5 horizontal on A4",
   "tr_territoryA5VerticalOnA4": "A5 vertical on A4",
   "tr_territoryPrintA4Help": "Print on A4 paper. Choose “Fit to printable area” if available, and turn off borderless printing to avoid cropping. The A5 layouts include an 8 mm margin.",
-  "tr_territoryPrintCardStockHelp": "This PDF uses S-12 card dimensions. For a home or mobile printer, choose “S-12 on A4” and print on A4 paper to avoid cropping."
+  "tr_territoryPrintCardStockHelp": "This PDF uses S-12 card dimensions. For a home or mobile printer, choose “S-12 on A4” and print on A4 paper to avoid cropping.",
+  "tr_territoryTransferBeforeAssigned": "The new assignment cannot start before an open assignment.",
+  "tr_territoryOpenAssignmentDateInvalid": "Correct the open assignment’s date before assigning this territory.",
+  "tr_territoryAssigneeUnavailable": "Choose a current publisher and, if applicable, a current group.",
+  "tr_territoryRetryExport": "Try again"
 }

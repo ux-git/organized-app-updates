@@ -8,8 +8,7 @@ const AssignReturnDialogs = ({
   canAssign,
 }: {
   actions: AssignReturn;
-  // publishers only give back their own; they may take it straight back,
-  // but never file it under a campaign
+  // Only editors can assign, reassign, or change an assignment’s campaign.
   canAssign: boolean;
 }) => {
   const { t } = useAppTranslation();
@@ -23,6 +22,10 @@ const AssignReturnDialogs = ({
       {/* both dialogs mount per territory so their fields start from it */}
       {canAssign && assignTarget && (
         <AssignDialog
+          key={`${assignTarget.id}:${assignTarget.assignments
+            .filter((item) => !item.returnedOn)
+            .map((item) => item.id)
+            .join(',')}`}
           title={t('tr_territoryAssign', { number: assignTarget.number })}
           subtitle={`${assignTarget.name} · ${assignTarget.city}`}
           requestedBy={assignTarget.requestedBy}
@@ -44,6 +47,10 @@ const AssignReturnDialogs = ({
 
       {returnTarget && (
         <ReturnDialog
+          key={`${returnTarget.id}:${returnTarget.assignments
+            .filter((item) => !item.returnedOn)
+            .map((item) => item.id)
+            .join(',')}`}
           territory={returnTarget}
           own={!canAssign}
           onClose={actions.closeReturn}

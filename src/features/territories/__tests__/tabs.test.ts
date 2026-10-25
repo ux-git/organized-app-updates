@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Territory } from '@definition/territory';
-import { forTab } from '@features/territories/tabs';
+import type { TerritoryAccessContext } from '@definition/territory_access';
+import { forTab, territoryTabGroups } from '@features/territories/tabs';
 
 const territory = (number: string, holder?: string, requestedBy?: string) =>
   ({
@@ -38,4 +39,54 @@ test('requested follows the current publisher', () => {
 
 test('without a publisher, nothing is mine', () => {
   assert.deepEqual(numbers(forTab(territories, 'mine', '')), []);
+});
+
+const publisherContext: TerritoryAccessContext = {
+  editor: false,
+  publisher: 'Anna',
+  eligiblePublisher: true,
+  access: 'request',
+  restricted: { categories: [], types: [] },
+};
+
+test('pending requests stay reachable after requesting is disabled', () => {
+  for (const access of ['own', 'view'] as const) {
+    const context = { ...publisherContext, access, eligiblePublisher: false };
+    assert.ok(
+      territoryTabGroups(context, false, true).flat().includes('requested')
+    );
+    assert.ok(
+      !territoryTabGroups(context, false, false).flat().includes('requested')
+    );
+  }
+});
+
+test('navigation separates publishers, group overseers, and administrators', () => {
+  assert.deepEqual(territoryTabGroups(publisherContext, false, false), [
+    ['recommended', 'all'],
+    ['mine', 'requested'],
+  ]);
+  assert.deepEqual(
+    territoryTabGroups(
+      { ...publisherContext, access: 'own', groupHolder: 'Group 1' },
+      false,
+      false
+    ),
+    [['mine', 'group']]
+  );
+  assert.ok(
+    territoryTabGroups({ ...publisherContext, editor: true }, false, false)
+      .flat()
+      .includes('requests')
+  );
+  assert.ok(
+    !territoryTabGroups({ ...publisherContext, editor: true }, true, false)
+      .flat()
+      .includes('requests')
+  );
+  assert.ok(
+    !territoryTabGroups({ ...publisherContext, publisher: '' }, false, true)
+      .flat()
+      .includes('requested')
+  );
 });

@@ -1,10 +1,15 @@
 import useTerritoryAccess from '@features/territories/useTerritoryAccess';
 import { territoryPermissions } from '@services/app/territory_access';
-import { territoryReturnDateError } from '@utils/territory_assignments';
+import {
+  territoryAssignmentDateError,
+  territoryHolderAvailable,
+  territoryReturnDateError,
+} from '@utils/territory_assignments';
 import { assignmentNoteUpdate } from '@features/territories/notes';
 import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue, useStore } from 'jotai';
+import { territoryAssigneesState } from '@features/territories/assignees';
 import { territoriesState } from '@states/territories';
 import {
   AssignmentCard,
@@ -57,6 +62,8 @@ const closeOpen = (
 const useAssignReturn = () => {
   const { t } = useAppTranslation();
   const context = useTerritoryAccess();
+  const store = useStore();
+  const assignees = useAtomValue(territoryAssigneesState);
 
   const [territories, setTerritories] = useAtom(territoriesState);
 
@@ -84,13 +91,19 @@ const useAssignReturn = () => {
         .filter((territory) => ids.includes(territory.id))
         .map((item) => [item.id, item])
     );
+    const after = new Map(
+      store.get(territoriesState).map((item) => [item.id, item])
+    );
     offerUndo({
       text,
       revert: () =>
         setTerritories((prev) =>
           prev.map((item) => {
             const old = before.get(item.id);
-            return old ? revertAssignment(item, old, added) : item;
+            const updated = after.get(item.id);
+            return old && updated
+              ? revertAssignment(item, old, added, updated)
+              : item;
           })
         ),
     });
@@ -111,7 +124,7 @@ const useAssignReturn = () => {
     const start = assignedOn ?? new Date();
     if (
       !context.editor ||
-      !holder.publisher.trim() ||
+      !territoryHolderAvailable(holder, assignees) ||
       !Number.isFinite(start.getTime())
     )
       return { flagged: false, assignmentId: '' };
@@ -122,37 +135,49 @@ const useAssignReturn = () => {
     // editor opens the territory, also when the holder takes it straight back
     const { publisher, group } = holderOf(holder);
 
-    patch(id, (territory) => ({
-      status: 'in_work',
-      holder: publisher,
-      holderGroup: group,
-      daysOut: daysSince(start),
-      requestedBy: undefined,
-      assignments: [
-        ...closeOpen(territory, start, undefined, undefined, undefined, false),
-        {
-          ...assignmentFromDates(
-            {
-              id: assignmentId,
-              ...holderOf(holder),
-              assignedOn: '',
-              serviceYear: 0,
-              months: 0,
-              startMonth: 0,
-              endMonth: 0,
-            },
-            publisher,
+    let changed = false;
+    patch(id, (territory) => {
+      if (territoryAssignmentDateError(territory.assignments, start)) return {};
+      changed = true;
+      return {
+        status: 'in_work',
+        holder: publisher,
+        holderGroup: group,
+        daysOut: daysSince(start),
+        requestedBy: undefined,
+        assignments: [
+          ...closeOpen(
+            territory,
             start,
-            null
+            undefined,
+            undefined,
+            undefined,
+            false
           ),
-          ...(filedUnder ? { campaign: filedUnder } : {}),
-          ...(note ? { note } : {}),
-          card,
-        },
-      ],
-    }));
+          {
+            ...assignmentFromDates(
+              {
+                id: assignmentId,
+                ...holderOf(holder),
+                assignedOn: '',
+                serviceYear: 0,
+                months: 0,
+                startMonth: 0,
+                endMonth: 0,
+              },
+              publisher,
+              start,
+              null
+            ),
+            ...(filedUnder ? { campaign: filedUnder } : {}),
+            ...(note ? { note } : {}),
+            card,
+          },
+        ],
+      };
+    });
 
-    return { flagged: !!filedUnder, assignmentId };
+    return { flagged: !!filedUnder, assignmentId: changed ? assignmentId : '' };
   };
 
   const giveBack = (
@@ -232,7 +257,7 @@ const useAssignReturn = () => {
     note?: string,
     card?: AssignmentCard
   ) => {
-    if (!context.editor) return;
+    if (!context.editor) return false;
     const { flagged, assignmentId } = assign(
       id,
       holder,
@@ -243,6 +268,7 @@ const useAssignReturn = () => {
     );
     if (assignmentId)
       remember([id], assignedText(id, holder, flagged), [assignmentId]);
+    return !!assignmentId;
   };
 
   const handleReturn = (
@@ -254,10 +280,18 @@ const useAssignReturn = () => {
     publisher?: string,
     completed?: boolean
   ) => {
-    if (
-      giveBack(id, households, returnedOn, campaign, note, publisher, completed)
-    )
+    const returned = giveBack(
+      id,
+      households,
+      returnedOn,
+      campaign,
+      note,
+      publisher,
+      completed
+    );
+    if (returned)
       remember([id], t('tr_territoryReturned', { number: numberOf(id) }));
+    return returned;
   };
 
   const handleDecline = (id: string) => {
@@ -267,10 +301,17 @@ const useAssignReturn = () => {
     )?.requestedBy;
     if (!requestedBy) return;
 
-    patch(id, () => ({ requestedBy: undefined }));
+    patch(id, (territory) =>
+      territory.requestedBy === requestedBy ? { requestedBy: undefined } : {}
+    );
     offerUndo({
       text: t('tr_territoryRequestFromDeclined', { name: requestedBy }),
-      revert: () => patch(id, () => ({ requestedBy })),
+      revert: () =>
+        patch(id, (territory) =>
+          territory.status === 'available' && !territory.requestedBy
+            ? { requestedBy }
+            : {}
+        ),
     });
   };
 
@@ -282,22 +323,25 @@ const useAssignReturn = () => {
     card?: AssignmentCard,
     note?: string
   ) => {
-    if (!context.editor) return;
-    const results = ids.map((id) =>
-      assign(id, holder, assignedOn, campaign, note, card)
-    );
+    if (!context.editor) return false;
+    const results = ids.flatMap((id) => {
+      const result = assign(id, holder, assignedOn, campaign, note, card);
+      return result.assignmentId ? [{ ...result, id }] : [];
+    });
+    const assigned = results.map((result) => result.id);
     const flagged = results.some((result) => result.flagged);
-    const values = { n: ids.length, name: holderText(holder) };
+    const values = { n: assigned.length, name: holderText(holder) };
 
     remember(
-      ids,
-      ids.length === 1
-        ? assignedText(ids[0], holder, flagged)
+      assigned,
+      assigned.length === 1
+        ? assignedText(assigned[0], holder, flagged)
         : flagged
           ? t('tr_territoryTerritoriesAssignedToForTheCampaign', values)
           : t('tr_territoryTerritoriesAssignedTo', values),
       results.map((result) => result.assignmentId)
     );
+    return assigned.length > 0;
   };
 
   const returnMany = (ids: string[], returnedOn?: Date, publisher?: string) => {
@@ -311,6 +355,7 @@ const useAssignReturn = () => {
         ? t('tr_territoryReturned', { number: numberOf(returned[0]) })
         : t('tr_territoryTerritoriesReturned', { n: returned.length })
     );
+    return returned.length > 0;
   };
 
   return {
@@ -320,7 +365,11 @@ const useAssignReturn = () => {
     assignTarget: territories.find((territory) => territory.id === assignId),
     openReturn: setReturnId,
     closeReturn: () => setReturnId(undefined),
-    returnTarget: territories.find((territory) => territory.id === returnId),
+    returnTarget: territories.find(
+      (territory) =>
+        territory.id === returnId &&
+        territoryPermissions(territory, context).return
+    ),
     handleAssign,
     handleReturn,
     handleDecline,

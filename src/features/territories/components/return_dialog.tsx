@@ -14,17 +14,18 @@ import {
   territoryLocalModeState,
   territoriesShowHouseholdsState,
 } from '@states/territories';
+import { territoryAssigneesState } from '@features/territories/assignees';
 import { territoryCampaignsState } from '@features/territories/campaigns';
 import {
   campaignOverlaps,
   campaignSnapshot,
 } from '@features/territories/campaign_dates';
+import { parseDate } from '@features/territories/helpers';
 import {
-  assignmentIssues,
-  parseDate,
-  toStoredDate,
-} from '@features/territories/helpers';
-import { parseHouseholds } from '@features/territories/assignment_issues';
+  parseTerritoryHouseholds,
+  territoryReturnDateError,
+  territoryHolderAvailable,
+} from '@utils/territory_assignments';
 import CampaignField, {
   CampaignChoice,
 } from '@features/territories/components/campaign_field';
@@ -49,12 +50,12 @@ type ReturnDialogProps = {
     note?: string,
     publisher?: string,
     completed?: boolean
-  ) => void;
+  ) => boolean;
   onAssignAgain?: (
     id: string,
     holder: AssignmentHolder,
     assignedOn: Date
-  ) => void;
+  ) => boolean;
 };
 
 const ReturnDialog = ({
@@ -71,6 +72,7 @@ const ReturnDialog = ({
   const navigate = useNavigate();
   const localMode = useAtomValue(territoryLocalModeState);
   const campaigns = useAtomValue(territoryCampaignsState);
+  const assignees = useAtomValue(territoryAssigneesState);
   const showHouseholds = useAtomValue(territoriesShowHouseholdsState);
 
   const open = territory?.assignments.find((item) => !item.returnedOn);
@@ -100,17 +102,14 @@ const ReturnDialog = ({
   const holder =
     open && publisher ? holderOf({ ...open, publisher }) : undefined;
 
-  const issues = returnedOn
-    ? assignmentIssues({
-        assignedOn: open?.assignedOn ?? '',
-        returnedOn: toStoredDate(returnedOn),
-      })
-    : [];
-  const tooEarly = issues.includes('returned_before_assigned');
-  const future = issues.includes('returned_future');
+  const canAssignAgain =
+    !!onAssignAgain && !!holder && territoryHolderAvailable(holder, assignees);
+  const reassign = assignAgain && canAssignAgain;
+
+  const dateError = territoryReturnDateError(territory.assignments, returnedOn);
 
   const count = showHouseholds
-    ? parseHouseholds(households, territory.households)
+    ? parseTerritoryHouseholds(households, territory.households)
     : territory.households;
 
   const selectedCampaign = own
@@ -167,14 +166,8 @@ const ReturnDialog = ({
           <DatePicker
             label={t('tr_territoryReturnedOn')}
             value={returnedOn}
-            error={tooEarly || future}
-            helperText={
-              tooEarly
-                ? t('tr_territoryCannotBeBeforeTheAssignedDate')
-                : future
-                  ? t('tr_territoryThisDateIsInTheFuture')
-                  : ''
-            }
+            error={!!dateError}
+            helperText={dateError ? t(dateError) : ''}
             onChange={(value) => setReturnedOn(value)}
           />
         </Box>
@@ -185,9 +178,11 @@ const ReturnDialog = ({
               label={t('tr_territoryHouseholds')}
               type="number"
               value={households}
-              error={count === null}
+              error={count === undefined}
               helperText={
-                count === null ? t('tr_territoryEnterAWholeNumber0OrMore') : ''
+                count === undefined
+                  ? t('tr_territoryEnterAWholeNumber0OrMore')
+                  : ''
               }
               slotProps={{ htmlInput: { min: 0, step: 1 } }}
               onChange={(event) => setHouseholds(event.target.value)}
@@ -273,7 +268,7 @@ const ReturnDialog = ({
         />
       )}
 
-      {holder && onAssignAgain && (
+      {canAssignAgain && (
         <SwitchWithLabel
           label={t('tr_territoryAssignAgain')}
           helper={t('tr_territoryToTheSamePersonFromTheReturnDate')}
@@ -288,11 +283,11 @@ const ReturnDialog = ({
         </Button>
         <Button
           variant="main"
-          disabled={!returnedOn || tooEarly || future || count === null}
+          disabled={!returnedOn || !!dateError || count === undefined}
           onClick={() => {
-            if (!returnedOn || tooEarly || future || count === null) return;
+            if (!returnedOn || !!dateError || count === undefined) return;
 
-            onReturn(
+            const returned = onReturn(
               territory.id,
               count,
               returnedOn,
@@ -302,13 +297,15 @@ const ReturnDialog = ({
               completed
             );
 
-            if (assignAgain && holder)
+            if (!returned) return;
+
+            if (reassign && holder)
               onAssignAgain?.(territory.id, holder, returnedOn);
 
             onClose();
           }}
         >
-          {assignAgain ? t('tr_territoryReturnAndAssign') : t('tr_return')}
+          {reassign ? t('tr_territoryReturnAndAssign') : t('tr_return')}
         </Button>
       </DialogActions>
     </Dialog>

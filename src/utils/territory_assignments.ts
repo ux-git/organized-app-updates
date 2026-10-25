@@ -1,4 +1,8 @@
-import type { TerritoryAssignment } from '@definition/territory';
+import type {
+  AssignmentHolder,
+  TerritoryAssignee,
+  TerritoryAssignment,
+} from '@definition/territory';
 
 const calendarDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -39,4 +43,35 @@ export const territoryReturnDateError = (
     if (end < start) return 'tr_territoryReturnBeforeAssigned';
   }
   return undefined;
+};
+
+// Assigning an occupied territory returns its open assignments on this date.
+export const territoryAssignmentDateError = (
+  assignments: Pick<TerritoryAssignment, 'assignedOn' | 'returnedOn'>[],
+  assignedOn: Date | null,
+  today = new Date()
+) => {
+  const error = territoryReturnDateError(assignments, assignedOn, today);
+  if (error === 'tr_territoryDateFuture')
+    return 'tr_territoryAssignedDateIsInTheFuture';
+  if (error === 'tr_territoryReturnBeforeAssigned')
+    return 'tr_territoryTransferBeforeAssigned';
+  if (error === 'tr_territoryAssignmentDateInvalid')
+    return 'tr_territoryOpenAssignmentDateInvalid';
+  return error;
+};
+
+export const territoryHolderAvailable = (
+  holder: AssignmentHolder,
+  assignees: TerritoryAssignee[]
+) => {
+  const publishers = assignees.filter((item) => item.name === holder.publisher);
+  const groups = holder.group
+    ? assignees.filter((item) => item.name === holder.group)
+    : [];
+  return (
+    publishers.length === 1 &&
+    !publishers[0].group &&
+    (!holder.group || (groups.length === 1 && groups[0].group))
+  );
 };
