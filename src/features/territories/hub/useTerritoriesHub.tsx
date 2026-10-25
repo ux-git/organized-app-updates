@@ -123,8 +123,7 @@ const useTerritoriesHub = () => {
     isTerritoryEditor,
     groupHolder,
     restricted,
-    recommendations,
-    context
+    { recommendations, identity: context }
   ).length;
 
   const tabGroups = territoryTabGroups(context, localMode, ownRequests > 0);
@@ -164,8 +163,7 @@ const useTerritoriesHub = () => {
       isTerritoryEditor,
       groupHolder,
       restricted,
-      recommendations,
-      context
+      { recommendations, identity: context }
     );
 
     // own territories have no filters, so none left over from other tabs apply

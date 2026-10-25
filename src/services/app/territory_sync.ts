@@ -135,7 +135,9 @@ const synchronizePolicy = async (
         key
       )
     : {};
-  let settings = store.get(territorySharedSettingsState);
+  let settings: TerritorySharedSettings | undefined = store.get(
+    territorySharedSettingsState
+  );
   if (remote.categories) settings = remote as TerritorySharedSettings;
   if (state?.settingsDirty) settings = state.settings;
   if (!settings)
@@ -186,7 +188,8 @@ const migrateLocal = async (scope: string, snapshot: TerritorySnapshot) => {
       !pending.has(item.id) &&
       !remote.has(territoryRemoteId(item.dataView, item.data.id))
   );
-  // Legacy imports are independent records. User map operations stay atomic in their original queue entry.
+  // Enqueue batches in order: each transaction reads and updates the same persisted outbox.
+  // User map operations stay atomic in their original queue entry.
   for (let index = 0; index < local.length; index += TERRITORY_SYNC_BATCH_LIMIT)
     await dbTerritoriesEnqueue(
       local.slice(index, index + TERRITORY_SYNC_BATCH_LIMIT),
@@ -247,6 +250,8 @@ const run = async () => {
   await migrateLocal(scope, snapshot);
   await applySnapshot(scope, key, snapshot);
   operation = (await dbTerritorySyncGet())?.queue[0];
+  // Each operation depends on the previous server revision and acknowledged snapshot.
+  // Sending these concurrently would create conflicts or replay already-accepted drafts.
   while (operation) {
     assertAccount(scope);
     await sendOperation(scope, key, operation, snapshot);

@@ -67,12 +67,15 @@ export const forTab = (
   isEditor = true,
   groupHolder?: string,
   restricted: TerritoryRestrictions = NO_RESTRICTIONS,
-  recommendations?: TerritoryRecommendations,
-  identity?: Pick<
-    TerritoryAccessContext,
-    'publisherId' | 'groupId' | 'legacyIdentitySafe'
-  >
+  options: {
+    recommendations?: TerritoryRecommendations;
+    identity?: Pick<
+      TerritoryAccessContext,
+      'publisherId' | 'groupId' | 'legacyIdentitySafe'
+    >;
+  } = {}
 ) => {
+  const { recommendations, identity } = options;
   if (tab === 'group') {
     return groupHolder
       ? territories.filter((territory) =>

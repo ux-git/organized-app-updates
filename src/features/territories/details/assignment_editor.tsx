@@ -212,7 +212,8 @@ const AssignmentEditor = ({
               setTried(true);
               return;
             }
-            const { publisher, group } = chosenHolder(holder);
+            const pickedHolder = chosenHolder(holder);
+            const { publisher, group } = pickedHolder;
             onSave({
               ...assignmentFromDates(
                 assignment,
@@ -220,6 +221,7 @@ const AssignmentEditor = ({
                 assignedOn ?? new Date(),
                 returnedOn
               ),
+              ...pickedHolder,
               group,
               campaign:
                 campaign.checked && campaign.value

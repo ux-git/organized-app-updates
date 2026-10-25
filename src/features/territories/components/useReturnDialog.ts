@@ -14,7 +14,7 @@ import {
   territoryHolderAvailable,
 } from '@utils/territory_assignments';
 import type { CampaignChoice } from '@features/territories/components/campaign_field';
-import { holderOf } from '@features/territories/group_holder';
+import { holderForReturn } from '@features/territories/group_holder';
 import type { ReturnDialogProps } from '@features/territories/components/return_dialog';
 
 const useReturnDialog = ({
@@ -52,8 +52,7 @@ const useReturnDialog = ({
   // the same publisher, for the same group; an old group record without one
   // goes out again through the assign dialog
   const publisher = changedBy ?? open?.publisher;
-  const holder =
-    open && publisher ? holderOf({ ...open, publisher }) : undefined;
+  const holder = holderForReturn(open, publisher, assignees);
 
   const canAssignAgain =
     !!onAssignAgain && !!holder && territoryHolderAvailable(holder, assignees);

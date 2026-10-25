@@ -90,3 +90,45 @@ test('navigation separates publishers, group overseers, and administrators', () 
       .includes('requested')
   );
 });
+
+test('named identity options distinguish identical publisher and group names', () => {
+  const list = [
+    {
+      ...territory('1', 'Anna'),
+      holderId: 'person-1',
+      holderGroup: 'Group',
+      holderGroupId: 'group-1',
+    },
+    {
+      ...territory('2', 'Anna'),
+      holderId: 'person-2',
+      holderGroup: 'Group',
+      holderGroupId: 'group-2',
+    },
+    { ...territory('3', undefined, 'Anna'), requestedById: 'person-1' },
+    { ...territory('4', undefined, 'Anna'), requestedById: 'person-2' },
+    territory('5', 'Anna', 'Anna'),
+  ];
+  const options = {
+    identity: {
+      publisherId: 'person-1',
+      groupId: 'group-1',
+      legacyIdentitySafe: false,
+    },
+  };
+  const restricted = { categories: [], types: [] };
+  assert.deepEqual(
+    numbers(forTab(list, 'mine', 'Anna', false, 'Group', restricted, options)),
+    ['1']
+  );
+  assert.deepEqual(
+    numbers(
+      forTab(list, 'requested', 'Anna', false, 'Group', restricted, options)
+    ),
+    ['3']
+  );
+  assert.deepEqual(
+    numbers(forTab(list, 'group', 'Anna', false, 'Group', restricted, options)),
+    ['1']
+  );
+});

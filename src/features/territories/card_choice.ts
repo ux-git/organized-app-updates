@@ -64,4 +64,4 @@ export const chosenHolder = ({
 }: HolderChoice): AssignmentHolder =>
   mode === 'group' && group
     ? { publisher: publisher ?? '', group, publisherId, groupId }
-    : { publisher: publisher ?? '', publisherId };
+    : { publisher: publisher ?? '', publisherId, groupId: undefined };

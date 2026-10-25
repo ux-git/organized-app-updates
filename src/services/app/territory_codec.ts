@@ -20,7 +20,7 @@ export const territoryRemoteId = (view: string, id: string) => {
   if (view.length + id.length > 128)
     throw new TerritoryIdentityError('Territory identifier is too long');
   const value = btoa(
-    String.fromCharCode(...new TextEncoder().encode(`${view}:${id}`))
+    String.fromCodePoint(...new TextEncoder().encode(`${view}:${id}`))
   )
     .replaceAll('+', '-')
     .replaceAll('/', '_')
@@ -108,19 +108,15 @@ export const encodeTerritory = (
   const {
     assignments,
     doNotCalls,
-    holder,
-    holderId,
-    holderGroup,
-    holderGroupId,
+    holder: _holder,
+    holderId: _holderId,
+    holderGroup: _holderGroup,
+    holderGroupId: _holderGroupId,
     requestedBy,
     requestedById,
     ...content
   } = territory;
   // Holder names and assignment notes must never leak through the generally visible map payload.
-  void holder;
-  void holderId;
-  void holderGroup;
-  void holderGroupId;
   const history = assignments.map((item) =>
     encodeTerritoryAssignment(item, assignees, key)
   );

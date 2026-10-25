@@ -17,6 +17,21 @@ const mergeGrant = (
   }
   return merged;
 };
+const removeDeletedGrants = (
+  before: Map<string, TerritoryGrant>,
+  local: TerritoryGrant[],
+  result: Map<string, TerritoryGrant>
+) => {
+  const localIds = new Set(local.map((item) => item.personId));
+  for (const previous of before.values()) {
+    if (localIds.has(previous.personId)) continue;
+    const current = result.get(previous.personId);
+    if (current && !same(previous, current))
+      throw new TerritoryPolicyConflict();
+    result.delete(previous.personId);
+  }
+};
+
 /** Apply only locally changed permission fields. A stale device must never restore a remotely revoked right. */
 export const mergeTerritoryGrants = (
   baseline: TerritoryGrant[] | undefined,
@@ -38,13 +53,7 @@ export const mergeTerritoryGrants = (
     if (!current) throw new TerritoryPolicyConflict();
     result.set(grant.personId, mergeGrant(previous, grant, current));
   }
-  for (const previous of before.values()) {
-    if (local.some((item) => item.personId === previous.personId)) continue;
-    const current = result.get(previous.personId);
-    if (current && !same(previous, current))
-      throw new TerritoryPolicyConflict();
-    result.delete(previous.personId);
-  }
+  removeDeletedGrants(before, local, result);
   return [...result.values()].sort((a, b) =>
     a.personId.localeCompare(b.personId)
   );

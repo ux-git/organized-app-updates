@@ -1,13 +1,17 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
-import type { Territory, TerritoryAssignee } from '../src/definition/territory';
+import { assignmentFromDates } from '../src/utils/territory_dates';
+import { holderForReturn } from '../src/features/territories/group_holder';
 import {
+  encodeTerritoryAssignment,
   decodeTerritory,
   encodeTerritory,
   decryptTerritoryContent,
   territoryRemoteId,
   TerritoryIdentityError,
 } from '../src/services/app/territory_codec';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import type { Territory, TerritoryAssignee } from '../src/definition/territory';
+
 import { prepareTerritoryCommands } from '../src/services/app/territory_commands';
 
 const key = 'local-test-key';
@@ -154,4 +158,45 @@ test('invalid calendar dates fail migration instead of silently moving assignmen
   const value = territory();
   value.assignments[0].assignedOn = '31.02.2026';
   assert.throws(() => wire(value), TerritoryIdentityError);
+});
+
+test('changing the recorded publisher clears stale identity before encoding', () => {
+  const original = territory().assignments[0];
+  const changed = assignmentFromDates(
+    original,
+    'Bob',
+    new Date(2026, 9, 1),
+    new Date(2026, 9, 25)
+  );
+  assert.equal(changed.publisherId, undefined);
+  const encoded = encodeTerritoryAssignment(
+    changed,
+    [...people, { id: 'bob', name: 'Bob', group: false }],
+    key
+  );
+  assert.equal(encoded.personId, 'bob');
+  assert.equal(
+    assignmentFromDates(original, 'Alice', new Date(2026, 9, 1), null)
+      .publisherId,
+    'alice'
+  );
+});
+
+test('return and reassign resolves the new publisher ID while retaining the group', () => {
+  const original = territory().assignments[0];
+  const publishers = [...people, { id: 'bob', name: 'Bob', group: false }];
+  const holder = holderForReturn(original, 'Bob', publishers);
+  assert.equal(holder?.publisherId, 'bob');
+  assert.equal(holder?.groupId, 'team');
+  assert.equal(
+    holderForReturn(original, 'Alice', publishers)?.publisherId,
+    'alice'
+  );
+  assert.equal(
+    holderForReturn(original, 'Bob', [
+      ...publishers,
+      { id: 'bob-2', name: 'Bob', group: false },
+    ]),
+    undefined
+  );
 });

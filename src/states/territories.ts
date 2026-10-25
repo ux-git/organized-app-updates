@@ -6,9 +6,9 @@ import {
 } from '@services/app/territories';
 import { displaySnackNotification } from '@services/states/app';
 import { getTranslation } from '@services/i18n/translation';
-import { congIDState } from '@states/settings';
+import { congIDState, userDataViewState } from '@states/settings';
 import { userIDState } from '@states/app';
-import { userDataViewState } from '@states/settings';
+
 /*
 This file holds the source of the truth for congregation territories.
 */

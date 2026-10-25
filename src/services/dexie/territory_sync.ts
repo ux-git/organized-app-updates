@@ -1,12 +1,13 @@
-import type { TerritoryGrant } from '@definition/territory_sync';
-import { TERRITORY_SYNC_BATCH_LIMIT } from '@constants/index';
-import { coalesceTerritoryChanges } from '@utils/territory_sync_queue';
 import type {
+  TerritoryGrant,
   TerritoryPendingChange,
   TerritoryBatch,
   TerritorySyncState,
   TerritorySharedSettings,
 } from '@definition/territory_sync';
+import { TERRITORY_SYNC_BATCH_LIMIT } from '@constants/index';
+import { coalesceTerritoryChanges } from '@utils/territory_sync_queue';
+
 import appDb from '@db/appDb';
 import type { TerritoryRecord } from '@definition/territory_record';
 
@@ -123,15 +124,19 @@ export const dbTerritorySyncApply = async (
       state.queue.flatMap((item) => item.changes.map((change) => change.id))
     );
     const local = await appDb.territories.toArray();
+    const removed: string[] = [];
+    const updated: TerritoryRecord[] = [];
     for (const record of local) {
       const incoming = remote.get(record.id);
-      if (record.remote && !incoming) await appDb.territories.delete(record.id);
+      if (record.remote && !incoming) removed.push(record.id);
       else if (pending.has(record.id) && incoming)
-        await appDb.territories.update(record.id, { remote: incoming.remote });
+        updated.push({ ...record, remote: incoming.remote });
     }
-    await appDb.territories.bulkPut(
-      records.filter((item) => !pending.has(item.id))
-    );
+    await appDb.territories.bulkDelete(removed);
+    await appDb.territories.bulkPut([
+      ...updated,
+      ...records.filter((item) => !pending.has(item.id)),
+    ]);
     state.revision = revision;
     await appDb.metadata.put({
       ...metadata,

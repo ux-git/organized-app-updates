@@ -6,7 +6,7 @@ import {
   territorySharedSettingsState,
   DEFAULT_TERRITORY_SHARED_SETTINGS,
 } from '@states/territories';
-import { userIDState } from '@states/app';
+import { userIDState, isOnlineState } from '@states/app';
 import { useEffect } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -14,7 +14,6 @@ import { dbTerritorySyncGet } from '@services/dexie/territory_sync';
 import { synchronizeTerritories } from '@services/app/territory_sync';
 import { territorySyncPendingState } from '@states/territory_sync';
 import { congIDState, congDataSyncState } from '@states/settings';
-import { isOnlineState } from '@states/app';
 
 const useTerritorySync = () => {
   const congregation = useAtomValue(congIDState);

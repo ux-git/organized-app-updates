@@ -40,6 +40,7 @@ export const assignmentFromDates = (
 
   return {
     ...base,
+    ...(publisher !== base.publisher ? { publisherId: undefined } : {}),
     publisher,
     assignedOn: toStoredDate(assignedOn),
     returnedOn: returnedOn ? toStoredDate(returnedOn) : undefined,

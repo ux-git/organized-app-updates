@@ -1,12 +1,15 @@
 import type { TerritorySharedSettings } from '@definition/territory_sync';
-import { dbTerritorySettingsSave } from '@services/dexie/territory_sync';
+import {
+  dbTerritorySettingsSave,
+  dbTerritoriesEnqueue,
+} from '@services/dexie/territory_sync';
 import type { Territory } from '@definition/territory';
 import type { TerritoryRecord } from '@definition/territory_record';
 import { store } from '@states/index';
 import { congIDState } from '@states/settings';
 import { userIDState } from '@states/app';
 import { isTest } from '@constants/index';
-import { dbTerritoriesEnqueue } from '@services/dexie/territory_sync';
+
 import { dbTerritoriesSave } from '@services/dexie/territories';
 
 export const saveTerritoryChanges = async (

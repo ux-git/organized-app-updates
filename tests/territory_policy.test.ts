@@ -50,3 +50,13 @@ test('an intentionally empty policy stays empty on a new device', () => {
   assert.deepEqual(mergeTerritoryGrants(undefined, [grant], []), []);
   assert.deepEqual(mergeTerritoryGrants(undefined, [grant], [], true), [grant]);
 });
+
+test('removing a local grant preserves unrelated remote grants and detects simultaneous edits', () => {
+  const bob = { ...grant, personId: 'bob' };
+  assert.deepEqual(mergeTerritoryGrants([grant], [], [grant, bob]), [bob]);
+  assert.throws(
+    () =>
+      mergeTerritoryGrants([grant], [], [{ ...grant, eligible: false }, bob]),
+    TerritoryPolicyConflict
+  );
+});
