@@ -1,3 +1,4 @@
+import TerritorySyncStatus from '@features/territories/components/sync_status';
 import useTerritoryAccess from '@features/territories/useTerritoryAccess';
 import { territoryPermissions } from '@services/app/territory_access';
 import { getTranslation } from '@services/i18n/translation';
@@ -256,6 +257,7 @@ const TerritoryDetailsPage = () => {
             : (hasPublisherButtons && publisherButtons) || undefined
         }
       />
+      <TerritorySyncStatus />
 
       {!isTerritoryEditor && publisherNote && (
         <InfoNote message={publisherNote} />

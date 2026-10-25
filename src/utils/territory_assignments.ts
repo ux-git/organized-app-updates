@@ -65,9 +65,15 @@ export const territoryHolderAvailable = (
   holder: AssignmentHolder,
   assignees: TerritoryAssignee[]
 ) => {
-  const publishers = assignees.filter((item) => item.name === holder.publisher);
+  const publishers = assignees.filter((item) =>
+    holder.publisherId
+      ? item.id === holder.publisherId
+      : item.name === holder.publisher
+  );
   const groups = holder.group
-    ? assignees.filter((item) => item.name === holder.group)
+    ? assignees.filter((item) =>
+        holder.groupId ? item.id === holder.groupId : item.name === holder.group
+      )
     : [];
   return (
     publishers.length === 1 &&

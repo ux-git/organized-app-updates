@@ -1,5 +1,9 @@
 import { isTest } from '@constants/index';
-import { saveTerritoryChanges } from '@services/app/territories';
+import type { TerritorySharedSettings } from '@definition/territory_sync';
+import {
+  saveTerritoryChanges,
+  saveTerritorySettings,
+} from '@services/app/territories';
 import { displaySnackNotification } from '@services/states/app';
 import { getTranslation } from '@services/i18n/translation';
 import { userDataViewState } from '@states/settings';
@@ -10,10 +14,7 @@ import { atom } from 'jotai';
 import {
   DEFAULT_CATEGORIES,
   DEFAULT_RECOMMENDATIONS,
-  MapColor,
   Territory,
-  TerritoryBoundary,
-  TerritoryCategoryOption,
 } from '@definition/territory';
 import { CONGREGATION_BOUNDARY } from '@features/territories/mockData';
 import {
@@ -59,23 +60,53 @@ export const territoriesState = atom(
   }
 );
 
-export const territoryCategoriesState =
-  atom<TerritoryCategoryOption[]>(DEFAULT_CATEGORIES);
+export const territorySharedSettingsState = atom<TerritorySharedSettings>({
+  categories: DEFAULT_CATEGORIES,
+  boundary: isTest ? CONGREGATION_BOUNDARY : undefined,
+  borderColor: 'red',
+  borderDashed: false,
+  recommendations: DEFAULT_RECOMMENDATIONS,
+  overdueMonths: 4,
+});
 
-export const congregationBoundaryState = atom<TerritoryBoundary | undefined>(
-  isTest ? CONGREGATION_BOUNDARY : undefined
-);
-
+const sharedSetting = <K extends keyof TerritorySharedSettings>(key: K) =>
+  atom(
+    (get) => get(territorySharedSettingsState)[key],
+    async (
+      get,
+      set,
+      update:
+        | TerritorySharedSettings[K]
+        | ((previous: TerritorySharedSettings[K]) => TerritorySharedSettings[K])
+    ) => {
+      const previous = get(territorySharedSettingsState);
+      const value =
+        typeof update === 'function' ? update(previous[key]) : update;
+      const next = { ...previous, [key]: value };
+      set(territorySharedSettingsState, next);
+      try {
+        await saveTerritorySettings(next);
+      } catch {
+        if (get(territorySharedSettingsState) === next)
+          set(territorySharedSettingsState, previous);
+        displaySnackNotification({
+          severity: 'error',
+          header: getTranslation({ key: 'error_app_generic-title' }),
+          message: getTranslation({ key: 'tr_territorySaveFailed' }),
+        });
+      }
+    }
+  );
+export const territoryCategoriesState = sharedSetting('categories');
+export const congregationBoundaryState = sharedSetting('boundary');
+export const congregationBorderColorState = sharedSetting('borderColor');
+export const congregationBorderDashedState = sharedSetting('borderDashed');
+export const territoryRecommendationsState = sharedSetting('recommendations');
+export const territoryOverdueMonthsState = sharedSetting('overdueMonths');
 export const territoriesShowHouseholdsState = atom(true);
-
-export const congregationBorderColorState = atom<MapColor>('red');
-export const congregationBorderDashedState = atom(false);
 export const territoriesShowDoNotCallCountState = atom(true);
 export const territoriesShowDoNotCallMapState = atom(true);
 export const territoryLocalModeState = atom(false);
-export const territoryRecommendationsState = atom(DEFAULT_RECOMMENDATIONS);
-
-export const territoryOverdueMonthsState = atom(4);
 
 export const territoriesWithStatusState = atom((get) =>
   withDerivedStatus(

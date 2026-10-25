@@ -1,3 +1,14 @@
+import {
+  parseDate,
+  assignmentFromDates,
+  withAssignments,
+} from '@utils/territory_dates';
+export {
+  parseDate,
+  toStoredDate,
+  assignmentFromDates,
+  withAssignments,
+} from '@utils/territory_dates';
 import { formatDate } from '@utils/date';
 import { getTranslation } from '@services/i18n/translation';
 import {
@@ -481,53 +492,6 @@ export const issuesText = (issues: AssignmentIssue[]) =>
   issues.map((issue) => getTranslation({ key: ISSUE_TEXT[issue] })).join(' · ');
 
 // dates are stored as dd.mm.yyyy
-export const parseDate = (value?: string) => {
-  if (!value) return null;
-
-  const [day, month, year] = value.split('.').map(Number);
-  if (!day || !month || !year) return null;
-
-  return new Date(year, month - 1, day);
-};
-
-export const toStoredDate = (date: Date) =>
-  date.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-
-const serviceMonth = (date: Date) => (date.getMonth() + 4) % 12;
-
-// derived from the dates, never typed in
-export const assignmentFromDates = (
-  base: TerritoryAssignment,
-  publisher: string,
-  assignedOn: Date,
-  returnedOn: Date | null
-) => {
-  const end = returnedOn ?? assignedOn;
-
-  const months =
-    Math.max(
-      0,
-      (end.getFullYear() - assignedOn.getFullYear()) * 12 +
-        end.getMonth() -
-        assignedOn.getMonth()
-    ) + 1;
-
-  return {
-    ...base,
-    publisher,
-    assignedOn: toStoredDate(assignedOn),
-    returnedOn: returnedOn ? toStoredDate(returnedOn) : undefined,
-    serviceYear: serviceYear(end),
-    months,
-    startMonth: serviceMonth(assignedOn),
-    endMonth: serviceMonth(end),
-  } as TerritoryAssignment;
-};
-
 export const coverageGrid = (territories: Territory[], years: number[]) =>
   years.map((year) => {
     const months = Array.from({ length: 12 }, () => 0);
@@ -680,51 +644,6 @@ export const appliedFilters = (filters: TerritoryFilters) =>
   (filters.campaign ? 1 : 0);
 
 // holder and status follow the open assignment, so a hand edit never leaves a stale holder
-export const withAssignments = (
-  territory: Territory,
-  assignments: TerritoryAssignment[]
-): Territory => {
-  const time = (value?: string) => parseDate(value)?.getTime() ?? 0;
-  const daysAgo = (value: number) =>
-    Math.max(0, Math.round((Date.now() - value) / DAY));
-
-  const lastReturned = Math.max(
-    0,
-    ...assignments.filter(isCoverage).map((item) => time(item.returnedOn))
-  );
-
-  const daysSinceCovered = lastReturned
-    ? daysAgo(lastReturned)
-    : territory.daysSinceCovered;
-
-  const open = assignments
-    .filter((item) => !item.returnedOn)
-    .sort((a, b) => time(b.assignedOn) - time(a.assignedOn))
-    .at(0);
-
-  if (!open) {
-    return {
-      ...territory,
-      assignments,
-      daysSinceCovered,
-      status: 'available',
-      holder: undefined,
-      holderGroup: undefined,
-      daysOut: undefined,
-    };
-  }
-
-  return {
-    ...territory,
-    assignments,
-    daysSinceCovered,
-    status: territory.status === 'available' ? 'in_work' : territory.status,
-    holder: open.publisher,
-    holderGroup: open.group,
-    daysOut: daysAgo(time(open.assignedOn) || Date.now()),
-  };
-};
-
 // the older of two open assignments ends on the day the newer one began
 export const closeOlderAssignments = (territory: Territory) => {
   const older = new Set(olderOpenAssignments(territory.assignments));

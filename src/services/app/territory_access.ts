@@ -6,11 +6,17 @@ export const territoryPermissions = (
   context: TerritoryAccessContext
 ) => {
   const { editor, publisher, access, groupHolder, restricted } = context;
-  const held = !!publisher && territory.holder === publisher;
-  const requested = !!publisher && territory.requestedBy === publisher;
-  const group =
-    !!groupHolder &&
-    (territory.holderGroup === groupHolder || territory.holder === groupHolder);
+  const held = territory.holderId
+    ? territory.holderId === context.publisherId
+    : !!publisher && territory.holder === publisher;
+  const requested = territory.requestedById
+    ? territory.requestedById === context.publisherId
+    : !!publisher && territory.requestedBy === publisher;
+  const group = territory.holderGroupId
+    ? territory.holderGroupId === context.groupId
+    : !!groupHolder &&
+      (territory.holderGroup === groupHolder ||
+        territory.holder === groupHolder);
   const offered =
     !restricted.types.includes(territory.type) &&
     !territory.categories.some((category) =>
@@ -31,8 +37,10 @@ export const territoryPermissions = (
       context.eligiblePublisher &&
       access === 'request' &&
       available &&
+      !territory.cardLost &&
       offered &&
-      !territory.requestedBy,
+      !territory.requestedBy &&
+      !territory.requestPending,
     cancelRequest: requested,
     return: !available && (editor || (access === 'request' && (held || group))),
     editDoNotCalls: editor || held,

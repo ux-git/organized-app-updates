@@ -6,7 +6,9 @@ import {
   territoryWritesPendingState,
   territoryLoadedViewState,
 } from '@states/territories';
-import { userDataViewState, settingsState } from '@states/settings';
+import { dbTerritorySyncGet } from '@services/dexie/territory_sync';
+import { userIDState } from '@states/app';
+import { congIDState, userDataViewState, settingsState } from '@states/settings';
 import { sampleTerritories } from '@features/territories/mockData';
 import { useCallback } from 'react';
 
@@ -39,6 +41,9 @@ const useIndexedDb = () => {
   const dataView = useAtomValue(userDataViewState);
   const writesPending = useAtomValue(territoryWritesPendingState);
   const dbTerritories = useLiveQuery(dbTerritoriesGetAll);
+  const territorySync = useLiveQuery(dbTerritorySyncGet);
+  const territoryUser = useAtomValue(userIDState);
+  const territoryCongregation = useAtomValue(congIDState);
   const setTerritories = useSetAtom(territoriesDbState);
   const setTerritoryView = useSetAtom(territoryLoadedViewState);
   const loadTerritories = useCallback(() => {
@@ -49,7 +54,10 @@ const useIndexedDb = () => {
         item,
       ])
     );
-    for (const record of dbTerritories) {
+    const wrongAccount =
+      territorySync &&
+      territorySync.scope !== `${territoryCongregation}:${territoryUser}`;
+    for (const record of wrongAccount ? [] : dbTerritories) {
       if (record.dataView !== dataView) continue;
       if (record.deleted) records.delete(record.data.id);
       else records.set(record.data.id, record.data);
@@ -58,6 +66,9 @@ const useIndexedDb = () => {
     setTerritoryView(dataView);
   }, [
     dbTerritories,
+    territorySync,
+    territoryCongregation,
+    territoryUser,
     store,
     dataView,
     setTerritories,

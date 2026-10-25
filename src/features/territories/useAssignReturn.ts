@@ -142,6 +142,8 @@ const useAssignReturn = () => {
       return {
         status: 'in_work',
         holder: publisher,
+        holderId: holder.publisherId,
+        holderGroupId: holder.groupId,
         holderGroup: group,
         daysOut: daysSince(start),
         requestedBy: undefined,
@@ -218,6 +220,8 @@ const useAssignReturn = () => {
       return {
         status: 'available',
         holder: undefined,
+        holderId: undefined,
+        holderGroupId: undefined,
         holderGroup: undefined,
         daysOut: undefined,
         ...(covered ? { daysSinceCovered: daysSince(end) } : {}),

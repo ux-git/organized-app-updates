@@ -19,6 +19,8 @@ export const rememberHolder = (group?: string) =>
 export type HolderChoice = {
   mode: HolderMode;
   publisher: string | null;
+  publisherId?: string;
+  groupId?: string;
   group: string | null;
 };
 
@@ -31,6 +33,8 @@ export const initialHolder = (
   if (current?.publisher || current?.group) {
     return {
       mode: current.group ? 'group' : 'publisher',
+      publisherId: current.publisherId,
+      groupId: current.groupId,
       group: current.group ?? null,
       publisher: publisher ?? (current.publisher || null),
     };
@@ -55,7 +59,9 @@ export const chosenHolder = ({
   mode,
   publisher,
   group,
+  publisherId,
+  groupId,
 }: HolderChoice): AssignmentHolder =>
   mode === 'group' && group
-    ? { publisher: publisher ?? '', group }
-    : { publisher: publisher ?? '' };
+    ? { publisher: publisher ?? '', group, publisherId, groupId }
+    : { publisher: publisher ?? '', publisherId };

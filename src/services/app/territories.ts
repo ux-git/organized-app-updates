@@ -1,5 +1,12 @@
+import type { TerritorySharedSettings } from '@definition/territory_sync';
+import { dbTerritorySettingsSave } from '@services/dexie/territory_sync';
 import type { Territory } from '@definition/territory';
 import type { TerritoryRecord } from '@definition/territory_record';
+import { store } from '@states/index';
+import { congIDState } from '@states/settings';
+import { userIDState } from '@states/app';
+import { isTest } from '@constants/index';
+import { dbTerritoriesEnqueue } from '@services/dexie/territory_sync';
 import { dbTerritoriesSave } from '@services/dexie/territories';
 
 export const saveTerritoryChanges = async (
@@ -37,5 +44,19 @@ export const saveTerritoryChanges = async (
         data: territory,
       });
   }
-  if (records.length) await dbTerritoriesSave(records);
+  if (!records.length) return;
+  const congregation = store.get(congIDState);
+  const user = store.get(userIDState);
+  if (isTest || !congregation || !user) await dbTerritoriesSave(records);
+  else await dbTerritoriesEnqueue(records, `${congregation}:${user}`);
+};
+
+export const saveTerritorySettings = async (
+  settings: TerritorySharedSettings
+) => {
+  if (isTest) return;
+  const congregation = store.get(congIDState);
+  const user = store.get(userIDState);
+  if (!congregation || !user) return;
+  await dbTerritorySettingsSave(`${congregation}:${user}`, settings);
 };

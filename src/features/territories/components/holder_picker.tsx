@@ -122,14 +122,26 @@ export const HolderPickers = ({
   const { tablet600Up } = useBreakpoints();
 
   const assignees = useAtomValue(territoryAssigneesState);
-  const namesOf = (group: boolean, kept?: string) => {
-    const names = assignees
-      .filter((item) => item.group === group)
-      .map(({ name }) => name);
-    return kept && !names.includes(kept) ? [...names, kept] : names;
+  const optionsOf = (group: boolean, kept?: string, id?: string) => {
+    const options = assignees.filter((item) => item.group === group);
+    if (
+      kept &&
+      !options.some((item) => (id ? item.id === id : item.name === kept))
+    )
+      options.push({ id: id ?? `legacy:${kept}`, name: kept, group });
+    return options;
   };
-  const people = namesOf(false, current?.publisher);
-  const groups = namesOf(true, current?.group);
+  const people = optionsOf(false, current?.publisher, current?.publisherId);
+  const groups = optionsOf(true, current?.group, current?.groupId);
+  const selected = (
+    options: typeof assignees,
+    name: string | null,
+    id?: string
+  ) => {
+    if (id) return options.find((item) => item.id === id) ?? null;
+    const matches = options.filter((item) => item.name === name);
+    return matches.length === 1 ? matches[0] : null;
+  };
 
   const isGroup = value.mode === 'group';
   const [groupQuery, setGroupQuery] = useState('');
@@ -147,9 +159,16 @@ export const HolderPickers = ({
             label={t('tr_fieldServiceGroup')}
             placeholder={t('tr_territorySearchGroups')}
             options={groups}
-            value={value.group}
-            onChange={(group) => onChange({ ...value, group })}
-            getName={(name) => name}
+            value={selected(groups, value.group, value.groupId)}
+            onChange={(group) =>
+              onChange({
+                ...value,
+                group: group?.name ?? null,
+                groupId: group?.id,
+              })
+            }
+            getName={(item) => item.name}
+            getId={(item) => item.id}
             onInputChange={setGroupQuery}
             noOptionsText={
               <AddName
@@ -170,9 +189,16 @@ export const HolderPickers = ({
         <PublisherSearch
           label={isGroup ? t('tr_territoryAssignedTo') : t('tr_publisher')}
           options={people}
-          value={value.publisher}
-          onChange={(publisher) => onChange({ ...value, publisher })}
-          getName={(name) => name}
+          value={selected(people, value.publisher, value.publisherId)}
+          onChange={(publisher) =>
+            onChange({
+              ...value,
+              publisher: publisher?.name ?? null,
+              publisherId: publisher?.id,
+            })
+          }
+          getName={(item) => item.name}
+          getId={(item) => item.id}
           onInputChange={setPersonQuery}
           noOptionsText={
             <AddName

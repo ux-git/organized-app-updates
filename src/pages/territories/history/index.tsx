@@ -1,3 +1,4 @@
+import TerritorySyncStatus from '@features/territories/components/sync_status';
 import useTerritoryAccess from '@features/territories/useTerritoryAccess';
 import { useState } from 'react';
 import { Box } from '@mui/material';
@@ -44,6 +45,7 @@ const TerritoryHistoryPage = () => {
           )
         }
       />
+      <TerritorySyncStatus />
 
       {editor && exportOpen && (
         <ExportS13Dialog onClose={() => setExportOpen(false)} />

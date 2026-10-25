@@ -1,3 +1,4 @@
+import TerritorySyncStatus from '@features/territories/components/sync_status';
 import { Box } from '@mui/material';
 import {
   useAppTranslation,
@@ -26,6 +27,7 @@ const TerritoryStatisticsPage = () => {
         title={t('tr_territoryTerritoryCoverageStatistics')}
         onBack={() => goUp('/')}
       />
+      <TerritorySyncStatus />
 
       <TerritoriesStatistics />
     </Box>

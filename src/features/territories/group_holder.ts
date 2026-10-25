@@ -14,8 +14,12 @@ export const territoryHolderText = (territory: Territory) =>
 export const holderOf = ({
   publisher,
   group,
+  publisherId,
+  groupId,
 }: AssignmentHolder): AssignmentHolder =>
-  group ? { publisher, group } : { publisher };
+  group
+    ? { publisher, group, publisherId, groupId }
+    : { publisher, publisherId };
 
 export const missingPublisher = (item: Partial<AssignmentHolder>) =>
   !!item.group && !item.publisher;

@@ -181,5 +181,16 @@
   "tr_normal": "Normal",
   "tr_large": "Large",
   "tr_chooseFields": "Choose export fields",
-  "tr_chooseFieldsDesc": "Please select the fields you want to include in the export file."
+  "tr_chooseFieldsDesc": "Please select the fields you want to include in the export file.",
+  "tr_territorySyncPending": "Saved on this device. Waiting to send your changes.",
+  "tr_territorySyncing": "Updating territories…",
+  "tr_territorySyncConflict": "Another device changed this territory. Your local changes are retained and have not overwritten it.",
+  "tr_territorySyncIdentity": "Some older records need a person, group, or date to be reviewed before they can be sent. Your changes are saved on this device.",
+  "tr_territorySyncUnavailable": "Territory sharing is not available on the server yet. Your changes are saved on this device.",
+  "tr_territorySyncFailed": "Your changes are saved on this device. Check your connection and account access, then try again.",
+  "tr_territorySyncRetry": "Try again",
+  "tr_territorySyncReview": "Review pending changes",
+  "tr_territorySyncReviewDescription": "These territories have changes saved only on this device. You can export a copy to keep them. Choosing the server version discards all listed pending changes and reloads the latest shared records.",
+  "tr_territorySyncExportDraft": "Export local changes",
+  "tr_territorySyncUseServer": "Discard changes and reload"
 }

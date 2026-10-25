@@ -102,12 +102,18 @@ const useTerritoryAccess = (): TerritoryAccessContext => {
     () => ({
       editor: isElder || isServiceCommittee,
       publisher,
+      publisherId: localMode ? undefined : uid,
+      groupId: !localMode && groupLead ? my_group?.group_id : undefined,
       eligiblePublisher,
       access,
       groupHolder,
       restricted: { categories, types },
     }),
     [
+      localMode,
+      uid,
+      groupLead,
+      my_group?.group_id,
       isElder,
       isServiceCommittee,
       publisher,

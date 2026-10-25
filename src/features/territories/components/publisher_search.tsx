@@ -13,6 +13,7 @@ type PublisherSearchProps<T> = {
   value: T | null;
   onChange: (value: T | null) => void;
   getName: (option: T) => string;
+  getId?: (option: T) => string;
   isGroup?: (option: T) => boolean;
   label?: string;
   placeholder?: string;
@@ -32,6 +33,7 @@ const PublisherSearch = <T,>({
   value,
   onChange,
   getName,
+  getId,
   isGroup,
   label,
   placeholder,
@@ -63,7 +65,7 @@ const PublisherSearch = <T,>({
       }
       getOptionLabel={(option) => getName(option as T)}
       isOptionEqualToValue={(option, chosen) =>
-        getName(option as T) === getName(chosen as T)
+        (getId ?? getName)(option as T) === (getId ?? getName)(chosen as T)
       }
       groupBy={
         isGroup &&
@@ -88,7 +90,12 @@ const PublisherSearch = <T,>({
         </li>
       )}
       renderOption={({ key, ...props }, option) => (
-        <Box component="li" key={key} {...props} sx={{ gap: '8px' }}>
+        <Box
+          component="li"
+          key={getId ? getId(option as T) : key}
+          {...props}
+          sx={{ gap: '8px' }}
+        >
           <Typography className="body-regular" sx={{ flexGrow: 1 }}>
             {getName(option as T)}
           </Typography>

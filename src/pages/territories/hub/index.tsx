@@ -1,3 +1,4 @@
+import TerritorySyncStatus from '@features/territories/components/sync_status';
 import TerritoryImport from '@features/territories/import';
 import CampaignContext from '@features/territories/components/campaign_context';
 import { ReactNode, useState } from 'react';
@@ -121,6 +122,7 @@ const Territories = () => {
         buttons={!isFilterSubpage && buttons}
         quickSettings={() => hub.setQuickSettingsOpen(true)}
       />
+      <TerritorySyncStatus />
 
       <CampaignContext />
       <TerritoriesHub hub={hub} />

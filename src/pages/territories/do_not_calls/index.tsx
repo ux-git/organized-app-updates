@@ -1,3 +1,4 @@
+import TerritorySyncStatus from '@features/territories/components/sync_status';
 import { Box } from '@mui/material';
 import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import PageTitle from '@components/page_title';
@@ -24,6 +25,7 @@ const DoNotCallsPage = () => {
         secondaryTitle={parent}
         onBack={goBack}
       />
+      <TerritorySyncStatus />
 
       <TerritoryDoNotCalls />
     </Box>

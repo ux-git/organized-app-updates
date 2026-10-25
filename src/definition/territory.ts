@@ -20,6 +20,7 @@ export type DoNotCall = {
   name?: string;
   date: string;
   addedBy: string;
+  addedById?: string;
   // where the house is on the map, when it could be found
   position?: [number, number];
 };
@@ -86,6 +87,8 @@ export type TerritoryAssignment = {
   id: string;
   // always a person; empty only on old records that named a group instead
   publisher: string;
+  publisherId?: string;
+  groupId?: string;
   // the field service group it went out for, by name; the publisher took it
   group?: string;
   assignedOn: string;
@@ -123,6 +126,10 @@ export type Territory = {
   status: TerritoryStatus;
   categories: string[];
   holder?: string;
+  holderId?: string;
+  assignedElsewhere?: boolean;
+  requestPending?: boolean;
+  holderGroupId?: string;
   holderGroup?: string;
   daysOut?: number;
   daysSinceCovered: number;
@@ -137,6 +144,7 @@ export type Territory = {
   mapMarkers?: TerritoryMapMarker[];
   phoneNumbers?: string[];
   requestedBy?: string;
+  requestedById?: string;
   reviewNeeded?: boolean;
   // standing information, printed on the card: no names or addresses
   notes?: string;
@@ -148,7 +156,10 @@ export type Territory = {
 export type TerritoryAssignee = { id: string; name: string; group: boolean };
 
 // who a territory goes to: a publisher, for themselves or for a group
-export type AssignmentHolder = Pick<TerritoryAssignment, 'publisher' | 'group'>;
+export type AssignmentHolder = Pick<
+  TerritoryAssignment,
+  'publisher' | 'group' | 'publisherId' | 'groupId'
+>;
 
 export type TerritoryFilters = {
   search: string;
@@ -162,6 +173,10 @@ export type TerritoryFilters = {
   // how the territory is out now; `unknown` for open records without the field
   card: (AssignmentCard | 'unknown')[];
   holder?: string;
+  holderId?: string;
+  assignedElsewhere?: boolean;
+  requestPending?: boolean;
+  holderGroupId?: string;
   // the holder's earlier territories too, not only the ones held now
   holderPast?: boolean;
   // worked for the special campaign, or not yet assigned for it

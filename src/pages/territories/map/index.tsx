@@ -1,3 +1,4 @@
+import TerritorySyncStatus from '@features/territories/components/sync_status';
 import { useState } from 'react';
 import { Box } from '@mui/material';
 import { useAppTranslation, useUpNavigation } from '@hooks/index';
@@ -63,6 +64,7 @@ const TerritoryMapPage = () => {
           )
         }
       />
+      <TerritorySyncStatus />
 
       {printing && (
         <PrintOverviewDialog
