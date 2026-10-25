@@ -1,4 +1,4 @@
-import { useAppTranslation } from '@hooks/index';
+import { useAppTranslation, useScrollFade } from '@hooks/index';
 import type { PDFDocumentLoadingTask, RenderTask } from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker&url';
 import { useEffect, useRef, useState } from 'react';
@@ -16,6 +16,7 @@ const PdfPreview = ({
 }) => {
   const { t } = useAppTranslation();
 
+  const scrollRef = useScrollFade();
   const pages = useRef<HTMLDivElement>(null);
 
   const [failed, setFailed] = useState(false);
@@ -110,7 +111,11 @@ const PdfPreview = ({
   }, [url]);
 
   return (
-    <Box sx={{ minHeight: 0, overflowY: 'auto' }}>
+    <Box
+      ref={scrollRef}
+      className="scroll-fade-y"
+      sx={{ minHeight: 0, overflowY: 'auto' }}
+    >
       {failed && (
         <Typography
           className="body-small-regular"
