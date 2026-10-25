@@ -40,7 +40,12 @@ const TemplateTerritoryCard = ({
               <View
                 style={{ padding: PRINT_MARGIN, height: A5_HORIZONTAL.height }}
               >
-                <CardFront territory={territory} width={WIDTH} height={HALF} />
+                <CardFront
+                  territory={territory}
+                  width={WIDTH}
+                  height={HALF}
+                  titleAtBottom
+                />
               </View>
             )}
 

@@ -106,17 +106,17 @@ const MapFront = ({
           <View
             style={{ flexDirection: 'row', alignItems: 'center', columnGap: 8 }}
           >
-            <Text style={{ flexGrow: 1, flexShrink: 1 }}>
+            <View style={{ flexDirection: 'row', flexShrink: 0, gap: 4 }}>
+              {households && <Chip text={households} />}
+              {warningInline && warningChip}
+            </View>
+            <Text style={{ flexGrow: 1, flexBasis: 0, textAlign: 'right' }}>
               <Text style={styles.frameTitle}>
                 {t('tr_territoryTerritoryMapCard')}
                 {'\u2002'}
               </Text>
               <Text style={styles.frameName}>{title}</Text>
             </Text>
-            <View style={{ flexDirection: 'row', gap: 4 }}>
-              {warningInline && warningChip}
-              {households && <Chip text={households} />}
-            </View>
           </View>
 
           {!warningInline && warningChip && (

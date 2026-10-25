@@ -101,17 +101,43 @@ const CardFront = ({
   width,
   height,
   printedOn,
+  titleAtBottom = false,
 }: {
   territory: TerritoryPrintData;
   width: number;
   height: number;
   // the A5 card has its date on the back, so only the S-12 shows it here
   printedOn?: string;
+  // A5 titles sit at the outer bottom corner for browsing cards in sleeves.
+  titleAtBottom?: boolean;
 }) => {
   const { t } = useAppTranslation();
 
   const inner = width - CARD.padding * 2;
   const mapHeight = height - CARD.mapTop - CARD.footerHeight;
+
+  const heading = (
+    <View
+      style={{
+        height: CARD.mapTop,
+        paddingTop: titleAtBottom ? 0 : 9,
+        alignItems: titleAtBottom ? 'center' : 'flex-start',
+        flexDirection: 'row',
+      }}
+    >
+      <Text
+        style={{ width: inner, textAlign: titleAtBottom ? 'right' : 'left' }}
+      >
+        <Text style={[styles.frameTitle, { fontSize: 11 }]}>
+          {t('tr_territoryTerritoryMapCard')}
+          {'\u2002'}
+        </Text>
+        <Text style={[styles.frameName, { fontSize: 11 }]}>
+          {titleOf(territory)}
+        </Text>
+      </Text>
+    </View>
+  );
 
   return (
     <View
@@ -123,23 +149,7 @@ const CardFront = ({
         paddingRight: CARD.padding,
       }}
     >
-      <View
-        style={{
-          height: CARD.mapTop,
-          paddingTop: 9,
-          flexDirection: 'row',
-        }}
-      >
-        <Text>
-          <Text style={[styles.frameTitle, { fontSize: 11 }]}>
-            {t('tr_territoryTerritoryMapCard')}
-            {'\u2002'}
-          </Text>
-          <Text style={[styles.frameName, { fontSize: 11 }]}>
-            {titleOf(territory)}
-          </Text>
-        </Text>
-      </View>
+      {!titleAtBottom && heading}
 
       <View
         style={{
@@ -191,7 +201,7 @@ const CardFront = ({
               left: 8,
               right: 8,
               bottom: 8,
-              alignItems: 'flex-end',
+              alignItems: titleAtBottom ? 'flex-start' : 'flex-end',
               gap: 4,
             }}
           >
@@ -215,7 +225,7 @@ const CardFront = ({
               <View
                 style={{
                   flexDirection: 'row',
-                  justifyContent: 'flex-end',
+                  justifyContent: titleAtBottom ? 'flex-start' : 'flex-end',
                   width: '100%',
                 }}
               >
@@ -229,6 +239,8 @@ const CardFront = ({
           </View>
         )}
       </View>
+
+      {titleAtBottom && heading}
 
       <View style={{ height: CARD.footerHeight, justifyContent: 'center' }}>
         <Text style={[styles.a5CareMessage, { width: inner }]}>
