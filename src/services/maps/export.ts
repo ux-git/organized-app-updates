@@ -1,5 +1,5 @@
 // Keep six percent of each dimension white on every side of exported maps.
-const MAP_PADDING = 0.06;
+export const MAP_EXPORT_PADDING = 0.06;
 
 export const mapExportImage = (
   source: HTMLCanvasElement,
@@ -18,10 +18,10 @@ export const mapExportImage = (
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(
       source,
-      canvas.width * MAP_PADDING,
-      canvas.height * MAP_PADDING,
-      canvas.width * (1 - MAP_PADDING * 2),
-      canvas.height * (1 - MAP_PADDING * 2)
+      canvas.width * MAP_EXPORT_PADDING,
+      canvas.height * MAP_EXPORT_PADDING,
+      canvas.width * (1 - MAP_EXPORT_PADDING * 2),
+      canvas.height * (1 - MAP_EXPORT_PADDING * 2)
     );
     return canvas.toDataURL(type, quality);
   } finally {

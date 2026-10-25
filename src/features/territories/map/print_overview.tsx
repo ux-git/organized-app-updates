@@ -1,4 +1,4 @@
-import { mapExportImage } from '@services/maps/export';
+import { MAP_EXPORT_PADDING, mapExportImage } from '@services/maps/export';
 import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
@@ -170,8 +170,9 @@ const captureOverview = (
     container.style.cssText = `position:fixed;left:-20000px;top:0;width:${width}px;height:${height}px`;
     document.body.appendChild(container);
 
-    // room around the area, so nothing sits where a printer can't reach
-    const margin = Math.round(Math.min(width, height) * 0.05);
+    // Keep the outermost boundaries away from the map edges in every orientation.
+    const horizontalPadding = Math.round(width * MAP_EXPORT_PADDING);
+    const verticalPadding = Math.round(height * MAP_EXPORT_PADDING);
     let map: maplibregl.Map;
     try {
       const tuned = mapPerformanceOptions();
@@ -180,7 +181,14 @@ const captureOverview = (
         // paper is white, whatever the app's theme
         style: MAP_PROVIDER.light,
         bounds: boundaryBounds(extent),
-        fitBoundsOptions: { padding: margin },
+        fitBoundsOptions: {
+          padding: {
+            top: verticalPadding,
+            bottom: verticalPadding,
+            left: horizontalPadding,
+            right: horizontalPadding,
+          },
+        },
         interactive: false,
         transformRequest: mapRequest,
         attributionControl: false,

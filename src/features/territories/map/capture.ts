@@ -1,4 +1,4 @@
-import { mapExportImage } from '@services/maps/export';
+import { MAP_EXPORT_PADDING, mapExportImage } from '@services/maps/export';
 import {
   streetRuns,
   streetLength,
@@ -214,8 +214,9 @@ const capture = (
     document.body.appendChild(container);
 
     const [west, south, east, north] = boundaryBounds(boundary);
-    // just enough room that the border's line stays whole at the edge
-    const margin = Math.round(Math.min(width, height) * 0.03);
+    // Leave map context around the territory, in addition to the white export inset.
+    const horizontalPadding = Math.round(width * MAP_EXPORT_PADDING);
+    const verticalPadding = Math.round(height * MAP_EXPORT_PADDING);
 
     let map: maplibregl.Map;
     try {
@@ -228,11 +229,11 @@ const capture = (
         bounds: [west, south, east, north],
         fitBoundsOptions: {
           padding: {
-            top: margin,
-            right: margin,
-            left: margin,
+            top: verticalPadding,
+            right: horizontalPadding,
+            left: horizontalPadding,
             // the printed label covers this share of the bottom
-            bottom: margin + Math.round(height * inset),
+            bottom: verticalPadding + Math.round(height * inset),
           },
         },
         interactive: false,
