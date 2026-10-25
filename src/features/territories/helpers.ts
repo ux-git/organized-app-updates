@@ -10,14 +10,17 @@ export {
   withAssignments,
 } from '@utils/territory_dates';
 import { formatDate } from '@utils/date';
-import { getTranslation } from '@services/i18n/translation';
+import {
+  formatElapsedDuration,
+  getTranslation,
+} from '@services/i18n/translation';
 import {
   AssignmentIssue,
   ISSUE_TEXT,
   olderOpenAssignments,
 } from '@features/territories/assignment_issues';
 import {
-  coveredDays,
+  coveredDuration,
   isCoverage,
   returnedWithin,
 } from '@features/territories/coverage_rate';
@@ -551,12 +554,12 @@ export const sortedPublishers = (
 export { coveredDays, coveredAge } from '@features/territories/coverage_rate';
 
 export const coveredText = (territory: Territory) => {
-  const days = coveredDays(territory);
-  if (days === null) return getTranslation({ key: 'tr_territoryNever' });
+  const duration = coveredDuration(territory);
+  if (duration === null) return getTranslation({ key: 'tr_territoryNever' });
 
-  return days === 0
+  return duration.months === 0 && duration.days === 0
     ? getTranslation({ key: 'tr_territoryToday' })
-    : daysLabel(days);
+    : formatElapsedDuration(duration.months, duration.days);
 };
 
 // from the dates: the stored daysSinceCovered is a snapshot, 3650 after an import

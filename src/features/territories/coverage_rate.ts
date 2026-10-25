@@ -1,3 +1,4 @@
+import { elapsedCalendarDuration } from '@utils/territory_dates';
 import { millisecondsInDay } from 'date-fns/constants';
 import type { Territory } from '@definition/territory';
 
@@ -42,17 +43,24 @@ export const coverageRate = (
 
 // covered means returned: an open assignment or none at all is no coverage,
 // and the stored daysSinceCovered is only a snapshot (3650 after an import)
-export const coveredDays = (territory: Territory) => {
-  const last = Math.max(
+const lastCoveredTime = (territory: Territory) =>
+  Math.max(
     0,
     ...territory.assignments
       .filter((item) => isCoverage(item))
       .map((item) => dayOf(item.returnedOn)?.getTime() ?? 0)
   );
 
+export const coveredDays = (territory: Territory) => {
+  const last = lastCoveredTime(territory);
   return last
     ? Math.max(0, Math.round((Date.now() - last) / millisecondsInDay))
     : null;
+};
+
+export const coveredDuration = (territory: Territory) => {
+  const last = lastCoveredTime(territory);
+  return last ? elapsedCalendarDuration(new Date(last)) : null;
 };
 
 // never covered sorts as the longest wait

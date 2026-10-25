@@ -1,3 +1,9 @@
+import {
+  addMonths,
+  differenceInCalendarDays,
+  differenceInMonths,
+  startOfDay,
+} from 'date-fns';
 import type { Territory, TerritoryAssignment } from '@definition/territory';
 import { millisecondsInDay as DAY } from 'date-fns/constants';
 import { isTerritoryCoverage as isCoverage } from '@utils/territory_coverage';
@@ -98,4 +104,15 @@ export const withAssignments = (
     holderGroup: open.group,
     daysOut: daysAgo(time(open.assignedOn) || Date.now()),
   };
+};
+
+// Completed calendar months, then calendar days; never round an unfinished month up.
+export const elapsedCalendarDuration = (start: Date, now = new Date()) => {
+  const end = startOfDay(now);
+  const beginning = startOfDay(start);
+  if (beginning >= end) return { months: 0, days: 0 };
+
+  const months = differenceInMonths(end, beginning);
+  const days = differenceInCalendarDays(end, addMonths(beginning, months));
+  return { months, days };
 };
