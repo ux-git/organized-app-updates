@@ -361,11 +361,12 @@ const Row = memo(function Row({
     pressable,
     me,
   } = view;
+  const selectionGap = tablet688Up ? '12px' : '8px';
   const selectionSlot = {
     display: 'grid',
     gridTemplateColumns: showCheckboxes ? '1fr' : '0fr',
     opacity: showCheckboxes ? 1 : 0,
-    marginRight: showCheckboxes ? (tablet688Up ? '12px' : '8px') : 0,
+    marginRight: showCheckboxes ? selectionGap : 0,
     transition:
       'grid-template-columns 150ms ease, opacity 150ms ease, margin-right 150ms ease',
     '@media (prefers-reduced-motion: reduce)': { transition: 'none' },

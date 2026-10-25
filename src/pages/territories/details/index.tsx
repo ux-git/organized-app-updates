@@ -248,7 +248,7 @@ const TerritoryDetailsPage = () => {
 
       <PageTitle
         title={titleOf(territory, isNew)}
-        secondaryTitle={parent && parent}
+        secondaryTitle={parent}
         onBack={goBack}
         buttons={
           isTerritoryEditor

@@ -74,13 +74,12 @@ const useTerritoryDetails = () => {
     }
 
     setTerritories((prev) =>
-      prev.map((item) =>
-        item.id === next.id
-          ? context.editor
-            ? next
-            : { ...item, ...publisherTerritoryChanges(item, next, context) }
-          : item
-      )
+      prev.map((item) => {
+        if (item.id !== next.id) return item;
+        return context.editor
+          ? next
+          : { ...item, ...publisherTerritoryChanges(item, next, context) };
+      })
     );
   };
 

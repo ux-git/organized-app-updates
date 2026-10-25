@@ -1,4 +1,6 @@
-import { territoryNumberKey } from '@utils/territory';
+import {
+  territoryRestructureIssue,
+} from '@utils/territory';
 import { territoryMapProviderState } from '@states/territory_preferences';
 import { useAppTranslation } from '@hooks/index';
 import { locateMap } from '@services/maps/location';
@@ -324,13 +326,13 @@ const useTerritoriesMap = () => {
     );
 
     const detail = mapDetail();
-    const borderCoords = congregationBoundary?.length
-      ? counterClockwise(
-          detail.sanitizeGeometry
-            ? sanitizeBoundary(congregationBoundary)
-            : congregationBoundary
-        )
-      : undefined;
+    let borderCoords: TerritoryBoundary | undefined;
+    if (congregationBoundary?.length) {
+      const boundary = detail.sanitizeGeometry
+        ? sanitizeBoundary(congregationBoundary)
+        : congregationBoundary;
+      borderCoords = counterClockwise(boundary);
+    }
 
     const border: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
@@ -1419,45 +1421,24 @@ const useTerritoriesMap = () => {
       const before = store.get(territoriesState);
       const original = before.find((item) => item.id === id);
       const absorbed = before.filter((item) => staged.merged.includes(item.id));
-      const restructuring =
-        staged.created.length > 0 || staged.merged.length > 0;
-      if (
-        !original ||
-        absorbed.length !== staged.merged.length ||
-        (restructuring &&
-          [original, ...absorbed].some(
-            (item) =>
-              item.requestedBy ||
-              item.holder ||
-              item.assignments.some((assignment) => !assignment.returnedOn)
-          ))
-      ) {
+      const issue = territoryRestructureIssue(
+        before,
+        id,
+        staged.merged,
+        staged.created,
+        staged.keep?.number
+      );
+      if (issue || !original) {
         displaySnackNotification({
           header: t('tr_territoryMapNotSaved'),
-          message: t('tr_territoryReturnBeforeRestructuring'),
+          message: t(
+            issue === 'number'
+              ? 'tr_territoryThisNumberIsAlreadyUsed'
+              : 'tr_territoryReturnBeforeRestructuring'
+          ),
           severity: 'error',
         });
         return;
-      }
-      const usedNumbers = new Set(
-        before
-          .filter((item) => item.id !== id && !staged.merged.includes(item.id))
-          .map((item) => territoryNumberKey(item.number))
-      );
-      for (const number of [
-        staged.keep?.number ?? original.number,
-        ...staged.created.map((item) => item.number),
-      ]) {
-        const key = territoryNumberKey(number);
-        if (!key || usedNumbers.has(key)) {
-          displaySnackNotification({
-            header: t('tr_territoryMapNotSaved'),
-            message: t('tr_territoryThisNumberIsAlreadyUsed'),
-            severity: 'error',
-          });
-          return;
-        }
-        usedNumbers.add(key);
       }
 
       setTerritories((prev) => [

@@ -49,6 +49,17 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
     eventTitle,
   } = useEditUpcomingEvent(props);
 
+  const isCampaign =
+    localEvent.event_data.category ===
+    UpcomingEventCategory.SpecialCampaignWeek;
+  const addTitle = isCampaign
+    ? 'tr_territoryAddCampaign'
+    : 'tr_addUpcomingEvent';
+  const editTitle = isCampaign
+    ? 'tr_territoryEditCampaign'
+    : 'tr_editUpcomingEvent';
+  const title = t(props.type === 'add' ? addTitle : editTitle);
+
   return (
     <Box
       sx={{
@@ -84,18 +95,7 @@ const EditUpcomingEvent = (props: EditUpcomingEventProps) => {
             color: 'var(--black)',
           }}
         >
-          {localEvent.event_data.category ===
-          UpcomingEventCategory.SpecialCampaignWeek
-            ? t(
-                props.type === 'add'
-                  ? 'tr_territoryAddCampaign'
-                  : 'tr_territoryEditCampaign'
-              )
-            : t(
-                props.type === 'add'
-                  ? 'tr_addUpcomingEvent'
-                  : 'tr_editUpcomingEvent'
-              )}
+          {title}
         </Typography>
 
         {props.type === 'edit' && !tabletUp && (

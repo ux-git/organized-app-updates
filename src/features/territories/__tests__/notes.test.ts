@@ -64,3 +64,11 @@ test('a new note is a flagged territory whose last return brought one', () => {
   assert.equal(hasNewNote(territory(false, assignments)), false);
   assert.equal(hasNewNote(territory(true, [assignments[3]])), false);
 });
+
+test('single-line notes collapse CRLF and blank lines without changing inline spacing', () => {
+  assert.equal(
+    noteLine('  Front  entrance  \r\n \t\n  Side gate  '),
+    'Front  entrance · Side gate'
+  );
+  assert.equal(noteLine(' '.repeat(100000) + '\nGate'), 'Gate');
+});

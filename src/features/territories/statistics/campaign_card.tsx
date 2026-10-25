@@ -162,6 +162,12 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
     }
   };
 
+  let returnDateHint = '';
+  if (returnTooEarly)
+    returnDateHint = t('tr_territoryCannotBeBeforeTheAssignedDate');
+  else if (returnFuture)
+    returnDateHint = t('tr_territoryThisDateIsInTheFuture');
+
   return (
     <ChartCard
       title={t('tr_territoryCampaignProgress')}
@@ -354,13 +360,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
             label={t('tr_territoryReturnedOn')}
             value={returnOn}
             error={returnTooEarly || returnFuture}
-            helperText={
-              returnTooEarly
-                ? t('tr_territoryCannotBeBeforeTheAssignedDate')
-                : returnFuture
-                  ? t('tr_territoryThisDateIsInTheFuture')
-                  : ''
-            }
+            helperText={returnDateHint}
             onChange={(value) => setReturnOn(value)}
           />
 

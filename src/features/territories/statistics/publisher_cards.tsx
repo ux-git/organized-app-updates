@@ -188,7 +188,9 @@ export const PublisherTrend = ({
 
   const monthNames = useAtomValue(monthShortNamesState);
 
-  const months = rangeMonths(range).map(({ month }) => monthNames[month]);
+  const calendarMonths = rangeMonths(range);
+  const months = calendarMonths.map(({ month }) => monthNames[month]);
+  const monthIds = calendarMonths.map(({ year, month }) => `${year}-${month}`);
   const values = publishersPerMonth(territories, range);
 
   return (
@@ -201,7 +203,7 @@ export const PublisherTrend = ({
       }
       span={8}
     >
-      <ColumnChart values={values} labels={months} />
+      <ColumnChart values={values} labels={months} monthIds={monthIds} />
     </ChartCard>
   );
 };

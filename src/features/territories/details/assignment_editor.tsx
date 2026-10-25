@@ -11,11 +11,7 @@ import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { IconCopy } from '@icons/index';
 import { territoryAssigneesState } from '@features/territories/assignees';
 import { territoryCampaignsState } from '@features/territories/campaigns';
-import {
-  campaignChoices,
-  campaignOverlaps,
-  campaignSnapshot,
-} from '@features/territories/campaign_dates';
+import { campaignSnapshot } from '@features/territories/campaign_dates';
 import CampaignField, {
   CampaignChoice,
 } from '@features/territories/components/campaign_field';
@@ -91,11 +87,6 @@ const AssignmentEditor = ({
     value: assignment.campaign,
   });
 
-  const overlapping = campaigns.filter((item) =>
-    campaignOverlaps(item, assignedOn ?? new Date(), returnedOn ?? new Date())
-  );
-  const choices = campaignChoices(campaigns, new Date());
-
   const returnedTooEarly =
     !!assignedOn &&
     !!returnedOn &&
@@ -108,6 +99,11 @@ const AssignmentEditor = ({
   });
 
   const secondOpen = otherOpen && !returnedOn;
+  let returnedDateHint = '';
+  if (returnedTooEarly)
+    returnedDateHint = t('tr_territoryCannotBeBeforeTheAssignedDate');
+  else if (issues.includes('returned_future'))
+    returnedDateHint = t('tr_territoryThisDateIsInTheFuture');
 
   return (
     <Dialog
@@ -167,13 +163,7 @@ const AssignmentEditor = ({
             value={returnedOn}
             minDate={assignedOn}
             error={returnedTooEarly || issues.includes('returned_future')}
-            helperText={
-              returnedTooEarly
-                ? t('tr_territoryCannotBeBeforeTheAssignedDate')
-                : issues.includes('returned_future')
-                  ? t('tr_territoryThisDateIsInTheFuture')
-                  : ''
-            }
+            helperText={returnedDateHint}
             onChange={(value) => setReturnedOn(value)}
           />
         </Box>
@@ -205,9 +195,6 @@ const AssignmentEditor = ({
 
       {(campaigns.length > 0 || campaign.value) && (
         <CampaignField
-          label={t('tr_territoryForTheCampaign')}
-          running={overlapping}
-          choices={choices}
           checked={campaign.checked}
           value={campaign.value}
           onChange={setCampaign}

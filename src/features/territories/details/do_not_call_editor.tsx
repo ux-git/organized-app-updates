@@ -40,6 +40,14 @@ const DoNotCallEditor = ({
     parseDate(entry?.date) ?? new Date()
   );
 
+  let titleKey = entry
+    ? 'tr_territoryEditDoNotCallAddress'
+    : 'tr_territoryAddDoNotCallAddress';
+  if (numbers)
+    titleKey = entry
+      ? 'tr_territoryEditDoNotCallNumber'
+      : 'tr_territoryAddDoNotCallNumber';
+
   const handleSave = () => {
     onSave({
       id: entry?.id ?? `dnc-${Date.now()}`,
@@ -57,15 +65,7 @@ const DoNotCallEditor = ({
       open
       header={
         <EditorHeader
-          title={
-            numbers
-              ? entry
-                ? t('tr_territoryEditDoNotCallNumber')
-                : t('tr_territoryAddDoNotCallNumber')
-              : entry
-                ? t('tr_territoryEditDoNotCallAddress')
-                : t('tr_territoryAddDoNotCallAddress')
-          }
+          title={t(titleKey)}
           description={
             numbers
               ? t('tr_territoryANumberThePublishersShouldNotCallAndSince')

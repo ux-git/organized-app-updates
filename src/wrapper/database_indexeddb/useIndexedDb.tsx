@@ -1,4 +1,4 @@
-import { useAtomValue, useStore } from 'jotai';
+import { useAtomValue, useStore, useSetAtom } from 'jotai';
 import { isTest } from '@constants/index';
 import { dbTerritoriesGetAll } from '@services/dexie/territories';
 import {
@@ -6,14 +6,13 @@ import {
   territoryWritesPendingState,
   territoryLoadedViewState,
 } from '@states/territories';
-import { userDataViewState } from '@states/settings';
+import { userDataViewState, settingsState } from '@states/settings';
 import { sampleTerritories } from '@features/territories/mockData';
 import { useCallback } from 'react';
-import { useSetAtom } from 'jotai';
+
 import { useLiveQuery } from 'dexie-react-hooks';
 import appDb from '@db/appDb';
 
-import { settingsState } from '@states/settings';
 import { personsState } from '@states/persons';
 import { weekTypeState } from '@states/weekType';
 import { assignmentState } from '@states/assignment';

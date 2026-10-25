@@ -537,12 +537,12 @@ const useAnchor = (editor: Editor, map?: maplibregl.Map | null) => {
         : undefined;
       if (!feature) return setAnchor(undefined);
 
-      const coordinates =
-        feature.geometry.type === 'Polygon'
-          ? (feature.geometry.coordinates[0] as number[][])
-          : feature.geometry.type === 'LineString'
-            ? (feature.geometry.coordinates as number[][])
-            : [feature.geometry.coordinates as number[]];
+      let coordinates: number[][];
+      if (feature.geometry.type === 'Polygon')
+        coordinates = feature.geometry.coordinates[0] as number[][];
+      else if (feature.geometry.type === 'LineString')
+        coordinates = feature.geometry.coordinates as number[][];
+      else coordinates = [feature.geometry.coordinates as number[]];
       const points = coordinates.map((c) => map.project(c as [number, number]));
       // a drawing larger than the view, like the congregation's border,
       // centres the bar on the part that shows
@@ -699,18 +699,12 @@ export const StyleBar = ({
       </>
     );
   } else {
-    const shape =
-      kind === 'shape'
-        ? editor.selectedStyle
-        : !kind && editor.tool === 'shape'
-          ? editor.shape
-          : undefined;
-    const line =
-      kind === 'line'
-        ? editor.selectedLine
-        : !kind && editor.tool === 'line'
-          ? editor.line
-          : undefined;
+    const activeShape =
+      !kind && editor.tool === 'shape' ? editor.shape : undefined;
+    const activeLine =
+      !kind && editor.tool === 'line' ? editor.line : undefined;
+    const shape = kind === 'shape' ? editor.selectedStyle : activeShape;
+    const line = kind === 'line' ? editor.selectedLine : activeLine;
 
     if (shape) {
       content = (

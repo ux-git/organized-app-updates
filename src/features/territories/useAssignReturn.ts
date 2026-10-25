@@ -332,13 +332,14 @@ const useAssignReturn = () => {
     const flagged = results.some((result) => result.flagged);
     const values = { n: assigned.length, name: holderText(holder) };
 
+    const multipleMessage = flagged
+      ? t('tr_territoryTerritoriesAssignedToForTheCampaign', values)
+      : t('tr_territoryTerritoriesAssignedTo', values);
     remember(
       assigned,
       assigned.length === 1
         ? assignedText(assigned[0], holder, flagged)
-        : flagged
-          ? t('tr_territoryTerritoriesAssignedToForTheCampaign', values)
-          : t('tr_territoryTerritoriesAssignedTo', values),
+        : multipleMessage,
       results.map((result) => result.assignmentId)
     );
     return assigned.length > 0;

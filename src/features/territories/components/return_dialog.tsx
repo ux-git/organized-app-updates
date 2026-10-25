@@ -112,15 +112,11 @@ const ReturnDialog = ({
     ? parseTerritoryHouseholds(households, territory.households)
     : territory.households;
 
-  const selectedCampaign = own
-    ? flagged
-    : campaign.checked
-      ? campaign.value
-      : undefined;
+  const chosenCampaign = campaign.checked ? campaign.value : undefined;
+  const selectedCampaign = own ? flagged : chosenCampaign;
   const linkedCampaign = campaigns.find(
     (item) => item.id === selectedCampaign?.id
   );
-  const known = flagged && campaigns.find((item) => item.id === flagged.id);
   const assigned = parseDate(open?.assignedOn);
   // unflagged work that still ran into a campaign can be filed under it
   const overlapping =
@@ -255,13 +251,6 @@ const ReturnDialog = ({
 
       {!own && (flagged || overlapping.length > 0) && (
         <CampaignField
-          label={
-            flagged
-              ? t('tr_territoryForTheCampaign')
-              : t('tr_territoryAlsoWorkedForTheCampaign')
-          }
-          running={flagged ? (known ? [known] : []) : overlapping}
-          choices={[]}
           checked={campaign.checked}
           value={campaign.value}
           onChange={setCampaign}

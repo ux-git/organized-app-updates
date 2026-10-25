@@ -198,10 +198,15 @@ export const withDerivedStatus = (
     } as Territory;
   });
 
+const matchesCategories = (territory: Territory, categories: string[]) =>
+  categories.length === 0 ||
+  categories.some((category) => territory.categories.includes(category));
+
 export const applyFilters = (
   territories: Territory[],
   filters: TerritoryFilters
 ) => {
+  const cards = filters.card.filter((card) => card !== 'unknown');
   return territories.filter((territory) => {
     if (filters.status.length && !filters.status.includes(territory.status)) {
       return false;
@@ -211,14 +216,7 @@ export const applyFilters = (
       return false;
     }
 
-    if (
-      filters.categories.length &&
-      !filters.categories.some((category) =>
-        territory.categories.includes(category)
-      )
-    ) {
-      return false;
-    }
+    if (!matchesCategories(territory, filters.categories)) return false;
 
     if (!matchesCoverage(territory, filters.coverage)) return false;
 
@@ -227,7 +225,6 @@ export const applyFilters = (
     if (filters.forGroups && !territory.holderGroup) return false;
 
     // 'unknown' was once a chip of its own; one left on from then is ignored
-    const cards = filters.card.filter((card) => card !== 'unknown');
     if (!matchesCard(territory, cards)) return false;
 
     if (!matchesHolder(territory, filters.holder, filters.holderPast)) {

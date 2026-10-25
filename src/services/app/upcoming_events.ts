@@ -3,7 +3,12 @@ import {
   dbUpcomingEventsSave,
   dbUpcomingEventGet,
 } from '@services/dexie/upcoming_events';
-import { settingsState, userDataViewState } from '@states/settings';
+import {
+  settingsState,
+  userDataViewState,
+  eventsMultiDayDisplayState,
+  hour24FormatState,
+} from '@states/settings';
 import {
   UPCOMING_EVENT_MAX_LIST_DAYS,
   UpcomingEventCategory,
@@ -18,10 +23,6 @@ import {
   getTranslation,
 } from '@services/i18n/translation';
 import { store } from '@states/index';
-import {
-  eventsMultiDayDisplayState,
-  hour24FormatState,
-} from '@states/settings';
 
 export const groupEventsByYear = (events: UpcomingEventType[]) => {
   const yearMap = new Map<number, UpcomingEventType[]>();

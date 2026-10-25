@@ -17,7 +17,11 @@ export const latestReturnNote = (assignments: TerritoryAssignment[]) =>
 
 // a note on one line, for a list row
 export const noteLine = (note: string) =>
-  note.trim().replace(/\s*\n+\s*/g, ' · ');
+  note
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' · ');
 
 // an assignment's finding joins the standing notes, a blank line apart
 export const appendNote = (notes: string | undefined, note: string) => {

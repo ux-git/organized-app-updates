@@ -79,21 +79,21 @@ const TerritoriesStatistics = () => {
   const range: StatsRange =
     (custom ? customRange : periodWindow(period)) ??
     periodWindow(defaultPeriod())!;
-  const months = rangeMonths(range).map(({ month }) => monthNames[month]);
+  const calendarMonths = rangeMonths(range);
+  const months = calendarMonths.map(({ month }) => monthNames[month]);
+  const monthIds = calendarMonths.map(({ year, month }) => `${year}-${month}`);
 
   const fromError =
     custom && (!from || !Number.isFinite(from.getTime()))
       ? t('tr_territoryPickADate')
       : '';
-  const toError = !custom
-    ? ''
-    : !to || !Number.isFinite(to.getTime())
-      ? t('tr_territoryPickADate')
-      : to > today
-        ? t('tr_territoryThisDateIsInTheFuture')
-        : from && from > to
-          ? t('tr_territoryBeforeTheStartDate')
-          : '';
+  let toError = '';
+  if (custom) {
+    if (!to || !Number.isFinite(to.getTime()))
+      toError = t('tr_territoryPickADate');
+    else if (to > today) toError = t('tr_territoryThisDateIsInTheFuture');
+    else if (from && from > to) toError = t('tr_territoryBeforeTheStartDate');
+  }
 
   const rangeText = `${format(range.start, 'PP', { locale })} – ${format(
     range.end,
@@ -281,6 +281,7 @@ const TerritoriesStatistics = () => {
         <ColumnChart
           values={inProgressPerMonth(territories, range)}
           labels={months}
+          monthIds={monthIds}
         />
       </ChartCard>
 

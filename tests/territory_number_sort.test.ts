@@ -1,3 +1,5 @@
+import { territoryRestructureIssue } from '../src/utils/territory.ts';
+import type { Territory } from '../src/definition/territory.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
@@ -59,4 +61,61 @@ test('the shared comparator preserves the existing localeCompare ordering', () =
     a.localeCompare(b, undefined, { numeric: true })
   );
   assert.deepEqual([...numbers].sort(compareTerritoryNumbers), original);
+});
+
+test('restructuring validates current assignments and all resulting numbers', () => {
+  const card = (id: string, number: string, extra: Partial<Territory> = {}) =>
+    ({ id, number, assignments: [], ...extra }) as Territory;
+  const original = card('a', 'M22');
+  const neighbour = card('b', 'M23');
+  const created = card('c', 'M22A');
+  assert.equal(
+    territoryRestructureIssue([original, neighbour], 'a', [], [created]),
+    undefined
+  );
+  assert.equal(
+    territoryRestructureIssue(
+      [original, neighbour],
+      'a',
+      [],
+      [card('c', ' m23 ')]
+    ),
+    'number'
+  );
+  assert.equal(
+    territoryRestructureIssue([original], 'a', ['missing'], []),
+    'changed'
+  );
+  assert.equal(
+    territoryRestructureIssue(
+      [card('a', 'M22', { requestedBy: 'Publisher' })],
+      'a',
+      [],
+      [created]
+    ),
+    'changed'
+  );
+  const taken = card('a', 'M22', {
+    assignments: [
+      { id: 'assignment', publisher: 'Publisher', assignedOn: '25.10.2026' },
+    ],
+  });
+  assert.equal(
+    territoryRestructureIssue([taken], 'a', [], [created]),
+    'changed'
+  );
+  assert.equal(territoryRestructureIssue([taken], 'a', [], []), undefined);
+  assert.equal(
+    territoryRestructureIssue([original, neighbour], 'a', ['b'], [], 'M23'),
+    undefined
+  );
+  assert.equal(
+    territoryRestructureIssue(
+      [original],
+      'a',
+      [],
+      [card('c', 'M22A'), card('d', 'm22a')]
+    ),
+    'number'
+  );
 });

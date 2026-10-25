@@ -407,15 +407,14 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
   // both views stay mounted and only hide, so a switch is one attribute
   // change instead of building or reconnecting a whole view
+  const activeView = isBoard ? board : list;
   const content = canSwitchLayout ? (
     <>
       <Box hidden={isBoard}>{list}</Box>
       <Box hidden={!isBoard}>{board}</Box>
     </>
-  ) : isBoard ? (
-    board
   ) : (
-    list
+    activeView
   );
 
   const listCard = (

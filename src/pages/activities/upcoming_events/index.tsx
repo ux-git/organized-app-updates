@@ -33,6 +33,10 @@ const UpcomingEvents = () => {
     handleCloseQuickSettings,
   } = useUpcomingEvents();
 
+  const emptyCampaignKey = selectedEvent
+    ? 'tr_territoryCampaignNotFound'
+    : 'tr_territoryCampaignsEmpty';
+
   return (
     <Box
       sx={{
@@ -92,15 +96,7 @@ const UpcomingEvents = () => {
       <UpcomingEventsList
         data={events}
         isAdding={addEventBoxShow}
-        emptyMessage={
-          campaignsOnly
-            ? t(
-                selectedEvent
-                  ? 'tr_territoryCampaignNotFound'
-                  : 'tr_territoryCampaignsEmpty'
-              )
-            : undefined
-        }
+        emptyMessage={campaignsOnly ? t(emptyCampaignKey) : undefined}
       />
     </Box>
   );

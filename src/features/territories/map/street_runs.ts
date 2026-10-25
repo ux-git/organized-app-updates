@@ -23,6 +23,24 @@ const contains = ([x, y]: number[], ring: number[][]) => {
   return inside;
 };
 
+const segmentCuts = (a: number[], b: number[], ring: number[][]) => {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const cuts = [0, 1];
+  for (let j = 0; j < ring.length; j++) {
+    const c = ring[j];
+    const d = ring[(j + 1) % ring.length];
+    const ex = d[0] - c[0];
+    const ey = d[1] - c[1];
+    const denominator = cross(dx, dy, ex, ey);
+    if (Math.abs(denominator) <= EPSILON) continue;
+    const t = cross(c[0] - a[0], c[1] - a[1], ex, ey) / denominator;
+    const u = cross(c[0] - a[0], c[1] - a[1], dx, dy) / denominator;
+    if (t > 0 && t < 1 && u >= 0 && u <= 1) cuts.push(t);
+  }
+  return [...new Set(cuts)].sort((a, b) => a - b);
+};
+
 export const streetRuns = (line: number[][], ring: number[][]) => {
   const runs: number[][][] = [];
   let run: number[][] = [];
@@ -32,19 +50,7 @@ export const streetRuns = (line: number[][], ring: number[][]) => {
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
     if (!dx && !dy) continue;
-    const cuts = [0, 1];
-    for (let j = 0; j < ring.length; j++) {
-      const c = ring[j];
-      const d = ring[(j + 1) % ring.length];
-      const ex = d[0] - c[0];
-      const ey = d[1] - c[1];
-      const denominator = cross(dx, dy, ex, ey);
-      if (Math.abs(denominator) <= EPSILON) continue;
-      const t = cross(c[0] - a[0], c[1] - a[1], ex, ey) / denominator;
-      const u = cross(c[0] - a[0], c[1] - a[1], dx, dy) / denominator;
-      if (t > 0 && t < 1 && u >= 0 && u <= 1) cuts.push(t);
-    }
-    const sorted = [...new Set(cuts)].sort((a, b) => a - b);
+    const sorted = segmentCuts(a, b, ring);
     const at = (t: number) => [a[0] + dx * t, a[1] + dy * t];
     for (let j = 1; j < sorted.length; j++) {
       const start = sorted[j - 1];

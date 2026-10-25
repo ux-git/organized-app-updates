@@ -36,8 +36,8 @@ const STREET_HALF = 4;
 const widen = (ring: [number, number][], metres: number) => {
   const open =
     ring.length > 1 &&
-    ring[0][0] === ring[ring.length - 1][0] &&
-    ring[0][1] === ring[ring.length - 1][1]
+    ring[0][0] === ring.at(-1)![0] &&
+    ring[0][1] === ring.at(-1)![1]
       ? ring.slice(0, -1)
       : ring;
   const kx = 111320 * Math.cos((open[0][1] * Math.PI) / 180);
@@ -76,7 +76,7 @@ const widen = (ring: [number, number][], metres: number) => {
 };
 
 const closed = (ring: [number, number][]) => {
-  const [first, last] = [ring[0], ring[ring.length - 1]];
+  const [first, last] = [ring[0], ring.at(-1)!];
   return first[0] === last[0] && first[1] === last[1] ? ring : [...ring, first];
 };
 
@@ -85,6 +85,99 @@ const SIZE = 1040;
 
 // print resolution; the layout stays at SIZE, only the pixel density grows
 const DPI = 300;
+
+const addPrintDoNotCalls = (
+  map: maplibregl.Map,
+  territory: Territory,
+  detail: boolean
+) => {
+  // on paper the marked houses show at any zoom, to be skipped at the door
+  addDoNotCallLayer(map, 0);
+  setDoNotCallData(map, [territory]);
+
+  // on paper a ring only needs to hold a house number
+  if (detail) {
+    map.setPaintProperty('do-not-calls', 'circle-radius', 5.5);
+    map.setPaintProperty('do-not-calls', 'circle-stroke-width', 1.5);
+  }
+
+  // a small card has no house numbers to ring, so a house is a small solid dot
+  if (!detail) {
+    map.setPaintProperty('do-not-calls', 'circle-radius', 3.5);
+    map.setPaintProperty('do-not-calls', 'circle-opacity', 1);
+    map.setPaintProperty('do-not-calls', 'circle-color', MAP_COLORS.red);
+    map.setPaintProperty('do-not-calls', 'circle-stroke-color', '#FFFFFF');
+    map.setPaintProperty('do-not-calls', 'circle-stroke-width', 1);
+  }
+};
+
+const addPrintLabels = (
+  map: maplibregl.Map,
+  boundary: [number, number][],
+  detail: boolean
+) => {
+  const streets: string[] = [];
+  // street names and house numbers stay readable on paper, above the
+  // veil, the border and every drawing; paper is light whatever the app theme
+  for (const layer of map.getStyle().layers) {
+    if (layer.type !== 'symbol') continue;
+
+    // road numbers like B57 would sit on the border; the card needs street names only
+    if (/shield/.test(layer.id)) {
+      map.setLayoutProperty(layer.id, 'visibility', 'none');
+      continue;
+    }
+
+    map.moveLayer(layer.id);
+    if (layer.layout?.['text-field'] === undefined) continue;
+
+    map.setPaintProperty(layer.id, 'text-color', '#333333');
+    map.setPaintProperty(layer.id, 'text-halo-color', '#FFFFFF');
+
+    if (isStreetName(layer)) streets.push(layer.id, `${layer.id}-inside`);
+
+    // a large card has room for each house and its number, at any zoom
+    if (detail && isHouseNumber(layer)) {
+      map.setLayerZoomRange(layer.id, 0, 24);
+      map.setLayoutProperty(layer.id, 'text-size', 8);
+      map.setPaintProperty(layer.id, 'text-color', '#777777');
+    }
+  }
+
+  // a printed card is read for the streets inside the territory: their names
+  // come at every zoom, packed closer, and are placed before any name outside
+  if (detail) {
+    for (const layer of map.getStyle().layers) {
+      if (isBuildingOutline(layer)) map.setLayerZoomRange(layer.id, 0, 24);
+    }
+  }
+
+  const area: maplibregl.ExpressionSpecification = [
+    'within',
+    { type: 'Polygon', coordinates: [closed(boundary)] },
+  ];
+
+  for (const id of streets.filter((name) => !name.endsWith('-inside'))) {
+    const spec = map.getStyle().layers.find((layer) => layer.id === id);
+    if (spec?.type !== 'symbol') continue;
+
+    const filter = spec.filter ?? true;
+    map.setFilter(id, [
+      'all',
+      filter,
+      ['!', area],
+    ] as maplibregl.FilterSpecification);
+    map.addLayer({
+      ...spec,
+      id: `${id}-inside`,
+      minzoom: 0,
+      maxzoom: 24,
+      filter: ['all', filter, area] as maplibregl.FilterSpecification,
+      layout: { ...spec.layout, 'text-padding': 0, 'symbol-spacing': 90 },
+    });
+  }
+  return streets;
+};
 
 /**
  * Renders the territory on an off-screen map and returns it as a PNG data URL.
@@ -192,30 +285,7 @@ const capture = (
 
       addOutsideVeil(map, printed, '#FFFFFF');
       addTerritoryLayers(map, { ...territory, boundary: printed }, 0);
-      // on paper the marked houses show at any zoom, to be skipped at the door
-      if (doNotCalls) {
-        addDoNotCallLayer(map, 0);
-        setDoNotCallData(map, [territory]);
-
-        // on paper a ring only needs to hold a house number
-        if (detail) {
-          map.setPaintProperty('do-not-calls', 'circle-radius', 5.5);
-          map.setPaintProperty('do-not-calls', 'circle-stroke-width', 1.5);
-        }
-
-        // a small card has no house numbers to ring, so a house is a small solid dot
-        if (!detail) {
-          map.setPaintProperty('do-not-calls', 'circle-radius', 3.5);
-          map.setPaintProperty('do-not-calls', 'circle-opacity', 1);
-          map.setPaintProperty('do-not-calls', 'circle-color', MAP_COLORS.red);
-          map.setPaintProperty(
-            'do-not-calls',
-            'circle-stroke-color',
-            '#FFFFFF'
-          );
-          map.setPaintProperty('do-not-calls', 'circle-stroke-width', 1);
-        }
-      }
+      if (doNotCalls) addPrintDoNotCalls(map, territory, detail);
       // a printed border has to hold its own against the street names above it,
       // and on a large card against the houses and their numbers too
       map.setPaintProperty('territory-area-line', 'line-width', width);
@@ -227,65 +297,7 @@ const capture = (
         [4, 3]
       );
 
-      // street names and house numbers stay readable on paper, above the
-      // veil, the border and every drawing; paper is light whatever the app theme
-      for (const layer of map.getStyle().layers) {
-        if (layer.type !== 'symbol') continue;
-
-        // road numbers like B57 would sit on the border; the card needs street names only
-        if (/shield/.test(layer.id)) {
-          map.setLayoutProperty(layer.id, 'visibility', 'none');
-          continue;
-        }
-
-        map.moveLayer(layer.id);
-        if (layer.layout?.['text-field'] === undefined) continue;
-
-        map.setPaintProperty(layer.id, 'text-color', '#333333');
-        map.setPaintProperty(layer.id, 'text-halo-color', '#FFFFFF');
-
-        if (isStreetName(layer)) streets.push(layer.id, `${layer.id}-inside`);
-
-        // a large card has room for each house and its number, at any zoom
-        if (detail && isHouseNumber(layer)) {
-          map.setLayerZoomRange(layer.id, 0, 24);
-          map.setLayoutProperty(layer.id, 'text-size', 8);
-          map.setPaintProperty(layer.id, 'text-color', '#777777');
-        }
-      }
-
-      // a printed card is read for the streets inside the territory: their names
-      // come at every zoom, packed closer, and are placed before any name outside
-      if (detail) {
-        for (const layer of map.getStyle().layers) {
-          if (isBuildingOutline(layer)) map.setLayerZoomRange(layer.id, 0, 24);
-        }
-      }
-
-      const area: maplibregl.ExpressionSpecification = [
-        'within',
-        { type: 'Polygon', coordinates: [closed(boundary)] },
-      ];
-
-      for (const id of streets.filter((name) => !name.endsWith('-inside'))) {
-        const spec = map.getStyle().layers.find((layer) => layer.id === id);
-        if (spec?.type !== 'symbol') continue;
-
-        const filter = spec.filter ?? true;
-        map.setFilter(id, [
-          'all',
-          filter,
-          ['!', area],
-        ] as maplibregl.FilterSpecification);
-        map.addLayer({
-          ...spec,
-          id: `${id}-inside`,
-          minzoom: 0,
-          maxzoom: 24,
-          filter: ['all', filter, area] as maplibregl.FilterSpecification,
-          layout: { ...spec.layout, 'text-padding': 0, 'symbol-spacing': 90 },
-        });
-      }
+      streets.push(...addPrintLabels(map, boundary, detail));
     });
 
     const snapshot = () => {
@@ -331,6 +343,41 @@ const capture = (
 
 // a street too short for its name at the style's size gets a smaller one along its
 // own course; only a name that still finds no room is set level on its middle
+const missingStreetRuns = (
+  map: maplibregl.Map,
+  spec: maplibregl.SymbolLayerSpecification,
+  boundary: [number, number][],
+  shown: Set<string>
+) => {
+  const runs = new Map<string, number[][]>();
+
+  for (const feature of map.querySourceFeatures(spec.source, {
+    sourceLayer: spec['source-layer'],
+  })) {
+    const name = feature.properties.name;
+    if (!name || shown.has(name)) continue;
+
+    const { geometry } = feature;
+    if (geometry.type !== 'LineString' && geometry.type !== 'MultiLineString')
+      continue;
+    const lines =
+      geometry.type === 'LineString'
+        ? [geometry.coordinates]
+        : geometry.coordinates;
+
+    // Tile vertices need not fall inside the boundary. Keep the longest visible run.
+    for (const line of lines) {
+      for (const run of streetRuns(line, boundary)) {
+        if (streetLength(run) > streetLength(runs.get(name) ?? [])) {
+          runs.set(name, run);
+        }
+      }
+    }
+  }
+
+  return runs;
+};
+
 const labelShortStreets = (
   map: maplibregl.Map,
   boundary: [number, number][],
@@ -353,31 +400,7 @@ const labelShortStreets = (
       .map((feature) => feature.properties.name)
   );
 
-  const runs = new Map<string, number[][]>();
-
-  for (const feature of map.querySourceFeatures(spec.source, {
-    sourceLayer: spec['source-layer'],
-  })) {
-    const name = feature.properties.name;
-    if (!name || shown.has(name)) continue;
-
-    const { geometry } = feature;
-    const lines =
-      geometry.type === 'LineString'
-        ? [geometry.coordinates]
-        : geometry.type === 'MultiLineString'
-          ? geometry.coordinates
-          : [];
-
-    // Tile vertices need not fall inside the boundary. Keep the longest visible run.
-    for (const line of lines) {
-      for (const run of streetRuns(line, boundary)) {
-        if (streetLength(run) > streetLength(runs.get(name) ?? [])) {
-          runs.set(name, run);
-        }
-      }
-    }
-  }
+  const runs = missingStreetRuns(map, spec, boundary, shown);
 
   const id = along ? 'short-streets-along' : 'short-streets-level';
   const features = [...runs]

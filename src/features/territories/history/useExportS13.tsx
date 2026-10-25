@@ -62,17 +62,14 @@ const useExportS13 = (markCampaigns: boolean) => {
         territories,
         assignees.filter((item) => item.group).map(({ name }) => name)
       );
+      const campaignMark = language.startsWith('de') ? 'A' : 'C';
       try {
         const rows = [...grouped]
           .sort((a, b) =>
             a.number.localeCompare(b.number, undefined, { numeric: true })
           )
           .flatMap((territory) =>
-            s13Rows(
-              territory,
-              dateFormat,
-              markCampaigns ? (language.startsWith('de') ? 'A' : 'C') : ''
-            )
+            s13Rows(territory, dateFormat, markCampaigns ? campaignMark : '')
           );
 
         const blob = await pdf(

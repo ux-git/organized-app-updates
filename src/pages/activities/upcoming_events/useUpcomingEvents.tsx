@@ -1,6 +1,10 @@
 import { useLocation, useSearchParams } from 'react-router';
 import { eventVisibleInDataView } from '@utils/upcoming_events';
-import { upcomingEventsState } from '@states/upcoming_events';
+import {
+  upcomingEventsState,
+  saveUpcomingEventState,
+  upcomingEventsByDataViewState,
+} from '@states/upcoming_events';
 import { useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { IconError } from '@components/icons';
@@ -11,8 +15,7 @@ import {
   UpcomingEventDuration,
   UpcomingEventType,
 } from '@definition/upcoming_events';
-import { saveUpcomingEventState } from '@states/upcoming_events';
-import { upcomingEventsByDataViewState } from '@states/upcoming_events';
+
 import { addHours } from '@utils/date';
 import { displaySnackNotification } from '@services/states/app';
 import { getMessageByCode } from '@services/i18n/translation';

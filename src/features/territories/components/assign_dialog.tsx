@@ -13,11 +13,7 @@ import { IconCancelCicle } from '@icons/index';
 import { shortDateFormatState } from '@states/settings';
 import { territoryAssigneesState } from '@features/territories/assignees';
 import { territoryCampaignsState } from '@features/territories/campaigns';
-import {
-  campaignChoices,
-  campaignSnapshot,
-  campaignsOn,
-} from '@features/territories/campaign_dates';
+import { campaignSnapshot } from '@features/territories/campaign_dates';
 import {
   chosenHolder,
   holderMissing,
@@ -108,8 +104,6 @@ const AssignDialog = ({
   const lastNote = territory && latestReturnNote(territory.assignments);
 
   const campaigns = useAtomValue(territoryCampaignsState);
-  const running = assignedOn ? campaignsOn(campaigns, assignedOn) : [];
-  const choices = campaignChoices(campaigns, new Date());
 
   // Regular work stays the default unless a campaign was explicitly selected.
   const [manual, setManual] = useState<CampaignChoice>({
@@ -230,9 +224,6 @@ const AssignDialog = ({
 
       {campaigns.length > 0 && (
         <CampaignField
-          label={t('tr_territoryForTheCampaign')}
-          running={running}
-          choices={choices}
           checked={campaign.checked}
           value={campaign.value}
           onChange={setManual}

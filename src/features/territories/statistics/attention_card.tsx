@@ -27,27 +27,40 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
   }));
 
   // never covered comes first: it has waited longer than any date can show
+  aged.sort(
+    (a, b) =>
+      Number(b.age.kind === 'never') - Number(a.age.kind === 'never') ||
+      b.age.days - a.age.days
+  );
   const rows = aged
-    .sort(
-      (a, b) =>
-        Number(b.age.kind === 'never') - Number(a.age.kind === 'never') ||
-        b.age.days - a.age.days
-    )
     .slice(0, limit)
     .map((row, index) => ({ ...row, rank: index + 1 }));
 
   const half = Math.ceil(rows.length / 2);
-  const columns = laptopUp ? [rows.slice(0, half), rows.slice(half)] : [rows];
+  const columns = laptopUp
+    ? [
+        { id: 'left', rows: rows.slice(0, half) },
+        { id: 'right', rows: rows.slice(half) },
+      ]
+    : [{ id: 'left', rows }];
 
   const overYear = aged.filter(
     ({ age }) => age.kind !== 'never' && age.days > 365
   ).length;
   const never = aged.filter(({ age }) => age.kind === 'never').length;
 
+  const hints = [
+    t('tr_territoryOfTerritoriesOutOrWaitingForOverAYear', {
+      over: overYear,
+      total: territories.length,
+    }),
+  ];
+  if (never) hints.push(t('tr_territoryNeverCoveredCount', { never }));
+
   return (
     <ChartCard
       title={t('tr_territoryWaitingTheLongest')}
-      hint={`${t('tr_territoryOfTerritoriesOutOrWaitingForOverAYear', { over: overYear, total: territories.length })}${never ? ` · ${t('tr_territoryNeverCoveredCount', { never })}` : ''}`}
+      hint={hints.join(' · ')}
       note={t('tr_territoryAsOfToday')}
       span={12}
     >
@@ -62,17 +75,17 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
           alignItems: 'stretch',
         }}
       >
-        {columns.map((column, columnIndex) => [
-          columnIndex > 0 && (
+        {columns.map(({ id, rows: column }) => [
+          id === 'right' && (
             <CustomDivider
-              key={`divider-${columnIndex}`}
+              key={`divider-${id}`}
               orientation="vertical"
               flexItem
               color="var(--accent-200)"
             />
           ),
           <Stack
-            key={`column-${columnIndex}`}
+            key={id}
             spacing="4px"
             divider={<CustomDivider color="var(--accent-200)" />}
           >

@@ -7,9 +7,6 @@ const CampaignField = ({
   value,
   onChange,
 }: {
-  label: string;
-  running: TerritoryCampaign[];
-  choices: TerritoryCampaign[];
   checked: boolean;
   value?: CampaignRef;
   onChange: (next: CampaignChoice) => void;

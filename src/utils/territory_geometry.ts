@@ -79,7 +79,7 @@ export const splitTerritoryBoundary = (
       }
       return inside;
     };
-    if (strictlyInside(line[0]) || strictlyInside(line[line.length - 1]))
+    if (strictlyInside(line[0]) || strictlyInside(line.at(-1)!))
       return { error: 'cross' };
     const points = [...ring, ...line];
     const xs = points.map(([x]) => x);
@@ -101,25 +101,19 @@ export const splitTerritoryBoundary = (
     const extend = (from: Pair, previous: Pair) => {
       const dx = from[0] - previous[0];
       const dy = from[1] - previous[1];
-      const tx =
-        dx > 0
-          ? (east - from[0]) / dx
-          : dx < 0
-            ? (west - from[0]) / dx
-            : Infinity;
-      const ty =
-        dy > 0
-          ? (north - from[1]) / dy
-          : dy < 0
-            ? (south - from[1]) / dy
-            : Infinity;
+      const horizontalEdge = dx > 0 ? east : west;
+      const verticalEdge = dy > 0 ? north : south;
+      const tx = dx === 0 ? Infinity : (horizontalEdge - from[0]) / dx;
+      const ty = dy === 0 ? Infinity : (verticalEdge - from[1]) / dy;
       const t = Math.min(tx, ty);
       const point: Pair = [from[0] + dx * t, from[1] + dy * t];
-      const edge = tx < ty ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0;
+      const horizontalIndex = dx > 0 ? 1 : 3;
+      const verticalIndex = dy > 0 ? 2 : 0;
+      const edge = tx < ty ? horizontalIndex : verticalIndex;
       return { point, edge };
     };
     const start = extend(line[0], line[1]);
-    const end = extend(line[line.length - 1], line[line.length - 2]);
+    const end = extend(line.at(-1)!, line.at(-2)!);
     // Returning through the same outer edge cannot partition this envelope.
     if (start.edge === end.edge) return { error: 'cross' };
     const path = [start.point, ...line, end.point];

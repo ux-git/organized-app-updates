@@ -61,12 +61,9 @@ const showFramed = (map: maplibregl.Map) => {
 const showByZoom = (map: maplibregl.Map) => {
   const zoom = map.getZoom();
   const container = map.getContainer();
-  container.dataset.markerZoom =
-    container.dataset.editing || zoom >= MARKER_FULL_ZOOM
-      ? 'full'
-      : zoom >= MARKER_ICON_ZOOM
-        ? 'icon'
-        : 'none';
+  let level = zoom >= MARKER_ICON_ZOOM ? 'icon' : 'none';
+  if (container.dataset.editing || zoom >= MARKER_FULL_ZOOM) level = 'full';
+  container.dataset.markerZoom = level;
 };
 
 const watched = new WeakSet<maplibregl.Map>();

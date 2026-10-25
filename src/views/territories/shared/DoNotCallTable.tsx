@@ -34,9 +34,10 @@ const Cell = ({
     }}
   >
     <Text
-      style={
-        head ? styles.columnTitle : strong ? styles.rowAddress : styles.rowText
-      }
+      style={[
+        strong ? styles.rowAddress : styles.rowText,
+        head ? styles.columnTitle : {},
+      ]}
     >
       {text ?? ''}
     </Text>
@@ -63,7 +64,8 @@ const Row = ({
       flexShrink: 0,
       // react-pdf drops text in clipped views, so the corners are rounded here instead
       borderBottom: last ? undefined : `1px solid ${COLORS.line}`,
-      backgroundColor: head ? COLORS.chip : shaded ? COLORS.zebra : undefined,
+      backgroundColor: head ? COLORS.chip : undefined,
+      ...(shaded && !head ? { backgroundColor: COLORS.zebra } : {}),
       borderTopLeftRadius: head ? 2 : 0,
       borderTopRightRadius: head ? 2 : 0,
       borderBottomLeftRadius: last ? 2 : 0,

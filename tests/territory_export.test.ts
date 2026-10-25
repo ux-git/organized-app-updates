@@ -140,3 +140,8 @@ test('native export receives a portable filename and propagates the save result'
   });
   assert.equal(await exportFile(new Blob(['PDF']), 'M22/M23.pdf'), false);
 });
+
+test('portable export names handle long trailing punctuation and Unicode', () => {
+  assert.equal(exportFileName('Gebiet 😀.' + ' .'.repeat(50000)), 'Gebiet 😀');
+  assert.equal(exportFileName('CON.example.pdf'), '_CON.example.pdf');
+});

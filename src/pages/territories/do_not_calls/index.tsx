@@ -21,7 +21,7 @@ const DoNotCallsPage = () => {
     >
       <PageTitle
         title={t('tr_territoryDoNotCallLabel')}
-        secondaryTitle={parent && parent}
+        secondaryTitle={parent}
         onBack={goBack}
       />
 

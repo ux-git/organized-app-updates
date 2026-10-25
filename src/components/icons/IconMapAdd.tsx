@@ -25,6 +25,7 @@ const IconMapAdd = ({
       sx={{ width: `${width}px`, height: `${height}px`, ...sx }}
     >
       <svg
+        aria-hidden="true"
         width="24"
         height="24"
         viewBox="0 0 24 24"

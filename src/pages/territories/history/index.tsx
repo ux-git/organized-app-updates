@@ -30,7 +30,7 @@ const TerritoryHistoryPage = () => {
     >
       <PageTitle
         title={t('tr_assignmentHistory')}
-        secondaryTitle={parent && parent}
+        secondaryTitle={parent}
         onBack={goBack}
         buttons={
           editor && (

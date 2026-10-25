@@ -39,6 +39,33 @@ export const territoryPermissions = (
   };
 };
 
+const publisherDoNotCalls = (
+  current: DoNotCall[],
+  next: DoNotCall[],
+  publisher: string
+) => {
+  const owned = new Set(
+    current
+      .filter((entry) => entry.addedBy === publisher)
+      .map((entry) => entry.id)
+  );
+  const protectedIds = new Set(
+    current.filter((entry) => !owned.has(entry.id)).map((entry) => entry.id)
+  );
+  const entries = new Map<string, DoNotCall>();
+
+  for (const entry of next) {
+    if (!entry.id || protectedIds.has(entry.id)) continue;
+    if (entry.addedBy !== publisher || !entry.address.trim()) continue;
+    entries.set(entry.id, entry);
+  }
+
+  return [
+    ...current.filter((entry) => protectedIds.has(entry.id)),
+    ...entries.values(),
+  ];
+};
+
 // A publisher can change their request or their own do-not-call records,
 // without replacing the rest of a territory from a stale details form.
 export const publisherTerritoryChanges = (
@@ -59,29 +86,11 @@ export const publisherTerritoryChanges = (
   }
 
   if (permissions.editDoNotCalls && next.doNotCalls !== current.doNotCalls) {
-    const owned = new Set(
-      current.doNotCalls
-        .filter((entry) => entry.addedBy === context.publisher)
-        .map((entry) => entry.id)
+    changes.doNotCalls = publisherDoNotCalls(
+      current.doNotCalls,
+      next.doNotCalls,
+      context.publisher
     );
-    const protectedIds = new Set(
-      current.doNotCalls
-        .filter((entry) => !owned.has(entry.id))
-        .map((entry) => entry.id)
-    );
-    const entries = new Map<string, DoNotCall>();
-
-    for (const entry of next.doNotCalls) {
-      if (!entry.id || protectedIds.has(entry.id)) continue;
-      if (entry.addedBy !== context.publisher || !entry.address.trim())
-        continue;
-      entries.set(entry.id, entry);
-    }
-
-    changes.doNotCalls = [
-      ...current.doNotCalls.filter((entry) => protectedIds.has(entry.id)),
-      ...entries.values(),
-    ];
   }
 
   return changes;

@@ -3,7 +3,7 @@ const fold = (text: string) =>
   text
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ß/g, 'ss')
+    .replaceAll('ß', 'ss')
     .toLowerCase();
 
 // every word typed is part of the name, in any order: "web an" finds "Anna Weber"

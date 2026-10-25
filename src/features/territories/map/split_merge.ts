@@ -4,7 +4,7 @@ import {
   splitTerritoryBoundary,
   territoryBoundaryArea,
 } from '@utils/territory_geometry';
-import { suggestSplitTerritoryNumber } from '@utils/territory';
+export { suggestSplitTerritoryNumber as nextNumber } from '@utils/territory';
 
 export type SplitResult =
   | { larger: TerritoryBoundary; smaller: TerritoryBoundary }
@@ -34,5 +34,3 @@ export const mergeBoundaries = (
     return { error: result.error === 'hole' ? 'hole' : 'apart' };
   return result;
 };
-
-export const nextNumber = suggestSplitTerritoryNumber;

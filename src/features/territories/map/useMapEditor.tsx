@@ -886,7 +886,7 @@ const useMapEditor = ({
   const deleteItem = useCallback(
     (id: string | number) => {
       const terra = draw.current;
-      if (!terra || !terra.hasFeature(id)) return;
+      if (!terra?.hasFeature(id)) return;
       const border = kindOf(terra.getSnapshotFeature(id)) === 'boundary';
       if (terra.getSnapshotFeature(id)?.properties?.selected) {
         clearVertex();
@@ -1023,11 +1023,7 @@ const useMapEditor = ({
     (id: string | number, corners = false) => {
       const terra = draw.current;
       if (!terra) return;
-      const next: MapTool = corners
-        ? 'points'
-        : tool === 'points'
-          ? 'points'
-          : 'move';
+      const next: MapTool = corners || tool === 'points' ? 'points' : 'move';
       if (next !== tool) pickTool(next);
       defer(terra, () => {
         const picked = terra.getSnapshot().find((f) => f.properties?.selected);
