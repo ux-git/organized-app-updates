@@ -105,6 +105,7 @@ export type TerritorySyncState = {
   scope: string;
   settings?: TerritorySharedSettings;
   settingsDirty?: boolean;
+  localGrants?: TerritoryGrant[];
   queue: TerritoryPendingOperation[];
   revision: number;
 };

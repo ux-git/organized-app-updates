@@ -1,3 +1,4 @@
+import type { TerritoryGrant } from '@definition/territory_sync';
 import { TERRITORY_SYNC_BATCH_LIMIT } from '@constants/index';
 export class TerritoryDraftChangedError extends Error {}
 import { coalesceTerritoryChanges } from '@utils/territory_sync_queue';
@@ -182,6 +183,21 @@ export const dbTerritorySyncDiscard = async (
     await appDb.metadata.put({
       ...metadata,
       territorySync: { ...state, revision, queue: [] },
+    });
+  });
+};
+
+export const dbTerritoryPolicyBaseline = async (
+  scope: string,
+  localGrants: TerritoryGrant[]
+) => {
+  await appDb.transaction('rw', appDb.metadata, async () => {
+    const metadata = await appDb.metadata.get(1);
+    if (!metadata?.territorySync) return;
+    assertScope(metadata.territorySync, scope);
+    await appDb.metadata.put({
+      ...metadata,
+      territorySync: { ...metadata.territorySync, localGrants },
     });
   });
 };

@@ -1,3 +1,8 @@
+import {
+  mergeTerritoryGrants,
+  TerritoryPolicyConflict,
+} from '@utils/territory_policy';
+import { dbTerritoryPolicyBaseline } from '@services/dexie/territory_sync';
 import { TerritoryDraftChangedError } from '@services/dexie/territory_sync';
 import { dbTerritorySyncDiscard } from '@services/dexie/territory_sync';
 import { territorySharedSettingsState } from '@states/territories';
@@ -137,14 +142,21 @@ const synchronizePolicy = async (
       await dbTerritorySettingsSave(scope, settings, false);
     return snapshot;
   }
-  const grants = buildTerritoryGrants();
-  if (!grants.length) return snapshot;
+  const localGrants = buildTerritoryGrants();
+  if (!localGrants.length) return snapshot;
+  const grants = mergeTerritoryGrants(
+    state?.localGrants,
+    localGrants,
+    snapshot.policy.grants,
+    snapshot.policy.revision === 0
+  );
   if (
     !state?.settingsDirty &&
     remote.categories &&
     JSON.stringify(grants) === JSON.stringify(snapshot.policy.grants)
   ) {
     await dbTerritorySettingsSave(scope, settings, false);
+    await dbTerritoryPolicyBaseline(scope, localGrants);
     return snapshot;
   }
   await apiSetTerritoryPolicy(scope, {
@@ -154,6 +166,7 @@ const synchronizePolicy = async (
   });
   assertAccount(scope);
   await dbTerritorySettingsSave(scope, settings, false);
+  await dbTerritoryPolicyBaseline(scope, localGrants);
   return apiGetTerritories(scope);
 };
 const migrateLocal = async (scope: string, snapshot: TerritorySnapshot) => {
@@ -261,7 +274,12 @@ export const synchronizeTerritories = () => {
         store.set(territorySyncStatusState, 'pending');
         return;
       }
-      const status = error instanceof TerritoryApiError ? error.status : 0;
+      const status =
+        error instanceof TerritoryPolicyConflict
+          ? 409
+          : error instanceof TerritoryApiError
+            ? error.status
+            : 0;
       if (status === 403) {
         const state = await dbTerritorySyncGet();
         if (state?.scope === scopeNow())
