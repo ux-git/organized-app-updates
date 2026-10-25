@@ -47,9 +47,7 @@ const MapFront = ({
       : '';
   const warning = territory.warning ?? '';
 
-  const titleWidth =
-    textWidth(`${t('tr_territoryTerritoryMapCard')}\u2002`, 9) +
-    textWidth(title, 9, true);
+  const titleWidth = textWidth(title, 9, true);
   const householdsWidth = households ? textWidth(households, 7) + 10 + 4 : 0;
   const warningWidth = warning ? textWidth(warning, 7, true) + 20 + 4 : 0;
   // a long title keeps the households beside it; the warning gets its own row
@@ -111,10 +109,6 @@ const MapFront = ({
               {warningInline && warningChip}
             </View>
             <Text style={{ flexGrow: 1, flexBasis: 0, textAlign: 'right' }}>
-              <Text style={styles.frameTitle}>
-                {t('tr_territoryTerritoryMapCard')}
-                {'\u2002'}
-              </Text>
               <Text style={styles.frameName}>{title}</Text>
             </Text>
           </View>

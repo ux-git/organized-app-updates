@@ -75,14 +75,14 @@ const PhoneGrid = ({
   );
 };
 
-const MapBadge = ({ text }: { text: string }) => (
+const MapBadge = ({ text, radius = 4 }: { text: string; radius?: number }) => (
   <View style={{ position: 'relative' }}>
-    <Shadow radius={4} spread={3} drop={2} />
+    <Shadow radius={radius} spread={3} drop={2} />
     <View
       style={{
         backgroundColor: COLORS.paper,
         border: `0.5px solid ${COLORS.line}`,
-        borderRadius: 4,
+        borderRadius: radius,
         height: CHIP_HEIGHT,
         justifyContent: 'center',
         paddingLeft: 5,
@@ -128,10 +128,12 @@ const CardFront = ({
       <Text
         style={{ width: inner, textAlign: titleAtBottom ? 'right' : 'left' }}
       >
-        <Text style={[styles.frameTitle, { fontSize: 11 }]}>
-          {t('tr_territoryTerritoryMapCard')}
-          {'\u2002'}
-        </Text>
+        {!titleAtBottom && (
+          <Text style={[styles.frameTitle, { fontSize: 11 }]}>
+            {t('tr_territoryTerritoryMapCard')}
+            {'\u2002'}
+          </Text>
+        )}
         <Text style={[styles.frameName, { fontSize: 11 }]}>
           {titleOf(territory)}
         </Text>
@@ -214,6 +216,7 @@ const CardFront = ({
               {territory.showHouseholds !== false &&
                 territory.households > 0 && (
                   <MapBadge
+                    radius={titleAtBottom ? 2 : 4}
                     text={t('tr_territoryHouseholdsWithCount', {
                       n: territory.households,
                     })}
@@ -232,7 +235,7 @@ const CardFront = ({
                 <WarningChip
                   text={territory.warning}
                   maxWidth={inner - 16}
-                  radius={4}
+                  radius={titleAtBottom ? 2 : 4}
                 />
               </View>
             )}
