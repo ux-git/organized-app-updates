@@ -3671,7 +3671,7 @@ dependencies = [
 
 [[package]]
 name = "territories"
-version = "0.8.26"
+version = "0.8.30"
 dependencies = [
  "base64 0.22.1",
  "chacha20poly1305",
