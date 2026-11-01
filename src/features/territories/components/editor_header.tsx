@@ -1,9 +1,8 @@
-import { tx } from '@services/i18n/translation';
 import { Stack } from '@mui/material';
 import { Button, Typography } from '@components/index';
 import IconButton from '@components/icon_button';
 import Tooltip from '@components/tooltip';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { IconDelete } from '@icons/index';
 
 // the title and its delete action on one row, the description under both
@@ -11,13 +10,15 @@ const EditorHeader = ({
   title,
   description,
   onDelete,
-  deleteLabel = tx('Delete'),
+  deleteLabel,
 }: {
   title: string;
   description?: string;
   onDelete?: VoidFunction;
   deleteLabel?: string;
 }) => {
+  const { t } = useAppTranslation();
+
   const { tablet600Up } = useBreakpoints();
 
   const icon = <IconDelete color="var(--red-main)" />;
@@ -47,13 +48,13 @@ const EditorHeader = ({
               onClick={onDelete}
               sx={{ minHeight: '32px', minWidth: 'unset', flexShrink: 0 }}
             >
-              {deleteLabel}
+              {deleteLabel ?? t('tr_delete')}
             </Button>
           ) : (
-            <Tooltip title={deleteLabel}>
+            <Tooltip title={deleteLabel ?? t('tr_delete')}>
               <IconButton
                 color="error"
-                aria-label={deleteLabel}
+                aria-label={deleteLabel ?? t('tr_delete')}
                 onClick={onDelete}
                 sx={{
                   flexShrink: 0,

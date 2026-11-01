@@ -1,3 +1,4 @@
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Box, ButtonBase, Stack } from '@mui/material';
@@ -9,36 +10,21 @@ import {
   InfoNote,
   Typography,
 } from '@components/index';
-import { emptyListMessage, PublisherSort, sortedPublishers } from '../helpers';
-import TruncatedText from './truncated_text';
-import { tx } from '@services/i18n/translation';
-
-export const PublisherSortButton = ({
-  sort,
-  onChange,
-}: {
-  sort: PublisherSort;
-  onChange: (sort: PublisherSort) => void;
-}) => (
-  <Button
-    variant="small"
-    disableAutoStretch
-    minHeight={32}
-    onClick={() => onChange(sort === 'count' ? 'name' : 'count')}
-  >
-    {sort === 'count' ? tx('Sort: most held') : tx('Sort: name')}
-  </Button>
-);
+import {
+  emptyListMessage,
+  sortedPublishers,
+} from '@features/territories/helpers';
+import TruncatedText from '@features/territories/components/truncated_text';
 
 const PublisherLoad = ({
   entries,
-  sort,
   limit = 10,
 }: {
   entries: { publisher: string; count: number }[];
-  sort: PublisherSort;
   limit?: number;
 }) => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
 
   const [shown, setShown] = useState(limit);
@@ -49,7 +35,7 @@ const PublisherLoad = ({
 
   const openTerritories = (holder: string) =>
     navigate(`/territories?tab=all&search=${encodeURIComponent(holder)}`, {
-      state: { parent: 'Territory coverage statistics' },
+      state: { parent: 'tr_territoryTerritoryCoverageStatistics' },
     });
 
   return (
@@ -58,7 +44,7 @@ const PublisherLoad = ({
         spacing="4px"
         divider={<CustomDivider color="var(--accent-200)" />}
       >
-        {sortedPublishers(entries, sort)
+        {sortedPublishers(entries)
           .slice(0, shown)
           .map((entry, index) => (
             <Box
@@ -68,10 +54,10 @@ const PublisherLoad = ({
                 onClick: () => openTerritories(entry.publisher),
                 'aria-label':
                   entry.count === 1
-                    ? tx('Show the territory of {{name}}', {
+                    ? t('tr_territoryShowTheTerritoryOf', {
                         name: entry.publisher,
                       })
-                    : tx('Show the {{n}} territories of {{name}}', {
+                    : t('tr_territoryShowTheTerritoriesOf', {
                         n: entry.count,
                         name: entry.publisher,
                       }),
@@ -141,7 +127,7 @@ const PublisherLoad = ({
           onClick={() => setShown(shown + limit)}
           sx={{ alignSelf: 'flex-start' }}
         >
-          {tx('Show more')}
+          {t('tr_territoryShowMore')}
         </Button>
       )}
     </>

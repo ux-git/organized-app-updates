@@ -123,7 +123,10 @@ class NearbyPlugin: Tauri.Plugin {
     case "backupNow":
       if Backups.folderOk { Backups.runNow() } else { pickBackupFolder(thenBackUp: true) }
     case "exportFile": exportFile(args)
-    case "shareFile": share(name: args["name"] as? String ?? "territories", text: args["text"] as? String ?? "")
+    case "shareFile":
+      let data = (args["base64"] as? String).flatMap { Data(base64Encoded: $0) }
+        ?? Data((args["text"] as? String ?? "").utf8)
+      share(name: args["name"] as? String ?? "territories", data: data)
     case "openUrl":
       if let text = args["url"] as? String, text.hasPrefix("https://"), let url = URL(string: text) {
         UIApplication.shared.open(url)
@@ -136,7 +139,19 @@ class NearbyPlugin: Tauri.Plugin {
       }
     case "appearance":
       // status bar icons follow the app's theme; iOS 26's top blur would pick them from the page
-      webview?.window?.overrideUserInterfaceStyle = args["dark"] as? Bool == true ? .dark : .light
+      if args["followSystem"] as? Bool == true {
+        webview?.window?.overrideUserInterfaceStyle = .unspecified
+      } else {
+        webview?.window?.overrideUserInterfaceStyle = args["dark"] as? Bool == true ? .dark : .light
+      }
+      if let background = appearanceColor(args["background"]) {
+        webview?.window?.backgroundColor = background
+        webview?.backgroundColor = background
+        webview?.scrollView.backgroundColor = background
+      }
+      if let accent = appearanceColor(args["accent"]) {
+        webview?.window?.tintColor = accent
+      }
       if #available(iOS 26.0, *) { webview?.scrollView.topEdgeEffect.isHidden = true }
       return
     default:
@@ -144,6 +159,14 @@ class NearbyPlugin: Tauri.Plugin {
       break
     }
     emitStatus()
+  }
+
+  private func appearanceColor(_ value: Any?) -> UIColor? {
+    guard let channels = value as? [Double], channels.count == 3,
+      channels.allSatisfy({ $0.isFinite && (0...255).contains($0) })
+    else { return nil }
+    return UIColor(red: channels[0] / 255, green: channels[1] / 255,
+      blue: channels[2] / 255, alpha: 1)
   }
 
   // ---- a transfer file opened into the app (src-tauri/src/lib.rs) ----
@@ -291,6 +314,8 @@ class NearbyPlugin: Tauri.Plugin {
 
   // ---- sending a transfer as a file ----
 
+  private var exportPicker: ExportDocumentPicker?
+
   private func exportFile(_ args: [String: Any]) {
     let id = args["id"] as? String ?? ""
     let finish: (Bool, String?) -> Void = { saved, error in
@@ -298,7 +323,7 @@ class NearbyPlugin: Tauri.Plugin {
       else { Core.emit("export-result", ["id": id, "saved": saved]) }
     }
     guard let data = Data(base64Encoded: args["base64"] as? String ?? ""), let presenter = top() else {
-      finish(false, "Cannot prepare the file for sharing"); return
+      finish(false, "Cannot prepare the file for export"); return
     }
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let name = ((args["name"] as? String ?? "territory.pdf") as NSString).lastPathComponent
@@ -306,22 +331,21 @@ class NearbyPlugin: Tauri.Plugin {
     do {
       try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
       try data.write(to: url, options: .atomic)
-      let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-      if let webview = webview, let popover = sheet.popoverPresentationController {
-        popover.sourceView = webview
-        popover.sourceRect = CGRect(x: webview.bounds.midX, y: webview.bounds.midY, width: 1, height: 1)
-      }
-      sheet.completionWithItemsHandler = { _, completed, _, error in
-        finish(completed, error?.localizedDescription)
+      let picker = ExportDocumentPicker { [weak self] saved in
+        finish(saved, nil)
         try? FileManager.default.removeItem(at: directory)
+        self?.exportPicker = nil
       }
-      presenter.present(sheet, animated: true)
+      exportPicker = picker
+      let controller = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+      controller.delegate = picker
+      presenter.present(controller, animated: true)
     } catch { finish(false, error.localizedDescription) }
   }
 
-  private func share(name: String, text: String) {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
-    guard (try? Data(text.utf8).write(to: url)) != nil else { return }
+  private func share(name: String, data: Data) {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent((name as NSString).lastPathComponent)
+    guard (try? data.write(to: url)) != nil else { return }
     let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
     // an iPad shows it as a popover, which needs a point to come from
     if let webview = webview, let popover = sheet.popoverPresentationController {
@@ -344,4 +368,16 @@ func initPlugin() -> Tauri.Plugin {
   // at launch, before any page: iOS may have started the app in the background
   Launch.start()
   return NearbyPlugin()
+}
+
+// Retained by the plugin until Files confirms a destination or the user cancels.
+private final class ExportDocumentPicker: NSObject, UIDocumentPickerDelegate {
+  private let finish: (Bool) -> Void
+  init(finish: @escaping (Bool) -> Void) { self.finish = finish }
+  func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+    finish(!urls.isEmpty)
+  }
+  func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+    finish(false)
+  }
 }

@@ -5,58 +5,100 @@
 <resources>
     <style name="Accent.blue.light" parent="">
         <item name="colorControlActivated">#5065D0</item>
+        <item name="colorPrimary">#5065D0</item>
+        <item name="colorSecondary">#5065D0</item>
+        <item name="android:colorAccent">#5065D0</item>
         <item name="android:colorControlActivated">#5065D0</item>
     </style>
     <style name="Accent.blue.dark" parent="">
         <item name="colorControlActivated">#485FD0</item>
+        <item name="colorPrimary">#485FD0</item>
+        <item name="colorSecondary">#485FD0</item>
+        <item name="android:colorAccent">#485FD0</item>
         <item name="android:colorControlActivated">#485FD0</item>
     </style>
     <style name="Accent.green.light" parent="">
         <item name="colorControlActivated">#5A9B4A</item>
+        <item name="colorPrimary">#5A9B4A</item>
+        <item name="colorSecondary">#5A9B4A</item>
+        <item name="android:colorAccent">#5A9B4A</item>
         <item name="android:colorControlActivated">#5A9B4A</item>
     </style>
     <style name="Accent.green.dark" parent="">
         <item name="colorControlActivated">#538348</item>
+        <item name="colorPrimary">#538348</item>
+        <item name="colorSecondary">#538348</item>
+        <item name="android:colorAccent">#538348</item>
         <item name="android:colorControlActivated">#538348</item>
     </style>
     <style name="Accent.purple.dark" parent="">
         <item name="colorControlActivated">#7D61B8</item>
+        <item name="colorPrimary">#7D61B8</item>
+        <item name="colorSecondary">#7D61B8</item>
+        <item name="android:colorAccent">#7D61B8</item>
         <item name="android:colorControlActivated">#7D61B8</item>
     </style>
     <style name="Accent.purple.light" parent="">
         <item name="colorControlActivated">#7452BB</item>
+        <item name="colorPrimary">#7452BB</item>
+        <item name="colorSecondary">#7452BB</item>
+        <item name="android:colorAccent">#7452BB</item>
         <item name="android:colorControlActivated">#7452BB</item>
     </style>
     <style name="Accent.orange.dark" parent="">
         <item name="colorControlActivated">#C88828</item>
+        <item name="colorPrimary">#C88828</item>
+        <item name="colorSecondary">#C88828</item>
+        <item name="android:colorAccent">#C88828</item>
         <item name="android:colorControlActivated">#C88828</item>
     </style>
     <style name="Accent.orange.light" parent="">
         <item name="colorControlActivated">#E59C0F</item>
+        <item name="colorPrimary">#E59C0F</item>
+        <item name="colorSecondary">#E59C0F</item>
+        <item name="android:colorAccent">#E59C0F</item>
         <item name="android:colorControlActivated">#E59C0F</item>
     </style>
     <style name="Accent.teal.light" parent="">
         <item name="colorControlActivated">#0D7581</item>
+        <item name="colorPrimary">#0D7581</item>
+        <item name="colorSecondary">#0D7581</item>
+        <item name="android:colorAccent">#0D7581</item>
         <item name="android:colorControlActivated">#0D7581</item>
     </style>
     <style name="Accent.teal.dark" parent="">
         <item name="colorControlActivated">#0E7885</item>
+        <item name="colorPrimary">#0E7885</item>
+        <item name="colorSecondary">#0E7885</item>
+        <item name="android:colorAccent">#0E7885</item>
         <item name="android:colorControlActivated">#0E7885</item>
     </style>
     <style name="Accent.rose.light" parent="">
         <item name="colorControlActivated">#EC4899</item>
+        <item name="colorPrimary">#EC4899</item>
+        <item name="colorSecondary">#EC4899</item>
+        <item name="android:colorAccent">#EC4899</item>
         <item name="android:colorControlActivated">#EC4899</item>
     </style>
     <style name="Accent.rose.dark" parent="">
         <item name="colorControlActivated">#E84493</item>
+        <item name="colorPrimary">#E84493</item>
+        <item name="colorSecondary">#E84493</item>
+        <item name="android:colorAccent">#E84493</item>
         <item name="android:colorControlActivated">#E84493</item>
     </style>
     <style name="Accent.slate.light" parent="">
         <item name="colorControlActivated">#6E7D91</item>
+        <item name="colorPrimary">#6E7D91</item>
+        <item name="colorSecondary">#6E7D91</item>
+        <item name="android:colorAccent">#6E7D91</item>
         <item name="android:colorControlActivated">#6E7D91</item>
     </style>
     <style name="Accent.slate.dark" parent="">
         <item name="colorControlActivated">#738296</item>
+        <item name="colorPrimary">#738296</item>
+        <item name="colorSecondary">#738296</item>
+        <item name="android:colorAccent">#738296</item>
         <item name="android:colorControlActivated">#738296</item>
     </style>
 </resources>

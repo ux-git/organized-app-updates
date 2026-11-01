@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Territory } from '@definition/territory';
-import { matchesText } from '../text_search';
+import { matchesText } from '@features/territories/text_search';
 
 const territory = {
   number: 'M12',

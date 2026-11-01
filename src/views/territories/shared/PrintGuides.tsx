@@ -42,9 +42,9 @@ const PrintGuides = ({
       height={height + ROOM * 2}
       style={{ position: 'absolute', top: -ROOM, left: -ROOM }}
     >
-      {lines.map(([x1, y1, x2, y2], i) => (
+      {lines.map(([x1, y1, x2, y2]) => (
         <Line
-          key={i}
+          key={`${x1}:${y1}:${x2}:${y2}`}
           x1={x1}
           y1={y1}
           x2={x2}

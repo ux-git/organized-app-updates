@@ -106,6 +106,16 @@ final class MacBridge: NSObject {
           Core.emit("export-result", ["id": id, "saved": true])
         } catch { Core.emit("export-result", ["id": id, "error": error.localizedDescription]) }
       }
+    case "shareFile":
+      guard let data = Data(base64Encoded: args["base64"] as? String ?? ""),
+        let view = NSApp.keyWindow?.contentView
+      else { return }
+      let name = ((args["name"] as? String ?? "territory.png") as NSString).lastPathComponent
+      let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+      guard (try? data.write(to: url, options: .atomic)) != nil else { return }
+      NSSharingServicePicker(items: [url]).show(
+        relativeTo: NSRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1),
+        of: view, preferredEdge: .minY)
     case "permissions":
       nearby.ensureLink()
       Notices.shared.ask { self.emitStatus() }

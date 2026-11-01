@@ -1,4 +1,5 @@
 mod backup;
+mod file_export;
 mod map_cache;
 mod hlc;
 mod pack;
@@ -418,6 +419,7 @@ pub fn run() {
             map_cache::map_cache_get,
             map_cache::map_cache_put,
             map_cache::map_cache_clear,
+            file_export::export_file,
             backup::backup_export,
             backup::backup_info,
             backup::backup_restore,

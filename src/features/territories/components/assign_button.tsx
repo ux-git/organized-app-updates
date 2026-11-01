@@ -1,11 +1,13 @@
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
+import { territoryPermissions } from '@services/app/territory_access';
+import { useAppTranslation } from '@hooks/index';
 import { MouseEvent, useState } from 'react';
 import { Box } from '@mui/material';
 import { Button } from '@components/index';
 import { IconCheckThin, IconMoveItem, IconRaiseHand } from '@icons/index';
-import ReviewDialog from './review_dialog';
-import { DONE_COLOR } from './done_color';
+import ReviewDialog from '@features/territories/components/review_dialog';
+import { DONE_COLOR } from '@features/territories/components/done_color';
 import { Territory } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
 
 type AssignButtonProps = {
   territory: Territory;
@@ -17,12 +19,12 @@ type AssignButtonProps = {
   bare?: boolean;
 };
 
-const LABELS = ['Return', 'Review', 'Assign'];
+const LABELS = ['tr_return', 'tr_territoryReview', 'tr_assign'];
 
 const lookOf = (isAssigned: boolean, isRequested: boolean) => {
   if (isAssigned) {
     return {
-      label: 'Return',
+      label: 'tr_return',
       color: 'green' as const,
       icon: <IconCheckThin color="var(--done)" />,
     };
@@ -30,14 +32,14 @@ const lookOf = (isAssigned: boolean, isRequested: boolean) => {
 
   if (isRequested) {
     return {
-      label: 'Review',
+      label: 'tr_territoryReview',
       color: 'orange' as const,
       icon: <IconRaiseHand color="var(--orange-dark)" />,
     };
   }
 
   return {
-    label: 'Assign',
+    label: 'tr_assign',
     color: undefined,
     icon: <IconMoveItem color="var(--accent-dark)" />,
   };
@@ -51,12 +53,18 @@ const AssignButton = ({
   compact = false,
   bare = false,
 }: AssignButtonProps) => {
+  const { t } = useAppTranslation();
+
   const [reviewOpen, setReviewOpen] = useState(false);
+  const context = useTerritoryAccess();
+  const permissions = territoryPermissions(territory, context);
 
   const isAssigned =
     territory.status === 'in_work' || territory.status === 'overdue';
 
   const isRequested = Boolean(territory.requestedBy);
+
+  if (!context.editor && !permissions.return) return null;
 
   const handleClick = (event: MouseEvent<HTMLElement>) => {
     event.stopPropagation();
@@ -78,7 +86,7 @@ const AssignButton = ({
 
   return (
     <>
-      {reviewOpen && (
+      {context.editor && reviewOpen && (
         <Box onClick={(event) => event.stopPropagation()}>
           <ReviewDialog
             territory={territory}
@@ -95,7 +103,7 @@ const AssignButton = ({
         color={color}
         onClick={handleClick}
         startIcon={bare && !compact ? undefined : icon}
-        ariaLabel={tx(label)}
+        ariaLabel={t(label)}
         sx={{
           minHeight: '28px',
           padding: compact ? '4px' : '2px 8px',
@@ -112,7 +120,7 @@ const AssignButton = ({
           '&::after': { content: '""', position: 'absolute', inset: '-8px' },
         }}
       >
-        {!compact && bare && tx(label)}
+        {!compact && bare && t(label)}
         {!compact && !bare && (
           // every label stacked in one cell, so all buttons share the widest width
           <Box sx={{ display: 'grid', textAlign: 'start' }}>
@@ -126,7 +134,7 @@ const AssignButton = ({
                   visibility: text === label ? 'visible' : 'hidden',
                 }}
               >
-                {tx(text)}
+                {t(text)}
               </Box>
             ))}
           </Box>

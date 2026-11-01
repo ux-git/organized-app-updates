@@ -10,6 +10,10 @@
         <item name="android:windowBackground">#F8F9FF</item>
     </style>
 
+    <!-- Explicit app choices also theme native dialogs while the OS stays unchanged. -->
+    <style name="Theme.app.Light" parent="Theme.Material3.Light.NoActionBar" />
+    <style name="Theme.app.Dark" parent="Theme.Material3.Dark.NoActionBar" />
+
     <!-- Launch theme (AndroidX SplashScreen): the page colour with a small logo,
          held until the web app has drawn its first frame. -->
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">

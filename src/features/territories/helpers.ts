@@ -1,15 +1,36 @@
+import {
+  parseDate,
+  assignmentFromDates,
+  withAssignments,
+} from '@utils/territory_dates';
+export {
+  parseDate,
+  toStoredDate,
+  assignmentFromDates,
+  withAssignments,
+} from '@utils/territory_dates';
 import { formatDate } from '@utils/date';
-import { getTranslation, tx } from '@services/i18n/translation';
+import {
+  formatElapsedDuration,
+  getTranslation,
+} from '@services/i18n/translation';
 import {
   AssignmentIssue,
   ISSUE_TEXT,
   olderOpenAssignments,
-} from './assignment_issues';
-import { isCoverage, returnedWithin } from './coverage_rate';
-import { matchesHolder } from './holder_filter';
-import { campaignOverdue, matchesCampaign } from './campaign_filter';
-import { matchesCard } from './card_filter';
-import { matchesText } from './text_search';
+} from '@features/territories/assignment_issues';
+import {
+  coveredDuration,
+  isCoverage,
+  returnedWithin,
+} from '@features/territories/coverage_rate';
+import { matchesHolder } from '@features/territories/holder_filter';
+import {
+  campaignOverdue,
+  matchesCampaign,
+} from '@features/territories/campaign_filter';
+import { matchesCard } from '@features/territories/card_filter';
+import { matchesText } from '@features/territories/text_search';
 import {
   Territory,
   TerritoryAssignee,
@@ -41,15 +62,24 @@ export const COVERAGE_PERIODS = () => {
   const current = serviceYear();
 
   return [
-    { id: 'last6', label: tx('Last 6 months') },
-    { id: 'last12', label: tx('Last 12 months') },
+    { id: 'last6', label: getTranslation({ key: 'tr_territoryLast6Months' }) },
+    {
+      id: 'last12',
+      label: getTranslation({ key: 'tr_territoryLast12Months' }),
+    },
     {
       id: `sy${current - 1}`,
-      label: tx('{{year}} service year', { year: current - 1 }),
+      label: getTranslation({
+        key: 'tr_territoryServiceYear',
+        params: { year: current - 1 },
+      }),
     },
     {
       id: `sy${current - 2}`,
-      label: tx('{{year}} service year', { year: current - 2 }),
+      label: getTranslation({
+        key: 'tr_territoryServiceYear',
+        params: { year: current - 2 },
+      }),
     },
   ];
 };
@@ -67,17 +97,26 @@ export const STATS_PERIODS = () => {
   const current = serviceYear();
 
   return [
-    { id: 'last6', label: tx('Last 6 months') },
-    { id: 'last12', label: tx('Last 12 months') },
+    { id: 'last6', label: getTranslation({ key: 'tr_territoryLast6Months' }) },
+    {
+      id: 'last12',
+      label: getTranslation({ key: 'tr_territoryLast12Months' }),
+    },
     {
       id: `sy${current}`,
-      label: tx('{{year}} service year (current)', { year: current }),
+      label: getTranslation({
+        key: 'tr_territoryServiceYearCurrent',
+        params: { year: current },
+      }),
     },
     {
       id: `sy${current - 1}`,
-      label: tx('{{year}} service year', { year: current - 1 }),
+      label: getTranslation({
+        key: 'tr_territoryServiceYear',
+        params: { year: current - 1 },
+      }),
     },
-    { id: 'custom', label: tx('Custom') },
+    { id: 'custom', label: getTranslation({ key: 'tr_custom' }) },
   ];
 };
 
@@ -134,18 +173,23 @@ const matchesCoverage = (
 
 export const daysLabel = (days?: number) => {
   if (days === undefined) return '–';
-  if (days < 31) return tx('{{days}} d', { days });
+  if (days < 31)
+    return getTranslation({ key: 'tr_territoryD', params: { days } });
 
   const months = Math.round(days / 30);
 
-  if (months < 12) return tx('{{months}} mo', { months });
+  if (months < 12)
+    return getTranslation({
+      key: 'tr_territoryMonthsShort',
+      params: { months },
+    });
 
   const years = Math.floor(months / 12);
   const rest = months % 12;
 
   return rest === 0
-    ? tx('{{years}} y', { years })
-    : tx('{{years}} y {{rest}} mo', { years, rest });
+    ? getTranslation({ key: 'tr_territoryY', params: { years } })
+    : getTranslation({ key: 'tr_territoryYMo', params: { years, rest } });
 };
 
 // overdue is not stored: it follows from how long the territory has been out,
@@ -168,10 +212,15 @@ export const withDerivedStatus = (
     } as Territory;
   });
 
+const matchesCategories = (territory: Territory, categories: string[]) =>
+  categories.length === 0 ||
+  categories.some((category) => territory.categories.includes(category));
+
 export const applyFilters = (
   territories: Territory[],
   filters: TerritoryFilters
 ) => {
+  const cards = filters.card.filter((card) => card !== 'unknown');
   return territories.filter((territory) => {
     if (filters.status.length && !filters.status.includes(territory.status)) {
       return false;
@@ -181,14 +230,7 @@ export const applyFilters = (
       return false;
     }
 
-    if (
-      filters.categories.length &&
-      !filters.categories.some((category) =>
-        territory.categories.includes(category)
-      )
-    ) {
-      return false;
-    }
+    if (!matchesCategories(territory, filters.categories)) return false;
 
     if (!matchesCoverage(territory, filters.coverage)) return false;
 
@@ -197,7 +239,6 @@ export const applyFilters = (
     if (filters.forGroups && !territory.holderGroup) return false;
 
     // 'unknown' was once a chip of its own; one left on from then is ignored
-    const cards = filters.card.filter((card) => card !== 'unknown');
     if (!matchesCard(territory, cards)) return false;
 
     if (!matchesHolder(territory, filters.holder, filters.holderPast)) {
@@ -214,7 +255,7 @@ export const applyFilters = (
   });
 };
 
-export { forTab, NO_RESTRICTIONS } from './tabs';
+export { forTab, NO_RESTRICTIONS } from '@features/territories/tabs';
 
 // Apple devices open Apple Maps, everything else Google Maps (the app, where installed)
 export const openInMaps = (query: string) => {
@@ -240,7 +281,7 @@ export const territoryCenter = (territory: Territory) => {
 // read at render time to follow the app language
 export const emptyListMessage = () =>
   getTranslation({ key: 'tr_noRecordsYet' });
-export const NO_MATCHES = 'Nothing matches your search or filters.';
+export const NO_MATCHES = 'tr_territoryNothingMatchesYourSearchOrFilters';
 
 export const publisherLoad = (
   territories: Territory[],
@@ -262,17 +303,17 @@ export const publisherLoad = (
     .sort((a, b) => b.count - a.count);
 };
 
-export { coverageRate } from './coverage_rate';
+export { coverageRate } from '@features/territories/coverage_rate';
 
 const DURATION_BANDS = [
-  { label: '1-2 mo', max: 2 },
-  { label: '3 mo', max: 3 },
-  { label: '4 mo', max: 4 },
-  { label: '5-6 mo', max: 6 },
-  { label: '7-9 mo', max: 9 },
-  { label: '10-12 mo', max: 12 },
-  { label: '13-16 mo', max: 16 },
-  { label: '17-24 mo', max: Infinity },
+  { label: 'tr_territory12Mo', max: 2 },
+  { label: 'tr_territory3Mo', max: 3 },
+  { label: 'tr_territory4Mo', max: 4 },
+  { label: 'tr_territory56Mo', max: 6 },
+  { label: 'tr_territory79Mo', max: 9 },
+  { label: 'tr_territory1012Mo', max: 12 },
+  { label: 'tr_territory1316Mo', max: 16 },
+  { label: 'tr_territory1724Mo', max: Infinity },
 ];
 
 const returnedIn = (assignment: TerritoryAssignment, range?: StatsRange) => {
@@ -302,7 +343,7 @@ export const durationBuckets = (
   }
 
   return DURATION_BANDS.map((band, index) => ({
-    label: tx(band.label),
+    label: getTranslation({ key: band.label }),
     value: counts[index],
   }));
 };
@@ -382,19 +423,23 @@ export const completionCounts = (
   }
 
   return [
-    { label: tx('Covered never'), value: counts[0], color: 'var(--red-main)' },
     {
-      label: tx('Covered once'),
+      label: getTranslation({ key: 'tr_territoryCoveredNever' }),
+      value: counts[0],
+      color: 'var(--red-main)',
+    },
+    {
+      label: getTranslation({ key: 'tr_territoryCoveredOnce' }),
       value: counts[1],
       color: 'var(--orange-main)',
     },
     {
-      label: tx('Covered twice'),
+      label: getTranslation({ key: 'tr_territoryCoveredTwice' }),
       value: counts[2],
       color: 'var(--accent-main)',
     },
     {
-      label: tx('Covered 3 or more'),
+      label: getTranslation({ key: 'tr_territoryCovered3OrMore' }),
       value: counts[3],
       color: 'var(--green-main)',
     },
@@ -402,7 +447,13 @@ export const completionCounts = (
 };
 
 export const gapBuckets = (territories: Territory[], range?: StatsRange) => {
-  const labels = ['0-2 mo', '3-5 mo', '6-8 mo', '9-11 mo', '12 mo+'];
+  const labels = [
+    'tr_territory02Mo',
+    'tr_territory35Mo',
+    'tr_territory68Mo',
+    'tr_territory911Mo',
+    'tr_territoryTwelveMonthsOrMore',
+  ];
   const counts = [0, 0, 0, 0, 0];
 
   for (const territory of territories) {
@@ -430,64 +481,20 @@ export const gapBuckets = (territories: Territory[], range?: StatsRange) => {
   }
 
   return labels.map((label, index) => ({
-    label: tx(label),
+    label: getTranslation({ key: label }),
     value: counts[index],
   }));
 };
 
-export { assignmentIssues, olderOpenAssignments } from './assignment_issues';
+export {
+  assignmentIssues,
+  olderOpenAssignments,
+} from '@features/territories/assignment_issues';
 
 export const issuesText = (issues: AssignmentIssue[]) =>
-  issues.map((issue) => tx(ISSUE_TEXT[issue])).join(' · ');
+  issues.map((issue) => getTranslation({ key: ISSUE_TEXT[issue] })).join(' · ');
 
 // dates are stored as dd.mm.yyyy
-export const parseDate = (value?: string) => {
-  if (!value) return null;
-
-  const [day, month, year] = value.split('.').map(Number);
-  if (!day || !month || !year) return null;
-
-  return new Date(year, month - 1, day);
-};
-
-export const toStoredDate = (date: Date) =>
-  date.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-
-const serviceMonth = (date: Date) => (date.getMonth() + 4) % 12;
-
-// derived from the dates, never typed in
-export const assignmentFromDates = (
-  base: TerritoryAssignment,
-  publisher: string,
-  assignedOn: Date,
-  returnedOn: Date | null
-) => {
-  const end = returnedOn ?? assignedOn;
-
-  const months =
-    Math.max(
-      0,
-      (end.getFullYear() - assignedOn.getFullYear()) * 12 +
-        end.getMonth() -
-        assignedOn.getMonth()
-    ) + 1;
-
-  return {
-    ...base,
-    publisher,
-    assignedOn: toStoredDate(assignedOn),
-    returnedOn: returnedOn ? toStoredDate(returnedOn) : undefined,
-    serviceYear: serviceYear(end),
-    months,
-    startMonth: serviceMonth(assignedOn),
-    endMonth: serviceMonth(end),
-  } as TerritoryAssignment;
-};
-
 export const coverageGrid = (territories: Territory[], years: number[]) =>
   years.map((year) => {
     const months = Array.from({ length: 12 }, () => 0);
@@ -532,40 +539,19 @@ export const publisherCoverage = (
   };
 };
 
-export type PublisherSort = 'count' | 'name';
-
 export const sortedPublishers = (
-  entries: { publisher: string; count: number }[],
-  sort: PublisherSort
-) =>
-  [...entries].sort((a, b) =>
-    sort === 'name' || a.count === b.count
-      ? a.publisher.localeCompare(b.publisher)
-      : b.count - a.count
-  );
+  entries: { publisher: string; count: number }[]
+) => [...entries].sort((a, b) => b.count - a.count);
 
-// covered means returned: an open assignment or none at all is no coverage,
-// and the stored daysSinceCovered is only a snapshot (3650 after an import)
-export const coveredDays = (territory: Territory) => {
-  const last = Math.max(
-    0,
-    ...territory.assignments
-      .filter((item) => isCoverage(item))
-      .map((item) => parseDate(item.returnedOn)?.getTime() ?? 0)
-  );
-
-  return last ? Math.max(0, Math.round((Date.now() - last) / DAY)) : null;
-};
-
-// never covered sorts as the longest wait
-export const coveredAge = (territory: Territory) =>
-  coveredDays(territory) ?? Number.MAX_SAFE_INTEGER;
+export { coveredDays, coveredAge } from '@features/territories/coverage_rate';
 
 export const coveredText = (territory: Territory) => {
-  const days = coveredDays(territory);
-  if (days === null) return tx('Never');
+  const duration = coveredDuration(territory);
+  if (duration === null) return getTranslation({ key: 'tr_territoryNever' });
 
-  return days === 0 ? tx('Today') : daysLabel(days);
+  return duration.months === 0 && duration.days === 0
+    ? getTranslation({ key: 'tr_territoryToday' })
+    : formatElapsedDuration(duration.months, duration.days);
 };
 
 // from the dates: the stored daysSinceCovered is a snapshot, 3650 after an import
@@ -653,51 +639,6 @@ export const appliedFilters = (filters: TerritoryFilters) =>
   (filters.campaign ? 1 : 0);
 
 // holder and status follow the open assignment, so a hand edit never leaves a stale holder
-export const withAssignments = (
-  territory: Territory,
-  assignments: TerritoryAssignment[]
-): Territory => {
-  const time = (value?: string) => parseDate(value)?.getTime() ?? 0;
-  const daysAgo = (value: number) =>
-    Math.max(0, Math.round((Date.now() - value) / DAY));
-
-  const lastReturned = Math.max(
-    0,
-    ...assignments.filter(isCoverage).map((item) => time(item.returnedOn))
-  );
-
-  const daysSinceCovered = lastReturned
-    ? daysAgo(lastReturned)
-    : territory.daysSinceCovered;
-
-  const open = assignments
-    .filter((item) => !item.returnedOn)
-    .sort((a, b) => time(b.assignedOn) - time(a.assignedOn))
-    .at(0);
-
-  if (!open) {
-    return {
-      ...territory,
-      assignments,
-      daysSinceCovered,
-      status: 'available',
-      holder: undefined,
-      holderGroup: undefined,
-      daysOut: undefined,
-    };
-  }
-
-  return {
-    ...territory,
-    assignments,
-    daysSinceCovered,
-    status: territory.status === 'available' ? 'in_work' : territory.status,
-    holder: open.publisher,
-    holderGroup: open.group,
-    daysOut: daysAgo(time(open.assignedOn) || Date.now()),
-  };
-};
-
 // the older of two open assignments ends on the day the newer one began
 export const closeOlderAssignments = (territory: Territory) => {
   const older = new Set(olderOpenAssignments(territory.assignments));
@@ -735,16 +676,16 @@ export const upsertById = <T extends { id: string }>(list: T[], next: T) =>
     ? list.map((item) => (item.id === next.id ? next : item))
     : [...list, next];
 
-// numbers are compared by their digits, however they were typed
-export const phoneDigits = (value: string) => value.replace(/\D/g, '');
-
-export const isDoNotCallNumber = (territory: Territory, number: string) =>
-  territory.doNotCalls.some(
-    (entry) => phoneDigits(entry.address) === phoneDigits(number)
-  );
+export { phoneDigits, isDoNotCallNumber } from '@utils/territory';
 
 // "label: count" reads the same in every language, with no plural forms
 export const doNotCallLabel = (count: number, isPhone = false) =>
   isPhone
-    ? tx('Do-not-call numbers: {{n}}', { n: count })
-    : tx('Do-not-call addresses: {{n}}', { n: count });
+    ? getTranslation({
+        key: 'tr_territoryDoNotCallNumbers',
+        params: { n: count },
+      })
+    : getTranslation({
+        key: 'tr_territoryDoNotCallAddresses',
+        params: { n: count },
+      });

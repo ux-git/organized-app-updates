@@ -1,3 +1,4 @@
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Box } from '@mui/material';
@@ -6,12 +7,16 @@ import { Button, TextField } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { territoriesState } from '@states/territories';
-import { tx } from '@services/i18n/translation';
-import { blankTerritory, usableNumber } from '../details/useTerritoryDetails';
+import {
+  blankTerritory,
+  usableNumber,
+} from '@features/territories/details/useTerritoryDetails';
 
 // a territory started from the map: number and locality first, then
 // straight to drawing its border
 const NewTerritoryDialog = ({ onClose }: { onClose: VoidFunction }) => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
   const [territories, setTerritories] = useAtom(territoriesState);
   const [draft, setDraft] = useState(blankTerritory);
@@ -21,8 +26,8 @@ const NewTerritoryDialog = ({ onClose }: { onClose: VoidFunction }) => {
   const isDuplicate = !!draft.number.trim() && !usable;
 
   let numberHelp = '';
-  if (isDuplicate) numberHelp = tx('This number is already used');
-  else if (tried && !usable) numberHelp = tx('Enter a number');
+  if (isDuplicate) numberHelp = t('tr_territoryThisNumberIsAlreadyUsed');
+  else if (tried && !usable) numberHelp = t('tr_territoryEnterANumber');
 
   const start = () => {
     setTried(true);
@@ -43,8 +48,8 @@ const NewTerritoryDialog = ({ onClose }: { onClose: VoidFunction }) => {
     <Dialog
       onClose={onClose}
       open
-      title={tx('New map')}
-      description={tx('Give it a number and a locality, then draw its border.')}
+      title={t('tr_territoryNewMap')}
+      description={t('tr_territoryGiveItANumberAndALocalityThenDraw')}
     >
       <Box
         sx={{
@@ -56,7 +61,7 @@ const NewTerritoryDialog = ({ onClose }: { onClose: VoidFunction }) => {
         }}
       >
         <TextField
-          label={tx('Number')}
+          label={t('tr_number')}
           autoFocus
           value={draft.number}
           error={isDuplicate || (tried && !usable)}
@@ -68,7 +73,7 @@ const NewTerritoryDialog = ({ onClose }: { onClose: VoidFunction }) => {
         />
 
         <TextField
-          label={tx('Locality')}
+          label={t('tr_territoryLocality')}
           value={draft.city}
           onChange={(event) => setDraft({ ...draft, city: event.target.value })}
           onKeyDown={(event) => event.key === 'Enter' && start()}
@@ -77,10 +82,10 @@ const NewTerritoryDialog = ({ onClose }: { onClose: VoidFunction }) => {
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          {tx('Cancel')}
+          {t('tr_cancel')}
         </Button>
         <Button variant="main" onClick={start}>
-          {tx('Draw border')}
+          {t('tr_territoryDrawBorder')}
         </Button>
       </DialogActions>
     </Dialog>

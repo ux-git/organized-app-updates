@@ -1,12 +1,12 @@
+import { useAppTranslation } from '@hooks/index';
 import { Box, Stack } from '@mui/material';
 import { useAtomValue } from 'jotai';
 import { Typography } from '@components/index';
 import Tooltip from '@components/tooltip';
-import { coverageGrid } from '../helpers';
-import { ChartCard } from '../components/charts';
+import { coverageGrid } from '@features/territories/helpers';
+import { ChartCard } from '@features/territories/components/charts';
 import { Territory } from '@definition/territory';
 import { territoryMonthsState } from '@states/territories';
-import { tx } from '@services/i18n/translation';
 
 const Cell = ({
   value,
@@ -66,6 +66,8 @@ const CoverageGrid = ({
   territories: Territory[];
   years: number[];
 }) => {
+  const { t } = useAppTranslation();
+
   const months = useAtomValue(territoryMonthsState);
 
   const rows = coverageGrid(territories, years);
@@ -96,7 +98,7 @@ const CoverageGrid = ({
         {months.map((month) => (
           <Label key={month}>{month}</Label>
         ))}
-        <Label align="right">{tx('Total')}</Label>
+        <Label align="right">{t('tr_total')}</Label>
 
         {rows.map((row) => (
           <Box key={row.year} sx={{ display: 'contents' }}>
@@ -118,7 +120,7 @@ const CoverageGrid = ({
                 key={months[month]}
                 value={value}
                 max={max}
-                label={tx('{{n}} covered in {{month}} {{year}}', {
+                label={t('tr_territoryCoveredIn', {
                   n: value,
                   month: months[month],
                   year: row.year,
@@ -141,18 +143,16 @@ const CoverageGrid = ({
 
   return (
     <ChartCard
-      title={tx('Territories covered each month')}
-      hint={tx(
-        'A territory counts in the month it came back · service year runs September to August'
-      )}
-      note={tx('Last {{n}} service years', { n: years.length })}
+      title={t('tr_territoryTerritoriesCoveredEachMonth')}
+      hint={t('tr_territoryATerritoryCountsInTheMonthItCameBack')}
+      note={t('tr_territoryLastServiceYears', { n: years.length })}
       span={12}
     >
       {grid}
 
       <Stack direction="row" spacing="8px" sx={{ alignItems: 'center' }}>
         <Typography className="label-small-regular" color="var(--grey-350)">
-          {tx('Less')}
+          {t('tr_territoryLess')}
         </Typography>
         {[0.15, 0.35, 0.55, 0.75, 1].map((step) => (
           <Box
@@ -169,7 +169,7 @@ const CoverageGrid = ({
           />
         ))}
         <Typography className="label-small-regular" color="var(--grey-350)">
-          {tx('More')}
+          {t('tr_territoryMore')}
         </Typography>
       </Stack>
     </ChartCard>

@@ -2,6 +2,7 @@ import type {
   AssignmentHolder,
   Territory,
   TerritoryAssignment,
+  TerritoryAssignee,
 } from '@definition/territory';
 
 // group first, "?" while nobody is named as having taken it
@@ -14,8 +15,12 @@ export const territoryHolderText = (territory: Territory) =>
 export const holderOf = ({
   publisher,
   group,
+  publisherId,
+  groupId,
 }: AssignmentHolder): AssignmentHolder =>
-  group ? { publisher, group } : { publisher };
+  group
+    ? { publisher, group, publisherId, groupId }
+    : { publisher, publisherId };
 
 export const missingPublisher = (item: Partial<AssignmentHolder>) =>
   !!item.group && !item.publisher;
@@ -55,4 +60,19 @@ export const withGroupHolders = (
       assignments: territory.assignments.map((item) => migrated(item, groups)),
     };
   });
+};
+
+export const holderForReturn = (
+  assignment: TerritoryAssignment | undefined,
+  publisher: string | undefined,
+  assignees: TerritoryAssignee[]
+) => {
+  if (!assignment || !publisher) return undefined;
+  if (publisher === assignment.publisher) return holderOf(assignment);
+  const matches = assignees.filter(
+    (item) => !item.group && item.name === publisher
+  );
+  if (matches.length !== 1) return undefined;
+  const updated = { ...assignment, publisher, publisherId: matches[0].id };
+  return holderOf(updated);
 };

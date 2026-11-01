@@ -1,6 +1,6 @@
-import type { PDFDocumentLoadingTask } from 'pdfjs-dist';
+import { useAppTranslation, useScrollFade } from '@hooks/index';
+import type { PDFDocumentLoadingTask, RenderTask } from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker&url';
-import { tx } from '@services/i18n/translation';
 import { useEffect, useRef, useState } from 'react';
 import { Box } from '@mui/material';
 import { Typography } from '@components/index';
@@ -14,9 +14,16 @@ const PdfPreview = ({
   url?: string;
   onSettled?: (url: string) => void;
 }) => {
+  const { t } = useAppTranslation();
+
+  const scrollRef = useScrollFade();
   const pages = useRef<HTMLDivElement>(null);
 
   const [failed, setFailed] = useState(false);
+  const settled = useRef(onSettled);
+  useEffect(() => {
+    settled.current = onSettled;
+  }, [onSettled]);
 
   useEffect(() => {
     const host = pages.current;
@@ -24,6 +31,14 @@ const PdfPreview = ({
 
     let cancelled = false;
     let loading: PDFDocumentLoadingTask | undefined;
+    let rendering: RenderTask | undefined;
+    let destruction: Promise<void> | undefined;
+    const canvases: HTMLCanvasElement[] = [];
+    const destroy = () => {
+      if (loading && !destruction)
+        destruction = loading.destroy().catch(() => undefined);
+      return destruction;
+    };
     setFailed(false);
 
     const render = async () => {
@@ -33,15 +48,16 @@ const PdfPreview = ({
       if (cancelled) return;
       loading = pdfjs.getDocument({ url });
       const document = await loading.promise;
-      const canvases: HTMLCanvasElement[] = [];
+      if (cancelled) return;
 
       for (let number = 1; number <= document.numPages; number++) {
         const page = await document.getPage(number);
+        if (cancelled) return;
         const width = page.getViewport({ scale: 1 }).width;
 
         const viewport = page.getViewport({
           scale:
-            (host.clientWidth / width) *
+            (Math.max(host.clientWidth, 1) / width) *
             Math.min(window.devicePixelRatio || 1, 1.5),
         });
 
@@ -56,41 +72,56 @@ const PdfPreview = ({
         canvas.style.border = '1px solid var(--accent-200)';
         canvas.style.borderRadius = 'var(--radius-l)';
 
-        await page.render({ canvas, viewport }).promise;
-        if (cancelled) return;
-
         canvases.push(canvas);
+        rendering = page.render({ canvas, viewport });
+        try {
+          await rendering.promise;
+        } finally {
+          rendering = undefined;
+          page.cleanup();
+        }
+        if (cancelled) return;
       }
 
       host.replaceChildren(...canvases);
       setFailed(false);
-      onSettled?.(url);
+      settled.current?.(url);
     };
 
-    render().catch((error) => {
-      if (!cancelled) {
-        console.error('Territory PDF preview failed', error);
-        setFailed(true);
-        onSettled?.(url);
-      }
-    });
+    render()
+      .catch(() => {
+        if (!cancelled) {
+          setFailed(true);
+          settled.current?.(url);
+        }
+      })
+      .finally(destroy);
 
     return () => {
       cancelled = true;
-      void loading?.destroy();
+      rendering?.cancel();
+      void destroy();
+      for (const canvas of canvases) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
       host.replaceChildren();
     };
-  }, [url, onSettled]);
+  }, [url]);
 
   return (
-    <Box sx={{ minHeight: 0, overflowY: 'auto' }}>
+    <Box
+      ref={scrollRef}
+      className="scroll-fade-y"
+      sx={{ minHeight: 0, overflowY: 'auto' }}
+    >
       {failed && (
         <Typography
           className="body-small-regular"
           color="var(--grey-400)"
           sx={{ padding: '16px', textAlign: 'center' }}
         >
-          {tx('The preview could not be shown. Save the PDF to check it.')}
+          {t('tr_territoryThePreviewCouldNotBeShownSaveThePDF')}
         </Typography>
       )}
 

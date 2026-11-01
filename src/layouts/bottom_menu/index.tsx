@@ -31,7 +31,8 @@ const BottomMenu = (props: BottomMenuProps) => {
         className="mui-fixed"
         sx={{
           position: 'fixed',
-          bottom: `calc(${GLOW_BOTTOM_SPACE} + env(safe-area-inset-bottom, 0px))`,
+          // Safe-area clearance already provides room below the island's shadow.
+          bottom: `max(${GLOW_BOTTOM_SPACE}, env(safe-area-inset-bottom, 0px), var(--organized-inset-bottom, 0px))`,
           left: 0,
           right: 0,
           display: 'flex',

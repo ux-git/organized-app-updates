@@ -1,3 +1,4 @@
+import CampaignBrowser from '@features/territories/components/campaign_browser';
 import {
   ReactNode,
   useLayoutEffect,
@@ -22,28 +23,26 @@ import {
   IconPanelOpen,
 } from '@icons/index';
 import TabSwitcher from '@components/tab_switcher';
-import { useBreakpoints } from '@hooks/index';
-import { tx } from '@services/i18n/translation';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import {
   appliedFilters,
   clearedFilters,
   emptyListMessage,
   NO_MATCHES,
-} from '../helpers';
-import { TerritoriesHubProps } from './index.types';
+} from '@features/territories/helpers';
+import { TerritoriesHubProps } from '@features/territories/hub/index.types';
 import {
   Territory,
   TerritoryFilters as TerritoryFiltersType,
   TerritoryStatus,
 } from '@definition/territory';
 import Card from '@components/card';
-import BoardView from '../components/board_view';
-import CampaignBanner from '../components/campaign_banner';
-import AssignDialog from '../components/assign_dialog';
-import AssignReturnDialogs from '../components/assign_return_dialogs';
-import ReturnManyDialog from '../components/return_many_dialog';
-import MyHistory from '../components/my_history';
-import SelectionBar from '../components/selection_bar';
+import BoardView from '@features/territories/components/board_view';
+import AssignDialog from '@features/territories/components/assign_dialog';
+import AssignReturnDialogs from '@features/territories/components/assign_return_dialogs';
+import ReturnManyDialog from '@features/territories/components/return_many_dialog';
+import MyHistory from '@features/territories/components/my_history';
+import SelectionBar from '@features/territories/components/selection_bar';
 import DialogActions from '@components/dialog_actions';
 import dashedBorder from '@utils/dashed_border';
 import {
@@ -52,8 +51,8 @@ import {
   EASE_STANDARD,
   useSlideIn,
 } from '@utils/motion';
-import TerritoryFilters from '../components/territory_filters';
-import TerritoryTable from '../components/territory_table';
+import TerritoryFilters from '@features/territories/components/territory_filters';
+import TerritoryTable from '@features/territories/components/territory_table';
 
 const SearchRow = ({
   search,
@@ -69,58 +68,61 @@ const SearchRow = ({
   filtersOpen: boolean;
   applied: number;
   onToggleFilters: VoidFunction;
-}) => (
-  <Stack direction="row" sx={{ alignItems: 'center' }}>
-    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-      <SearchBar
-        placeholder={tx('Search territories')}
-        value={search}
-        onSearch={onSearch}
-      />
-    </Box>
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <Stack direction="row" sx={{ alignItems: 'center' }}>
+      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+        <SearchBar
+          placeholder={t('tr_territorySearchTerritories')}
+          value={search}
+          onSearch={onSearch}
+        />
+      </Box>
 
-    {/* the button folds away sideways, so the search widens smoothly */}
-    <Collapse
-      orientation="horizontal"
-      in={showFiltersButton}
-      timeout={DURATION_MEDIUM}
-      easing={EASE_STANDARD}
-      inert={!showFiltersButton}
-      sx={{ flexShrink: 0 }}
-    >
-      <Button
-        variant="secondary"
-        disableAutoStretch
-        sx={{ flexShrink: 0, marginLeft: '16px' }}
-        onClick={onToggleFilters}
-        endIcon={filtersOpen ? <IconPanelOpen /> : <IconPanelClose />}
+      {/* the button folds away sideways, so the search widens smoothly */}
+      <Collapse
+        orientation="horizontal"
+        in={showFiltersButton}
+        timeout={DURATION_MEDIUM}
+        easing={EASE_STANDARD}
+        inert={!showFiltersButton}
+        sx={{ flexShrink: 0 }}
       >
-        {tx('Filters')}
-        {/* how many are on, as the tabs show their counts */}
-        {applied > 0 && (
-          <Box
-            component="span"
-            className="label-small-semibold"
-            sx={{
-              display: 'inline-flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              minWidth: '20px',
-              height: '20px',
-              marginLeft: '8px',
-              padding: '0 5px',
-              borderRadius: 'var(--radius-s)',
-              backgroundColor: 'var(--accent-150)',
-              color: 'var(--accent-dark)',
-            }}
-          >
-            {applied}
-          </Box>
-        )}
-      </Button>
-    </Collapse>
-  </Stack>
-);
+        <Button
+          variant="secondary"
+          disableAutoStretch
+          sx={{ flexShrink: 0, marginLeft: '16px' }}
+          onClick={onToggleFilters}
+          endIcon={filtersOpen ? <IconPanelOpen /> : <IconPanelClose />}
+        >
+          {t('tr_filters')}
+          {/* how many are on, as the tabs show their counts */}
+          {applied > 0 && (
+            <Box
+              component="span"
+              className="label-small-semibold"
+              sx={{
+                display: 'inline-flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minWidth: '20px',
+                height: '20px',
+                marginLeft: '8px',
+                padding: '0 5px',
+                borderRadius: 'var(--radius-s)',
+                backgroundColor: 'var(--accent-150)',
+                color: 'var(--accent-dark)',
+              }}
+            >
+              {applied}
+            </Box>
+          )}
+        </Button>
+      </Collapse>
+    </Stack>
+  );
+};
 
 const FiltersPane = ({
   filters,
@@ -134,31 +136,32 @@ const FiltersPane = ({
   applied: number;
   count: number;
   onClose: VoidFunction;
-}) => (
-  <Card>
-    <TerritoryFilters
-      filters={filters}
-      onChange={onChange}
-      showTitle={false}
-      showClear={false}
-    />
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <Card>
+      <TerritoryFilters
+        filters={filters}
+        onChange={onChange}
+        showTitle={false}
+        showClear={false}
+      />
 
-    <DialogActions>
-      <Button
-        variant="secondary"
-        disabled={applied === 0}
-        onClick={() => onChange(clearedFilters(filters))}
-      >
-        {tx('Clear all')}
-      </Button>
-      <Button variant="main" onClick={onClose}>
-        {count === 1
-          ? tx('Show {{n}} territory', { n: count })
-          : tx('Show {{n}} territories', { n: count })}
-      </Button>
-    </DialogActions>
-  </Card>
-);
+      <DialogActions>
+        <Button
+          variant="secondary"
+          disabled={applied === 0}
+          onClick={() => onChange(clearedFilters(filters))}
+        >
+          {t('tr_clearAll')}
+        </Button>
+        <Button variant="main" onClick={onClose}>
+          {t('tr_territoryShowCount', { count })}
+        </Button>
+      </DialogActions>
+    </Card>
+  );
+};
 
 const SidePanel = ({
   filters,
@@ -239,7 +242,91 @@ const TabsRow = ({
   );
 };
 
+const LayoutSwitch = ({ hub }: TerritoriesHubProps) => {
+  const { t } = useAppTranslation();
+  const { tablet688Up } = useBreakpoints();
+  return (
+    <TabSwitcher
+      ariaLabel={t('tr_territoryLayout')}
+      surface="light"
+      value={hub.isBoard ? 'board' : 'list'}
+      onChange={(value) => hub.setIsBoard(value === 'board')}
+      options={[
+        { value: 'list', label: t('tr_territoryList'), icon: <IconListView /> },
+        {
+          value: 'board',
+          label: t('tr_territoryBoard'),
+          icon: <IconInformationBoard />,
+        },
+      ]}
+      sx={{ width: tablet688Up ? '240px' : '100%', flexShrink: 0 }}
+    />
+  );
+};
+
+const HubPane = ({
+  hub,
+  children,
+  isBoard,
+  applied,
+  closeFilters,
+}: TerritoriesHubProps & {
+  children: ReactNode;
+  isBoard: boolean;
+  applied: number;
+  closeFilters: VoidFunction;
+}) => {
+  const { desktopUp } = useBreakpoints();
+  if (desktopUp) return <>{children}</>;
+  return (
+    <PaneSwitcher
+      sx={{ gridTemplateColumns: 'minmax(0, 1fr)' }}
+      fullBleed
+      value={hub.filtersOpen && !isBoard ? 1 : 0}
+      panes={[
+        { key: 'list', content: children },
+        {
+          key: 'filters',
+          content: (
+            <FiltersPane
+              filters={hub.filters}
+              onChange={hub.setFilters}
+              applied={applied}
+              count={hub.visible.length}
+              onClose={closeFilters}
+            />
+          ),
+        },
+      ]}
+    />
+  );
+};
+
+const TerritoryLayouts = ({
+  isBoard,
+  canSwitchLayout,
+  list,
+  board,
+}: {
+  isBoard: boolean;
+  canSwitchLayout: boolean;
+  list: ReactNode;
+  board: ReactNode;
+}) => {
+  const activeView = isBoard ? board : list;
+  return canSwitchLayout ? (
+    <>
+      <Box hidden={isBoard}>{list}</Box>
+      <Box hidden={!isBoard}>{board}</Box>
+    </>
+  ) : (
+    activeView
+  );
+};
+
 const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
+  const { t } = useAppTranslation();
+
   const {
     tab,
     tabId,
@@ -270,7 +357,6 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
     isBrowsing,
     isOwnTab: isMine,
     isTerritoryEditor,
-    setIsBoard,
     pool,
   } = hub;
 
@@ -325,24 +411,12 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
   // a search or filter explains an empty list; otherwise it's simply empty
   const emptyMessage =
     !isMine && (applied > 0 || filters.search.trim())
-      ? tx(NO_MATCHES)
+      ? t(NO_MATCHES)
       : emptyListMessage();
 
   const canSwitchLayout = isTerritoryEditor && isBrowsing;
 
-  const layoutSwitch = canSwitchLayout && (
-    <TabSwitcher
-      ariaLabel={tx('Layout')}
-      surface="light"
-      value={hub.isBoard ? 'board' : 'list'}
-      onChange={(value) => setIsBoard(value === 'board')}
-      options={[
-        { value: 'list', label: tx('List'), icon: <IconListView /> },
-        { value: 'board', label: tx('Board'), icon: <IconInformationBoard /> },
-      ]}
-      sx={{ width: tablet688Up ? '240px' : '100%', flexShrink: 0 }}
-    />
-  );
+  const layoutSwitch = canSwitchLayout && <LayoutSwitch hub={hub} />;
 
   const inlineSwitch = tablet688Up ? layoutSwitch : undefined;
 
@@ -382,11 +456,14 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
       onReturn={setReturnId}
       showHouseholds={showHouseholds}
       showRequested={tabId !== 'requests' && tabId !== 'requested'}
-      actions={isTerritoryEditor || (!isBrowsing && hub.canRequest)}
+      actions={
+        isTerritoryEditor ||
+        ((tabId === 'mine' || tabId === 'group') && hub.canReturn)
+      }
       showHolder={isTerritoryEditor && tabId !== 'mine'}
       showDoNotCalls={isTerritoryEditor}
       emptyMessage={emptyMessage}
-      title={tx('Territories: {{n}}', { n: visible.length })}
+      title={t('tr_territoryTerritories', { n: visible.length })}
       titleOnTop={isMine && tabs.length === 0}
       selectionBar={selectionBar}
       pool={pool}
@@ -395,15 +472,13 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
   // both views stay mounted and only hide, so a switch is one attribute
   // change instead of building or reconnecting a whole view
-  const content = canSwitchLayout ? (
-    <>
-      <Box hidden={isBoard}>{list}</Box>
-      <Box hidden={!isBoard}>{board}</Box>
-    </>
-  ) : isBoard ? (
-    board
-  ) : (
-    list
+  const content = (
+    <TerritoryLayouts
+      isBoard={isBoard}
+      canSwitchLayout={canSwitchLayout}
+      list={list}
+      board={board}
+    />
   );
 
   const listCard = (
@@ -421,15 +496,6 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
         />
       )}
 
-      {!isMine && hub.running && (
-        <CampaignBanner
-          campaign={hub.running}
-          territories={territories}
-          filters={filters}
-          onChange={setFilters}
-        />
-      )}
-
       <Box>
         <TabsRow
           tabs={tabs}
@@ -438,6 +504,15 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
           onChange={switchTab}
           aside={inlineSwitch}
         />
+
+        {tabId === 'campaign' && (
+          <CampaignBrowser
+            campaign={hub.campaign}
+            status={hub.campaignStatus}
+            territories={hub.campaignTerritories}
+            onChange={hub.setCampaign}
+          />
+        )}
 
         <Box
           ref={slide}
@@ -461,7 +536,7 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
               }}
             >
               <Typography className="h3" noWrap>
-                {tx('Territories: {{n}}', { n: boardTerritories.length })}
+                {t('tr_territoryTerritories', { n: boardTerritories.length })}
               </Typography>
               {selectionBar}
             </Stack>
@@ -488,22 +563,19 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
         canAssign={isTerritoryEditor}
       />
 
-      {assignManyOpen && (
+      {isTerritoryEditor && assignManyOpen && (
         <AssignDialog
-          title={
-            assignableCount === 1
-              ? tx('Assign {{n}} territory', { n: assignableCount })
-              : tx('Assign {{n}} territories', { n: assignableCount })
-          }
+          title={t('tr_territoryAssignCount', { count: assignableCount })}
           doNotCalls={manyDoNotCalls}
           onClose={() => setAssignManyOpen(false)}
           onAssign={assignMany}
         />
       )}
 
-      {returnManyOpen && (
+      {(isTerritoryEditor || hub.canReturn) && returnManyOpen && (
         <ReturnManyDialog
           territories={returnable}
+          own={!isTerritoryEditor}
           onClose={() => setReturnManyOpen(false)}
           onReturn={returnMany}
         />
@@ -511,29 +583,14 @@ const TerritoriesHub = ({ hub }: TerritoriesHubProps) => {
 
       {/* the board keeps the same tree as the list, so the layout switch
           stays mounted and slides between the two */}
-      {desktopUp ? (
-        listCard
-      ) : (
-        <PaneSwitcher
-          fullBleed
-          value={filtersOpen && !isBoard ? 1 : 0}
-          panes={[
-            { key: 'list', content: listCard },
-            {
-              key: 'filters',
-              content: (
-                <FiltersPane
-                  filters={filters}
-                  onChange={setFilters}
-                  applied={applied}
-                  count={visible.length}
-                  onClose={closeFilters}
-                />
-              ),
-            },
-          ]}
-        />
-      )}
+      <HubPane
+        hub={hub}
+        isBoard={isBoard}
+        applied={applied}
+        closeFilters={closeFilters}
+      >
+        {listCard}
+      </HubPane>
 
       {hasSidePanel && (
         <SidePanel

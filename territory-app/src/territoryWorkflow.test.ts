@@ -196,7 +196,7 @@ describe('S-13 and coverage', () => {
     expect(
       s13Rows(source, 'dd.MM.yyyy', 'C', now)[0].entries[0].assignedOn
     ).toContain('(C)');
-    expect(isCoverage(source.assignments[0])).toBe(true);
+    expect(isCoverage(source.assignments[0])).toBe(false);
   });
   test('includes old history, paginates four entries per row and excludes future records', () => {
     const source = territory(
@@ -208,14 +208,14 @@ describe('S-13 and coverage', () => {
     expect(rows.map((row) => row.entries.length)).toEqual([4, 2]);
     expect(rows.every((row) => row.number === '1')).toBe(true);
   });
-  test('every return counts as completed, also old unfinished ones', () => {
+  test('unfinished returns remain in history but do not count as regular coverage', () => {
     const source = territory([
       assignment({ returnedOn: '02.02.2026', completed: false }),
     ]);
     const [row] = s13Rows(source, 'dd.MM.yyyy', '', now);
-    expect(row.entries[0].completedOn).toBe('02.02.2026');
-    expect(row.lastCompleted).toBe('02.02.2026');
-    expect(isCoverage(source.assignments[0])).toBe(true);
+    expect(row.entries[0].completedOn).toBeUndefined();
+    expect(row.lastCompleted).toBeUndefined();
+    expect(isCoverage(source.assignments[0])).toBe(false);
   });
   test('the S-13 prints the publisher, never the group', () => {
     const source = territory([
@@ -288,10 +288,10 @@ describe('recommendations', () => {
       types: [],
     };
     expect(
-      forTab(items, 'recommended', '', true, undefined, undefined, preferences)
+      forTab(items, 'recommended', '', true, undefined, undefined, { recommendations: preferences })
     ).toEqual([]);
     expect(
-      forTab(items, 'all', '', true, undefined, undefined, preferences)
+      forTab(items, 'all', '', true, undefined, undefined, { recommendations: preferences })
     ).toEqual(items);
   });
 });
@@ -317,5 +317,48 @@ describe('offline tile bounds', () => {
       'too large'
     );
     expect(() => tileUrls('{z}/{x}/{y}', [6, 50, 5, 51])).toThrow('Invalid');
+  });
+});
+
+describe('publisher change undo conflicts', () => {
+  test('does not replace a note edited after a merge', () => {
+    const before = [
+      territory([assignment()], { status: 'in_work', holder: 'Alex' }),
+    ];
+    const after = changedTerritories(
+      before,
+      person,
+      {
+        mergeInto: { id: 'b', name: 'Ben', group: false },
+        resolutions: {},
+      },
+      now
+    );
+    const edited = [
+      {
+        ...after[0],
+        assignments: after[0].assignments.map((item) => ({
+          ...item,
+          note: 'New note',
+        })),
+      },
+    ];
+    expect(revertedTerritories(edited, before, after)[0]).toBe(edited[0]);
+  });
+  test('does not undo a newer holder when undoing a publisher merge', () => {
+    const before = [
+      territory([assignment()], { status: 'in_work', holder: 'Alex' }),
+    ];
+    const after = changedTerritories(
+      before,
+      person,
+      {
+        mergeInto: { id: 'b', name: 'Ben', group: false },
+        resolutions: {},
+      },
+      now
+    );
+    const edited = [{ ...after[0], holder: 'Cleo' }];
+    expect(revertedTerritories(edited, before, after)[0]).toBe(edited[0]);
   });
 });

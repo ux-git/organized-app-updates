@@ -1,5 +1,4 @@
 import { ListItem } from '@mui/material';
-import { useAtomValue } from 'jotai';
 import {
   IconAssignmetHistory,
   IconCancelCicle,
@@ -8,9 +7,7 @@ import {
   IconMapView,
   IconStatsYear,
 } from '@icons/index';
-import { territoriesState } from '@states/territories';
-import { forTab } from '@features/territories/helpers';
-import { currentPublisherState } from '@features/territories/assignees';
+import useTerritoryTabList from '@features/territories/useTerritoryTabList';
 import DashboardCard from '@features/dashboard/card';
 import DashboardMenu from '@features/dashboard/menu';
 import { t } from '../i18n';
@@ -18,10 +15,8 @@ import { t } from '../i18n';
 // The main app's territories card without requests, and with the coverage
 // map and do-not-calls on phones too.
 const TerritoriesCard = () => {
-  const territories = useAtomValue(territoriesState);
-  const me = useAtomValue(currentPublisherState);
-
-  const mine = forTab(territories, 'mine', me).length;
+  const { territories, selectTab } = useTerritoryTabList();
+  const mine = selectTab('mine').length;
   const doNotCalls = territories.reduce(
     (sum, territory) => sum + territory.doNotCalls.length,
     0
@@ -42,7 +37,7 @@ const TerritoriesCard = () => {
         <DashboardMenu
           icon={<IconMapOverview color="var(--black)" />}
           primaryText={t('territories.all')}
-          badgeText={String(territories.length)}
+          badgeText={String(selectTab('all').length)}
           path="/territories?tab=all"
         />
       </ListItem>

@@ -1,9 +1,10 @@
+import { territoryNumberKey } from '@utils/territory';
+import { useAppTranslation } from '@hooks/index';
 import { KeyboardEvent, useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { Button, TextField, Typography } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
-import { tx } from '@services/i18n/translation';
 
 export type TerritoryFields = { number: string; city: string; name: string };
 
@@ -32,16 +33,22 @@ const TerritoryFieldsDialog = ({
   onConfirm: (fields: TerritoryFields) => void;
   onClose: VoidFunction;
 }) => {
+  const { t } = useAppTranslation();
+
   const [fields, setFields] = useState(initial);
   const [tried, setTried] = useState(false);
 
   const number = fields.number.trim();
-  const isDuplicate = !!number && taken.some((item) => item.trim() === number);
+  const isDuplicate =
+    !!number &&
+    taken.some(
+      (item) => territoryNumberKey(item) === territoryNumberKey(number)
+    );
   const usable = !!number && !isDuplicate;
 
   let numberHelp = '';
-  if (isDuplicate) numberHelp = tx('This number is already used');
-  else if (tried && !usable) numberHelp = tx('Enter a number');
+  if (isDuplicate) numberHelp = t('tr_territoryThisNumberIsAlreadyUsed');
+  else if (tried && !usable) numberHelp = t('tr_territoryEnterANumber');
 
   const submit = () => {
     setTried(true);
@@ -78,7 +85,7 @@ const TerritoryFieldsDialog = ({
       {choices.length > 1 && (
         <Stack spacing="8px" sx={{ width: '100%' }}>
           <Typography className="body-small-regular" color="var(--grey-400)">
-            {tx('Take number, locality and name from')}
+            {t('tr_territoryTakeNumberLocalityAndNameFrom')}
           </Typography>
           <Stack direction="row" sx={{ flexWrap: 'wrap', gap: '8px' }}>
             {choices.map((choice) => (
@@ -106,7 +113,7 @@ const TerritoryFieldsDialog = ({
         }}
       >
         <TextField
-          label={tx('Number')}
+          label={t('tr_number')}
           autoFocus
           value={fields.number}
           error={isDuplicate || (tried && !usable)}
@@ -118,7 +125,7 @@ const TerritoryFieldsDialog = ({
         />
 
         <TextField
-          label={tx('Locality')}
+          label={t('tr_territoryLocality')}
           value={fields.city}
           onChange={(event) =>
             setFields({ ...fields, city: event.target.value })
@@ -128,7 +135,7 @@ const TerritoryFieldsDialog = ({
 
         <Box sx={{ gridColumn: '1 / -1' }}>
           <TextField
-            label={tx('Name')}
+            label={t('tr_name')}
             value={fields.name}
             onChange={(event) =>
               setFields({ ...fields, name: event.target.value })
@@ -140,7 +147,7 @@ const TerritoryFieldsDialog = ({
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          {tx('Cancel')}
+          {t('tr_cancel')}
         </Button>
         <Button variant="main" onClick={submit}>
           {confirm}

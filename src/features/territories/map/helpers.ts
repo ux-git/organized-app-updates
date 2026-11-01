@@ -2,7 +2,7 @@ import polylabel from 'polylabel';
 import { createElement } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { getCSSPropertyValue } from '@utils/common';
-import { tx } from '@services/i18n/translation';
+import { getTranslation } from '@services/i18n/translation';
 import {
   MapColor,
   Territory,
@@ -11,7 +11,7 @@ import {
   TerritoryMapMarker,
 } from '@definition/territory';
 import { mapDetail } from '@services/maps/performance';
-import { MAP_COLORS, pinLabel } from './constants';
+import { MAP_COLORS, pinLabel } from '@features/territories/map/constants';
 
 // legend colors are CSS variables; maplibre needs the resolved value
 export const resolveColor = (color: string) =>
@@ -45,7 +45,7 @@ export const sanitizeCoordinates = <
   if (coords.length < 2) return coords;
   const result: T[] = [coords[0]];
   for (let i = 1; i < coords.length; i++) {
-    const prev = result[result.length - 1];
+    const prev = result.at(-1)!;
     const curr = coords[i];
     if (
       Math.abs(curr[0] - prev[0]) > 1e-6 ||
@@ -63,7 +63,7 @@ export const sanitizeCoordinates = <
 // worst on an offset border at a sharp corner
 export const closedRing = (ring: TerritoryBoundary): TerritoryBoundary => {
   if (ring.length < 3) return ring;
-  const [first, last] = [ring[0], ring[ring.length - 1]];
+  const [first, last] = [ring[0], ring.at(-1)!];
   return first[0] === last[0] && first[1] === last[1] ? ring : [...ring, first];
 };
 
@@ -85,7 +85,7 @@ export const sanitizeBoundary = (
   const cleaned = sanitizeCoordinates(boundary);
   if (cleaned.length < 3) return boundary;
   const first = cleaned[0];
-  const last = cleaned[cleaned.length - 1];
+  const last = cleaned.at(-1)!;
   if (first[0] !== last[0] || first[1] !== last[1]) {
     cleaned.push(first);
   }
@@ -292,7 +292,7 @@ export const chip = (item: TerritoryMapMarker) => ({
   label:
     item.kind === 'text'
       ? (item.text ?? '')
-      : item.text || tx(pinLabel(item.pinType)),
+      : item.text || getTranslation({ key: pinLabel(item.pinType) }),
 });
 
 const EARTH_METRES = 40_075_016.686;
@@ -407,8 +407,10 @@ export const labelCollection = (
 // starts folded into the info button, so the credits never cover the map
 // maplibre's own control labels, in the app's language
 export const mapLocale = () => ({
-  'AttributionControl.ToggleAttribution': tx('Toggle attribution'),
-  'Map.Title': tx('Map'),
+  'AttributionControl.ToggleAttribution': getTranslation({
+    key: 'tr_territoryToggleAttribution',
+  }),
+  'Map.Title': getTranslation({ key: 'tr_territoryMap' }),
 });
 
 export const addAttribution = (map: maplibregl.Map) => {

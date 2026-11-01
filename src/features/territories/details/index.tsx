@@ -1,22 +1,26 @@
-import { tx } from '@services/i18n/translation';
+import { currentAssignmentNote } from '@features/territories/notes';
+import TerritoryNote from '@features/territories/components/note';
 import { ReactNode, useRef, useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { ScrollableTabs, Typography } from '@components/index';
 import Card from '@components/card';
 import InfoBanner from '@components/info_banner';
 import { IconCancelCicle } from '@icons/index';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { DoNotCall, Territory } from '@definition/territory';
-import { daysLabel, withAssignments } from '../helpers';
-import TerritorySummary from '../components/territory_summary';
-import AssignedTwice from './assigned_twice';
-import DetailsForm from './details_form';
-import DoNotCallPanel from './do_not_call_panel';
-import TerritoryAssignments from './territory_assignments';
-import TerritoryMap from './territory_map';
-import PhoneNumbersPanel from './phone_numbers_panel';
-import TerritoryStats from './territory_stats';
-import { missingPublisher, territoryHolderText } from '../group_holder';
+import { daysLabel, withAssignments } from '@features/territories/helpers';
+import TerritorySummary from '@features/territories/components/territory_summary';
+import AssignedTwice from '@features/territories/details/assigned_twice';
+import DetailsForm from '@features/territories/details/details_form';
+import DoNotCallPanel from '@features/territories/details/do_not_call_panel';
+import TerritoryAssignments from '@features/territories/details/territory_assignments';
+import TerritoryMap from '@features/territories/details/territory_map';
+import PhoneNumbersPanel from '@features/territories/details/phone_numbers_panel';
+import TerritoryStats from '@features/territories/details/territory_stats';
+import {
+  missingPublisher,
+  territoryHolderText,
+} from '@features/territories/group_holder';
 
 type TerritoryDetailsProps = {
   territory: Territory;
@@ -61,6 +65,8 @@ const TerritoryDetails = ({
   showPrivate = true,
   heldByMe = false,
 }: TerritoryDetailsProps) => {
+  const { t } = useAppTranslation();
+
   const { desktopUp } = useBreakpoints();
 
   // kept from the first render, so saving the new territory doesn't switch tabs
@@ -91,19 +97,15 @@ const TerritoryDetails = ({
         holder={readOnly ? undefined : holder}
       />
 
-      {territory.notes && (
-        <Stack spacing="2px">
-          <Typography className="body-small-semibold" color="var(--grey-400)">
-            {tx('Notes')}
-          </Typography>
-          <Typography
-            className="body-small-regular"
-            color="var(--black)"
-            sx={{ whiteSpace: 'pre-line' }}
-          >
-            {territory.notes}
-          </Typography>
-        </Stack>
+      {showPrivate && (
+        <TerritoryNote kind="territory" value={territory.notes} />
+      )}
+
+      {showPrivate && (
+        <TerritoryNote
+          kind="assignment"
+          value={currentAssignmentNote(territory)}
+        />
       )}
 
       <TerritoryStats territory={territory} />
@@ -117,10 +119,9 @@ const TerritoryDetails = ({
           group: territory.holderGroup,
         }) && (
           <InfoBanner sx={{ width: '100%' }}>
-            {tx(
-              'Out for {{group}}, but nobody is named as having it. Open the assignment below and fill in who it is assigned to.',
-              { group: territory.holderGroup }
-            )}
+            {t('tr_territoryOutForButNobodyIsNamedAsHavingIt', {
+              group: territory.holderGroup,
+            })}
           </InfoBanner>
         )}
     </>
@@ -151,7 +152,9 @@ const TerritoryDetails = ({
 
   const map = <Stack spacing="12px">{mapContent}</Stack>;
 
-  const mapLabel = isPhone ? tx('Phone numbers') : tx('Territory map');
+  const mapLabel = isPhone
+    ? t('tr_territoryPhoneNumbers')
+    : t('tr_territoryTerritoryMap');
 
   const assignments = (
     <TerritoryAssignments
@@ -180,12 +183,15 @@ const TerritoryDetails = ({
       >
         <IconCancelCicle color="var(--red-dark)" />
         <Typography className="h2" color="var(--red-dark)">
-          {tx('Do not call')}
+          {t('tr_territoryDoNotCallLabel')}
         </Typography>
       </Stack>
       {content}
     </Card>
   );
+
+  const doNotCallAccess = heldByMe ? ('own' as const) : ('none' as const);
+  const initialTab = startOnDetails ? 2 : 0;
 
   if (readOnly) {
     const content = isPhone ? (
@@ -213,7 +219,7 @@ const TerritoryDetails = ({
             <DoNotCallPanel
               territory={territory}
               onChange={changeDoNotCalls}
-              access={heldByMe ? 'own' : 'none'}
+              access={doNotCallAccess}
             />
           )}
       </Stack>
@@ -227,14 +233,16 @@ const TerritoryDetails = ({
           {summary}
 
           <TabbedSections
-            start={startOnDetails ? 2 : 0}
+            start={initialTab}
             sections={[
               {
-                label: isPhone ? tx('Phone numbers') : tx('Map'),
+                label: isPhone
+                  ? t('tr_territoryPhoneNumbers')
+                  : t('tr_territoryMap'),
                 Component: map,
               },
-              { label: tx('Assignments'), Component: assignments },
-              { label: tx('Details'), Component: form },
+              { label: t('tr_territoryAssignments'), Component: assignments },
+              { label: t('tr_details'), Component: form },
             ]}
           />
         </Card>
@@ -256,7 +264,7 @@ const TerritoryDetails = ({
       <Stack spacing="16px">
         <Card>
           <Typography className="h2" color="var(--black)">
-            {tx('Territory details')}
+            {t('tr_territoryTerritoryDetails')}
           </Typography>
           {form}
         </Card>
@@ -270,7 +278,7 @@ const TerritoryDetails = ({
         <TabbedSections
           sections={[
             { label: mapLabel, Component: map },
-            { label: tx('Assignments'), Component: assignments },
+            { label: t('tr_territoryAssignments'), Component: assignments },
           ]}
         />
       </Card>

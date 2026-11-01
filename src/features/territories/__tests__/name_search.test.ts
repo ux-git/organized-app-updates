@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { matchesName } from '../name_search';
+import { matchesName } from '@features/territories/name_search';
 
 test('any part of any word, whatever the case', () => {
   assert.equal(matchesName('Anna Weber', 'web'), true);

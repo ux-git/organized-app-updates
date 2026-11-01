@@ -1,4 +1,6 @@
-import { saveAs } from 'file-saver';
+import saveAs from 'file-saver';
+import { FileExportWindow } from '@definition/file_export';
+import { exportFileName } from '@utils/file_export';
 
 type Exporter = (blob: Blob, name: string) => Promise<boolean>;
 let nativeExporter: Exporter | undefined;
@@ -6,22 +8,66 @@ export const registerFileExporter = (exporter: Exporter) => {
   nativeExporter = exporter;
 };
 
+let nativeSharer: ((blob: Blob, name: string) => Promise<void>) | undefined;
+export const registerFileSharer = (
+  sharer: (blob: Blob, name: string) => Promise<void>
+) => {
+  nativeSharer = sharer;
+};
+
+/** Opens the share sheet; saves only where nothing can share a file. */
+export const shareFile = async (
+  source: () => Promise<Blob>,
+  name: string
+): Promise<boolean> => {
+  const filename = exportFileName(name);
+  if (nativeSharer) {
+    await nativeSharer(await source(), filename);
+    return true;
+  }
+  const probe = new File([], filename, { type: 'image/png' });
+  if (!navigator.canShare?.({ files: [probe] }))
+    return exportFile(source, name);
+  const blob = await source();
+  const file = new File([blob], filename, { type: blob.type });
+  await navigator.share({ files: [file] });
+  return true;
+};
+
 /** False means the user cancelled; cancellation is never reported as a failure. */
-export const exportFile: Exporter = async (blob, name) => {
-  if (nativeExporter) return nativeExporter(blob, name);
-  const file = new File([blob], name, { type: blob.type });
-  const mobile =
-    /Android|iPhone|iPad|iPod/.test(navigator.userAgent) ||
-    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-  if (mobile && navigator.canShare?.({ files: [file] })) {
+export const exportFile = async (
+  source: Blob | (() => Promise<Blob>),
+  name: string
+): Promise<boolean> => {
+  const createBlob = () => (typeof source === 'function' ? source() : source);
+  const filename = exportFileName(name);
+  if (nativeExporter) return nativeExporter(await createBlob(), filename);
+
+  // Invoke the picker before any asynchronous work so the click remains a user gesture.
+  const browser = window as FileExportWindow;
+  if (browser.showSaveFilePicker) {
     try {
-      await navigator.share({ files: [file] });
+      const handle = await browser.showSaveFilePicker({
+        suggestedName: filename,
+      });
+      const blob = await createBlob();
+      const stream = await handle.createWritable();
+      try {
+        await stream.write(blob);
+        await stream.close();
+      } catch (error) {
+        await stream.abort().catch(() => {});
+        throw error;
+      }
       return true;
     } catch (error) {
       if ((error as Error).name === 'AbortError') return false;
       throw error;
     }
   }
-  saveAs(blob, name);
+
+  // Safari and Firefox use a download. Do not substitute sharing for saving.
+  const blob = typeof source === 'function' ? await source() : source;
+  saveAs(blob, filename);
   return true;
 };

@@ -21,6 +21,7 @@ import {
   territoriesShowDoNotCallCountState,
   territoriesShowDoNotCallMapState,
   territoriesShowHouseholdsState,
+  territoryCardFormatState,
   territoryCategoriesState,
   territoryOverdueMonthsState,
   territoryRecommendationsState,
@@ -420,6 +421,7 @@ type State = {
   showDoNotCallCount?: boolean;
   showDoNotCallMap?: boolean;
   showHouseholds?: boolean;
+  cardFormat?: import('@definition/territory').TerritoryCardFormat;
   recommendations?: import('@definition/territory').TerritoryRecommendations;
   campaigns?: TerritoryCampaign[];
 };
@@ -447,6 +449,7 @@ const stateOf = (
       | undefined,
     showDoNotCallMap: setting('show_do_not_call_map') as boolean | undefined,
     showHouseholds: setting('show_households') as boolean | undefined,
+    cardFormat: setting('card_format') as State['cardFormat'],
     recommendations: setting('recommendations') as State['recommendations'],
     campaigns: setting('campaigns') as TerritoryCampaign[] | undefined,
   };
@@ -464,6 +467,7 @@ const recordsOf = (state: State) =>
       settingWrite('show_do_not_call_count', state.showDoNotCallCount),
       settingWrite('show_do_not_call_map', state.showDoNotCallMap),
       settingWrite('show_households', state.showHouseholds),
+      settingWrite('card_format', state.cardFormat),
       settingWrite('recommendations', state.recommendations),
       settingWrite('campaigns', state.campaigns),
     ].map((record) => [key(record.table, record.id), record])
@@ -504,6 +508,13 @@ const parts: Part[] = [
         'show_households',
         store.get(territoriesShowHouseholdsState)
       ),
+    ],
+    tables: [],
+  },
+  {
+    atom: territoryCardFormatState,
+    records: () => [
+      settingWrite('card_format', store.get(territoryCardFormatState)),
     ],
     tables: [],
   },
@@ -766,6 +777,7 @@ const read = async () => {
     );
     store.set(territoriesShowDoNotCallMapState, state.showDoNotCallMap ?? true);
     store.set(territoriesShowHouseholdsState, state.showHouseholds ?? true);
+    store.set(territoryCardFormatState, state.cardFormat ?? 's12a4');
     if (state.overdue) store.set(territoryOverdueMonthsState, state.overdue);
     if (state.recommendations)
       store.set(territoryRecommendationsState, state.recommendations);

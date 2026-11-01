@@ -1,17 +1,17 @@
+import { useAppTranslation } from '@hooks/index';
 import { Box, Stack } from '@mui/material';
 import { Button } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { IconMoveForward, IconReject } from '@icons/index';
-import { coveredText } from '../helpers';
+import { coveredText } from '@features/territories/helpers';
 import {
   CategoryBadges,
   DoNotCallBadge,
   StatusBadge,
-} from './territory_badges';
-import StatTile from './stat_tile';
+} from '@features/territories/components/territory_badges';
+import StatTile from '@features/territories/components/stat_tile';
 import { Territory, TYPE_LABEL } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
 
 type ReviewDialogProps = {
   territory?: Territory;
@@ -27,6 +27,8 @@ const ReviewDialog = ({
   onAssign,
   onDecline,
 }: ReviewDialogProps) => {
+  const { t } = useAppTranslation();
+
   if (!territory?.requestedBy) return null;
 
   const publisher = territory.requestedBy;
@@ -36,7 +38,7 @@ const ReviewDialog = ({
       onClose={onClose}
       open
       closable
-      title={tx('Request for territory')}
+      title={t('tr_territoryRequestForTerritory')}
       description={[territory.number, territory.name, territory.city]
         .filter(Boolean)
         .join(' · ')}
@@ -65,11 +67,14 @@ const ReviewDialog = ({
           width: '100%',
         }}
       >
-        <StatTile label={tx('Requested by')} value={publisher} />
-        <StatTile label={tx('Last covered')} value={coveredText(territory)} />
-        <StatTile label={tx('Type')} value={tx(TYPE_LABEL[territory.type])} />
+        <StatTile label={t('tr_territoryRequestedBy')} value={publisher} />
         <StatTile
-          label={tx('Households')}
+          label={t('tr_territoryLastCovered')}
+          value={coveredText(territory)}
+        />
+        <StatTile label={t('tr_type')} value={t(TYPE_LABEL[territory.type])} />
+        <StatTile
+          label={t('tr_territoryHouseholdsLabel')}
           value={String(territory.households)}
         />
       </Box>
@@ -84,7 +89,7 @@ const ReviewDialog = ({
             onClose();
           }}
         >
-          {tx('Refuse')}
+          {t('tr_territoryRefuse')}
         </Button>
         <Button
           variant="main"
@@ -94,7 +99,7 @@ const ReviewDialog = ({
             onClose();
           }}
         >
-          {tx('Assign')}
+          {t('tr_assign')}
         </Button>
       </DialogActions>
     </Dialog>

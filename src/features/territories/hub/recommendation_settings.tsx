@@ -1,3 +1,4 @@
+import { useAppTranslation } from '@hooks/index';
 import { useAtom, useAtomValue } from 'jotai';
 import { Stack } from '@mui/material';
 import { Select, Typography } from '@components/index';
@@ -7,16 +8,17 @@ import {
   territoryRecommendationsState,
 } from '@states/territories';
 import { TerritoryType, TYPE_LABEL } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
 
 const RecommendationSettings = () => {
+  const { t } = useAppTranslation();
+
   const [value, setValue] = useAtom(territoryRecommendationsState);
   const categories = useAtomValue(territoryCategoriesState);
   return (
     <Stack spacing="16px">
-      <Typography className="h4">{tx('Recommendations')}</Typography>
+      <Typography className="h4">{t('tr_territoryRecommendations')}</Typography>
       <Select
-        label={tx('Months after return')}
+        label={t('tr_territoryMonthsAfterReturn')}
         value={value.cooldownMonths}
         onChange={(event) =>
           setValue({ ...value, cooldownMonths: Number(event.target.value) })
@@ -24,18 +26,18 @@ const RecommendationSettings = () => {
       >
         {Array.from({ length: 13 }, (_, n) => (
           <MenuItem key={n} value={n}>
-            {n === 0 ? tx('No waiting period') : n}
+            {n === 0 ? t('tr_territoryNoWaitingPeriod') : n}
           </MenuItem>
         ))}
       </Select>
       <Typography className="body-small-regular" color="var(--grey-400)">
-        {tx(
-          'Months since last return. Never-assigned territories appear immediately.'
+        {t(
+          'tr_territoryMonthsSinceLastReturnNeverAssignedTerritoriesAppearImmediately'
         )}
       </Typography>
       <Select
         multiple
-        label={tx('Exclude categories')}
+        label={t('tr_territoryExcludeCategories')}
         value={value.categories}
         onChange={(event) =>
           setValue({ ...value, categories: event.target.value as string[] })
@@ -49,7 +51,7 @@ const RecommendationSettings = () => {
       </Select>
       <Select
         multiple
-        label={tx('Exclude territory types')}
+        label={t('tr_territoryExcludeTerritoryTypes')}
         value={value.types}
         onChange={(event) =>
           setValue({ ...value, types: event.target.value as TerritoryType[] })
@@ -57,12 +59,12 @@ const RecommendationSettings = () => {
       >
         {(Object.keys(TYPE_LABEL) as TerritoryType[]).map((type) => (
           <MenuItem key={type} value={type}>
-            {tx(TYPE_LABEL[type])}
+            {t(TYPE_LABEL[type])}
           </MenuItem>
         ))}
       </Select>
       <Typography className="body-small-regular" color="var(--grey-400)">
-        {tx('Excluded territories remain available in All territories.')}
+        {t('tr_territoryExcludedTerritoriesRemainAvailableInAllTerritories')}
       </Typography>
     </Stack>
   );

@@ -7,7 +7,7 @@ import {
   undoLast,
   undoOfferState,
   UNDO_SHOWN_FOR,
-} from '../undo';
+} from '@features/territories/undo';
 
 beforeEach(() => mock.timers.enable({ apis: ['setTimeout'] }));
 afterEach(() => {

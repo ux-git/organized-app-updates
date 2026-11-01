@@ -1,9 +1,9 @@
+import { useAppTranslation } from '@hooks/index';
 import { ReactNode, useEffect, useId, useState } from 'react';
 import { Box, Stack, TooltipProps } from '@mui/material';
 import * as maplibregl from 'maplibre-gl';
 import IconButton from '@components/icon_button';
 import Tooltip from '@components/tooltip';
-import { tx } from '@services/i18n/translation';
 
 type Corner =
   | 'top-left'
@@ -90,6 +90,8 @@ export const NorthAction = ({
   map?: maplibregl.Map | null;
   placement?: TooltipProps['placement'];
 }) => {
+  const { t } = useAppTranslation();
+
   const [bearing, setBearing] = useState(0);
   // useId holds colons, which url(#…) does not accept
   const clip = `north${useId().replace(/\W/g, '')}`;
@@ -109,7 +111,7 @@ export const NorthAction = ({
 
   return (
     <MapAction
-      title={tx('Turn to north')}
+      title={t('tr_territoryTurnToNorth')}
       placement={placement}
       onClick={() => map?.easeTo({ bearing: 0, pitch: 0 })}
     >

@@ -1,3 +1,4 @@
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { Box, MenuItem, Stack } from '@mui/material';
 import { useNavigate } from 'react-router';
@@ -16,30 +17,31 @@ import DialogActions from '@components/dialog_actions';
 import { appLocaleState } from '@states/app';
 import { territoryLocalModeState } from '@states/territories';
 import { Territory, TerritoryType, TYPE_LABEL } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
 import { displaySnackNotification } from '@services/states/app';
-import { ChartCard } from '../components/charts';
-import TruncatedText from '../components/truncated_text';
-import { territoryCampaignsState } from '../campaigns';
+import { ChartCard } from '@features/territories/components/charts';
+import TruncatedText from '@features/territories/components/truncated_text';
+import { territoryCampaignsState } from '@features/territories/campaigns';
 import {
   campaignChoices,
   campaignLabel,
   campaignRange,
   dateOf,
   dayOf,
-} from '../campaign_dates';
-import { assignmentIssues, toStoredDate } from '../helpers';
+} from '@features/territories/campaign_dates';
+import { assignmentIssues, toStoredDate } from '@features/territories/helpers';
 import {
   campaignEnded,
   campaignProgress,
   currentCampaign,
   outForCampaign,
-} from '../campaign_filter';
-import useAssignReturn from '../useAssignReturn';
-import { holderText } from '../group_holder';
-import { PublisherPicker } from '../components/holder_picker';
+} from '@features/territories/campaign_filter';
+import useAssignReturn from '@features/territories/useAssignReturn';
+import { holderText } from '@features/territories/group_holder';
+import { PublisherPicker } from '@features/territories/components/holder_picker';
 
 const CampaignCard = ({ territories }: { territories: Territory[] }) => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
 
   const campaigns = useAtomValue(territoryCampaignsState);
@@ -62,15 +64,15 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
 
   if (!campaign) {
     return (
-      <ChartCard title={tx('Special campaign')} span={4}>
+      <ChartCard title={t('tr_specialCampaignWeek')} span={4}>
         <InfoNote
           message={
             localMode
-              ? tx(
-                  'Special campaigns are entered under Settings → Special campaigns.'
+              ? t(
+                  'tr_territorySpecialCampaignsAreEnteredUnderSettingsSpecialCampaigns'
                 )
-              : tx(
-                  'Special campaigns come from the Upcoming events page: add a “Special campaign” event there.'
+              : t(
+                  'tr_territorySpecialCampaignsComeFromTheUpcomingEventsPageAdd'
                 )
           }
         />
@@ -85,10 +87,18 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
   const progress = campaignProgress(shown, campaign.id);
 
   const rows = [
-    { label: 'Worked', value: progress.worked, color: 'var(--green-main)' },
-    { label: 'Out', value: progress.out, color: 'var(--orange-main)' },
     {
-      label: 'Not yet assigned',
+      label: 'tr_territoryWorked',
+      value: progress.worked,
+      color: 'var(--green-main)',
+    },
+    {
+      label: 'tr_territoryOut',
+      value: progress.out,
+      color: 'var(--orange-main)',
+    },
+    {
+      label: 'tr_territoryNotYetAssigned',
       value: progress.waiting,
       color: 'var(--accent-300)',
     },
@@ -123,10 +133,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
     );
 
   const shareSummary = async () => {
-    const text = `${campaign.name} (${campaignRange(campaign, locale.code)}): ${tx(
-      '{{worked}} of {{total}} territories worked, {{out}} out, {{waiting}} not yet assigned',
-      progress
-    )}`;
+    const text = `${campaign.name} (${campaignRange(campaign, locale.code)}): ${t('tr_territoryOfTerritoriesWorkedOutNotYetAssigned', progress)}`;
 
     try {
       if (navigator.share) {
@@ -135,7 +142,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
         await navigator.clipboard.writeText(text);
 
         displaySnackNotification({
-          header: tx('Summary copied'),
+          header: t('tr_territorySummaryCopied'),
           message: text,
           severity: 'success',
         });
@@ -143,19 +150,29 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         displaySnackNotification({
-          header: tx('Sharing failed'),
-          message: (error as Error).message,
+          header: t('tr_territorySharingFailed'),
+          message: t((error as Error).message, {
+            defaultValue: t(
+              'tr_territoryTheCampaignReportCouldNotBeSharedTryAgain'
+            ),
+          }),
           severity: 'error',
         });
       }
     }
   };
 
+  let returnDateHint = '';
+  if (returnTooEarly)
+    returnDateHint = t('tr_territoryCannotBeBeforeTheAssignedDate');
+  else if (returnFuture)
+    returnDateHint = t('tr_territoryThisDateIsInTheFuture');
+
   return (
     <ChartCard
-      title={tx('Campaign progress')}
+      title={t('tr_territoryCampaignProgress')}
       hint={campaignLabel(campaign, locale.code)}
-      note={tx('As of today')}
+      note={t('tr_territoryAsOfToday')}
       span={4}
       action={
         <Button
@@ -164,13 +181,13 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
           minHeight={32}
           onClick={shareSummary}
         >
-          {tx('Share summary')}
+          {t('tr_territoryShareSummary')}
         </Button>
       }
     >
       {choices.length > 1 && (
         <Select
-          label={tx('Special campaign')}
+          label={t('tr_specialCampaignWeek')}
           value={campaign.id}
           onChange={(event) => setPicked(String(event.target.value))}
         >
@@ -185,7 +202,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
       )}
 
       <Typography className="h2" color="var(--black)">
-        {tx('{{covered}} of {{total}} covered', {
+        {t('tr_territoryOfCovered', {
           covered: progress.worked,
           total: progress.total,
         })}
@@ -195,7 +212,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
         {rows.map((row) => (
           <Box
             key={row.label}
-            title={`${tx(row.label)}: ${row.value}`}
+            title={`${t(row.label)}: ${row.value}`}
             sx={{
               flexGrow: row.value || 0.02,
               borderRadius: 'var(--radius-s)',
@@ -222,7 +239,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
               }}
             />
             <Typography className="body-small-regular" color="var(--black)">
-              {tx(row.label)}
+              {t(row.label)}
             </Typography>
             <Box sx={{ flexGrow: 1 }} />
             <Typography className="body-small-semibold" color="var(--black)">
@@ -237,7 +254,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
         {(Object.keys(TYPE_LABEL) as TerritoryType[]).map((type) => (
           <FilterChip
             key={type}
-            label={tx(TYPE_LABEL[type])}
+            label={t(TYPE_LABEL[type])}
             selected={types.includes(type)}
             onClick={() => toggleType(type)}
           />
@@ -255,7 +272,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
             }}
           >
             <Typography className="body-small-semibold" color="var(--black)">
-              {tx('Still out after the end')}
+              {t('tr_territoryStillOutAfterTheEnd')}
             </Typography>
             <Button
               variant="small"
@@ -269,7 +286,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
                 );
               }}
             >
-              {tx('Return all')}
+              {t('tr_territoryReturnAll')}
             </Button>
           </Stack>
 
@@ -284,7 +301,9 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
                 spacing="12px"
                 onClick={() =>
                   navigate(`/territories/${territory.id}`, {
-                    state: { parent: 'Territory coverage statistics' },
+                    state: {
+                      parent: 'tr_territoryTerritoryCoverageStatistics',
+                    },
                   })
                 }
                 sx={{
@@ -323,14 +342,14 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
         <Dialog
           onClose={() => setReturnOn(undefined)}
           open
-          title={tx('Return all')}
-          description={tx(
-            'The territories still out for this campaign are returned on this date.'
+          title={t('tr_territoryReturnAll')}
+          description={t(
+            'tr_territoryTheTerritoriesStillOutForThisCampaignAreReturned'
           )}
         >
           {sharedBy && (
             <PublisherPicker
-              label={tx('Returned by')}
+              label={t('tr_territoryReturnedBy')}
               value={returnedBy}
               onChange={setReturnedBy}
               current={sharedBy}
@@ -338,22 +357,16 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
           )}
 
           <DatePicker
-            label={tx('Returned on')}
+            label={t('tr_territoryReturnedOn')}
             value={returnOn}
             error={returnTooEarly || returnFuture}
-            helperText={
-              returnTooEarly
-                ? tx('Cannot be before the assigned date')
-                : returnFuture
-                  ? tx('This date is in the future')
-                  : ''
-            }
+            helperText={returnDateHint}
             onChange={(value) => setReturnOn(value)}
           />
 
           <DialogActions>
             <Button variant="secondary" onClick={() => setReturnOn(undefined)}>
-              {tx('Cancel')}
+              {t('tr_cancel')}
             </Button>
             <Button
               variant="main"
@@ -370,7 +383,7 @@ const CampaignCard = ({ territories }: { territories: Territory[] }) => {
                 setReturnOn(undefined);
               }}
             >
-              {tx('Return')}
+              {t('tr_return')}
             </Button>
           </DialogActions>
         </Dialog>

@@ -1,9 +1,14 @@
+import { subMonths } from 'date-fns';
 import type {
   Territory,
   TerritoryAssignment,
   TerritoryCampaign,
 } from '@definition/territory';
-import { campaignsOn, dateOf, dayOf } from './campaign_dates';
+import {
+  campaignsOn,
+  dateOf,
+  dayOf,
+} from '@features/territories/campaign_dates';
 
 // How far a special campaign has come, from the assignments flagged for it;
 // kept free of app imports so the Node test runner can load this file.
@@ -18,7 +23,9 @@ const flagged = (territory: Territory, id: string) =>
 
 /** Returned at least once for the campaign. */
 export const workedInCampaign = (territory: Territory, id: string) =>
-  flagged(territory, id).some((assignment) => !!assignment.returnedOn);
+  flagged(territory, id).some(
+    (assignment) => !!assignment.returnedOn && assignment.completed !== false
+  );
 
 /** The open assignment flagged for the campaign, if any. */
 export const outForCampaign = (territory: Territory, id: string) =>
@@ -34,7 +41,8 @@ export const matchesCampaign = (
   !filter ||
   (filter.worked
     ? workedInCampaign(territory, filter.id)
-    : !inCampaign(territory, filter.id));
+    : !workedInCampaign(territory, filter.id) &&
+      !outForCampaign(territory, filter.id));
 
 /** Every territory in one bucket: worked, out, or not yet assigned for it. */
 export const campaignProgress = (territories: Territory[], id: string) => {
@@ -102,9 +110,7 @@ export const currentCampaign = (
   if (running) return running;
 
   const day = dayOf(today);
-  const oldest = new Date(today);
-  oldest.setMonth(oldest.getMonth() - 2);
-  const oldestDay = dayOf(oldest);
+  const oldestDay = dayOf(subMonths(today, 2));
 
   return campaigns
     .filter((campaign) => campaign.end < day && campaign.end >= oldestDay)

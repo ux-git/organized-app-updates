@@ -1,4 +1,4 @@
-import { tx } from '@services/i18n/translation';
+import { useAppTranslation } from '@hooks/index';
 import { Button } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
@@ -18,31 +18,31 @@ const TerritoryDelete = ({
   holder,
   onClose,
   onDelete,
-}: TerritoryDeleteProps) => (
-  <Dialog
-    onClose={onClose}
-    open={open}
-    title={tx('Delete territory {{number}}?', { number })}
-    description={
-      holder
-        ? tx(
-            '{{name}} has this territory now. The open assignment, the assignment history and the do-not-calls are removed with it. You can undo it right after.',
-            { name: holder }
-          )
-        : tx(
-            'The territory, its addresses and its assignment history will be removed. You can undo it right after.'
-          )
-    }
-  >
-    <DialogActions>
-      <Button variant="secondary" onClick={onClose}>
-        {tx('Cancel')}
-      </Button>
-      <Button variant="main" color="red" onClick={onDelete}>
-        {tx('Delete')}
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
+}: TerritoryDeleteProps) => {
+  const { t } = useAppTranslation();
+  return (
+    <Dialog
+      onClose={onClose}
+      open={open}
+      title={t('tr_territoryDeleteTerritory', { number })}
+      description={
+        holder
+          ? t('tr_territoryHasThisTerritoryNowTheOpenAssignmentTheAssignment', {
+              name: holder,
+            })
+          : t('tr_territoryTheTerritoryItsAddressesAndItsAssignmentHistoryWill')
+      }
+    >
+      <DialogActions>
+        <Button variant="secondary" onClick={onClose}>
+          {t('tr_cancel')}
+        </Button>
+        <Button variant="main" color="red" onClick={onDelete}>
+          {t('tr_delete')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 export default TerritoryDelete;

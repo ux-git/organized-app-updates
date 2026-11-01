@@ -1,8 +1,8 @@
+import { useAppTranslation } from '@hooks/index';
 import { Path, Svg, Text, View } from '@react-pdf/renderer';
 import { CANCEL_CIRCLE_PATH } from '@icons/cancel_circle_path';
 import { DoNotCall } from '@definition/territory';
-import styles, { COLORS } from '../index.styles';
-import { tx } from '@services/i18n/translation';
+import styles, { COLORS } from '@views/territories/index.styles';
 
 export const ROW = 16;
 
@@ -34,9 +34,10 @@ const Cell = ({
     }}
   >
     <Text
-      style={
-        head ? styles.columnTitle : strong ? styles.rowAddress : styles.rowText
-      }
+      style={[
+        strong ? styles.rowAddress : styles.rowText,
+        head ? styles.columnTitle : {},
+      ]}
     >
       {text ?? ''}
     </Text>
@@ -63,7 +64,8 @@ const Row = ({
       flexShrink: 0,
       // react-pdf drops text in clipped views, so the corners are rounded here instead
       borderBottom: last ? undefined : `1px solid ${COLORS.line}`,
-      backgroundColor: head ? COLORS.chip : shaded ? COLORS.zebra : undefined,
+      backgroundColor: head ? COLORS.chip : undefined,
+      ...(shaded && !head ? { backgroundColor: COLORS.zebra } : {}),
       borderTopLeftRadius: head ? 2 : 0,
       borderTopRightRadius: head ? 2 : 0,
       borderBottomLeftRadius: last ? 2 : 0,
@@ -86,86 +88,98 @@ const DoNotCallTable = ({
   entries: DoNotCall[];
   blank: number;
   phone?: boolean;
-}) => (
-  <View
-    style={{
-      border: `1px solid ${COLORS.line}`,
-      borderRadius: 3,
-    }}
-  >
-    <Row
-      head
-      phone={phone}
-      values={[phone ? tx('Number') : tx('Address'), tx('Name'), tx('Date')]}
-    />
-    {entries.map((entry, index) => (
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <View
+      style={{
+        border: `1px solid ${COLORS.line}`,
+        borderRadius: 3,
+      }}
+    >
       <Row
-        key={entry.id}
+        head
         phone={phone}
-        last={!blank && index === entries.length - 1}
-        shaded={index % 2 === 1}
-        values={[entry.address, entry.name, entry.date]}
+        values={[
+          phone ? t('tr_number') : t('tr_address'),
+          t('tr_name'),
+          t('tr_date'),
+        ]}
       />
-    ))}
-    {Array.from({ length: blank }, (_, index) => (
-      <Row
-        key={index}
-        phone={phone}
-        values={[]}
-        last={index === blank - 1}
-        shaded={(entries.length + index) % 2 === 1}
-      />
-    ))}
-  </View>
-);
+      {entries.map((entry, index) => (
+        <Row
+          key={entry.id}
+          phone={phone}
+          last={!blank && index === entries.length - 1}
+          shaded={index % 2 === 1}
+          values={[entry.address, entry.name, entry.date]}
+        />
+      ))}
+      {Array.from({ length: blank }, (_, index) => (
+        <Row
+          key={index}
+          phone={phone}
+          values={[]}
+          last={index === blank - 1}
+          shaded={(entries.length + index) % 2 === 1}
+        />
+      ))}
+    </View>
+  );
+};
 
-export const DoNotCallHeader = ({ count }: { count: number }) => (
-  <View
-    style={{
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-      backgroundColor: COLORS.dncChip,
-      borderRadius: 3,
-      paddingTop: 4,
-      paddingBottom: 4,
-      paddingLeft: 5,
-      paddingRight: 5,
-    }}
-  >
-    <Svg width={11} height={11} viewBox="0 0 24 24">
-      <Path d={CANCEL_CIRCLE_PATH} fill={COLORS.dncText} />
-    </Svg>
-    <Text style={[styles.chipText, { color: COLORS.dncText, flexGrow: 1 }]}>
-      {tx('Do not call')}
-    </Text>
-    {count > 0 && (
-      <View
-        style={{
-          minWidth: 14,
-          height: 12,
-          borderRadius: 2,
-          backgroundColor: COLORS.dncText,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingLeft: 4,
-          paddingRight: 4,
-        }}
-      >
-        <Text style={{ fontSize: 7, fontWeight: 600, color: '#FFFFFF' }}>
-          {count}
-        </Text>
-      </View>
-    )}
-  </View>
-);
+export const DoNotCallHeader = ({ count }: { count: number }) => {
+  const { t } = useAppTranslation();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        backgroundColor: COLORS.dncChip,
+        borderRadius: 3,
+        paddingTop: 4,
+        paddingBottom: 4,
+        paddingLeft: 5,
+        paddingRight: 5,
+      }}
+    >
+      <Svg width={11} height={11} viewBox="0 0 24 24">
+        <Path d={CANCEL_CIRCLE_PATH} fill={COLORS.dncText} />
+      </Svg>
+      <Text style={[styles.chipText, { color: COLORS.dncText, flexGrow: 1 }]}>
+        {t('tr_territoryDoNotCallLabel')}
+      </Text>
+      {count > 0 && (
+        <View
+          style={{
+            minWidth: 14,
+            height: 12,
+            borderRadius: 2,
+            backgroundColor: COLORS.dncText,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingLeft: 4,
+            paddingRight: 4,
+          }}
+        >
+          <Text style={{ fontSize: 7, fontWeight: 600, color: '#FFFFFF' }}>
+            {count}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
 
 // a card has room for so many lines; the older ones that do not fit are counted
-export const MoreEntries = ({ count }: { count: number }) =>
-  count > 0 ? (
+export const MoreEntries = ({ count }: { count: number }) => {
+  const { t } = useAppTranslation();
+  return count > 0 ? (
     <Text style={styles.fine}>
-      {tx('+{{n}} older in the app', { n: count })}
+      {t('tr_territoryOlderInTheApp', { n: count })}
     </Text>
   ) : null;
+};
 
 export default DoNotCallTable;

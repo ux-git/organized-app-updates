@@ -1,14 +1,17 @@
+import { useAppTranslation } from '@hooks/index';
 import { Page, View } from '@react-pdf/renderer';
 import { Document } from '@views/components';
-import { TerritoryTemplateProps } from '../index.types';
-import CardBack from '../shared/CardBack';
-import CardFront from '../shared/CardFront';
-import { tx } from '@services/i18n/translation';
+import { TerritoryTemplateProps } from '@views/territories/index.types';
+import CardBack from '@views/territories/shared/CardBack';
+import MapFront from '@views/territories/shared/MapFront';
 
-import { A5_HORIZONTAL } from '../geometry';
+import {
+  A5_HORIZONTAL,
+  PRINT_MARGIN,
+  printableA5,
+} from '@views/territories/geometry';
 
-const WIDTH = A5_HORIZONTAL.width;
-const HALF = A5_HORIZONTAL.height;
+const { width: WIDTH, height: HALF } = printableA5(A5_HORIZONTAL);
 
 const TemplateTerritoryCard = ({
   territories,
@@ -16,29 +19,43 @@ const TemplateTerritoryCard = ({
   printedOn,
   parts,
 }: TerritoryTemplateProps) => {
+  const { t } = useAppTranslation();
+
   return (
-    <Document title={tx('Territory card')} lang={lang}>
+    <Document title={t('tr_territoryTerritoryCard')} lang={lang}>
       {territories.map((territory) => (
         <Page
           key={territory.id}
+          wrap={false}
           size="A4"
           style={{
             backgroundColor: '#FFFFFF',
           }}
         >
-          <View wrap={false} style={{ position: 'relative', width: WIDTH }}>
+          <View
+            wrap={false}
+            style={{ position: 'relative', width: A5_HORIZONTAL.width }}
+          >
             {parts.front && (
-              <CardFront territory={territory} width={WIDTH} height={HALF} />
+              <View
+                style={{ padding: PRINT_MARGIN, height: A5_HORIZONTAL.height }}
+              >
+                <MapFront territory={territory} width={WIDTH} height={HALF} />
+              </View>
             )}
 
             {parts.back && (
-              <CardBack
-                territory={territory}
-                width={WIDTH}
-                height={HALF}
-                notes={territory.notes}
-                printedOn={printedOn}
-              />
+              <View
+                style={{ padding: PRINT_MARGIN, height: A5_HORIZONTAL.height }}
+              >
+                <CardBack
+                  territory={territory}
+                  width={WIDTH}
+                  height={HALF}
+                  notes={territory.notes}
+                  printedOn={printedOn}
+                />
+              </View>
             )}
           </View>
         </Page>

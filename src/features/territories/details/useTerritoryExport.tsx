@@ -1,11 +1,12 @@
+import { useAppTranslation } from '@hooks/index';
 import {
   A5_HORIZONTAL,
   A5_VERTICAL,
   MAP_LABEL_SPACE,
+  printableA5,
 } from '@views/territories/geometry';
-import { tx } from '@services/i18n/translation';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
-import { useAtomValue } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { pdf } from '@react-pdf/renderer';
 import { exportFile } from '@services/files/export';
 import {
@@ -13,7 +14,10 @@ import {
   JWLangLocaleState,
   shortDateFormatState,
 } from '@states/settings';
-import { territoriesShowDoNotCallMapState } from '@states/territories';
+import {
+  territoriesShowDoNotCallMapState,
+  territoryCardFormatState,
+} from '@states/territories';
 import { displaySnackNotification } from '@services/states/app';
 import { formatDate } from '@utils/date';
 import {
@@ -27,14 +31,14 @@ import {
   TerritoryTemplateProps,
 } from '@views/territories/index.types';
 import { CARD } from '@views/territories/index.styles';
-import { Territory } from '@definition/territory';
-import { captureTerritoryMap } from '../map/capture';
+import { Territory, TerritoryCardFormat } from '@definition/territory';
+import { captureTerritoryMap } from '@features/territories/map/capture';
 
-export type ExportFormat = 's12' | 's12a4' | 'a5h' | 'a5v';
+export type ExportFormat = TerritoryCardFormat;
 
 export type ExportParts = { front: boolean; back: boolean };
 
-const TEMPLATES: Record<
+export const TEMPLATES: Record<
   ExportFormat,
   (props: TerritoryTemplateProps) => ReactElement
 > = {
@@ -48,19 +52,19 @@ const cardMapRatio = (width: number, height: number) =>
   (width - CARD.padding * 2) / (height - CARD.mapTop - CARD.footerHeight);
 
 // the map frame of each layout (page sizes as in the templates), so the picture is never cropped
-const MAP_RATIO: Record<ExportFormat, number> = {
+export const MAP_RATIO: Record<ExportFormat, number> = {
   s12: cardMapRatio(467, 301),
   s12a4: cardMapRatio(467, 301),
-  a5h: cardMapRatio(A5_HORIZONTAL.width, A5_HORIZONTAL.height),
-  a5v: A5_VERTICAL.width / A5_VERTICAL.height,
+  a5h: printableA5(A5_HORIZONTAL).width / printableA5(A5_HORIZONTAL).height,
+  a5v: printableA5(A5_VERTICAL).width / printableA5(A5_VERTICAL).height,
 };
 
 // the longer side of each printed map frame, in points
-const MAP_LONG_SIDE: Record<ExportFormat, number> = {
+export const MAP_LONG_SIDE: Record<ExportFormat, number> = {
   s12: 467 - CARD.padding * 2,
   s12a4: 467 - CARD.padding * 2,
-  a5h: A5_HORIZONTAL.width - CARD.padding * 2,
-  a5v: A5_VERTICAL.height,
+  a5h: printableA5(A5_HORIZONTAL).width,
+  a5v: printableA5(A5_VERTICAL).height,
 };
 
 // houses and their numbers only fit on the larger A5 maps
@@ -71,22 +75,24 @@ const MAP_DETAIL: Record<ExportFormat, boolean> = {
   a5v: true,
 };
 
-// the A5 portrait map fills the card, and its label covers the bottom
-const MAP_INSET: Record<ExportFormat, number> = {
+// the A5 maps fill the card, and their label covers the bottom
+export const MAP_INSET: Record<ExportFormat, number> = {
   s12: 0,
   s12a4: 0,
-  a5h: 0,
-  a5v: MAP_LABEL_SPACE / A5_VERTICAL.height,
+  a5h: MAP_LABEL_SPACE / printableA5(A5_HORIZONTAL).height,
+  a5v: MAP_LABEL_SPACE / printableA5(A5_VERTICAL).height,
 };
 
 const FILE_SUFFIX: Record<ExportFormat, string> = {
   s12: '',
-  s12a4: 'A4',
-  a5h: 'A5 horizontal',
-  a5v: 'A5 vertical',
+  s12a4: 'tr_territoryA4',
+  a5h: 'tr_territoryA5Horizontal',
+  a5v: 'tr_territoryA5Vertical',
 };
 
 const useTerritoryExport = (territory: Territory) => {
+  const { t } = useAppTranslation();
+
   const congregation = useAtomValue(congNameState);
   const locale = useAtomValue(JWLangLocaleState);
   const dateFormat = useAtomValue(shortDateFormatState);
@@ -94,7 +100,15 @@ const useTerritoryExport = (territory: Territory) => {
 
   const isPhone = territory.type === 'phone';
 
-  const [format, setFormat] = useState<ExportFormat>('s12');
+  const [preferred, setPreferred] = useAtom(territoryCardFormatState);
+  // a phone territory has no map for the A5 layouts
+  const usable = (value: ExportFormat) =>
+    isPhone && (value === 'a5h' || value === 'a5v') ? 's12a4' : value;
+  const [format, setFormatState] = useState<ExportFormat>(usable(preferred));
+  const setFormat = (value: ExportFormat) => {
+    setFormatState(value);
+    setPreferred(value);
+  };
   const [parts, setParts] = useState<ExportParts>({ front: true, back: true });
   const [showHouseholds, setShowHouseholds] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -108,21 +122,32 @@ const useTerritoryExport = (territory: Territory) => {
     new Map<ExportFormat, Promise<string | undefined>>()
   );
 
+  useEffect(() => {
+    mapImages.current.clear();
+  }, [territory, showDoNotCalls]);
+
   const build = useCallback(async () => {
     const needsMap = parts.front && !isPhone;
 
     if (needsMap && !mapImages.current.has(format)) {
-      mapImages.current.set(
-        format,
-        captureTerritoryMap(
-          territory,
-          MAP_RATIO[format],
-          MAP_INSET[format],
-          MAP_LONG_SIDE[format],
-          MAP_DETAIL[format],
-          showDoNotCalls
-        )
+      const capture = captureTerritoryMap(
+        territory,
+        MAP_RATIO[format],
+        MAP_INSET[format],
+        MAP_LONG_SIDE[format],
+        MAP_DETAIL[format],
+        showDoNotCalls
       );
+      mapImages.current.set(format, capture);
+
+      const forget = () => {
+        if (mapImages.current.get(format) === capture) {
+          mapImages.current.delete(format);
+        }
+      };
+      capture.then((picture) => {
+        if (!picture) forget();
+      }, forget);
     }
 
     const picture = needsMap ? await mapImages.current.get(format) : undefined;
@@ -179,8 +204,12 @@ const useTerritoryExport = (territory: Territory) => {
       } catch (error) {
         if (!cancelled) {
           displaySnackNotification({
-            header: tx('Preview failed'),
-            message: (error as Error).message,
+            header: t('tr_territoryPreviewFailed'),
+            message: t((error as Error).message, {
+              defaultValue: t(
+                'tr_territoryTheTerritoryDocumentCouldNotBeGeneratedTryAgain'
+              ),
+            }),
             severity: 'error',
           });
         }
@@ -189,13 +218,13 @@ const useTerritoryExport = (territory: Territory) => {
       }
     };
 
-    render();
+    void render();
 
     return () => {
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [build]);
+  }, [build, t]);
 
   const handleExport = async () => {
     if (!blob.current || isExporting) return false;
@@ -203,8 +232,8 @@ const useTerritoryExport = (territory: Territory) => {
 
     const isS12 = format === 's12' || format === 's12a4';
     const phone = isPhone ? '-phone' : '';
-    const form = isS12 ? `S-12${phone}` : tx('Territory card');
-    const suffix = FILE_SUFFIX[format] && ` ${tx(FILE_SUFFIX[format])}`;
+    const form = isS12 ? `S-12${phone}` : t('tr_territoryTerritoryCard');
+    const suffix = FILE_SUFFIX[format] && ` ${t(FILE_SUFFIX[format])}`;
 
     // file names follow the app language, spaces as dashes: Gebietskarte-O20-A5-hoch.pdf
     const name =
@@ -214,8 +243,12 @@ const useTerritoryExport = (territory: Territory) => {
       return await exportFile(blob.current, name);
     } catch (error) {
       displaySnackNotification({
-        header: tx('Export failed'),
-        message: (error as Error).message,
+        header: t('tr_territoryExportFailed'),
+        message: t((error as Error).message, {
+          defaultValue: t(
+            'tr_territoryTheTerritoryDocumentCouldNotBeGeneratedTryAgain'
+          ),
+        }),
         severity: 'error',
       });
       return false;
@@ -240,7 +273,8 @@ const useTerritoryExport = (territory: Territory) => {
     showHouseholds,
     setShowHouseholds,
     previewUrl,
-    isProcessing: isProcessing || isExporting,
+    isProcessing,
+    isExporting,
     handleExport,
   };
 };

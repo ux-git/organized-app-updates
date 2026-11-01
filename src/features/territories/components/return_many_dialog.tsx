@@ -1,24 +1,28 @@
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { Button } from '@components/index';
 import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { Territory } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
-import { assignmentIssues, toStoredDate } from '../helpers';
-import { PublisherPicker } from './holder_picker';
+import { territoryReturnDateError } from '@utils/territory_assignments';
+import { PublisherPicker } from '@features/territories/components/holder_picker';
 
 type ReturnManyDialogProps = {
   territories: Territory[];
+  own?: boolean;
   onClose: VoidFunction;
   onReturn: (returnedOn: Date, publisher?: string) => void;
 };
 
 const ReturnManyDialog = ({
   territories,
+  own = false,
   onClose,
   onReturn,
 }: ReturnManyDialogProps) => {
+  const { t } = useAppTranslation();
+
   const opens = territories.flatMap((territory) =>
     territory.assignments.filter((item) => !item.returnedOn)
   );
@@ -30,16 +34,7 @@ const ReturnManyDialog = ({
   const [returnedOn, setReturnedOn] = useState<Date | null>(new Date());
   const [returnedBy, setReturnedBy] = useState(sharedBy);
 
-  const issues = returnedOn
-    ? opens.flatMap((item) =>
-        assignmentIssues({
-          assignedOn: item.assignedOn,
-          returnedOn: toStoredDate(returnedOn),
-        })
-      )
-    : [];
-  const tooEarly = issues.includes('returned_before_assigned');
-  const future = issues.includes('returned_future');
+  const dateError = territoryReturnDateError(opens, returnedOn);
 
   const n = territories.length;
 
@@ -49,13 +44,13 @@ const ReturnManyDialog = ({
       open
       title={
         n === 1
-          ? tx('Return {{n}} territory', { n })
-          : tx('Return {{n}} territories', { n })
+          ? t('tr_territoryReturnTerritory', { n })
+          : t('tr_territoryReturnTerritories', { n })
       }
     >
-      {sharedBy && (
+      {sharedBy && !own && (
         <PublisherPicker
-          label={tx('Returned by')}
+          label={t('tr_territoryReturnedBy')}
           value={returnedBy}
           onChange={setReturnedBy}
           current={sharedBy}
@@ -63,38 +58,32 @@ const ReturnManyDialog = ({
       )}
 
       <DatePicker
-        label={tx('Returned on')}
+        label={t('tr_territoryReturnedOn')}
         value={returnedOn}
-        error={tooEarly || future}
-        helperText={
-          tooEarly
-            ? tx('Cannot be before the assigned date')
-            : future
-              ? tx('This date is in the future')
-              : ''
-        }
+        error={!!dateError}
+        helperText={dateError ? t(dateError) : ''}
         onChange={(value) => setReturnedOn(value)}
       />
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          {tx('Cancel')}
+          {t('tr_cancel')}
         </Button>
         <Button
           variant="main"
-          disabled={!returnedOn || tooEarly || future}
+          disabled={!returnedOn || !!dateError || n === 0}
           onClick={() => {
-            if (!returnedOn || tooEarly || future) return;
+            if (!returnedOn || !!dateError || n === 0) return;
 
             onReturn(
               returnedOn,
-              sharedBy && returnedBy && returnedBy !== sharedBy
+              !own && sharedBy && returnedBy && returnedBy !== sharedBy
                 ? returnedBy
                 : undefined
             );
           }}
         >
-          {tx('Return')}
+          {t('tr_return')}
         </Button>
       </DialogActions>
     </Dialog>

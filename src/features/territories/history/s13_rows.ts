@@ -1,6 +1,7 @@
+import { isTerritoryCoverage } from '@utils/territory_coverage';
 import type { Territory } from '@definition/territory';
 import type { S13Row } from '@views/territories/S13';
-import { displayDate, parseDate } from '../helpers';
+import { displayDate, parseDate } from '@features/territories/helpers';
 
 export const s13Rows = (
   territory: Territory,
@@ -30,12 +31,19 @@ export const s13Rows = (
       displayDate(item.assignedOn, format) +
       (marker && item.campaign ? ` (${marker})` : ''),
     completedOn:
-      item.returnedOn && time(item.returnedOn) <= end
+      item.completed !== false &&
+      item.returnedOn &&
+      time(item.returnedOn) <= end
         ? displayDate(item.returnedOn, format)
         : undefined,
   }));
   const completed = assignments
-    .filter((item) => item.returnedOn && time(item.returnedOn) <= end)
+    .filter(
+      (item) =>
+        isTerritoryCoverage(item) &&
+        item.returnedOn &&
+        time(item.returnedOn) <= end
+    )
     .sort((a, b) => time(b.returnedOn) - time(a.returnedOn))[0]?.returnedOn;
   return Array.from(
     { length: Math.max(1, Math.ceil(entries.length / 4)) },

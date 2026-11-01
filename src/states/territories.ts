@@ -5,6 +5,7 @@ import { atom } from 'jotai';
 import { atomWithDefault } from 'jotai/utils';
 import {
   DEFAULT_CATEGORIES,
+  TerritoryCardFormat,
   DEFAULT_RECOMMENDATIONS,
   MapColor,
   Territory,
@@ -39,6 +40,9 @@ export const congregationBorderDashedState = atom(false);
 export const territoriesShowHouseholdsState = atom(true);
 export const territoriesShowDoNotCallCountState = atom(true);
 export const territoriesShowDoNotCallMapState = atom(true);
+
+// the congregation's usual card; printing starts with it, sharing uses it
+export const territoryCardFormatState = atom<TerritoryCardFormat>('s12a4');
 
 // the offline territories app: one territory servant, so no requests
 export const territoryLocalModeState = atom(false);

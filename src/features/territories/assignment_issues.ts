@@ -52,15 +52,6 @@ export const startsBeforeOpen = (
   );
 };
 
-// blank keeps the count it had; null is a count that can't be right
-export const parseHouseholds = (text: string, fallback: number) => {
-  if (!text.trim()) return fallback;
-
-  const value = Number(text);
-
-  return Number.isInteger(value) && value >= 0 ? value : null;
-};
-
 // two devices apart can each hand out the same territory, and a sync keeps both;
 // these are the open ones besides the newest, which is the one that counts
 export const olderOpenAssignments = <
@@ -80,7 +71,7 @@ export const olderOpenAssignments = <
     .map(({ assignment }) => assignment);
 
 export const ISSUE_TEXT: Record<AssignmentIssue, string> = {
-  assigned_future: 'Assigned date is in the future',
-  returned_future: 'Returned date is in the future',
-  returned_before_assigned: 'Returned before it was assigned',
+  assigned_future: 'tr_territoryAssignedDateIsInTheFuture',
+  returned_future: 'tr_territoryReturnedDateIsInTheFuture',
+  returned_before_assigned: 'tr_territoryReturnedBeforeItWasAssigned',
 };

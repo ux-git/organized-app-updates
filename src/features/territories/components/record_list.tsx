@@ -3,13 +3,18 @@ import { Box, Stack } from '@mui/material';
 import { CustomDivider, InfoNote, Typography } from '@components/index';
 import { useBreakpoints } from '@hooks/index';
 import { IconChevronRight } from '@icons/index';
-import { clickableRow, HOVER_ACTIONS, rowStates } from './table_styles';
+import {
+  clickableRow,
+  HOVER_ACTIONS,
+  rowStates,
+} from '@features/territories/components/table_styles';
 
 type RecordItem = {
   id: string;
   title: string;
   titleColor?: string;
   subtitle?: string;
+  content?: ReactNode;
   // right-aligned where there is room, otherwise the end of the subtitle
   date?: string;
   // a red line under the subtitle, e.g. dates that can't be right
@@ -78,6 +83,8 @@ const RecordList = ({
                   {subtitle}
                 </Typography>
               )}
+
+              {item.content}
 
               {item.warning && (
                 <Typography

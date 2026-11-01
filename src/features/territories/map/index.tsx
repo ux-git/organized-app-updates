@@ -6,9 +6,8 @@ import TabSwitcher from '@components/tab_switcher';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { useNavigate } from 'react-router';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { systemBarInset } from '@utils/common';
-import { tx } from '@services/i18n/translation';
 import {
   IconAdd,
   IconEdit,
@@ -23,8 +22,8 @@ import {
   IconRemove,
   IconVisibility,
 } from '@icons/index';
-import { ViewToolbar } from './edit_toolbar';
-import NewTerritoryDialog from '../components/new_territory_dialog';
+import { ViewToolbar } from '@features/territories/map/edit_toolbar';
+import NewTerritoryDialog from '@features/territories/components/new_territory_dialog';
 import {
   ContextSpot,
   EditHeader,
@@ -33,16 +32,19 @@ import {
   MapContextMenu,
   StyleBar,
   ToolHint,
-} from './edit_tools';
-import LabelDialog from './label_dialog';
-import TerritoryFieldsDialog from './split_merge_dialog';
-import MarkerChip from './marker_chip';
-import MapFilters from './map_filters';
-import MapIsland, { MapAction, NorthAction } from './map_island';
-import { LegendIsland } from './map_legend';
-import { MAP_COLORS } from './constants';
-import TerritoryPicker from './territory_picker';
-import { TerritoriesMapState } from './useTerritoriesMap';
+} from '@features/territories/map/edit_tools';
+import LabelDialog from '@features/territories/map/label_dialog';
+import TerritoryFieldsDialog from '@features/territories/map/split_merge_dialog';
+import MarkerChip from '@features/territories/map/marker_chip';
+import MapFilters from '@features/territories/map/map_filters';
+import MapIsland, {
+  MapAction,
+  NorthAction,
+} from '@features/territories/map/map_island';
+import { LegendIsland } from '@features/territories/map/map_legend';
+import { MAP_COLORS } from '@features/territories/map/constants';
+import TerritoryPicker from '@features/territories/map/territory_picker';
+import { TerritoriesMapState } from '@features/territories/map/useTerritoriesMap';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 const PANEL_WIDTH = 320;
@@ -155,7 +157,84 @@ const SECOND_ROW = {
 
 const LONG_PRESS = 550;
 
+const PanelToggle = ({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: VoidFunction;
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <MapIsland corner="static">
+      <MapAction
+        title={
+          open ? t('tr_territoryHideThePanel') : t('tr_territoryShowThePanel')
+        }
+        // the panel slides under the pointer, so the tip waits
+        delaySpeed="slow"
+        onClick={onToggle}
+      >
+        {open ? (
+          <IconPanelClose color="var(--accent-main)" />
+        ) : (
+          <IconPanelOpen color="var(--accent-main)" />
+        )}
+      </MapAction>
+    </MapIsland>
+  );
+};
+
+const FullscreenToggle = ({
+  fullscreen,
+  onToggle,
+}: {
+  fullscreen: boolean;
+  onToggle: VoidFunction;
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <MapAction
+      title={
+        fullscreen
+          ? t('tr_territoryExitFullScreen')
+          : t('tr_territoryFullScreen')
+      }
+      placement="top"
+      onClick={onToggle}
+    >
+      {fullscreen ? (
+        <IconFullscreenExit color="var(--accent-main)" />
+      ) : (
+        <IconFullscreen color="var(--accent-main)" />
+      )}
+    </MapAction>
+  );
+};
+
+const mapViewportStyles = (fullscreen: boolean) =>
+  ({
+    height: fullscreen ? '100%' : 'auto',
+    // takes back the 32px the page layout keeps under every page
+    marginBottom: fullscreen ? 0 : `${BOTTOM_GAP - LAYOUT_GAP}px`,
+    ...(fullscreen && {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 1300,
+      paddingTop: `calc(12px + ${systemBarInset('top')})`,
+      paddingRight: `calc(12px + ${systemBarInset('right')})`,
+      paddingBottom: `calc(12px + ${systemBarInset('bottom')})`,
+      paddingLeft: `calc(12px + ${systemBarInset('left')})`,
+      backgroundColor: 'var(--white)',
+    }),
+  }) as const;
+
 const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
 
   const { laptopUp, tabletUp } = useBreakpoints();
@@ -300,8 +379,8 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
 
   const editTitle =
     editor.scope === 'congregation'
-      ? tx('Congregation area')
-      : tx('Territory {{number}}', {
+      ? t('tr_territoryCongregationArea')
+      : t('tr_territoryTerritory', {
           number: (map.edited ?? map.selected)?.number ?? '',
         });
 
@@ -311,7 +390,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
 
   const modeSwitch = (
     <TabSwitcher
-      ariaLabel={tx('Map mode')}
+      ariaLabel={t('tr_territoryMapMode')}
       surface="light"
       // a letter or two says nothing; the icons say more
       collapseBelow={180}
@@ -323,8 +402,12 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
         }
       }}
       options={[
-        { value: 'view', label: tx('View'), icon: <IconVisibility /> },
-        { value: 'edit', label: tx('Edit'), icon: <IconEdit /> },
+        {
+          value: 'view',
+          label: t('tr_territoryView'),
+          icon: <IconVisibility />,
+        },
+        { value: 'edit', label: t('tr_edit'), icon: <IconEdit /> },
       ]}
       // as tall as the map's button islands
       sx={{
@@ -341,8 +424,8 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
   if (map.coverageCheck && counts) {
     coverageHint =
       counts.gaps + counts.overlaps === 0
-        ? tx('No gaps or overlaps')
-        : tx('Gaps: {{gaps}} · Overlaps: {{overlaps}}', counts);
+        ? t('tr_territoryNoGapsOrOverlaps')
+        : t('tr_territoryGapsOverlaps', counts);
   }
 
   // shaped like the switch, so the two read as one control and its state
@@ -364,26 +447,13 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
     >
       <IconInfo color="var(--grey-400)" width={20} height={20} />
       <Typography className="body-small-regular" color="var(--grey-400)" noWrap>
-        {coverageHint ?? tx('Select a territory')}
+        {coverageHint ?? t('tr_territorySelectATerritory')}
       </Typography>
     </Box>
   );
 
   const panelButton = (
-    <MapIsland corner="static">
-      <MapAction
-        title={showPanel ? tx('Hide the panel') : tx('Show the panel')}
-        // the panel slides under the pointer, so the tip waits
-        delaySpeed="slow"
-        onClick={() => setPanelOpen(!showPanel)}
-      >
-        {showPanel ? (
-          <IconPanelClose color="var(--accent-main)" />
-        ) : (
-          <IconPanelOpen color="var(--accent-main)" />
-        )}
-      </MapAction>
-    </MapIsland>
+    <PanelToggle open={showPanel} onToggle={() => setPanelOpen(!showPanel)} />
   );
 
   const viewToolbar = map.selected && (
@@ -394,7 +464,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
       onDetails={() =>
         map.selected &&
         navigate(`/territories/${map.selected.id}`, {
-          state: { parent: tx('Territory coverage map') },
+          state: { parent: t('tr_territoryTerritoryCoverageMap') },
         })
       }
     />
@@ -430,26 +500,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
   );
 
   return (
-    <Box
-      sx={{
-        height: map.fullscreen ? '100%' : 'auto',
-        // takes back the 32px the page layout keeps under every page
-        marginBottom: map.fullscreen ? 0 : `${BOTTOM_GAP - LAYOUT_GAP}px`,
-        ...(map.fullscreen && {
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1300,
-          paddingTop: `calc(12px + ${systemBarInset('top')})`,
-          paddingRight: `calc(12px + ${systemBarInset('right')})`,
-          paddingBottom: `calc(12px + ${systemBarInset('bottom')})`,
-          paddingLeft: `calc(12px + ${systemBarInset('left')})`,
-          backgroundColor: 'var(--white)',
-        }),
-      }}
-    >
+    <Box sx={mapViewportStyles(map.fullscreen)}>
       <Box
         ref={map.wrapper}
         sx={{
@@ -483,12 +534,10 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             }}
           >
             <Typography>
-              {tx(
-                'The map paused because the device ran out of graphics resources.'
-              )}
+              {t('tr_territoryTheMapPausedBecauseTheDeviceRanOutOf')}
             </Typography>
             <Button variant="main" onClick={map.reloadMap}>
-              {tx('Reload map')}
+              {t('tr_territoryReloadMap')}
             </Button>
           </Stack>
         )}
@@ -641,7 +690,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
               item={{
                 id: 'ghost',
                 kind: 'text',
-                text: tx('Text'),
+                text: t('tr_territoryText'),
                 position: [0, 0],
                 color: 'red',
               }}
@@ -662,14 +711,24 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
         {editor.editing && editor.tool === 'split' && (
           <ToolHint
             minTop={topBottom}
-            text={tx('Draw a line across the territory')}
+            text={t('tr_territoryDrawALineAcrossTheTerritory')}
+            action={
+              <Button
+                variant="small"
+                disableAutoStretch
+                disabled={!editor.canSplit}
+                onClick={editor.completeSplit}
+              >
+                {t('tr_territorySplit')}
+              </Button>
+            }
           />
         )}
 
         {editor.editing && editor.tool === 'merge' && (
           <ToolHint
             minTop={topBottom}
-            text={tx('Pick the neighbouring territories')}
+            text={t('tr_territoryPickTheNeighbouringTerritories')}
             action={
               <Button
                 variant="small"
@@ -679,7 +738,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
                 onClick={map.mergePicked}
                 sx={{ minHeight: '32px' }}
               >
-                {tx('Merge ({{n}})', { n: map.mergeCount })}
+                {t('tr_territoryCombineCount', { n: map.mergeCount })}
               </Button>
             }
           />
@@ -727,8 +786,16 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             <LegendIsland
               defaultOpen={!compact}
               items={[
-                { key: 'gap', label: 'Gaps', color: MAP_COLORS.red },
-                { key: 'overlap', label: 'Overlaps', color: MAP_COLORS.purple },
+                {
+                  key: 'gap',
+                  label: 'tr_territoryGaps',
+                  color: MAP_COLORS.red,
+                },
+                {
+                  key: 'overlap',
+                  label: 'tr_territoryOverlaps',
+                  color: MAP_COLORS.purple,
+                },
               ]}
             />
           </Box>
@@ -767,7 +834,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
         >
           <MapIsland corner="static" vertical>
             <MapAction
-              title={tx('Zoom in')}
+              title={t('tr_territoryZoomIn')}
               placement="left"
               onClick={map.zoomIn}
             >
@@ -777,7 +844,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             <CustomDivider color="var(--accent-200)" sx={{ width: '24px' }} />
 
             <MapAction
-              title={tx('Zoom out')}
+              title={t('tr_territoryZoomOut')}
               placement="left"
               onClick={map.zoomOut}
             >
@@ -789,7 +856,7 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             <NorthAction map={map.instance} placement="top" />
 
             <MapAction
-              title={tx('My location')}
+              title={t('tr_territoryMyLocation')}
               placement="top"
               onClick={map.locate}
             >
@@ -797,26 +864,17 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
             </MapAction>
 
             <MapAction
-              title={tx('Show all territories')}
+              title={t('tr_territoryShowAllTerritories')}
               placement="top"
               onClick={map.fitAll}
             >
               <IconMapOverview color="var(--accent-main)" />
             </MapAction>
 
-            <MapAction
-              title={
-                map.fullscreen ? tx('Exit full screen') : tx('Full screen')
-              }
-              placement="top"
-              onClick={map.toggleFullscreen}
-            >
-              {map.fullscreen ? (
-                <IconFullscreenExit color="var(--accent-main)" />
-              ) : (
-                <IconFullscreen color="var(--accent-main)" />
-              )}
-            </MapAction>
+            <FullscreenToggle
+              fullscreen={map.fullscreen}
+              onToggle={map.toggleFullscreen}
+            />
           </MapIsland>
         </Box>
       </Box>
@@ -824,15 +882,15 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
       <Dialog
         open={map.pendingLeave}
         onClose={map.keepEditing}
-        title={tx('Discard changes')}
-        description={tx('Your unsaved changes will be lost.')}
+        title={t('tr_discardChanges')}
+        description={t('tr_unsavedChangesDesc')}
       >
         <DialogActions>
           <Button variant="secondary" onClick={map.keepEditing}>
-            {tx('Keep editing')}
+            {t('tr_territoryKeepEditing')}
           </Button>
           <Button variant="main" color="red" onClick={map.confirmLeave}>
-            {tx('Discard')}
+            {t('tr_territoryDiscard')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -847,12 +905,12 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
 
       {map.splitDialog && (
         <TerritoryFieldsDialog
-          title={tx('Split territory')}
-          description={tx(
-            'The highlighted part becomes a new territory. History and do-not-call addresses stay with territory {{number}}.',
+          title={t('tr_territorySplitTerritory')}
+          description={t(
+            'tr_territoryTheHighlightedPartBecomesANewTerritoryHistoryAnd',
             { number: map.selected?.number ?? '' }
           )}
-          confirm={tx('Split')}
+          confirm={t('tr_territorySplit')}
           low
           {...map.splitDialog}
         />
@@ -860,11 +918,9 @@ const TerritoriesMap = ({ map }: { map: TerritoriesMapState }) => {
 
       {map.mergeDialog && (
         <TerritoryFieldsDialog
-          title={tx('Merge territories')}
-          description={tx(
-            'History and do-not-call addresses move into the merged territory. Which number, locality and name does it keep?'
-          )}
-          confirm={tx('Merge')}
+          title={t('tr_territoryCombineTerritories')}
+          description={t('tr_territoryCombineDescription')}
+          confirm={t('tr_territoryCombine')}
           {...map.mergeDialog}
         />
       )}

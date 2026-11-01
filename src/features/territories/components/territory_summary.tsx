@@ -1,3 +1,4 @@
+import { useAppTranslation } from '@hooks/index';
 import { Box, Stack } from '@mui/material';
 import { useNavigate } from 'react-router';
 import { Typography } from '@components/index';
@@ -8,8 +9,7 @@ import {
   CategoryBadges,
   DoNotCallBadge,
   StatusBadge,
-} from './territory_badges';
-import { tx } from '@services/i18n/translation';
+} from '@features/territories/components/territory_badges';
 
 const row = {
   alignItems: 'center',
@@ -34,6 +34,8 @@ const TerritorySummary = ({
   showDoNotCalls?: boolean;
   onDoNotCalls?: VoidFunction;
 }) => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
   const ownsMeta = !!holder && !!meta?.startsWith(holder);
   // how long it's out joins the status badge; the holder gets a badge of
@@ -42,10 +44,7 @@ const TerritorySummary = ({
     ? meta!.slice(holder!.length).replace(/^\s*·\s*/, '')
     : undefined;
 
-  const description = [
-    heading && territory.city,
-    tx(TYPE_LABEL[territory.type]),
-  ]
+  const description = [heading && territory.city, t(TYPE_LABEL[territory.type])]
     .filter(Boolean)
     .join(' · ');
 
@@ -87,7 +86,7 @@ const TerritorySummary = ({
         }}
       >
         <Typography className="h2" color="var(--black)" sx={{ minWidth: 0 }}>
-          {tx('Overview')}
+          {t('tr_territoryOverview')}
         </Typography>
 
         <Stack
@@ -125,7 +124,7 @@ const TerritorySummary = ({
               component="button"
               type="button"
               className="label-small-medium"
-              title={tx('Show all their territories')}
+              title={t('tr_territoryShowAllTheirTerritories')}
               onClick={() =>
                 navigate(
                   `/territories?tab=all&search=${encodeURIComponent(holder)}`

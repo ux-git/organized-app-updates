@@ -1,8 +1,8 @@
+import { useAppTranslation } from '@hooks/index';
 import { ReactNode, Ref, useLayoutEffect, useRef, useState } from 'react';
 import { Box, ButtonBase, Stack } from '@mui/material';
 import { Typography } from '@components/index';
-import { tx } from '@services/i18n/translation';
-import { Bucket } from './views';
+import { Bucket } from '@features/territories/map/views';
 
 const Dot = ({ color }: { color: string }) => (
   <Box
@@ -18,18 +18,21 @@ const Dot = ({ color }: { color: string }) => (
   />
 );
 
-const Entry = ({ item }: { item: Bucket }) => (
-  <Stack direction="row" sx={{ alignItems: 'center', gap: '6px' }}>
-    <Dot color={item.color} />
-    <Typography
-      className="label-small-regular"
-      color="var(--grey-400)"
-      sx={{ whiteSpace: 'nowrap' }}
-    >
-      {tx(item.label)}
-    </Typography>
-  </Stack>
-);
+const Entry = ({ item }: { item: Bucket }) => {
+  const { t } = useAppTranslation();
+  return (
+    <Stack direction="row" sx={{ alignItems: 'center', gap: '6px' }}>
+      <Dot color={item.color} />
+      <Typography
+        className="label-small-regular"
+        color="var(--grey-400)"
+        sx={{ whiteSpace: 'nowrap' }}
+      >
+        {t(item.label)}
+      </Typography>
+    </Stack>
+  );
+};
 
 const MapLegend = ({ items }: { items: Bucket[] }) => (
   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px' }}>
@@ -85,6 +88,8 @@ export const LegendIsland = ({
   items: Bucket[];
   defaultOpen?: boolean;
 }) => {
+  const { t } = useAppTranslation();
+
   const [open, setOpen] = useState(defaultOpen);
   const foldedRef = useRef<HTMLDivElement>(null);
   const fullRef = useRef<HTMLDivElement>(null);
@@ -113,7 +118,9 @@ export const LegendIsland = ({
     <ButtonBase
       disableRipple
       aria-expanded={open}
-      aria-label={open ? tx('Hide the legend') : tx('Show the legend')}
+      aria-label={
+        open ? t('tr_territoryHideTheLegend') : t('tr_territoryShowTheLegend')
+      }
       onClick={() => setOpen(!open)}
       sx={{
         position: 'relative',

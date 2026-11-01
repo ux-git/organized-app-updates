@@ -1,5 +1,8 @@
 import { MapColor, MapStyle, PinType } from '@definition/territory';
 
+// Map context outside the territory boundary, as a fraction of each dimension.
+export const MAP_EXPORT_PADDING = 0.06;
+
 /**
  * Basemaps that cost nothing and need no API key, so a congregation can open
  * the map without signing up anywhere. All of them serve vector tiles, which
@@ -46,7 +49,7 @@ export const styleUrl = (provider: MapProviderKey, isDark: boolean) => {
   return isDark ? styles.dark : styles.light;
 };
 
-export { MAP_CENTER as DEFAULT_CENTER } from '../mockData';
+export { MAP_CENTER as DEFAULT_CENTER } from '@features/territories/mockData';
 export const DEFAULT_ZOOM = 13;
 
 export const SOURCE_ID = 'territories';
@@ -80,27 +83,27 @@ export const DEFAULT_BOUNDARY_STYLE: MapStyle = {
 };
 
 export const MAP_COLOR_LABEL: Record<MapColor, string> = {
-  red: 'Red',
-  blue: 'Blue',
-  green: 'Green',
-  orange: 'Orange',
-  purple: 'Purple',
-  black: 'Black',
+  red: 'tr_territoryRed',
+  blue: 'tr_blue',
+  green: 'tr_green',
+  orange: 'tr_orange',
+  purple: 'tr_purple',
+  black: 'tr_territoryBlack',
 };
 
 export const PIN_TYPES: { id: PinType; label: string }[] = [
-  { id: 'normal', label: 'Pin' },
-  { id: 'parking', label: 'Parking' },
-  { id: 'restaurant', label: 'Food' },
-  { id: 'transport', label: 'Stop' },
-  { id: 'shop', label: 'Shopping' },
-  { id: 'nature', label: 'Nature' },
-  { id: 'gas', label: 'Fuel' },
-  { id: 'sight', label: 'Sight' },
-  { id: 'building', label: 'Building' },
-  { id: 'school', label: 'School' },
-  { id: 'cart', label: 'Cart' },
+  { id: 'normal', label: 'tr_territoryPin' },
+  { id: 'parking', label: 'tr_territoryParking' },
+  { id: 'restaurant', label: 'tr_territoryFood' },
+  { id: 'transport', label: 'tr_timerLabelStop' },
+  { id: 'shop', label: 'tr_territoryShopping' },
+  { id: 'nature', label: 'tr_territoryNature' },
+  { id: 'gas', label: 'tr_territoryFuel' },
+  { id: 'sight', label: 'tr_territorySight' },
+  { id: 'building', label: 'tr_territoryBuilding' },
+  { id: 'school', label: 'tr_territorySchool' },
+  { id: 'cart', label: 'tr_territoryCart' },
 ];
 
 export const pinLabel = (type?: PinType) =>
-  PIN_TYPES.find((item) => item.id === type)?.label ?? 'Pin';
+  PIN_TYPES.find((item) => item.id === type)?.label ?? 'tr_territoryPin';

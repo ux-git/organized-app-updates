@@ -1,17 +1,18 @@
-import { tx } from '@services/i18n/translation';
-import { AssignReturn } from '../useAssignReturn';
-import AssignDialog from './assign_dialog';
-import ReturnDialog from './return_dialog';
+import { useAppTranslation } from '@hooks/index';
+import { AssignReturn } from '@features/territories/useAssignReturn';
+import AssignDialog from '@features/territories/components/assign_dialog';
+import ReturnDialog from '@features/territories/components/return_dialog';
 
 const AssignReturnDialogs = ({
   actions,
   canAssign,
 }: {
   actions: AssignReturn;
-  // publishers only give back their own; they may take it straight back,
-  // but never file it under a campaign
+  // Only editors can assign, reassign, or change an assignment’s campaign.
   canAssign: boolean;
 }) => {
+  const { t } = useAppTranslation();
+
   const { assignTarget, returnTarget } = actions;
 
   const doNotCalls = assignTarget?.doNotCalls.length ?? 0;
@@ -19,9 +20,13 @@ const AssignReturnDialogs = ({
   return (
     <>
       {/* both dialogs mount per territory so their fields start from it */}
-      {assignTarget && (
+      {canAssign && assignTarget && (
         <AssignDialog
-          title={tx('Assign {{number}}', { number: assignTarget.number })}
+          key={`${assignTarget.id}:${assignTarget.assignments
+            .filter((item) => !item.returnedOn)
+            .map((item) => item.id)
+            .join(',')}`}
+          title={t('tr_territoryAssign', { number: assignTarget.number })}
           subtitle={`${assignTarget.name} · ${assignTarget.city}`}
           requestedBy={assignTarget.requestedBy}
           doNotCalls={doNotCalls}
@@ -42,11 +47,15 @@ const AssignReturnDialogs = ({
 
       {returnTarget && (
         <ReturnDialog
+          key={`${returnTarget.id}:${returnTarget.assignments
+            .filter((item) => !item.returnedOn)
+            .map((item) => item.id)
+            .join(',')}`}
           territory={returnTarget}
           own={!canAssign}
           onClose={actions.closeReturn}
           onReturn={actions.handleReturn}
-          onAssignAgain={actions.handleAssign}
+          onAssignAgain={canAssign ? actions.handleAssign : undefined}
         />
       )}
     </>

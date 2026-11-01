@@ -1,11 +1,12 @@
+import { useAppTranslation } from '@hooks/index';
 import { Page, View } from '@react-pdf/renderer';
 import { Document } from '@views/components';
-import { TerritoryTemplateProps } from '../index.types';
-import CardBack from '../shared/CardBack';
-import CardFront from '../shared/CardFront';
+import { TerritoryTemplateProps } from '@views/territories/index.types';
+import CardBack from '@views/territories/shared/CardBack';
+import CardFront from '@views/territories/shared/CardFront';
 
-import PrintGuides from '../shared/PrintGuides';
-import { A4, S12 } from '../geometry';
+import PrintGuides from '@views/territories/shared/PrintGuides';
+import { A4, S12 } from '@views/territories/geometry';
 
 // where Figma places the cut areas, front above back
 const WIDTH = S12.width;
@@ -18,46 +19,53 @@ const TemplateTerritoryS12 = ({
   lang,
   printedOn,
   parts,
-}: TerritoryTemplateProps) => (
-  <Document title="S-12" lang={lang}>
-    {territories.map((territory) => (
-      <Page key={territory.id} size="A4" style={{ backgroundColor: '#FFFFFF' }}>
-        <View
-          wrap={false}
-          style={{
-            marginTop: TOP,
-            marginLeft: LEFT,
-            width: WIDTH,
-            position: 'relative',
-          }}
+}: TerritoryTemplateProps) => {
+  const { t } = useAppTranslation();
+  return (
+    <Document title={t('tr_territoryS122')} lang={lang}>
+      {territories.map((territory) => (
+        <Page
+          key={territory.id}
+          size="A4"
+          style={{ backgroundColor: '#FFFFFF' }}
         >
-          {parts.front && (
-            <CardFront
-              territory={territory}
-              width={WIDTH}
-              height={HEIGHT}
-              printedOn={printedOn}
-            />
-          )}
+          <View
+            wrap={false}
+            style={{
+              marginTop: TOP,
+              marginLeft: LEFT,
+              width: WIDTH,
+              position: 'relative',
+            }}
+          >
+            {parts.front && (
+              <CardFront
+                territory={territory}
+                width={WIDTH}
+                height={HEIGHT}
+                printedOn={printedOn}
+              />
+            )}
 
-          {parts.back && (
-            <CardBack
-              territory={territory}
+            {parts.back && (
+              <CardBack
+                territory={territory}
+                width={WIDTH}
+                height={HEIGHT}
+                notes={territory.notes}
+                printedOn={printedOn}
+              />
+            )}
+            <PrintGuides
               width={WIDTH}
-              height={HEIGHT}
-              notes={territory.notes}
-              printedOn={printedOn}
+              height={HEIGHT * (Number(parts.front) + Number(parts.back))}
+              horizontal={parts.front && parts.back ? HEIGHT : undefined}
             />
-          )}
-          <PrintGuides
-            width={WIDTH}
-            height={HEIGHT * (Number(parts.front) + Number(parts.back))}
-            horizontal={parts.front && parts.back ? HEIGHT : undefined}
-          />
-        </View>
-      </Page>
-    ))}
-  </Document>
-);
+          </View>
+        </Page>
+      ))}
+    </Document>
+  );
+};
 
 export default TemplateTerritoryS12;

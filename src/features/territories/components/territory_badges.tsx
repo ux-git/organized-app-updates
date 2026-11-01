@@ -1,12 +1,21 @@
+import { useNavigate } from 'react-router';
+import Button from '@components/button';
+import { territoryCampaignsState } from '@features/territories/campaigns';
+import { useAppTranslation } from '@hooks/index';
 import { Box, Stack } from '@mui/material';
 import Tooltip from '@components/tooltip';
 import { Badge } from '@components/index';
 import { IconCampaign, IconCancelCicle, IconRaiseHand } from '@icons/index';
-import { daysLabel, doNotCallLabel, olderOpenAssignments } from '../helpers';
-import { hasNewNote } from '../notes';
-import { categoryBadge } from '../category_colors';
+import {
+  daysLabel,
+  doNotCallLabel,
+  olderOpenAssignments,
+} from '@features/territories/helpers';
+import { hasNewNote } from '@features/territories/notes';
+import { categoryBadge } from '@features/territories/category_colors';
 import { useAtomValue } from 'jotai';
 import {
+  territoryLocalModeState,
   territoriesShowDoNotCallCountState,
   territoryCategoriesState,
 } from '@states/territories';
@@ -19,7 +28,6 @@ import {
   TerritoryAssignment,
   TerritoryStatus,
 } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
 
 // in a tight row a badge shortens its text instead of dropping out of view;
 // long names give up their space first, so short ones stay readable
@@ -44,15 +52,18 @@ export const StatusBadge = ({
   status: TerritoryStatus;
   // e.g. how long it has been out, as "In work · 15 d"
   detail?: string;
-}) => (
-  <Badge
-    size="small"
-    color={STATUS_COLOR[status]}
-    text={[tx(STATUS_LABEL[status]), detail].filter(Boolean).join(' · ')}
-    filled={false}
-    sx={{ width: 'fit-content', flexShrink: 0 }}
-  />
-);
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <Badge
+      size="small"
+      color={STATUS_COLOR[status]}
+      text={[t(STATUS_LABEL[status]), detail].filter(Boolean).join(' · ')}
+      filled={false}
+      sx={{ width: 'fit-content', flexShrink: 0 }}
+    />
+  );
+};
 
 const coveredColor = (days: number) => {
   if (days > 365) return 'red';
@@ -80,6 +91,8 @@ export const CoveredBadge = ({
 
 // a return came with a note; the mark goes once an editor opens the territory
 export const NewNoteBadge = ({ territory }: { territory: Territory }) => {
+  const { t } = useAppTranslation();
+
   if (!hasNewNote(territory)) return null;
 
   return (
@@ -87,13 +100,15 @@ export const NewNoteBadge = ({ territory }: { territory: Territory }) => {
       size="small"
       color="accent"
       filled={false}
-      text={tx('New note')}
-      sx={{ width: 'fit-content', ...shrink(tx('New note')) }}
+      text={t('tr_territoryNewNote')}
+      sx={{ width: 'fit-content', ...shrink(t('tr_territoryNewNote')) }}
     />
   );
 };
 
 export const RequestBadge = ({ territory }: { territory: Territory }) => {
+  const { t } = useAppTranslation();
+
   if (!territory.requestedBy) return null;
 
   return (
@@ -101,9 +116,9 @@ export const RequestBadge = ({ territory }: { territory: Territory }) => {
       size="small"
       color="orange"
       filled={false}
-      text={tx('Requested')}
+      text={t('tr_territoryRequested')}
       icon={<IconRaiseHand color="var(--orange-dark)" />}
-      sx={{ width: 'fit-content', ...shrink(tx('Requested')) }}
+      sx={{ width: 'fit-content', ...shrink(t('tr_territoryRequested')) }}
     />
   );
 };
@@ -163,13 +178,13 @@ export const ListDoNotCallBadge = ({ territory }: { territory: Territory }) => {
 
 // two devices handed it out while apart; the territory's page closes the older one
 export const AssignedTwiceBadge = ({ territory }: { territory: Territory }) => {
+  const { t } = useAppTranslation();
+
   if (olderOpenAssignments(territory.assignments).length === 0) return null;
 
   return (
     <Tooltip
-      title={tx(
-        'Two open assignments after a sync. Open the territory to end the older one.'
-      )}
+      title={t('tr_territoryTwoOpenAssignmentsAfterASyncOpenTheTerritory')}
     >
       {/* the tooltip needs a DOM child to anchor to */}
       <Box sx={{ width: 'fit-content', minWidth: 0 }}>
@@ -177,8 +192,11 @@ export const AssignedTwiceBadge = ({ territory }: { territory: Territory }) => {
           size="small"
           color="orange"
           filled={false}
-          text={tx('Assigned twice')}
-          sx={{ width: 'fit-content', ...shrink(tx('Assigned twice')) }}
+          text={t('tr_territoryAssignedTwice')}
+          sx={{
+            width: 'fit-content',
+            ...shrink(t('tr_territoryAssignedTwice')),
+          }}
         />
       </Box>
     </Tooltip>
@@ -191,17 +209,41 @@ export const CampaignBadge = ({
 }: {
   assignment: TerritoryAssignment;
 }) => {
+  const campaigns = useAtomValue(territoryCampaignsState);
+  const local = useAtomValue(territoryLocalModeState);
+  const navigate = useNavigate();
   if (!assignment.campaign) return null;
+  const name =
+    (!assignment.returnedOn &&
+      campaigns.find((item) => item.id === assignment.campaign?.id)?.name) ||
+    assignment.campaign.name;
 
-  return (
+  const badge = (
     <Badge
       size="small"
       color="accent"
       filled={false}
-      text={assignment.campaign.name}
+      text={name}
       icon={<IconCampaign color="var(--accent-dark)" />}
-      sx={{ width: 'fit-content', ...shrink(assignment.campaign.name) }}
+      sx={{ width: 'fit-content', ...shrink(name) }}
     />
+  );
+  if (!campaigns.some((item) => item.id === assignment.campaign?.id))
+    return badge;
+  return (
+    <Button
+      variant="small"
+      disableAutoStretch
+      sx={{ minWidth: 0, padding: 0 }}
+      onClick={(event) => {
+        event.stopPropagation();
+        navigate(
+          `${local ? '/settings/campaigns' : '/territories/campaigns'}?event=${encodeURIComponent(assignment.campaign!.id)}`
+        );
+      }}
+    >
+      {badge}
+    </Button>
   );
 };
 
@@ -213,9 +255,11 @@ export const CardBadge = ({
   card?: AssignmentCard;
   text?: boolean;
 }) => {
+  const { t } = useAppTranslation();
+
   if (!card) return null;
 
-  const label = tx(CARD_LABEL[card]);
+  const label = t(CARD_LABEL[card]);
 
   const badge = (
     <Badge
@@ -244,6 +288,8 @@ export const CardBadge = ({
 };
 
 export const CardLostBadge = ({ territory }: { territory: Territory }) => {
+  const { t } = useAppTranslation();
+
   if (!territory.cardLost) return null;
 
   return (
@@ -251,8 +297,8 @@ export const CardLostBadge = ({ territory }: { territory: Territory }) => {
       size="small"
       color="red"
       filled={false}
-      text={tx('Reprint')}
-      sx={{ width: 'fit-content', ...shrink(tx('Reprint')) }}
+      text={t('tr_territoryLost')}
+      sx={{ width: 'fit-content', ...shrink(t('tr_territoryLost')) }}
     />
   );
 };
@@ -296,11 +342,11 @@ export const CategoryBadges = ({
             key={category.id}
             size="small"
             color={badge.color}
-            text={tx(category.name)}
+            text={category.name}
             filled={false}
             sx={{
               width: 'fit-content',
-              ...shrink(tx(category.name)),
+              ...shrink(category.name),
               ...badge.sx,
             }}
           />
@@ -310,7 +356,7 @@ export const CategoryBadges = ({
         <Tooltip
           title={known
             .slice(max)
-            .map((category) => tx(category.name))
+            .map((category) => category.name)
             .join(', ')}
         >
           {/* the tooltip needs a DOM child to anchor to */}

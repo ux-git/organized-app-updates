@@ -1,13 +1,13 @@
+import { useAppTranslation } from '@hooks/index';
 import { Stack } from '@mui/material';
 import { useAtomValue } from 'jotai';
 import QuickSettings from '@features/quick_settings';
 import { territoryLocalModeState } from '@states/territories';
-import { tx } from '@services/i18n/translation';
-import RecommendationSettings from './recommendation_settings';
+import RecommendationSettings from '@features/territories/hub/recommendation_settings';
 import {
   TerritoryDisplaySettings,
   TerritoryOverdueSettings,
-} from './preference_controls';
+} from '@features/territories/hub/preference_controls';
 
 type TerritoriesQuickSettingsProps = {
   open: boolean;
@@ -22,9 +22,11 @@ const TerritoriesQuickSettings = ({
   overdueMonths,
   onOverdueMonthsChange,
 }: TerritoriesQuickSettingsProps) => {
+  const { t } = useAppTranslation();
+
   const local = useAtomValue(territoryLocalModeState);
   return (
-    <QuickSettings title={tx('Territories')} open={open} onClose={onClose}>
+    <QuickSettings title={t('tr_territories')} open={open} onClose={onClose}>
       <Stack spacing="16px" sx={{ width: '100%' }}>
         <TerritoryDisplaySettings />
         <TerritoryOverdueSettings

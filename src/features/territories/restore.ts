@@ -5,7 +5,7 @@ import {
   Territory,
   TerritoryAssignment,
 } from '@definition/territory';
-import { withAssignments } from './helpers';
+import { withAssignments } from '@features/territories/helpers';
 
 // Undo puts back what was deleted, into the territories as they are now, so
 // edits made meanwhile stay. It is written as a new edit and syncs like one.

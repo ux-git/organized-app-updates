@@ -3,5 +3,9 @@
   "identifier": "default",
   "description": "The bundled territories page; no remote page gets these",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "core:app:allow-set-app-theme",
+    "core:window:allow-set-background-color"
+  ]
 }

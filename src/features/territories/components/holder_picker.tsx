@@ -4,12 +4,14 @@ import { Box, Stack } from '@mui/material';
 import { Typography } from '@components/index';
 import { IconAdd } from '@icons/index';
 import TabSwitcher from '@components/tab_switcher';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { AssignmentHolder } from '@definition/territory';
-import { addAssignee, territoryAssigneesState } from '../assignees';
-import { HolderChoice, HolderMode } from '../card_choice';
-import PublisherSearch from './publisher_search';
-import { tx } from '@services/i18n/translation';
+import {
+  addAssignee,
+  territoryAssigneesState,
+} from '@features/territories/assignees';
+import { HolderChoice, HolderMode } from '@features/territories/card_choice';
+import PublisherSearch from '@features/territories/components/publisher_search';
 
 const Hint = ({ text }: { text: string }) => (
   <Typography
@@ -33,9 +35,11 @@ const AddName = ({
   group: boolean;
   onAdded: (name: string) => void;
 }) => {
+  const { t } = useAppTranslation();
+
   const [busy, setBusy] = useState(false);
   const trimmed = name.trim();
-  if (!addAssignee || !trimmed) return tx('No results');
+  if (!addAssignee || !trimmed) return t('tr_noResults');
 
   return (
     <Box
@@ -68,8 +72,8 @@ const AddName = ({
     >
       <IconAdd width={20} height={20} />
       {group
-        ? tx('Add the group “{{name}}”', { name: trimmed })
-        : tx('Add “{{name}}” as a publisher', { name: trimmed })}
+        ? t('tr_territoryAddTheGroup', { name: trimmed })
+        : t('tr_territoryAddAsAPublisher', { name: trimmed })}
     </Box>
   );
 };
@@ -80,19 +84,22 @@ export const HolderModeSwitch = ({
 }: {
   value: HolderChoice;
   onChange: (next: HolderChoice) => void;
-}) => (
-  <TabSwitcher
-    ariaLabel={tx('Assign to')}
-    surface="light"
-    value={value.mode}
-    onChange={(mode: HolderMode) => onChange({ ...value, mode })}
-    options={[
-      { value: 'publisher', label: tx('Publisher') },
-      { value: 'group', label: tx('Group') },
-    ]}
-    sx={{ width: '100%', '& button': { minHeight: '36px' } }}
-  />
-);
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <TabSwitcher
+      ariaLabel={t('tr_territoryAssignTo')}
+      surface="light"
+      value={value.mode}
+      onChange={(mode: HolderMode) => onChange({ ...value, mode })}
+      options={[
+        { value: 'publisher', label: t('tr_publisher') },
+        { value: 'group', label: t('tr_fieldServiceGroup') },
+      ]}
+      sx={{ width: '100%', '& button': { minHeight: '36px' } }}
+    />
+  );
+};
 
 // people only, and in group mode the group first; a hint shows on an empty
 // field once a save was tried
@@ -110,17 +117,31 @@ export const HolderPickers = ({
   // names no longer on the list, e.g. someone who moved, stay choosable
   current?: Partial<AssignmentHolder>;
 }) => {
+  const { t } = useAppTranslation();
+
   const { tablet600Up } = useBreakpoints();
 
   const assignees = useAtomValue(territoryAssigneesState);
-  const namesOf = (group: boolean, kept?: string) => {
-    const names = assignees
-      .filter((item) => item.group === group)
-      .map(({ name }) => name);
-    return kept && !names.includes(kept) ? [...names, kept] : names;
+  const optionsOf = (group: boolean, kept?: string, id?: string) => {
+    const options = assignees.filter((item) => item.group === group);
+    if (
+      kept &&
+      !options.some((item) => (id ? item.id === id : item.name === kept))
+    )
+      options.push({ id: id ?? `legacy:${kept}`, name: kept, group });
+    return options;
   };
-  const people = namesOf(false, current?.publisher);
-  const groups = namesOf(true, current?.group);
+  const people = optionsOf(false, current?.publisher, current?.publisherId);
+  const groups = optionsOf(true, current?.group, current?.groupId);
+  const selected = (
+    options: typeof assignees,
+    name: string | null,
+    id?: string
+  ) => {
+    if (id) return options.find((item) => item.id === id) ?? null;
+    const matches = options.filter((item) => item.name === name);
+    return matches.length === 1 ? matches[0] : null;
+  };
 
   const isGroup = value.mode === 'group';
   const [groupQuery, setGroupQuery] = useState('');
@@ -135,12 +156,19 @@ export const HolderPickers = ({
       {isGroup && (
         <Stack spacing="4px" sx={{ flex: 1, minWidth: 0 }}>
           <PublisherSearch
-            label={tx('Group')}
-            placeholder={tx('Search groups…')}
+            label={t('tr_fieldServiceGroup')}
+            placeholder={t('tr_territorySearchGroups')}
             options={groups}
-            value={value.group}
-            onChange={(group) => onChange({ ...value, group })}
-            getName={(name) => name}
+            value={selected(groups, value.group, value.groupId)}
+            onChange={(group) =>
+              onChange({
+                ...value,
+                group: group?.name ?? null,
+                groupId: group?.id,
+              })
+            }
+            getName={(item) => item.name}
+            getId={(item) => item.id}
             onInputChange={setGroupQuery}
             noOptionsText={
               <AddName
@@ -151,17 +179,26 @@ export const HolderPickers = ({
             }
             autoFocus={autoFocus && !value.group}
           />
-          {showMissing && !value.group && <Hint text={tx('Choose a group')} />}
+          {showMissing && !value.group && (
+            <Hint text={t('tr_territoryChooseAGroup')} />
+          )}
         </Stack>
       )}
 
       <Stack spacing="4px" sx={{ flex: 1, minWidth: 0 }}>
         <PublisherSearch
-          label={isGroup ? tx('Assigned to') : tx('Publisher')}
+          label={isGroup ? t('tr_territoryAssignedTo') : t('tr_publisher')}
           options={people}
-          value={value.publisher}
-          onChange={(publisher) => onChange({ ...value, publisher })}
-          getName={(name) => name}
+          value={selected(people, value.publisher, value.publisherId)}
+          onChange={(publisher) =>
+            onChange({
+              ...value,
+              publisher: publisher?.name ?? null,
+              publisherId: publisher?.id,
+            })
+          }
+          getName={(item) => item.name}
+          getId={(item) => item.id}
           onInputChange={setPersonQuery}
           noOptionsText={
             <AddName
@@ -178,8 +215,8 @@ export const HolderPickers = ({
           <Hint
             text={
               isGroup
-                ? tx('Choose who it is assigned to')
-                : tx('Choose a publisher')
+                ? t('tr_territoryChooseWhoItIsAssignedTo')
+                : t('tr_territoryChooseAPublisher')
             }
           />
         )}

@@ -6,7 +6,7 @@ import {
   missingPublisher,
   territoryHolderText,
   withGroupHolders,
-} from '../group_holder';
+} from '@features/territories/group_holder';
 
 const assignment = (
   data: Partial<TerritoryAssignment> = {}

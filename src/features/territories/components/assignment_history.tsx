@@ -1,9 +1,10 @@
+import TerritoryNote from '@features/territories/components/note';
 import { useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { useAtomValue } from 'jotai';
 import { Button, CustomDivider, InfoNote, Typography } from '@components/index';
-import { IconCheck, IconPerson, IconTypeText } from '@icons/index';
-import { useBreakpoints } from '@hooks/index';
+import { IconCheck, IconPerson } from '@icons/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { monthNamesState } from '@states/app';
 import { shortDateFormatState } from '@states/settings';
 import {
@@ -12,14 +13,15 @@ import {
   issuesText,
   parseDate,
   emptyListMessage,
-} from '../helpers';
-import { noteLine } from '../notes';
-import { holderText } from '../group_holder';
-import { clickableRow, rowStates } from './table_styles';
-import { CampaignBadge } from './territory_badges';
-import TruncatedText from './truncated_text';
+} from '@features/territories/helpers';
+import { holderText } from '@features/territories/group_holder';
+import {
+  clickableRow,
+  rowStates,
+} from '@features/territories/components/table_styles';
+import { CampaignBadge } from '@features/territories/components/territory_badges';
+import TruncatedText from '@features/territories/components/truncated_text';
 import { Territory } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
 
 type Row = {
   territory: Territory;
@@ -37,6 +39,8 @@ const AssignmentHistory = ({
   selectedId?: string;
   onSelect?: (id: string) => void;
 }) => {
+  const { t } = useAppTranslation();
+
   const { tablet688Up } = useBreakpoints();
 
   const shortDateFormat = useAtomValue(shortDateFormatState);
@@ -152,20 +156,7 @@ const AssignmentHistory = ({
                       <CampaignBadge assignment={assignment} />
                     </Stack>
 
-                    {assignment.note && (
-                      <TruncatedText
-                        className="label-small-regular"
-                        color="var(--grey-400)"
-                        icon={
-                          <IconTypeText
-                            color="var(--grey-400)"
-                            width={16}
-                            height={16}
-                          />
-                        }
-                        text={noteLine(assignment.note)}
-                      />
-                    )}
+                    <TerritoryNote kind="assignment" value={assignment.note} />
 
                     {warning && (
                       <Typography
@@ -206,7 +197,9 @@ const AssignmentHistory = ({
                         color={open ? 'var(--orange-main)' : 'var(--grey-350)'}
                         noWrap
                       >
-                        {open ? tx('In progress') : date(assignment.returnedOn)}
+                        {open
+                          ? t('tr_inProgress')
+                          : date(assignment.returnedOn)}
                       </Typography>
                     </Stack>
                   </Stack>
@@ -224,7 +217,7 @@ const AssignmentHistory = ({
             disableAutoStretch
             onClick={() => setLimit(limit + PAGE)}
           >
-            {tx('Show more')}
+            {t('tr_territoryShowMore')}
           </Button>
         </Box>
       )}

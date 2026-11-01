@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Territory } from '@definition/territory';
-import { holderOptions, matchesHolder } from '../holder_filter';
+import {
+  holderOptions,
+  matchesHolder,
+} from '@features/territories/holder_filter';
 
 const territory = (id: string, holder: string | undefined, past: string[]) =>
   ({

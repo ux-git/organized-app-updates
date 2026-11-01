@@ -73,7 +73,7 @@ class MainActivity : TauriActivity() {
     handleFileIntent(intent)
     handleOpenedFile(intent)
 
-    prefs().getString(PREF_ACCENT, null)?.let { ACCENTS[it] }?.let { theme.applyStyle(it, true) }
+    prefs().getString(PREF_ACCENT, null)?.let(::applyAccent)
 
     prefs().getInt(PREF_BAR_COLOR, 0).takeIf { it != 0 }?.let { color ->
       window.setBackgroundDrawable(ColorDrawable(color))
@@ -543,20 +543,63 @@ class MainActivity : TauriActivity() {
       "backupFolder" -> pickBackupFolder(false)
       "backupNow" -> if (Backups.status(this).optBoolean("folderOk")) Backups.runNow(this) else pickBackupFolder(true)
       "exportFile" -> {
+        val id = args.optString("id")
         try {
+          check(pendingExport == null) { "Another export is already open" }
           val bytes = android.util.Base64.decode(args.optString("base64"), android.util.Base64.DEFAULT)
-          FileHandoff.share(this, args.optString("name"), args.optString("type", "application/octet-stream"), bytes)
-          Native.emit("export-result", JSONObject().put("id", args.optString("id")).put("saved", true).toString())
+          pendingExport = PendingExport(id, bytes)
+          saveDocument.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = args.optString("type", "application/octet-stream")
+            putExtra(Intent.EXTRA_TITLE, args.optString("name"))
+          })
         } catch (error: Exception) {
-          Native.emit("export-result", JSONObject().put("id", args.optString("id")).put("error", error.message).toString())
+          if (pendingExport?.id == id) pendingExport = null
+          exportResult(id, error = error.message ?: "Cannot save the file")
         }
       }
       "shareFile" -> {
-        val bytes = args.optString("text").toByteArray(Charsets.UTF_8)
-        FileHandoff.share(this, args.optString("name"), "application/octet-stream", bytes)
+        val bytes = if (args.has("base64"))
+          android.util.Base64.decode(args.optString("base64"), android.util.Base64.DEFAULT)
+        else args.optString("text").toByteArray(Charsets.UTF_8)
+        FileHandoff.share(this, args.optString("name"), args.optString("type", "application/octet-stream"), bytes)
       }
     }
     emitNearby()
+  }
+
+  private data class PendingExport(val id: String, val bytes: ByteArray)
+  private var pendingExport: PendingExport? = null
+
+  private fun exportResult(id: String, saved: Boolean = false, error: String? = null) {
+    val result = JSONObject().put("id", id).put("saved", saved)
+    if (error != null) result.put("error", error)
+    Native.emit("export-result", result.toString())
+  }
+
+  private val saveDocument = registerForActivityResult(
+    androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+  ) { result ->
+    val pending = pendingExport
+    pendingExport = null
+    if (pending != null) {
+      val uri = result.data?.data
+      if (result.resultCode != android.app.Activity.RESULT_OK || uri == null) {
+        exportResult(pending.id)
+      } else {
+        // File providers can be slow; keep the UI thread free while writing.
+        Thread {
+          try {
+            val stream = contentResolver.openOutputStream(uri, "wt")
+              ?: throw java.io.IOException("Cannot open the selected destination")
+            stream.use { it.write(pending.bytes) }
+            runOnUiThread { exportResult(pending.id, saved = true) }
+          } catch (error: Exception) {
+            runOnUiThread { exportResult(pending.id, error = error.message ?: "Cannot save the file") }
+          }
+        }.start()
+      }
+    }
   }
 
   private var backupAfterPick = false
@@ -713,6 +756,10 @@ class MainActivity : TauriActivity() {
 
   private fun applyAccent(theme: String) {
     val style = ACCENTS[theme] ?: return
+    this.theme.applyStyle(
+      if (theme.endsWith("-dark")) R.style.Theme_app_Dark else R.style.Theme_app_Light,
+      true
+    )
     this.theme.applyStyle(style, true)
     prefs().edit().putString(PREF_ACCENT, theme).apply()
   }
@@ -723,6 +770,7 @@ class MainActivity : TauriActivity() {
     if (color == barColor) return
     barColor = color
 
+    window.setBackgroundDrawable(ColorDrawable(color))
     content().setBackgroundColor(color)
 
     val light = ColorUtils.calculateLuminance(color) > 0.5

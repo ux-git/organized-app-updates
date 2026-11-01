@@ -1,4 +1,8 @@
-import { EXTRA, REGULAR, SEMIBOLD } from './interWidths';
+import {
+  EXTRA,
+  REGULAR,
+  SEMIBOLD,
+} from '@views/territories/shared/interWidths';
 
 // react-pdf cannot measure before layout, so Inter's own glyph widths
 // stand in; kerning is left out, which only errs on the wide side
@@ -7,11 +11,11 @@ const SAFETY = 0.99;
 const table = (hex: string) => {
   const widths = new Map<string, number>();
   const chars = [
-    ...Array.from({ length: 0x160 }, (_, i) => String.fromCharCode(0x20 + i)),
+    ...Array.from({ length: 0x160 }, (_, i) => String.fromCodePoint(0x20 + i)),
     ...EXTRA,
   ];
   chars.forEach((char, i) =>
-    widths.set(char, parseInt(hex.slice(i * 3, i * 3 + 3), 16) / 1000)
+    widths.set(char, Number.parseInt(hex.slice(i * 3, i * 3 + 3), 16) / 1000)
   );
   return widths;
 };
@@ -57,5 +61,7 @@ export const fitText = (
       chars++;
     if (chars > 0) cut = partial(chars);
   }
-  return `${cut.replace(/[\s,;:.!?–-]+$/, '')}…`;
+  let end = cut.length;
+  while (end > 0 && /[\s,;:.!?–-]/.test(cut[end - 1])) end--;
+  return `${cut.slice(0, end)}…`;
 };

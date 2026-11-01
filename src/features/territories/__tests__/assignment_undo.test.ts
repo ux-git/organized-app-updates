@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Territory } from '@definition/territory';
-import { revertAssignment } from '../assignment_undo';
+import {
+  revertAssignment,
+  revertDeclinedRequest,
+} from '@features/territories/assignment_undo';
 
 const base = {
   serviceYear: 2026,
@@ -57,7 +60,7 @@ const after: Territory = {
 };
 
 test('undo puts the assignment back and keeps edits made meanwhile', () => {
-  const result = revertAssignment(after, before, ['a2']);
+  const result = revertAssignment(after, before, ['a2'], after);
 
   assert.deepEqual(result.assignments, [
     { ...before.assignments[0], note: 'Dog' },
@@ -82,7 +85,8 @@ test('an assignment added by hand meanwhile stays', () => {
   const result = revertAssignment(
     { ...after, assignments: [...after.assignments, extra] },
     before,
-    ['a2']
+    ['a2'],
+    after
   );
 
   assert.deepEqual(result.assignments.at(-1), extra);
@@ -92,7 +96,9 @@ test('undo of a transfer gives the group back with its publisher', () => {
   const forGroup: Territory = {
     ...before,
     holder: 'Max',
+    holderId: 'max',
     holderGroup: 'Group 3',
+    holderGroupId: 'group-3',
     assignments: [
       {
         ...base,
@@ -106,16 +112,100 @@ test('undo of a transfer gives the group back with its publisher', () => {
   const transferred: Territory = {
     ...forGroup,
     holder: 'Ben',
+    holderId: 'ben',
     holderGroup: undefined,
+    holderGroupId: undefined,
     assignments: [
       { ...forGroup.assignments[0], returnedOn: '05.10.2026' },
       { ...base, id: 'b1', publisher: 'Ben', assignedOn: '05.10.2026' },
     ],
   };
 
-  const result = revertAssignment(transferred, forGroup, ['b1']);
+  const result = revertAssignment(transferred, forGroup, ['b1'], transferred);
 
   assert.equal(result.holder, 'Max');
   assert.equal(result.holderGroup, 'Group 3');
+  assert.equal(result.holderId, 'max');
+  assert.equal(result.holderGroupId, 'group-3');
   assert.deepEqual(result.assignments, forGroup.assignments);
+});
+
+test('undo cannot overwrite a later transfer or return', () => {
+  for (const current of [
+    { ...after, holder: 'Cleo' },
+    { ...after, status: 'available' as const, holder: undefined },
+    { ...after, households: 50 },
+    { ...after, requestedBy: 'Cleo' },
+    { ...after, holderId: 'another-person-with-the-same-name' },
+    { ...after, holderGroupId: 'another-group-with-the-same-name' },
+    { ...after, requestedById: 'another-requester-with-the-same-name' },
+    { ...after, requestPending: true },
+  ])
+    assert.equal(revertAssignment(current, before, ['a2'], after), current);
+});
+
+test('undo preserves a note edited on the affected assignment', () => {
+  const current = {
+    ...after,
+    assignments: after.assignments.map((item) =>
+      item.id === 'a2' ? { ...item, note: 'New information' } : item
+    ),
+  };
+  assert.equal(revertAssignment(current, before, ['a2'], after), current);
+});
+
+test('undo cannot leave two open assignments after a concurrent assignment', () => {
+  const current = {
+    ...after,
+    assignments: [
+      ...after.assignments,
+      { ...base, id: 'concurrent', publisher: 'Ben', assignedOn: '06.10.2026' },
+    ],
+  };
+  assert.equal(revertAssignment(current, before, ['a2'], after), current);
+});
+
+test('undoing assignment acceptance restores the original requester identity', () => {
+  const requested: Territory = {
+    ...before,
+    status: 'available',
+    holder: undefined,
+    holderId: undefined,
+    requestedBy: 'Anna',
+    requestedById: 'anna-2',
+    requestPending: true,
+    assignments: before.assignments.map((item) => ({
+      ...item,
+      returnedOn: item.returnedOn ?? '05.10.2026',
+    })),
+  };
+  const assigned: Territory = {
+    ...after,
+    holderId: 'anna-2',
+    requestedBy: undefined,
+    requestedById: undefined,
+    requestPending: false,
+  };
+  const restored = revertAssignment(assigned, requested, ['a2'], assigned);
+  assert.equal(restored.holderId, undefined);
+  assert.equal(restored.requestedBy, 'Anna');
+  assert.equal(restored.requestedById, 'anna-2');
+  assert.equal(restored.requestPending, true);
+});
+
+test('undoing a decline restores the exact request despite duplicate publisher names', () => {
+  const current = { ...before, status: 'available' as const };
+  const request = {
+    requestedBy: 'Anna',
+    requestedById: 'anna-2',
+    requestPending: true,
+  };
+  assert.deepEqual(revertDeclinedRequest(current, request), request);
+  for (const changed of [
+    { ...current, status: 'in_work' as const },
+    { ...current, requestedBy: 'Ben' },
+    { ...current, requestedById: 'new-requester' },
+    { ...current, requestPending: true },
+  ])
+    assert.deepEqual(revertDeclinedRequest(changed, request), {});
 });

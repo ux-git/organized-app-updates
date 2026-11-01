@@ -1,21 +1,21 @@
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
 import { useState } from 'react';
 import { Box } from '@mui/material';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { IconExport } from '@icons/index';
 import PageTitle from '@components/page_title';
 import NavBarButton from '@components/nav_bar_button';
 import NavBarButtonGroup from '@components/nav_bar_button_group';
 import TerritoriesHistory from '@features/territories/history';
-import useExportS13 from '@features/territories/history/useExportS13';
 import ExportS13Dialog from '@features/territories/history/export_s13_dialog';
 import useParentPage from '@features/territories/useParentPage';
-import { tx } from '@services/i18n/translation';
 
 const TerritoryHistoryPage = () => {
-  const { parent, goBack } = useParentPage();
-  const { tablet688Up } = useBreakpoints();
+  const { t } = useAppTranslation();
+  const { editor } = useTerritoryAccess();
 
-  const { handleExport, isProcessing } = useExportS13();
+  const { parent, goBack } = useParentPage('tr_territories', '/');
+  const { tablet688Up } = useBreakpoints();
 
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -29,29 +29,24 @@ const TerritoryHistoryPage = () => {
       }}
     >
       <PageTitle
-        title={tx('Assignment history')}
-        secondaryTitle={parent && tx(parent)}
+        title={t('tr_assignmentHistory')}
+        secondaryTitle={parent}
         onBack={goBack}
         buttons={
-          <NavBarButtonGroup>
-            <NavBarButton
-              text={tx('Export S-13')}
-              icon={<IconExport />}
-              onClick={() => setExportOpen(true)}
-            />
-          </NavBarButtonGroup>
+          editor && (
+            <NavBarButtonGroup>
+              <NavBarButton
+                text={t('tr_territoryExportS13')}
+                icon={<IconExport />}
+                onClick={() => setExportOpen(true)}
+              />
+            </NavBarButtonGroup>
+          )
         }
       />
 
-      {exportOpen && (
-        <ExportS13Dialog
-          isProcessing={isProcessing}
-          onClose={() => setExportOpen(false)}
-          onExport={async (markCampaigns) => {
-            await handleExport(markCampaigns);
-            setExportOpen(false);
-          }}
-        />
+      {editor && exportOpen && (
+        <ExportS13Dialog onClose={() => setExportOpen(false)} />
       )}
 
       <TerritoriesHistory />

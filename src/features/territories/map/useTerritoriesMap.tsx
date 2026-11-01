@@ -1,3 +1,6 @@
+import { territoryRestructureIssue } from '@utils/territory';
+import { territoryMapProviderState } from '@states/territory_preferences';
+import { useAppTranslation } from '@hooks/index';
 import { locateMap } from '@services/maps/location';
 import { mapRequest } from '@services/maps/offline';
 import {
@@ -13,8 +16,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import * as maplibregl from 'maplibre-gl';
 import { IconCheckCircle } from '@icons/index';
 import { displaySnackNotification } from '@services/states/app';
-import { tx } from '@services/i18n/translation';
-import { getCSSPropertyValue, localStorageGetItem } from '@utils/common';
+import { getCSSPropertyValue } from '@utils/common';
 import { isDarkThemeState } from '@states/app';
 import { store } from '@states/index';
 import {
@@ -26,10 +28,10 @@ import {
   territoriesWithStatusState,
 } from '@states/territories';
 import { Territory, TerritoryBoundary } from '@definition/territory';
-import { blankTerritory } from '../details/useTerritoryDetails';
-import { withAssignments } from '../helpers';
-import { restoreTerritory } from '../restore';
-import { offerUndo } from '../undo';
+import { blankTerritory } from '@features/territories/details/useTerritoryDetails';
+import { withAssignments } from '@features/territories/helpers';
+import { restoreTerritory } from '@features/territories/restore';
+import { offerUndo } from '@features/territories/undo';
 import {
   MAP_PROVIDERS,
   CONGREGATION_FILL_LAYER,
@@ -39,7 +41,6 @@ import {
   CONGREGATION_VEIL_LAYER,
   DEFAULT_BOUNDARY_STYLE,
   DEFAULT_CENTER,
-  DEFAULT_PROVIDER,
   DEFAULT_ZOOM,
   FILL_LAYER,
   HOVER_LAYER,
@@ -48,12 +49,15 @@ import {
   LABELS_SOURCE,
   LINE_LAYER,
   MAP_COLORS,
-  MapProviderKey,
   SOURCE_ID,
   styleUrl,
-} from './constants';
-import { ColorView, colorScheme } from './views';
-import { coverageCollection, coverageProblems } from './coverage_check';
+} from '@features/territories/map/constants';
+import { ColorView, colorScheme } from '@features/territories/map/views';
+import {
+  CoverageProblems,
+  coverageCollection,
+  coverageProblems,
+} from '@features/territories/map/coverage_check';
 import {
   addAttribution,
   addHouseIcon,
@@ -81,7 +85,7 @@ import {
   sanitizeBoundary,
   closedRing,
   counterClockwise,
-} from './helpers';
+} from '@features/territories/map/helpers';
 import {
   applyBasemapOptions,
   BasemapOptions,
@@ -91,7 +95,7 @@ import {
   labelsBelow,
   LayerSwitch,
   PlaceType,
-} from './basemap';
+} from '@features/territories/map/basemap';
 import {
   addBoundaryLayers,
   addDoNotCallLayer,
@@ -99,25 +103,24 @@ import {
   addDrawingLayers,
   FILL_OPACITY,
   setDrawingData,
-} from './layers';
-import { MARKER_ICON_ZOOM, MarkerRegistry, syncMarkers } from './markers';
-import useFullscreen from './useFullscreen';
-import useMapEditor, { EditScope } from './useMapEditor';
-import { mergeBoundaries, nextNumber, splitBoundary } from './split_merge';
-import { TerritoryFields } from './split_merge_dialog';
+} from '@features/territories/map/layers';
+import {
+  MARKER_ICON_ZOOM,
+  MarkerRegistry,
+  syncMarkers,
+} from '@features/territories/map/markers';
+import useFullscreen from '@features/territories/map/useFullscreen';
+import useMapEditor, {
+  EditScope,
+} from '@features/territories/map/useMapEditor';
+import {
+  mergeBoundaries,
+  nextNumber,
+  splitBoundary,
+} from '@features/territories/map/split_merge';
+import { TerritoryFields } from '@features/territories/map/split_merge_dialog';
 
 const ZOOM_STEP = 0.5;
-
-// per device, like the theme: another phone may load one provider better
-const PROVIDER_KEY = 'territory_map_provider';
-
-const savedProvider = (): MapProviderKey => {
-  const saved = localStorageGetItem(PROVIDER_KEY);
-
-  return saved && saved in MAP_PROVIDERS
-    ? (saved as MapProviderKey)
-    : DEFAULT_PROVIDER;
-};
 
 // the padding a map keeps around the area it opens on
 const FIT_PADDING = 80;
@@ -167,7 +170,95 @@ const WORLD: GeoJSON.Position[] = [
   [-180, -85],
 ];
 
+type DialogFields = {
+  selected?: Territory;
+  takenNumbers: (excluded?: string[]) => string[];
+  onConfirm: (fields: TerritoryFields) => void;
+  onClose: VoidFunction;
+};
+
+const splitFieldsDialog = ({
+  selected,
+  enabled,
+  takenNumbers,
+  onConfirm,
+  onClose,
+}: DialogFields & { enabled: boolean }) => {
+  if (!enabled || !selected) return undefined;
+  const taken = takenNumbers();
+  return {
+    initial: {
+      number: nextNumber(selected.number, taken),
+      city: selected.city,
+      name: '',
+    },
+    taken,
+    onConfirm,
+    onClose,
+  };
+};
+
+const mergeFieldsDialog = ({
+  selected,
+  ids,
+  territories,
+  staged,
+  takenNumbers,
+  onConfirm,
+  onClose,
+}: DialogFields & {
+  ids?: string[];
+  territories: Territory[];
+  staged: Staged;
+}) => {
+  if (!ids || !selected) return undefined;
+  const fieldsOf = ({ number, city, name }: Territory): TerritoryFields => ({
+    number,
+    city,
+    name,
+  });
+  return {
+    initial: staged.keep ?? fieldsOf(selected),
+    taken: takenNumbers([selected.id, ...staged.merged, ...ids]),
+    choices: [
+      selected,
+      ...territories.filter((item) => ids.includes(item.id)),
+    ].map(fieldsOf),
+    onConfirm,
+    onClose,
+  };
+};
+
+const mapViewState = ({
+  ready,
+  instance,
+  editMode,
+  editing,
+  territories,
+  editedId,
+  coverage,
+}: {
+  ready: boolean;
+  instance: maplibregl.Map | null;
+  editMode: boolean;
+  editing: boolean;
+  territories: Territory[];
+  editedId?: string;
+  coverage?: CoverageProblems | null;
+}) => ({
+  instance: ready ? instance : null,
+  mode: editMode ? ('edit' as const) : ('view' as const),
+  coverageCounts: coverage
+    ? { gaps: coverage.gaps.length, overlaps: coverage.overlaps.length }
+    : undefined,
+  edited: editing
+    ? territories.find((item) => item.id === editedId)
+    : undefined,
+});
+
 const useTerritoriesMap = () => {
+  const { t } = useAppTranslation();
+
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -214,15 +305,10 @@ const useTerritoriesMap = () => {
   const [heatmapPeriod, setHeatmapPeriod] = useState('last12');
 
   const scheme = useMemo(
-    () => colorScheme(colorView, heatmapPeriod),
-    [colorView, heatmapPeriod]
+    () => colorScheme(colorView, heatmapPeriod, t),
+    [colorView, heatmapPeriod, t]
   );
-  const [provider, setProviderState] = useState(savedProvider);
-
-  const setProvider = useCallback((value: MapProviderKey) => {
-    setProviderState(value);
-    localStorage.setItem(PROVIDER_KEY, value);
-  }, []);
+  const [provider, setProvider] = useAtom(territoryMapProviderState);
 
   const [layers, setLayers] = useState<BasemapOptions>(DEFAULT_BASEMAP);
   const [showNumbers, setShowNumbers] = useState(true);
@@ -325,13 +411,13 @@ const useTerritoriesMap = () => {
     );
 
     const detail = mapDetail();
-    const borderCoords = congregationBoundary?.length
-      ? counterClockwise(
-          detail.sanitizeGeometry
-            ? sanitizeBoundary(congregationBoundary)
-            : congregationBoundary
-        )
-      : undefined;
+    let borderCoords: TerritoryBoundary | undefined;
+    if (congregationBoundary?.length) {
+      const boundary = detail.sanitizeGeometry
+        ? sanitizeBoundary(congregationBoundary)
+        : congregationBoundary;
+      borderCoords = counterClockwise(boundary);
+    }
 
     const border: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
@@ -1272,8 +1358,8 @@ const useTerritoriesMap = () => {
     const result = splitBoundary(boundary, line);
     if ('error' in result) {
       displaySnackNotification({
-        header: tx('Territory not split'),
-        message: tx('Draw one line straight across the territory.'),
+        header: t('tr_territoryTerritoryNotSplit'),
+        message: t('tr_territoryDrawOneLineStraightAcrossTheTerritory'),
         severity: 'error',
       });
       return;
@@ -1309,6 +1395,8 @@ const useTerritoriesMap = () => {
           ...fields,
           type: selected.type,
           categories: selected.categories,
+          notes: selected.notes,
+          warning: selected.warning,
           boundary: splitting.smaller,
           boundaryStyle: editor.boundaryStyle,
         },
@@ -1329,11 +1417,11 @@ const useTerritoriesMap = () => {
 
     if ('error' in result) {
       displaySnackNotification({
-        header: tx('Territories not merged'),
+        header: t('tr_territoryTerritoriesNotMerged'),
         message:
           result.error === 'apart'
-            ? tx('Only neighbouring territories can be merged.')
-            : tx('The merged territory would enclose another one.'),
+            ? t('tr_territoryOnlyNeighbouringTerritoriesCanBeMerged')
+            : t('tr_territoryTheMergedTerritoryWouldEncloseAnotherOne'),
         severity: 'error',
       });
       return;
@@ -1353,47 +1441,22 @@ const useTerritoriesMap = () => {
     setMergeTarget(undefined);
   };
 
-  const fieldsOf = (item: Territory): TerritoryFields => ({
-    number: item.number,
-    city: item.city,
-    name: item.name,
+  const splitDialog = splitFieldsDialog({
+    selected,
+    enabled: !!splitting,
+    takenNumbers,
+    onConfirm: confirmSplit,
+    onClose: () => setSplitting(undefined),
   });
-
-  const splitDialog =
-    splitting && selected
-      ? {
-          initial: {
-            number: nextNumber(selected.number, takenNumbers()),
-            city: selected.city,
-            name: '',
-          },
-          taken: takenNumbers(),
-          onConfirm: confirmSplit,
-          onClose: () => setSplitting(undefined),
-        }
-      : undefined;
-
-  const mergeChoices = mergeTarget
-    ? [
-        ...(selected ? [selected] : []),
-        ...territories.filter((item) => mergeTarget.ids.includes(item.id)),
-      ].map(fieldsOf)
-    : [];
-
-  const mergeDialog =
-    mergeTarget && selected
-      ? {
-          initial: staged.keep ?? fieldsOf(selected),
-          taken: takenNumbers([
-            selected.id,
-            ...staged.merged,
-            ...mergeTarget.ids,
-          ]),
-          choices: mergeChoices,
-          onConfirm: confirmMerge,
-          onClose: () => setMergeTarget(undefined),
-        }
-      : undefined;
+  const mergeDialog = mergeFieldsDialog({
+    selected,
+    ids: mergeTarget?.ids,
+    territories,
+    staged,
+    takenNumbers,
+    onConfirm: confirmMerge,
+    onClose: () => setMergeTarget(undefined),
+  });
 
   const save = useCallback(() => {
     const { draft, scope } = editor;
@@ -1408,8 +1471,8 @@ const useTerritoriesMap = () => {
       setBorderDashed(!!editor.boundaryStyle.dashed);
 
       displaySnackNotification({
-        header: tx('Congregation border saved'),
-        message: tx('The outer border of the congregation was updated.'),
+        header: t('tr_territoryCongregationBorderSaved'),
+        message: t('tr_territoryTheOuterBorderOfTheCongregationWasUpdated'),
         severity: 'success',
         icon: <IconCheckCircle color="var(--white)" />,
       });
@@ -1418,6 +1481,25 @@ const useTerritoriesMap = () => {
       const before = store.get(territoriesState);
       const original = before.find((item) => item.id === id);
       const absorbed = before.filter((item) => staged.merged.includes(item.id));
+      const issue = territoryRestructureIssue(
+        before,
+        id,
+        staged.merged,
+        staged.created,
+        staged.keep?.number
+      );
+      const errorKey =
+        issue === 'number'
+          ? 'tr_territoryThisNumberIsAlreadyUsed'
+          : 'tr_territoryReturnBeforeRestructuring';
+      if (issue || !original) {
+        displaySnackNotification({
+          header: t('tr_territoryMapNotSaved'),
+          message: t(errorKey),
+          severity: 'error',
+        });
+        return;
+      }
 
       setTerritories((prev) => [
         ...staged.created,
@@ -1429,6 +1511,44 @@ const useTerritoriesMap = () => {
             const next: Territory = {
               ...item,
               ...staged.keep,
+              households:
+                item.households +
+                absorbed.reduce((sum, other) => sum + other.households, 0),
+              categories: [
+                ...new Set([
+                  ...item.categories,
+                  ...absorbed.flatMap((other) => other.categories),
+                ]),
+              ],
+              notes:
+                [
+                  ...new Set(
+                    [
+                      item.notes,
+                      ...absorbed.map((other) => other.notes),
+                    ].filter(Boolean)
+                  ),
+                ].join('\n\n') || undefined,
+              warning:
+                [
+                  ...new Set(
+                    [
+                      item.warning,
+                      ...absorbed.map((other) => other.warning),
+                    ].filter(Boolean)
+                  ),
+                ].join('\n') || undefined,
+              phoneNumbers: [
+                ...new Set([
+                  ...(item.phoneNumbers ?? []),
+                  ...absorbed.flatMap((other) => other.phoneNumbers ?? []),
+                ]),
+              ],
+              cardLost:
+                item.cardLost || absorbed.some((other) => other.cardLost),
+              reviewNeeded:
+                item.reviewNeeded ||
+                absorbed.some((other) => other.reviewNeeded),
               boundary: draft.boundary,
               boundaryStyle: draft.boundaryStyle,
               mapShapes: [
@@ -1460,16 +1580,17 @@ const useTerritoriesMap = () => {
 
       const number = staged.keep?.number ?? original?.number;
 
-      if (original && (absorbed.length || staged.created.length)) {
+      const undoText = absorbed.length
+        ? t('tr_territoryTerritoriesMergedInto', { number })
+        : t('tr_territoryTerritorySplit', { number });
+      if (absorbed.length || staged.created.length) {
         const createdIds = new Set(staged.created.map((item) => item.id));
         const restored = [original, ...absorbed]
           .map((item) => ({ item, index: before.indexOf(item) }))
           .sort((a, b) => a.index - b.index);
 
         offerUndo({
-          text: absorbed.length
-            ? tx('Territories merged into {{number}}', { number })
-            : tx('Territory {{number}} split', { number }),
+          text: undoText,
           revert: () => {
             store.set(territoriesState, (prev) =>
               prev.filter((item) => !createdIds.has(item.id))
@@ -1481,8 +1602,8 @@ const useTerritoriesMap = () => {
         });
       } else {
         displaySnackNotification({
-          header: tx('Map saved'),
-          message: tx('The map of territory {{number}} was saved.', {
+          header: t('tr_territoryMapSaved'),
+          message: t('tr_territoryTheMapOfTerritoryWasSaved', {
             number,
           }),
           severity: 'success',
@@ -1504,6 +1625,7 @@ const useTerritoriesMap = () => {
     setCongregationBoundary,
     goBack,
     setSelectedId,
+    t,
   ]);
 
   const locate = useCallback(() => {
@@ -1513,12 +1635,12 @@ const useTerritoriesMap = () => {
       })
       .catch(() =>
         displaySnackNotification({
-          header: tx('Location unavailable'),
-          message: tx('The device did not share its position.'),
+          header: t('tr_territoryLocationUnavailable'),
+          message: t('tr_territoryTheDeviceDidNotShareItsPosition'),
           severity: 'error',
         })
       );
-  }, []);
+  }, [t]);
 
   const fitAll = useCallback(() => {
     const drawn = territories
@@ -1535,13 +1657,20 @@ const useTerritoriesMap = () => {
     reloadMap,
     wrapper,
     container,
-    instance: ready ? map.current : null,
+    ...mapViewState({
+      ready,
+      instance: map.current,
+      editMode: isEditMode,
+      editing: editor.editing,
+      territories,
+      editedId: editingId.current,
+      coverage,
+    }),
     territories: visible,
     mapped,
     selected,
     selectedId,
     pickTerritory,
-    mode: isEditMode ? ('edit' as const) : ('view' as const),
     setMode,
     colorView,
     setColorView,
@@ -1578,15 +1707,8 @@ const useTerritoriesMap = () => {
     locate,
     fitAll,
     coverageCheck: coverageOn,
-    coverageCounts: coverage
-      ? { gaps: coverage.gaps.length, overlaps: coverage.overlaps.length }
-      : undefined,
     toggleCoverageCheck: () => setCoverageCheck((on) => !on),
     editor,
-    // the one being drawn, which a later pick on the map doesn't change
-    edited: editor.editing
-      ? territories.find((item) => item.id === editingId.current)
-      : undefined,
     startEditing,
     editArea,
     leaveTerritory,

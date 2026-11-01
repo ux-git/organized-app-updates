@@ -1,15 +1,18 @@
-import { tx } from '@services/i18n/translation';
+import { useAppTranslation } from '@hooks/index';
 import { useEffect, useRef, useState } from 'react';
 import { Box, Stack } from '@mui/material';
 import { Badge, Button, InfoNote } from '@components/index';
 import { IconAdd, IconCall, IconEdit } from '@icons/index';
 import { Territory } from '@definition/territory';
-import RecordList from '../components/record_list';
-import RowAction from '../components/row_action';
-import PhoneNumberEditor from './phone_number_editor';
-import { emptyListMessage, isDoNotCallNumber } from '../helpers';
-import { offerUndo } from '../undo';
-import { restorePhoneNumber } from '../restore';
+import RecordList from '@features/territories/components/record_list';
+import RowAction from '@features/territories/components/row_action';
+import PhoneNumberEditor from '@features/territories/details/phone_number_editor';
+import {
+  emptyListMessage,
+  isDoNotCallNumber,
+} from '@features/territories/helpers';
+import { offerUndo } from '@features/territories/undo';
+import { restorePhoneNumber } from '@features/territories/restore';
 
 // the S-12 phone card holds 32 numbers, so the list stops there
 const MAX_PHONE_NUMBERS = 32;
@@ -33,6 +36,8 @@ const PhoneNumbersPanel = ({
   onChange: (numbers: string[]) => void;
   readOnly?: boolean;
 }) => {
+  const { t } = useAppTranslation();
+
   const grid = useRef<HTMLDivElement>(null);
 
   const [editing, setEditing] = useState<number | 'new'>();
@@ -105,7 +110,7 @@ const PhoneNumbersPanel = ({
                     size="small"
                     color="red"
                     filled={false}
-                    text={tx('Do not call')}
+                    text={t('tr_territoryDoNotCallLabel')}
                     sx={{ width: 'fit-content', flexShrink: 0 }}
                   />
                 ),
@@ -113,7 +118,7 @@ const PhoneNumbersPanel = ({
                   <>
                     {!blocked && (
                       <RowAction
-                        title={tx('Call', { context: 'action' })}
+                        title={t('tr_territoryTypeCall', { context: 'action' })}
                         onClick={() => call(number)}
                       >
                         <IconCall
@@ -125,7 +130,7 @@ const PhoneNumbersPanel = ({
                     )}
                     {!readOnly && (
                       <RowAction
-                        title={tx('Edit')}
+                        title={t('tr_edit')}
                         onClick={() => setEditing(index)}
                       >
                         <IconEdit
@@ -152,7 +157,7 @@ const PhoneNumbersPanel = ({
             onClick={() => setEditing('new')}
             sx={{ minHeight: '32px', minWidth: 'unset' }}
           >
-            {tx('Add')}
+            {t('tr_add')}
           </Button>
         </Stack>
       )}
@@ -167,7 +172,7 @@ const PhoneNumbersPanel = ({
             const number = numbers[editing];
             onChange(numbers.filter((_, index) => index !== editing));
             offerUndo({
-              text: tx('Number deleted'),
+              text: t('tr_territoryNumberDeleted'),
               revert: () => restorePhoneNumber(territory.id, number, editing),
             });
           }}

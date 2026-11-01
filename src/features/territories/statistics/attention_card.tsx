@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { Box, Stack } from '@mui/material';
 import { Badge, Button, CustomDivider, Typography } from '@components/index';
-import { ChartCard } from '../components/charts';
-import { CoveredBadge, StatusBadge } from '../components/territory_badges';
-import TruncatedText from '../components/truncated_text';
-import { daysLabel, waitingAge } from '../helpers';
+import { ChartCard } from '@features/territories/components/charts';
+import {
+  CoveredBadge,
+  StatusBadge,
+} from '@features/territories/components/territory_badges';
+import TruncatedText from '@features/territories/components/truncated_text';
+import { daysLabel, waitingAge } from '@features/territories/helpers';
 import { Territory } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
 
 const AttentionCard = ({ territories }: { territories: Territory[] }) => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
 
   const { laptopUp } = useBreakpoints();
@@ -23,31 +27,41 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
   }));
 
   // never covered comes first: it has waited longer than any date can show
+  aged.sort(
+    (a, b) =>
+      Number(b.age.kind === 'never') - Number(a.age.kind === 'never') ||
+      b.age.days - a.age.days
+  );
   const rows = aged
-    .sort(
-      (a, b) =>
-        Number(b.age.kind === 'never') - Number(a.age.kind === 'never') ||
-        b.age.days - a.age.days
-    )
     .slice(0, limit)
     .map((row, index) => ({ ...row, rank: index + 1 }));
 
   const half = Math.ceil(rows.length / 2);
-  const columns = laptopUp ? [rows.slice(0, half), rows.slice(half)] : [rows];
+  const columns = laptopUp
+    ? [
+        { id: 'left', rows: rows.slice(0, half) },
+        { id: 'right', rows: rows.slice(half) },
+      ]
+    : [{ id: 'left', rows }];
 
   const overYear = aged.filter(
     ({ age }) => age.kind !== 'never' && age.days > 365
   ).length;
   const never = aged.filter(({ age }) => age.kind === 'never').length;
 
+  const hints = [
+    t('tr_territoryOfTerritoriesOutOrWaitingForOverAYear', {
+      over: overYear,
+      total: territories.length,
+    }),
+  ];
+  if (never) hints.push(t('tr_territoryNeverCoveredCount', { never }));
+
   return (
     <ChartCard
-      title={tx('Waiting the longest')}
-      hint={`${tx(
-        '{{over}} of {{total}} territories out or waiting for over a year',
-        { over: overYear, total: territories.length }
-      )}${never ? ` · ${tx('{{never}} never covered', { never })}` : ''}`}
-      note={tx('As of today')}
+      title={t('tr_territoryWaitingTheLongest')}
+      hint={hints.join(' · ')}
+      note={t('tr_territoryAsOfToday')}
       span={12}
     >
       <Box
@@ -61,17 +75,17 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
           alignItems: 'stretch',
         }}
       >
-        {columns.map((column, columnIndex) => [
-          columnIndex > 0 && (
+        {columns.map(({ id, rows: column }) => [
+          id === 'right' && (
             <CustomDivider
-              key={`divider-${columnIndex}`}
+              key={`divider-${id}`}
               orientation="vertical"
               flexItem
               color="var(--accent-200)"
             />
           ),
           <Stack
-            key={`column-${columnIndex}`}
+            key={id}
             spacing="4px"
             divider={<CustomDivider color="var(--accent-200)" />}
           >
@@ -82,7 +96,9 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
                 spacing="12px"
                 onClick={() =>
                   navigate(`/territories/${territory.id}`, {
-                    state: { parent: 'Territory coverage statistics' },
+                    state: {
+                      parent: 'tr_territoryTerritoryCoverageStatistics',
+                    },
                   })
                 }
                 sx={{
@@ -131,8 +147,8 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
                     <TruncatedText
                       className="label-small-regular"
                       color="var(--grey-350)"
-                      text={`${territory.city} · ${tx(
-                        '{{households}} households',
+                      text={`${territory.city} · ${t(
+                        'tr_territoryHouseholdsCount',
                         {
                           households: territory.households,
                         }
@@ -148,7 +164,7 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
                         size="small"
                         filled={false}
                         color="red"
-                        text={tx('Never covered')}
+                        text={t('tr_territoryNeverCovered')}
                         sx={{ width: 'fit-content', flexShrink: 0 }}
                       />
                     ) : (
@@ -156,10 +172,10 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
                         days={age.days}
                         label={
                           age.kind === 'out'
-                            ? tx('Out for {{time}}', {
+                            ? t('tr_territoryOutFor', {
                                 time: daysLabel(age.days),
                               })
-                            : tx('Waiting {{time}}', {
+                            : t('tr_territoryWaiting', {
                                 time: daysLabel(age.days),
                               })
                         }
@@ -180,7 +196,7 @@ const AttentionCard = ({ territories }: { territories: Territory[] }) => {
           onClick={() => setLimit(limit + 10)}
           sx={{ alignSelf: 'flex-start' }}
         >
-          {tx('Show more')}
+          {t('tr_territoryShowMore')}
         </Button>
       )}
     </ChartCard>

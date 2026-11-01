@@ -25,6 +25,7 @@ const IconContentCut = ({
       }}
     >
       <svg
+        aria-hidden="true"
         width="24"
         height="24"
         viewBox="0 -960 960 960"

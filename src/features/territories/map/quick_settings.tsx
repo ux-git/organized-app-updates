@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import OfflineSettings from './offline_settings';
+import OfflineSettings from '@features/territories/map/offline_settings';
 import { Box, MenuItem, Stack } from '@mui/material';
 import { Checkbox, CustomDivider, Select, Typography } from '@components/index';
 import SwitchWithLabel from '@components/switch_with_label';
@@ -7,10 +7,16 @@ import QuickSettings from '@features/quick_settings';
 import { useAtom } from 'jotai';
 import { useAppTranslation } from '@hooks/index';
 import { territoriesShowDoNotCallMapState } from '@states/territories';
-import { tx } from '@services/i18n/translation';
-import { MAP_PROVIDERS, MapProviderKey } from './constants';
-import { TerritoriesMapState } from './useTerritoriesMap';
-import { LayerSwitch, PLACE_TYPES, PlaceType } from './basemap';
+import {
+  MAP_PROVIDERS,
+  MapProviderKey,
+} from '@features/territories/map/constants';
+import { TerritoriesMapState } from '@features/territories/map/useTerritoriesMap';
+import {
+  LayerSwitch,
+  PLACE_TYPES,
+  PlaceType,
+} from '@features/territories/map/basemap';
 
 type LayerItem = { key: LayerSwitch; label: string; helper: string };
 
@@ -18,37 +24,41 @@ type LayerItem = { key: LayerSwitch; label: string; helper: string };
 const DETAIL_SWITCHES: LayerItem[] = [
   {
     key: 'streetNames',
-    label: 'Street names',
-    helper: 'Show street names from further out',
+    label: 'tr_territoryStreetNames',
+    helper: 'tr_territoryShowStreetNamesFromFurtherOut',
   },
   {
     key: 'houseNumbers',
-    label: 'House numbers',
-    helper: 'Show house numbers when zoomed in close',
+    label: 'tr_territoryHouseNumbers',
+    helper: 'tr_territoryShowHouseNumbersWhenZoomedInClose',
   },
   {
     key: 'buildings',
-    label: 'Building outlines',
-    helper: 'Outline every building when zoomed in',
+    label: 'tr_territoryBuildingOutlines',
+    helper: 'tr_territoryOutlineEveryBuildingWhenZoomedIn',
   },
   {
     key: 'places',
-    label: 'Places',
-    helper: 'Show shops, schools and other points of interest',
+    label: 'tr_territoryPlaces',
+    helper: 'tr_territoryShowShopsSchoolsAndOtherPointsOfInterest',
   },
-  { key: 'parking', label: 'Car parks', helper: 'Mark car parks with a P' },
+  {
+    key: 'parking',
+    label: 'tr_territoryCarParks',
+    helper: 'tr_territoryMarkCarParksWithAP',
+  },
 ];
 
 const COLOUR_SWITCHES: LayerItem[] = [
   {
     key: 'green',
-    label: 'Green areas',
-    helper: 'Tint parks, woods and grass green',
+    label: 'tr_territoryGreenAreas',
+    helper: 'tr_territoryTintParksWoodsAndGrassGreen',
   },
   {
     key: 'water',
-    label: 'Water',
-    helper: 'Tint rivers, lakes and canals blue',
+    label: 'tr_territoryWater',
+    helper: 'tr_territoryTintRiversLakesAndCanalsBlue',
   },
 ];
 
@@ -82,8 +92,8 @@ const MapQuickSettings = ({
   const layer = (item: LayerItem) => (
     <Stack key={item.key} spacing="8px">
       <SwitchWithLabel
-        label={tx(item.label)}
-        helper={tx(item.helper)}
+        label={t(item.label)}
+        helper={t(item.helper)}
         checked={map.layers[item.key]}
         onChange={(value) => map.setLayer(item.key, value)}
       />
@@ -100,7 +110,7 @@ const MapQuickSettings = ({
           {(Object.keys(PLACE_TYPES) as PlaceType[]).map((type) => (
             <Checkbox
               key={type}
-              label={tx(PLACE_TYPES[type].label)}
+              label={t(PLACE_TYPES[type].label)}
               checked={map.layers.placeTypes.includes(type)}
               onChange={() => map.togglePlaceType(type)}
               className="body-small-regular"
@@ -112,18 +122,22 @@ const MapQuickSettings = ({
   );
 
   return (
-    <QuickSettings title={tx('Coverage map')} open={open} onClose={onClose}>
+    <QuickSettings
+      title={t('tr_territoryCoverageMap')}
+      open={open}
+      onClose={onClose}
+    >
       <Stack spacing="24px" sx={{ width: '100%' }}>
-        <Section title={tx('Territories on the map')}>
+        <Section title={t('tr_territoryTerritoriesOnTheMap')}>
           <SwitchWithLabel
-            label={tx('Territory numbers')}
-            helper={tx('Show the number in the middle of every territory')}
+            label={t('tr_territoryTerritoryNumbers')}
+            helper={t('tr_territoryShowTheNumberInTheMiddleOfEveryTerritory')}
             checked={map.showNumbers}
             onChange={map.setShowNumbers}
           />
           <SwitchWithLabel
-            label={tx('Households count')}
-            helper={tx('Show the households under the number')}
+            label={t('tr_territoryHouseholdsLabel')}
+            helper={t('tr_territoryShowTheHouseholdsUnderTheNumber')}
             checked={map.showHouseholds}
             onChange={map.setShowHouseholds}
           />
@@ -138,9 +152,9 @@ const MapQuickSettings = ({
         {/* what the territories show above, the background map they sit on below */}
         <CustomDivider color="var(--accent-200)" />
 
-        <Section title={tx('Map')}>
+        <Section title={t('tr_territoryMap')}>
           <Select
-            label={tx('Map provider')}
+            label={t('tr_territoryMapProvider')}
             value={map.provider}
             onChange={(event) =>
               map.setProvider(event.target.value as MapProviderKey)
@@ -155,11 +169,13 @@ const MapQuickSettings = ({
           <OfflineSettings provider={map.provider} />
         </Section>
 
-        <Section title={tx('Map details')}>
+        <Section title={t('tr_territoryMapDetails')}>
           {DETAIL_SWITCHES.map(layer)}
         </Section>
 
-        <Section title={tx('Colours')}>{COLOUR_SWITCHES.map(layer)}</Section>
+        <Section title={t('tr_territoryColours')}>
+          {COLOUR_SWITCHES.map(layer)}
+        </Section>
       </Stack>
     </QuickSettings>
   );

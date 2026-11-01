@@ -6,6 +6,7 @@ import { store } from '@states/index';
 import en from './locales/en.json';
 import de from './locales/de.json';
 import text from './locales/text.de.json';
+import territoryEnglish from '@locales/en/congregation.json';
 
 // this app's own texts, beside the main app's (managed on Crowdin)
 const NS = 'territory';
@@ -17,6 +18,22 @@ i18n.addResourceBundle('eng', 'ui', en.organized, true, true);
 i18n.addResourceBundle('deu', 'ui', de.organized, true, true);
 // the English written in the main app's territory pages
 i18n.addResourceBundle('deu', 'text', text);
+
+// Keep the standalone app's existing German translations while the shared
+// territory screens move to Organized's Crowdin keys.
+const territoryGerman = Object.fromEntries(
+  Object.entries(territoryEnglish)
+    .filter(([key, value]) => key.startsWith('tr_territory') && value in text)
+    .map(([key, value]) => [key, text[value as keyof typeof text]])
+);
+territoryGerman.tr_territoryCombine = text.Merge;
+territoryGerman.tr_territoryCombineTerritories = text['Merge territories'];
+territoryGerman.tr_territoryCombineCount = text['Merge ({{n}})'].replace(
+  ' ({{n}})',
+  ': {{n}}'
+);
+i18n.addResourceBundle('deu', 'ui', territoryGerman, true, false);
+
 store.set(appLocaleState, determineAppLocale(i18n.language));
 
 // no congregation settings here: dates follow the language

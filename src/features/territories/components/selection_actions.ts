@@ -6,12 +6,10 @@ export type SelectionAction = { kind: 'assign' | 'return'; count: number };
 export const selectionActions = (selected: Territory[]): SelectionAction[] => {
   const actions: SelectionAction[] = [];
   for (const territory of selected) {
-    const kind =
-      territory.status === 'available'
-        ? 'assign'
-        : territory.status === 'in_work' || territory.status === 'overdue'
-          ? 'return'
-          : undefined;
+    let kind: SelectionAction['kind'] | undefined;
+    if (territory.status === 'available') kind = 'assign';
+    else if (territory.status === 'in_work' || territory.status === 'overdue')
+      kind = 'return';
     if (!kind) continue;
     const action = actions.find((item) => item.kind === kind);
     if (action) action.count++;

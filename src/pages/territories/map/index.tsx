@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Box } from '@mui/material';
-import { useUpNavigation } from '@hooks/index';
+import { useAppTranslation, useUpNavigation } from '@hooks/index';
 import PageTitle from '@components/page_title';
-import { tx } from '@services/i18n/translation';
 import TerritoriesMap from '@features/territories/map';
 import useTerritoriesMap from '@features/territories/map/useTerritoriesMap';
 import MapQuickSettings from '@features/territories/map/quick_settings';
@@ -18,6 +17,8 @@ import {
 } from '@states/territories';
 
 const TerritoryMapPage = () => {
+  const { t } = useAppTranslation();
+
   const map = useTerritoriesMap();
 
   const { editor } = map;
@@ -30,12 +31,12 @@ const TerritoryMapPage = () => {
 
   const { goUp } = useUpNavigation();
 
-  let title = tx('Territory coverage map');
+  let title = t('tr_territoryTerritoryCoverageMap');
   if (editor.editing) {
     title =
       editor.scope === 'congregation'
-        ? tx('Congregation area')
-        : tx('Territory {{number}} map', {
+        ? t('tr_territoryCongregationArea')
+        : t('tr_territoryMapWithNumber', {
             number: map.selected?.number ?? '',
           });
   }
@@ -45,7 +46,7 @@ const TerritoryMapPage = () => {
       <PageTitle
         title={title}
         secondaryTitle={
-          editor.editing ? tx('Territory coverage map') : undefined
+          editor.editing ? t('tr_territoryTerritoryCoverageMap') : undefined
         }
         onBack={editor.editing ? map.leaveTerritory : () => goUp('/')}
         quickSettings={editor.editing ? undefined : () => setSettingsOpen(true)}
@@ -54,7 +55,7 @@ const TerritoryMapPage = () => {
             <NavBarButtonGroup>
               <NavBarButton
                 main
-                text={tx('Print map')}
+                text={t('tr_territoryPrintMap')}
                 icon={<IconPrint />}
                 onClick={() => setPrinting(true)}
               />

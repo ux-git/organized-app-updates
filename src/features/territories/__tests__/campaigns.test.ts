@@ -10,7 +10,7 @@ import {
   campaignsOn,
   dateOf,
   dayOf,
-} from '../campaign_dates';
+} from '@features/territories/campaign_dates';
 
 const year = new Date().getFullYear();
 
@@ -171,4 +171,12 @@ test('campaignOverlaps shares at least a day', () => {
     campaignOverlaps(memorial, new Date(2026, 0, 1), new Date(2026, 8, 29)),
     true
   );
+});
+
+test('campaign choices clamp the leap-day cutoff to the previous February', () => {
+  const edge = campaign('edge', '2023-02-01', '2023-02-28');
+  const old = campaign('old', '2023-02-01', '2023-02-27');
+  assert.deepEqual(ids(campaignChoices([edge, old], new Date(2024, 1, 29))), [
+    'edge',
+  ]);
 });

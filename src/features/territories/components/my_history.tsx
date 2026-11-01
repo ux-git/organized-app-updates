@@ -1,3 +1,4 @@
+import TerritoryNote from '@features/territories/components/note';
 import { useState } from 'react';
 import { ButtonBase, Collapse, Stack } from '@mui/material';
 import { useNavigate } from 'react-router';
@@ -9,19 +10,26 @@ import {
   InfoNote,
   Typography,
 } from '@components/index';
-import { useBreakpoints } from '@hooks/index';
-import { IconExpand, IconTypeText } from '@icons/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
+import { IconExpand } from '@icons/index';
 import { Territory } from '@definition/territory';
 import { shortDateFormatState } from '@states/settings';
 import { territoriesShowHouseholdsState } from '@states/territories';
-import { displayDate, parseDate, emptyListMessage } from '../helpers';
-import { noteLine } from '../notes';
-import { currentPublisherState } from '../assignees';
-import { clickableRow, ROW_DIVIDER, rowStates } from './table_styles';
-import { CampaignBadge } from './territory_badges';
-import { Households } from './territory_table';
-import TruncatedText from './truncated_text';
-import { tx } from '@services/i18n/translation';
+import {
+  displayDate,
+  parseDate,
+  emptyListMessage,
+} from '@features/territories/helpers';
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
+import { territoryHistoryForPublisher } from '@services/app/territory_access';
+import {
+  clickableRow,
+  ROW_DIVIDER,
+  rowStates,
+} from '@features/territories/components/table_styles';
+import { CampaignBadge } from '@features/territories/components/territory_badges';
+import { Households } from '@features/territories/components/territory_table';
+import TruncatedText from '@features/territories/components/truncated_text';
 
 // the latest ones answer "what did I have lately"; the rest load on request
 const FIRST_PAGE = 10;
@@ -29,15 +37,15 @@ const PAGE = 20;
 
 const MyHistory = ({
   territories,
-  publisher,
   title,
   parent,
 }: {
   territories: Territory[];
-  publisher?: string;
   title?: string;
   parent?: string;
 }) => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
 
   const { tablet688Up } = useBreakpoints();
@@ -46,17 +54,17 @@ const MyHistory = ({
 
   const format = useAtomValue(shortDateFormatState);
   const showHouseholds = useAtomValue(territoriesShowHouseholdsState);
-  const me = useAtomValue(currentPublisherState);
+  const { publisher, publisherId, legacyIdentitySafe } = useTerritoryAccess();
 
-  const rows = territories
+  const rows = territoryHistoryForPublisher(
+    territories,
+    publisher,
+    publisherId,
+    legacyIdentitySafe
+  )
     .flatMap((territory) =>
       territory.assignments
-        .filter(
-          (assignment) =>
-            [assignment.publisher, assignment.group].includes(
-              publisher ?? me
-            ) && assignment.returnedOn
-        )
+        .filter((assignment) => assignment.returnedOn)
         .map((assignment) => ({ territory, assignment }))
     )
     .sort(
@@ -70,8 +78,8 @@ const MyHistory = ({
   const remaining = rows.length - visible.length;
 
   const open = (id: string) =>
-    navigate(`/territories/${id}`, {
-      state: { parent: parent ?? 'My territories' },
+    navigate(`/territories/history/${id}`, {
+      state: { parent: parent ?? 'tr_myTerritories' },
     });
 
   return (
@@ -92,7 +100,7 @@ const MyHistory = ({
         }}
       >
         <Typography component="h2" className="h2" color="var(--black)">
-          {title ?? tx('My previous territories')}
+          {title ?? t('tr_territoryMyPreviousTerritories')}
         </Typography>
         {/* the accent badge vanishes on the tinted card */}
         <Badge
@@ -174,20 +182,7 @@ const MyHistory = ({
                     {displayDate(assignment.assignedOn, format)} –{' '}
                     {displayDate(assignment.returnedOn, format)}
                   </Typography>
-                  {assignment.note && (
-                    <TruncatedText
-                      className="label-small-regular"
-                      color="var(--accent-350)"
-                      icon={
-                        <IconTypeText
-                          color="var(--accent-350)"
-                          width={16}
-                          height={16}
-                        />
-                      }
-                      text={noteLine(assignment.note)}
-                    />
-                  )}
+                  <TerritoryNote kind="assignment" value={assignment.note} />
                   {assignment.campaign && (
                     <Stack direction="row" spacing="4px">
                       <CampaignBadge assignment={assignment} />
@@ -205,7 +200,7 @@ const MyHistory = ({
               endIcon={<IconExpand />}
               sx={{ width: '100%' }}
             >
-              {tx('Show more')}
+              {t('tr_territoryShowMore')}
             </Button>
           )}
         </Stack>

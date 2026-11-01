@@ -1,3 +1,4 @@
+import { useAppTranslation } from '@hooks/index';
 import { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import useUpNavigation from '@hooks/useUpNavigation';
@@ -24,9 +25,11 @@ const previousPath = () => {
 // page is opened directly (a link or a reload) the usual parent stands in.
 // Opened from the dashboard they are top-level pages, without one
 const useParentPage = (
-  fallbackTitle = 'All territories',
+  fallbackTitle = 'tr_allTerritories',
   fallbackPath = '/territories'
 ) => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
   const { goUp } = useUpNavigation();
 
@@ -40,7 +43,7 @@ const useParentPage = (
     else goUp(fallbackPath);
   }, [fromState, fromDashboard, navigate, goUp, fallbackPath]);
 
-  const parent = fromDashboard ? undefined : (fromState ?? fallbackTitle);
+  const parent = fromDashboard ? undefined : t(fromState ?? fallbackTitle);
 
   return { parent, goBack };
 };

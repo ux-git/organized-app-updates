@@ -1,4 +1,8 @@
 import {
+  isDrawingGuide,
+  pendingSplitLine,
+} from '@features/territories/map/drawing_snapshot';
+import {
   RefObject,
   useCallback,
   useEffect,
@@ -27,8 +31,15 @@ import {
   TerritoryMapDraft,
   TerritoryMapMarker,
 } from '@definition/territory';
-import { DEFAULT_BOUNDARY_STYLE, MAP_COLORS } from './constants';
-import { lineColor, roundPosition, toBoundary } from './helpers';
+import {
+  DEFAULT_BOUNDARY_STYLE,
+  MAP_COLORS,
+} from '@features/territories/map/constants';
+import {
+  lineColor,
+  roundPosition,
+  toBoundary,
+} from '@features/territories/map/helpers';
 
 export type MapTool =
   | 'border'
@@ -244,7 +255,7 @@ const readSnapshot = (features: GeoJSONStoreFeatures[]) => {
     const properties = (feature.properties ?? {}) as Properties;
 
     // terra draw renders its own handles as points; they are not data
-    if (properties.selectionPoint || properties.midPoint) continue;
+    if (isDrawingGuide(feature)) continue;
 
     const id = String(feature.id);
     const geometry = feature.geometry;
@@ -405,9 +416,26 @@ const useMapEditor = ({
   const vertex = useRef<Vertex>(undefined);
   const vertexMarker = useRef<maplibregl.Marker>(null);
 
+  const [canSplit, setCanSplit] = useState(false);
+
   const readDraft = useCallback(() => {
-    if (draw.current) setDraft(readSnapshot(draw.current.getSnapshot()));
+    if (!draw.current) return;
+    const snapshot = draw.current.getSnapshot();
+    setDraft(readSnapshot(snapshot));
+    setCanSplit(pendingSplitLine(snapshot).length >= 2);
   }, []);
+
+  const completeSplit = useCallback(() => {
+    const terra = draw.current;
+    if (!terra || options.current.tool !== 'split') return;
+    const line = pendingSplitLine(terra.getSnapshot());
+    if (line.length < 2) return;
+    // Reset the temporary drawing through the public API before opening the preview.
+    terra.setMode('static');
+    terra.setMode(MODE_FOR.split);
+    readDraft();
+    splitLine.current(line.map(roundPosition));
+  }, [readDraft]);
 
   // mirrors the picked corner for the panel, which can't read the ref
   const [cornerPicked, setCornerPicked] = useState(false);
@@ -419,7 +447,18 @@ const useMapEditor = ({
     setCornerPicked(false);
   }, []);
 
+  const pendingActions = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const defer = useCallback((terra: TerraDraw, action: VoidFunction) => {
+    const timer = setTimeout(() => {
+      pendingActions.current.delete(timer);
+      if (draw.current === terra) action();
+    });
+    pendingActions.current.add(timer);
+  }, []);
+
   const stop = useCallback(() => {
+    pendingActions.current.forEach(clearTimeout);
+    pendingActions.current.clear();
     draw.current?.stop();
     draw.current = null;
   }, []);
@@ -566,7 +605,7 @@ const useMapEditor = ({
         if (current === 'split') {
           const feature = terra.getSnapshotFeature(id);
           // once terra draw is done finishing it
-          setTimeout(() => {
+          defer(terra, () => {
             if (!terra.hasFeature(id)) return;
             terra.removeFeatures([id]);
             markAuto(before);
@@ -610,7 +649,7 @@ const useMapEditor = ({
           options.current.tool = 'points';
           setTool('points');
 
-          setTimeout(() => {
+          defer(terra, () => {
             terra.setMode(MODE_FOR.points);
             if (terra.hasFeature(id)) terra.selectFeature(id, 'points');
           });
@@ -727,13 +766,14 @@ const useMapEditor = ({
       const initial = readSnapshot(terra.getSnapshot());
 
       setDraft(initial);
+      setCanSplit(false);
       setBaseline(JSON.stringify(initial));
       setScope(nextScope);
       setEditing(true);
 
       onStart(existing);
     },
-    [map, stop, readDraft, onStart, clearVertex, historySize, markAuto]
+    [map, stop, readDraft, onStart, clearVertex, historySize, markAuto, defer]
   );
 
   const pickTool = useCallback(
@@ -846,7 +886,7 @@ const useMapEditor = ({
   const deleteItem = useCallback(
     (id: string | number) => {
       const terra = draw.current;
-      if (!terra || !terra.hasFeature(id)) return;
+      if (!terra?.hasFeature(id)) return;
       const border = kindOf(terra.getSnapshotFeature(id)) === 'boundary';
       if (terra.getSnapshotFeature(id)?.properties?.selected) {
         clearVertex();
@@ -886,11 +926,11 @@ const useMapEditor = ({
         setLabelStart('');
         setLabelling(id);
       } else {
-        setTimeout(() => terra.selectFeature(id, MODE_FOR.move));
+        defer(terra, () => terra.selectFeature(id, MODE_FOR.move));
       }
       readDraft();
     },
-    [pickTool, readDraft]
+    [pickTool, readDraft, defer]
   );
 
   // what lies under a point on screen, nearest kind first: pins and notes,
@@ -983,20 +1023,16 @@ const useMapEditor = ({
     (id: string | number, corners = false) => {
       const terra = draw.current;
       if (!terra) return;
-      const next: MapTool = corners
-        ? 'points'
-        : tool === 'points'
-          ? 'points'
-          : 'move';
+      const next: MapTool = corners || tool === 'points' ? 'points' : 'move';
       if (next !== tool) pickTool(next);
-      setTimeout(() => {
+      defer(terra, () => {
         const picked = terra.getSnapshot().find((f) => f.properties?.selected);
         if (picked?.id !== undefined && picked.id !== id)
           terra.deselectFeature(picked.id);
         terra.selectFeature(id, MODE_FOR[next]);
       });
     },
-    [tool, pickTool]
+    [tool, pickTool, defer]
   );
 
   const saveLabel = useCallback(
@@ -1082,9 +1118,9 @@ const useMapEditor = ({
       .find((feature) => feature.properties?.role === 'boundary');
 
     if (border) {
-      setTimeout(() => terra.selectFeature(border.id!, 'points'));
+      defer(terra, () => terra.selectFeature(border.id!, 'points'));
     }
-  }, [pickTool]);
+  }, [pickTool, defer]);
 
   // a split or merge also changes territories outside the drawing, which
   // undo can't reach, so the history starts again from here
@@ -1408,9 +1444,9 @@ const useMapEditor = ({
     const onClick = (event: maplibregl.MapMouseEvent) => {
       const point = [event.lngLat.lng, event.lngLat.lat];
       // after terra draw has handled the same click
-      setTimeout(() => {
-        const terra = draw.current;
-        if (!terra) return;
+      const terra = draw.current;
+      if (!terra) return;
+      defer(terra, () => {
         const features = terra.getSnapshot();
         const picked = features.find((feature) => feature.properties?.selected);
         if (picked && kindOf(picked) !== 'boundary') return;
@@ -1425,7 +1461,7 @@ const useMapEditor = ({
     return () => {
       instance.off('click', onClick);
     };
-  }, [map, editing, tool]);
+  }, [map, editing, tool, defer]);
 
   useEffect(() => stop, [stop]);
 
@@ -1434,6 +1470,8 @@ const useMapEditor = ({
   return useMemo(
     () => ({
       active: draw,
+      canSplit: tool === 'split' && canSplit,
+      completeSplit,
       editing,
       dirty,
       selected,
@@ -1475,6 +1513,8 @@ const useMapEditor = ({
       redo,
     }),
     [
+      canSplit,
+      completeSplit,
       editing,
       dirty,
       selected,

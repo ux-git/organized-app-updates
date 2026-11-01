@@ -1,6 +1,6 @@
 import { TerritoryMapMarker } from '@definition/territory';
-import { chip, isAreaLetter } from './helpers';
-import PinIcon from './pin_icon';
+import { chip, isAreaLetter } from '@features/territories/map/helpers';
+import PinIcon from '@features/territories/map/pin_icon';
 
 // the classes let the map hide labels and notes by zoom (markers.ts)
 const MarkerChip = ({

@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Territory, TerritoryAssignment } from '@definition/territory';
-import { coverageRate, isCoverage, returnedWithin } from '../coverage_rate';
+import {
+  coverageRate,
+  coveredDays,
+  isCoverage,
+  returnedWithin,
+} from '@features/territories/coverage_rate';
 
 const territory = (
   id: string,
@@ -61,13 +66,13 @@ test('the first and the last day of the period both count', () => {
   });
 });
 
-test('every return counts, also old ones marked unfinished', () => {
+test('incomplete returns do not count as regular coverage', () => {
   assert.equal(isCoverage({}), true);
-  assert.equal(isCoverage({ completed: false }), true);
+  assert.equal(isCoverage({ completed: false }), false);
   assert.equal(isCoverage({ completed: true }), true);
 });
 
-test('campaign returns cover the territory', () => {
+test('campaign work counts as regular coverage only when explicitly marked', () => {
   const memorial = { id: 'memorial', name: 'Memorial invitations' };
   const campaignOnly = territory('a', [
     { assignedOn: '01.03.2026', returnedOn: '21.03.2026', campaign: memorial },
@@ -85,12 +90,12 @@ test('campaign returns cover the territory', () => {
 
   assert.equal(
     returnedWithin(campaignOnly, year2026.start, year2026.end),
-    true
+    false
   );
   assert.equal(returnedWithin(counted, year2026.start, year2026.end), true);
   assert.deepEqual(coverageRate([campaignOnly, counted, regular], year2026), {
-    rate: 100,
-    covered: 3,
+    rate: 67,
+    covered: 2,
     total: 3,
   });
 });
@@ -101,4 +106,13 @@ test('no territories is nothing covered, not a division by zero', () => {
     covered: 0,
     total: 0,
   });
+});
+
+test('coverage age counts local calendar days throughout the day', () => {
+  const card = territory('a', [
+    { assignedOn: '01.10.2026', returnedOn: '25.10.2026' },
+  ]);
+  assert.equal(coveredDays(card, new Date(2026, 9, 25, 23, 59)), 0);
+  assert.equal(coveredDays(card, new Date(2026, 9, 26, 0, 1)), 1);
+  assert.equal(coveredDays(card, new Date(2026, 9, 24)), 0);
 });

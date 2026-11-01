@@ -1,3 +1,4 @@
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { Box, MenuItem, Stack } from '@mui/material';
 import { useNavigate } from 'react-router';
@@ -6,10 +7,9 @@ import DatePicker from '@components/date_picker';
 import { useAtomValue } from 'jotai';
 import { format } from 'date-fns';
 import { appLocaleState, monthShortNamesState } from '@states/app';
-import { tx } from '@services/i18n/translation';
 import { territoriesWithStatusState } from '@states/territories';
-import { territoryCampaignsState } from '../campaigns';
-import { currentCampaign } from '../campaign_filter';
+import { territoryCampaignsState } from '@features/territories/campaigns';
+import { currentCampaign } from '@features/territories/campaign_filter';
 import {
   averageDuration,
   chartsCut,
@@ -26,18 +26,23 @@ import {
   STATS_PERIODS,
   medianDuration,
   doNotCallAges,
-} from '../helpers';
-import { ChartCard, ColumnChart, Gauge, StatRow } from '../components/charts';
-import StatTile from '../components/stat_tile';
-import AttentionCard from './attention_card';
-import CoverageGrid from './coverage_grid';
+} from '@features/territories/helpers';
+import {
+  ChartCard,
+  ColumnChart,
+  Gauge,
+  StatRow,
+} from '@features/territories/components/charts';
+import StatTile from '@features/territories/components/stat_tile';
+import AttentionCard from '@features/territories/statistics/attention_card';
+import CoverageGrid from '@features/territories/statistics/coverage_grid';
 import {
   PublisherLoadCard,
   PublisherSplit,
   PublisherTrend,
-} from './publisher_cards';
-import CoverageCycleCard from './coverage_cycle_card';
-import CampaignCard from './campaign_card';
+} from '@features/territories/statistics/publisher_cards';
+import CoverageCycleCard from '@features/territories/statistics/coverage_cycle_card';
+import CampaignCard from '@features/territories/statistics/campaign_card';
 
 const dayStart = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -52,6 +57,8 @@ const defaultPeriod = () => {
 };
 
 const TerritoriesStatistics = () => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
 
   const territories = useAtomValue(territoriesWithStatusState);
@@ -72,22 +79,31 @@ const TerritoriesStatistics = () => {
   const range: StatsRange =
     (custom ? customRange : periodWindow(period)) ??
     periodWindow(defaultPeriod())!;
-  const months = rangeMonths(range).map(({ month }) => monthNames[month]);
+  const calendarMonths = rangeMonths(range);
+  const months = calendarMonths.map(({ month }) => monthNames[month]);
+  const monthIds = calendarMonths.map(({ year, month }) => `${year}-${month}`);
 
-  const fromError = custom && !from ? tx('Pick a date') : '';
-  const toError = !custom
-    ? ''
-    : !to
-      ? tx('Pick a date')
-      : from && from > to
-        ? tx('Before the start date')
-        : '';
+  const fromError =
+    custom && (!from || !Number.isFinite(from.getTime()))
+      ? t('tr_territoryPickADate')
+      : '';
+  let toError = '';
+  if (custom) {
+    if (!to || !Number.isFinite(to.getTime()))
+      toError = t('tr_territoryPickADate');
+    else if (to > today) toError = t('tr_territoryThisDateIsInTheFuture');
+    else if (from && from > to) toError = t('tr_territoryBeforeTheStartDate');
+  }
 
   const rangeText = `${format(range.start, 'PP', { locale })} – ${format(
     range.end,
     'PP',
     { locale }
   )}`;
+
+  const rangeHint = custom
+    ? t('tr_territoryStillShowing', { range: rangeText })
+    : rangeText;
 
   // starts from the period on screen, so nothing jumps until a date changes
   const choosePeriod = (next: string) => {
@@ -110,7 +126,7 @@ const TerritoriesStatistics = () => {
     setFrom(start);
     setTo(end);
 
-    if (start && end && start <= end) {
+    if (start && end && start <= end && end <= today) {
       setCustomRange({ start, end: dayEnd(end) });
     }
   };
@@ -147,8 +163,9 @@ const TerritoriesStatistics = () => {
       >
         <Box sx={{ width: { mobile: '100%', tablet600: '280px' } }}>
           <Select
-            label={tx('Period')}
+            label={t('tr_period')}
             value={period}
+            helperText={!custom || fromError || toError ? rangeHint : undefined}
             onChange={(event) => choosePeriod(String(event.target.value))}
           >
             {STATS_PERIODS().map((option) => (
@@ -170,7 +187,7 @@ const TerritoriesStatistics = () => {
           >
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <DatePicker
-                label={tx('From')}
+                label={t('tr_territoryFrom')}
                 value={from}
                 maxDate={to ?? today}
                 error={!!fromError}
@@ -180,7 +197,7 @@ const TerritoriesStatistics = () => {
             </Box>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <DatePicker
-                label={tx('To')}
+                label={t('tr_territoryTo')}
                 value={to}
                 minDate={from}
                 maxDate={today}
@@ -191,34 +208,18 @@ const TerritoriesStatistics = () => {
             </Box>
           </Box>
         )}
-        {/* a complete From–To already says it */}
-        {(!custom || fromError || toError) && (
-          <Box
-            sx={{
-              minHeight: { tablet600: '48px' },
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <Typography className="body-small-regular" color="var(--grey-400)">
-              {custom
-                ? tx('Still showing {{range}}', { range: rangeText })
-                : rangeText}
-            </Typography>
-          </Box>
-        )}
       </Box>
 
       {campaignFirst && campaignCard}
 
       <ChartCard
-        title={tx('Coverage')}
-        hint={tx('Territories covered at least once in this period')}
+        title={t('tr_territoryCoverage')}
+        hint={t('tr_territoryTerritoriesCoveredAtLeastOnceInThisPeriod')}
         span={4}
       >
         <Gauge
           value={rate.rate}
-          label={tx('{{covered}} of {{total}} covered', {
+          label={t('tr_territoryOfCovered', {
             covered: rate.covered,
             total: rate.total,
           })}
@@ -238,8 +239,8 @@ const TerritoriesStatistics = () => {
       </ChartCard>
 
       <ChartCard
-        title={tx('Time to cover a territory')}
-        hint={tx('Median: {{median}} months · average: {{average}} months', {
+        title={t('tr_territoryTimeToCoverATerritory')}
+        hint={t('tr_territoryMedianMonthsAverageMonths', {
           median: medianDuration(territories, range),
           average: averageDuration(territories, range),
         })}
@@ -258,19 +259,18 @@ const TerritoriesStatistics = () => {
       </ChartCard>
 
       <ChartCard
-        title={tx('Territories in work')}
+        title={t('tr_territoryTerritoriesInWork')}
         hint={
           chartsCut(range)
-            ? tx(
-                'How many were being worked in each of the last 24 months of the period'
-              )
-            : tx('How many were being worked in each month of the period')
+            ? t('tr_territoryHowManyWereBeingWorkedInEachOfThe')
+            : t('tr_territoryHowManyWereBeingWorkedInEachMonthOf')
         }
         span={4}
       >
         <ColumnChart
           values={inProgressPerMonth(territories, range)}
           labels={months}
+          monthIds={monthIds}
         />
       </ChartCard>
 
@@ -279,8 +279,8 @@ const TerritoriesStatistics = () => {
       <PublisherLoadCard territories={territories} />
 
       <ChartCard
-        title={tx('Do not call')}
-        hint={tx('Added counts the chosen period')}
+        title={t('tr_territoryDoNotCallLabel')}
+        hint={t('tr_territoryAddedCountsTheChosenPeriod')}
         span={4}
         action={
           <Button
@@ -289,11 +289,11 @@ const TerritoriesStatistics = () => {
             minHeight={32}
             onClick={() =>
               navigate('/territories/do-not-calls', {
-                state: { parent: 'Territory coverage statistics' },
+                state: { parent: 'tr_territoryTerritoryCoverageStatistics' },
               })
             }
           >
-            {tx('See all')}
+            {t('tr_territorySeeAll')}
           </Button>
         }
       >
@@ -304,9 +304,12 @@ const TerritoriesStatistics = () => {
             gap: '8px',
           }}
         >
-          <StatTile label={tx('Older than 2 years')} value={String(ages.old)} />
-          <StatTile label={tx('Added')} value={String(ages.added)} />
-          <StatTile label={tx('Total')} value={String(ages.total)} />
+          <StatTile
+            label={t('tr_territoryOlderThan2Years')}
+            value={String(ages.old)}
+          />
+          <StatTile label={t('tr_territoryAdded')} value={String(ages.added)} />
+          <StatTile label={t('tr_total')} value={String(ages.total)} />
         </Box>
 
         <Stack spacing="12px">

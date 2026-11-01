@@ -1,26 +1,22 @@
+import useCampaignSelection from '@features/territories/components/campaign_picker/useCampaignSelection';
+import TerritoryNoteField from '@features/territories/components/note_field';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
-import {
-  Badge,
-  Button,
-  InfoNote,
-  TextField,
-  Typography,
-} from '@components/index';
+import { Badge, Button, InfoNote, Typography } from '@components/index';
 import DatePicker from '@components/date_picker';
+import Divider from '@components/divider';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { IconCancelCicle } from '@icons/index';
 import { shortDateFormatState } from '@states/settings';
-import { territoryAssigneesState } from '../assignees';
-import { territoryCampaignsState } from '../campaigns';
+import { territoryAssigneesState } from '@features/territories/assignees';
+import { territoryCampaignsState } from '@features/territories/campaigns';
 import {
-  campaignChoices,
+  campaignFor,
   campaignSnapshot,
-  campaignsOn,
-} from '../campaign_dates';
+} from '@features/territories/campaign_dates';
 import {
   chosenHolder,
   holderMissing,
@@ -28,27 +24,32 @@ import {
   rememberCard,
   rememberHolder,
   savedCard,
-} from '../card_choice';
-import { holderText } from '../group_holder';
+} from '@features/territories/card_choice';
+import { holderText } from '@features/territories/group_holder';
 import {
-  assignmentIssues,
   displayDate,
   doNotCallLabel,
   toStoredDate,
-} from '../helpers';
-import { latestReturnNote } from '../notes';
-import { startsBeforeOpen } from '../assignment_issues';
-import CampaignField, { CampaignChoice } from './campaign_field';
-import CardField from './card_field';
-import { HolderModeSwitch, HolderPickers } from './holder_picker';
+} from '@features/territories/helpers';
+import { latestReturnNote } from '@features/territories/notes';
+import {
+  territoryAssignmentDateError,
+  territoryHolderAvailable,
+} from '@utils/territory_assignments';
+import CampaignField, {
+  CampaignChoice,
+} from '@features/territories/components/campaign_field';
+import CardField from '@features/territories/components/card_field';
+import {
+  HolderModeSwitch,
+  HolderPickers,
+} from '@features/territories/components/holder_picker';
 import {
   AssignmentCard,
   AssignmentHolder,
-  MAX_NOTE_LENGTH,
   Territory,
   TerritoryAssignment,
 } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
 
 type AssignDialogProps = {
   title: string;
@@ -66,7 +67,7 @@ type AssignDialogProps = {
     card?: AssignmentCard,
     // optional, shown under the name in the assignment history
     note?: string
-  ) => void;
+  ) => boolean;
 };
 
 const AssignDialog = ({
@@ -78,6 +79,9 @@ const AssignDialog = ({
   onClose,
   onAssign,
 }: AssignDialogProps) => {
+  const { t } = useAppTranslation();
+  const selectedCampaign = useCampaignSelection();
+
   const { tablet600Up } = useBreakpoints();
 
   const format = useAtomValue(shortDateFormatState);
@@ -103,21 +107,21 @@ const AssignDialog = ({
   const lastNote = territory && latestReturnNote(territory.assignments);
 
   const campaigns = useAtomValue(territoryCampaignsState);
-  const running = assignedOn ? campaignsOn(campaigns, assignedOn) : [];
-  const choices = campaignChoices(campaigns, new Date());
 
-  // the assigned-on date decides until the checkbox is touched
-  const [manual, setManual] = useState<CampaignChoice>();
-  const campaign = manual ?? { checked: running.length > 0, value: running[0] };
+  const [campaign, setCampaign] = useState<CampaignChoice>(() => {
+    const value = selectedCampaign ?? campaignFor(campaigns, new Date());
+    return { checked: !!value, value };
+  });
 
-  const future =
-    !!assignedOn &&
-    assignmentIssues({ assignedOn: toStoredDate(assignedOn) }).length > 0;
+  const dateError = territoryAssignmentDateError(
+    territory?.assignments ?? [],
+    assignedOn
+  );
 
-  const beforeOpen =
-    !!territory &&
-    !!assignedOn &&
-    startsBeforeOpen(territory.assignments, toStoredDate(assignedOn));
+  const holderAvailable = territoryHolderAvailable(
+    chosenHolder(holder),
+    assignees
+  );
 
   return (
     <Dialog
@@ -137,6 +141,14 @@ const AssignDialog = ({
             </Typography>
             {subtitle && (
               <Typography color="var(--grey-400)">{subtitle}</Typography>
+            )}
+            {territory?.notes?.trim() && (
+              <Typography
+                className="body-small-regular"
+                sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+              >
+                {t('tr_territoryNoteInline', { note: territory.notes })}
+              </Typography>
             )}
           </Stack>
           {doNotCalls > 0 && (
@@ -158,7 +170,7 @@ const AssignDialog = ({
                 // spelled out where there is room, the count alone on a phone
                 text={
                   tablet600Up
-                    ? tx('Do not call: {{n}}', { n: doNotCalls })
+                    ? t('tr_territoryDoNotCall', { n: doNotCalls })
                     : String(doNotCalls)
                 }
                 icon={<IconCancelCicle color="var(--red-dark)" />}
@@ -169,22 +181,9 @@ const AssignDialog = ({
         </Stack>
       }
     >
-      <HolderModeSwitch value={holder} onChange={setHolder} />
-
-      {territory?.notes && (
-        <Stack spacing="2px">
-          <Typography className="body-small-semibold" color="var(--grey-400)">
-            {tx('Notes')}
-          </Typography>
-          <Typography
-            className="body-small-regular"
-            color="var(--black)"
-            sx={{ whiteSpace: 'pre-line' }}
-          >
-            {territory.notes}
-          </Typography>
-        </Stack>
-      )}
+      <Box sx={{ width: '100%', marginBottom: '8px' }}>
+        <HolderModeSwitch value={holder} onChange={setHolder} />
+      </Box>
 
       {lastNote && (
         <Typography
@@ -192,7 +191,7 @@ const AssignDialog = ({
           color="var(--grey-400)"
           sx={{ whiteSpace: 'pre-line' }}
         >
-          {tx('Last return ({{name}}, {{date}}): {{note}}', {
+          {t('tr_territoryLastReturn', {
             name: holderText(lastNote),
             date: displayDate(lastNote.returnedOn, format),
             note: lastNote.note,
@@ -202,13 +201,10 @@ const AssignDialog = ({
 
       {open && assignedOn && (
         <InfoNote
-          message={tx(
-            '{{name}} still has it. It is returned on {{date}} first.',
-            {
-              name: holderText(open),
-              date: displayDate(toStoredDate(assignedOn), format),
-            }
-          )}
+          message={t('tr_territoryStillHasItItIsReturnedOnFirst', {
+            name: holderText(open),
+            date: displayDate(toStoredDate(assignedOn), format),
+          })}
         />
       )}
 
@@ -219,62 +215,52 @@ const AssignDialog = ({
         autoFocus={!tablet600Up}
       />
 
+      {tried && !holderAvailable && (
+        <InfoNote message={t('tr_territoryAssigneeUnavailable')} />
+      )}
+
+      <Divider color="var(--accent-200)" sx={{ width: '100%' }} />
+      <Typography component="h3" className="body-small-semibold">
+        {t('tr_territoryAssignmentHeading')}
+      </Typography>
       <DatePicker
-        label={tx('Assigned on')}
+        label={t('tr_territoryAssignedOn')}
         value={assignedOn}
-        error={future || beforeOpen}
-        helperText={
-          beforeOpen && open
-            ? tx('Cannot be before {{name}} got it on {{date}}', {
-                name: holderText(open),
-                date: displayDate(open.assignedOn, format),
-              })
-            : future
-              ? tx('This date is in the future')
-              : ''
-        }
+        error={!!dateError}
+        helperText={dateError ? t(dateError) : ''}
         onChange={(value) => setAssignedOn(value)}
       />
 
       <CardField value={card} onChange={setCard} />
 
-      <TextField
-        label={tx('Assignment notes')}
-        multiline
-        minRows={2}
-        value={note}
-        slotProps={{ htmlInput: { maxLength: MAX_NOTE_LENGTH } }}
-        onChange={(event) => setNote(event.target.value)}
-      />
-
       {campaigns.length > 0 && (
-        <CampaignField
-          label={tx('For the campaign')}
-          running={running}
-          choices={choices}
-          checked={campaign.checked}
-          value={campaign.value}
-          onChange={setManual}
-        />
+        <>
+          <Divider color="var(--accent-200)" sx={{ width: '100%' }} />
+          <CampaignField
+            checked={campaign.checked}
+            value={campaign.value}
+            onChange={setCampaign}
+          />
+        </>
       )}
+
+      <TerritoryNoteField kind="assignment" value={note} onChange={setNote} />
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          {tx('Cancel')}
+          {t('tr_cancel')}
         </Button>
         <Button
           variant="main"
-          disabled={!assignedOn || beforeOpen}
+          disabled={!!dateError}
           onClick={() => {
-            if (!assignedOn || beforeOpen) return;
-            if (holderMissing(holder)) {
+            if (!assignedOn || dateError) return;
+            if (holderMissing(holder) || !holderAvailable) {
               setTried(true);
               return;
             }
             const chosen = chosenHolder(holder);
-            rememberCard(card);
-            rememberHolder(chosen.group);
-            onAssign(
+            const assigned = onAssign(
               chosen,
               assignedOn,
               campaign.checked && campaign.value
@@ -283,10 +269,13 @@ const AssignDialog = ({
               card,
               note.trim() || undefined
             );
+            if (!assigned) return;
+            rememberCard(card);
+            rememberHolder(chosen.group);
             onClose();
           }}
         >
-          {tx('Assign')}
+          {t('tr_assign')}
         </Button>
       </DialogActions>
     </Dialog>

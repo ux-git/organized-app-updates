@@ -1,3 +1,5 @@
+import { useSearchParams } from 'react-router';
+import { useAppTranslation } from '@hooks/index';
 import { ReactNode } from 'react';
 import { Box, Stack } from '@mui/material';
 import { Badge, Button, FilterChip, Typography } from '@components/index';
@@ -12,9 +14,12 @@ import {
   TerritoryType,
   TYPE_LABEL,
 } from '@definition/territory';
-import { appliedFilters, clearedFilters, COVERAGE_PERIODS } from '../helpers';
-import CampaignChips from './campaign_chips';
-import { tx } from '@services/i18n/translation';
+import {
+  appliedFilters,
+  clearedFilters,
+  COVERAGE_PERIODS,
+} from '@features/territories/helpers';
+import CampaignChips from '@features/territories/components/campaign_chips';
 
 const Group = ({ label, children }: { label: string; children: ReactNode }) => (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -39,6 +44,9 @@ const TerritoryFilters = ({
   // off where the page puts its own clear button next to its main action
   showClear?: boolean;
 }) => {
+  const { t } = useAppTranslation();
+  const [params] = useSearchParams();
+
   const categories = useAtomValue(territoryCategoriesState);
 
   const periods = COVERAGE_PERIODS();
@@ -70,23 +78,23 @@ const TerritoryFilters = ({
       <Stack direction="row" spacing="12px" sx={{ alignItems: 'center' }}>
         {showTitle && (
           <Typography className="body-small-semibold" color="var(--black)">
-            {tx('Filters')}
+            {t('tr_filters')}
           </Typography>
         )}
         <Badge
           size="small"
           filled={false}
           color={applied > 0 ? 'accent' : 'grey'}
-          text={tx('Applied: {{n}}', { n: applied })}
+          text={t('tr_territoryApplied', { n: applied })}
           sx={{ width: 'fit-content' }}
         />
       </Stack>
 
-      <Group label={tx('Assignment')}>
+      <Group label={t('tr_assignment')}>
         {(Object.keys(STATUS_LABEL) as TerritoryStatus[]).map((status) => (
           <FilterChip
             key={status}
-            label={tx(STATUS_LABEL[status])}
+            label={t(STATUS_LABEL[status])}
             selected={filters.status.includes(status)}
             onClick={() => toggle('status', status)}
           />
@@ -94,13 +102,13 @@ const TerritoryFilters = ({
         {(Object.keys(CARD_LABEL) as AssignmentCard[]).map((card) => (
           <FilterChip
             key={card}
-            label={tx(CARD_LABEL[card])}
+            label={t(CARD_LABEL[card])}
             selected={filters.card.includes(card)}
             onClick={() => toggle('card', card)}
           />
         ))}
         <FilterChip
-          label={tx('Out for groups')}
+          label={t('tr_territoryOutForGroups')}
           selected={!!filters.forGroups}
           onClick={() =>
             onChange({ ...filters, forGroups: !filters.forGroups || undefined })
@@ -108,31 +116,31 @@ const TerritoryFilters = ({
         />
       </Group>
 
-      <Group label={tx('Type')}>
+      <Group label={t('tr_type')}>
         {(Object.keys(TYPE_LABEL) as TerritoryType[]).map((type) => (
           <FilterChip
             key={type}
-            label={tx(TYPE_LABEL[type])}
+            label={t(TYPE_LABEL[type])}
             selected={filters.type.includes(type)}
             onClick={() => toggle('type', type)}
           />
         ))}
       </Group>
 
-      <Group label={tx('Categories')}>
+      <Group label={t('tr_categories')}>
         {categories.map((category) => (
           <FilterChip
             key={category.id}
-            label={tx(category.name)}
+            label={category.name}
             selected={filters.categories.includes(category.id)}
             onClick={() => toggle('categories', category.id)}
           />
         ))}
       </Group>
 
-      <Group label={tx('Card')}>
+      <Group label={t('tr_territoryCard')}>
         <FilterChip
-          label={tx('Lost')}
+          label={t('tr_territoryLost')}
           selected={filters.cardLostOnly}
           onClick={() =>
             onChange({ ...filters, cardLostOnly: !filters.cardLostOnly })
@@ -142,13 +150,15 @@ const TerritoryFilters = ({
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <Typography className="body-small-semibold" color="var(--black)">
-          {tx('Work status')}
+          {t('tr_territoryWorkStatus')}
         </Typography>
 
         {[true, false].map((covered) => (
           <Group
             key={String(covered)}
-            label={covered ? tx('Covered') : tx('Not covered')}
+            label={
+              covered ? t('tr_territoryCovered') : t('tr_territoryNotCovered')
+            }
           >
             {periods.map((period) => (
               <FilterChip
@@ -164,7 +174,9 @@ const TerritoryFilters = ({
           </Group>
         ))}
 
-        <CampaignChips filters={filters} onChange={onChange} />
+        {params.get('tab') !== 'campaign' && (
+          <CampaignChips filters={filters} onChange={onChange} />
+        )}
       </Box>
 
       {showClear && (
@@ -173,7 +185,7 @@ const TerritoryFilters = ({
           disabled={applied === 0}
           onClick={() => onChange(clearedFilters(filters))}
         >
-          {tx('Clear all')}
+          {t('tr_clearAll')}
         </Button>
       )}
     </Box>

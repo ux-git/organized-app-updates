@@ -1,14 +1,14 @@
+import { useAppTranslation } from '@hooks/index';
 import { Stack } from '@mui/material';
 import { Button } from '@components/index';
 import InfoBanner from '@components/info_banner';
 import { Territory } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
 import {
   closeOlderAssignments,
   olderOpenAssignments,
   parseDate,
-} from '../helpers';
-import { holderText } from '../group_holder';
+} from '@features/territories/helpers';
+import { holderText } from '@features/territories/group_holder';
 
 const time = (value?: string) => parseDate(value)?.getTime() ?? 0;
 
@@ -20,6 +20,8 @@ const AssignedTwice = ({
   territory: Territory;
   onChange: (territory: Territory) => void;
 }) => {
+  const { t } = useAppTranslation();
+
   if (olderOpenAssignments(territory.assignments).length === 0) return null;
 
   const names = territory.assignments
@@ -31,10 +33,9 @@ const AssignedTwice = ({
   return (
     <Stack spacing="8px" sx={{ alignItems: 'flex-start' }}>
       <InfoBanner sx={{ width: '100%' }}>
-        {tx(
-          'Assigned twice after a sync: {{names}}. Only the newest assignment should stay open.',
-          { names }
-        )}
+        {t('tr_territoryAssignedTwiceAfterASyncOnlyTheNewestAssignment', {
+          names,
+        })}
       </InfoBanner>
 
       <Button
@@ -43,7 +44,7 @@ const AssignedTwice = ({
         onClick={() => onChange(closeOlderAssignments(territory))}
         sx={{ minHeight: '32px' }}
       >
-        {tx('End the older assignment')}
+        {t('tr_territoryEndTheOlderAssignment')}
       </Button>
     </Stack>
   );

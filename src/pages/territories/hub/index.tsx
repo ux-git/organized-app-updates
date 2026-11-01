@@ -1,17 +1,20 @@
+import TerritoryImport from '@features/territories/import';
+import CampaignContext from '@features/territories/components/campaign_context';
 import { ReactNode, useState } from 'react';
 import { Box } from '@mui/material';
 import {
   IconAdd,
+  IconImportFile,
   IconMapAdd,
   IconRaiseHand,
   IconMapOverview,
-  IconAssignmetHistory,
-  IconCancelCicle,
 } from '@icons/index';
-import { useBreakpoints, useUpNavigation } from '@hooks/index';
+import {
+  useAppTranslation,
+  useBreakpoints,
+  useUpNavigation,
+} from '@hooks/index';
 import { useNavigate } from 'react-router';
-import { useAtomValue } from 'jotai';
-import { territoryLocalModeState } from '@states/territories';
 import NavBarButton from '@components/nav_bar_button';
 import NavBarButtonGroup from '@components/nav_bar_button_group';
 import PageTitle from '@components/page_title';
@@ -19,9 +22,10 @@ import TerritoriesHub from '@features/territories/hub';
 import NewTerritoryDialog from '@features/territories/components/new_territory_dialog';
 import TerritoriesQuickSettings from '@features/territories/hub/quick_settings';
 import useTerritoriesHub from '@features/territories/hub/useTerritoriesHub';
-import { tx } from '@services/i18n/translation';
 
 const Territories = () => {
+  const { t } = useAppTranslation();
+
   const navigate = useNavigate();
 
   const { tablet688Up, desktopUp } = useBreakpoints();
@@ -29,10 +33,10 @@ const Territories = () => {
   const hub = useTerritoriesHub();
 
   const { isTerritoryEditor } = hub;
-  const localMode = useAtomValue(territoryLocalModeState);
 
   const isFilterSubpage = !desktopUp && hub.filtersOpen;
 
+  const [importOpen, setImportOpen] = useState(false);
   const [newOnMap, setNewOnMap] = useState(false);
 
   const { title } = hub;
@@ -42,7 +46,11 @@ const Territories = () => {
   const mineButtons = hub.canBrowse && (
     <NavBarButtonGroup>
       <NavBarButton
-        text={hub.canRequest ? tx('Request') : tx('Show available territories')}
+        text={
+          hub.canRequest
+            ? t('tr_territoryRequest')
+            : t('tr_territoryShowAvailableTerritories')
+        }
         icon={hub.canRequest ? <IconRaiseHand /> : <IconMapOverview />}
         textImportant
         onClick={() => navigate('/territories?tab=recommended')}
@@ -50,45 +58,26 @@ const Territories = () => {
     </NavBarButtonGroup>
   );
 
-  // the tools live on the hub itself; the requests page stays a focused review.
-  // Standalone, do-not-calls and history have their own dashboard entries.
-  const browseButtons = (
+  const browseButtons = isTerritoryEditor && (
     <NavBarButtonGroup>
-      {isTerritoryEditor && !localMode && (
-        <NavBarButton
-          text={tx('Do not call')}
-          icon={<IconCancelCicle />}
-          onClick={() =>
-            navigate('/territories/do-not-calls', { state: { parent: title } })
-          }
-        />
-      )}
-      {!localMode && (
-        <NavBarButton
-          text={tx('History')}
-          icon={<IconAssignmetHistory />}
-          onClick={() =>
-            navigate('/territories/history', { state: { parent: title } })
-          }
-        />
-      )}
-      {isTerritoryEditor && (
-        <NavBarButton
-          text={tx('New map')}
-          icon={<IconMapAdd />}
-          onClick={() => setNewOnMap(true)}
-        />
-      )}
-      {isTerritoryEditor && (
-        <NavBarButton
-          text={tx('Add')}
-          icon={<IconAdd />}
-          textImportant
-          onClick={() =>
-            navigate('/territories/new', { state: { parent: title } })
-          }
-        />
-      )}
+      <NavBarButton
+        text={t('tr_import')}
+        icon={<IconImportFile />}
+        onClick={() => setImportOpen(true)}
+      />
+      <NavBarButton
+        text={t('tr_territoryNewMap')}
+        icon={<IconMapAdd />}
+        onClick={() => setNewOnMap(true)}
+      />
+      <NavBarButton
+        text={t('tr_add')}
+        icon={<IconAdd />}
+        textImportant
+        onClick={() =>
+          navigate('/territories/new', { state: { parent: title } })
+        }
+      />
     </NavBarButtonGroup>
   );
 
@@ -104,6 +93,9 @@ const Territories = () => {
         paddingBottom: tablet688Up ? '0px' : '60px',
       }}
     >
+      {isTerritoryEditor && importOpen && (
+        <TerritoryImport open onClose={() => setImportOpen(false)} />
+      )}
       {newOnMap && <NewTerritoryDialog onClose={() => setNewOnMap(false)} />}
 
       {hub.quickSettingsOpen && (
@@ -116,8 +108,8 @@ const Territories = () => {
       )}
 
       <PageTitle
-        title={isFilterSubpage ? tx('Filters') : tx(title)}
-        secondaryTitle={isFilterSubpage ? tx(title) : undefined}
+        title={isFilterSubpage ? t('tr_filters') : title}
+        secondaryTitle={isFilterSubpage ? title : undefined}
         onBack={
           isFilterSubpage
             ? () => {
@@ -130,6 +122,7 @@ const Territories = () => {
         quickSettings={() => hub.setQuickSettingsOpen(true)}
       />
 
+      <CampaignContext />
       <TerritoriesHub hub={hub} />
     </Box>
   );

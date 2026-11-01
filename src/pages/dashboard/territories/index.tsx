@@ -1,39 +1,37 @@
 import { ListItem } from '@mui/material';
 import {
   IconAssign,
+  IconAssignmetHistory,
+  IconCancelCicle,
+  IconCampaign,
   IconMap,
   IconMapOverview,
   IconMapView,
   IconRaiseHand,
   IconStatsYear,
 } from '@icons/index';
-import { useAtomValue } from 'jotai';
-import { useBreakpoints, useCurrentUser } from '@hooks/index';
-import { territoriesState } from '@states/territories';
-import { forTab } from '@features/territories/helpers';
-import { currentPublisherState } from '@features/territories/assignees';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
+import useTerritoryTabList from '@features/territories/useTerritoryTabList';
 import DashboardCard from '@features/dashboard/card';
 import DashboardMenu from '@features/dashboard/menu';
 
 const TerritoriesCard = () => {
-  const { isElder, isServiceCommittee } = useCurrentUser();
+  const { t } = useAppTranslation();
+
   const { laptopUp } = useBreakpoints();
-
-  const territories = useAtomValue(territoriesState);
-  const me = useAtomValue(currentPublisherState);
-
-  const isTerritoryEditor = isElder || isServiceCommittee;
-
-  const mine = forTab(territories, 'mine', me).length;
-  const requests = forTab(territories, 'requests', me).length;
-  const recommended = forTab(territories, 'recommended', me).length;
+  const { context, selectTab } = useTerritoryTabList();
+  const isTerritoryEditor = context.editor;
+  const mine = selectTab('mine').length;
+  const requests = selectTab('requests').length;
+  const recommended = selectTab('recommended').length;
+  const all = selectTab('all').length;
 
   return (
-    <DashboardCard header="Territories">
+    <DashboardCard header={t('tr_territories')}>
       <ListItem disablePadding>
         <DashboardMenu
           icon={<IconMap color="var(--black)" />}
-          primaryText="My territories"
+          primaryText={t('tr_myTerritories')}
           badgeText={String(mine)}
           path="/territories?tab=mine"
         />
@@ -42,7 +40,7 @@ const TerritoriesCard = () => {
         <ListItem disablePadding>
           <DashboardMenu
             icon={<IconRaiseHand color="var(--black)" />}
-            primaryText="Requests"
+            primaryText={t('tr_territoryRequests')}
             badgeText={String(requests)}
             path="/territories?tab=requests"
           />
@@ -52,24 +50,33 @@ const TerritoriesCard = () => {
         {isTerritoryEditor ? (
           <DashboardMenu
             icon={<IconMapOverview color="var(--black)" />}
-            primaryText="All territories"
-            badgeText={String(territories.length)}
+            primaryText={t('tr_allTerritories')}
+            badgeText={String(all)}
             path="/territories?tab=all"
           />
         ) : (
           <DashboardMenu
             icon={<IconAssign color="var(--black)" />}
-            primaryText="Get territory"
+            primaryText={t('tr_territoryGetTerritory')}
             badgeText={String(recommended)}
             path="/territories?tab=recommended"
           />
         )}
       </ListItem>
+      {isTerritoryEditor && (
+        <ListItem disablePadding>
+          <DashboardMenu
+            icon={<IconCancelCicle color="var(--black)" />}
+            primaryText={t('tr_territoryDoNotCallLabel')}
+            path="/territories/do-not-calls"
+          />
+        </ListItem>
+      )}
       {isTerritoryEditor && laptopUp && (
         <ListItem disablePadding>
           <DashboardMenu
             icon={<IconMapView color="var(--black)" />}
-            primaryText="Coverage map"
+            primaryText={t('tr_territoryCoverageMap')}
             path="/territories/map"
           />
         </ListItem>
@@ -77,8 +84,24 @@ const TerritoriesCard = () => {
       {isTerritoryEditor && (
         <ListItem disablePadding>
           <DashboardMenu
+            icon={<IconCampaign color="var(--black)" />}
+            primaryText={t('tr_territoryCampaigns')}
+            path="/territories/campaigns"
+          />
+        </ListItem>
+      )}
+      <ListItem disablePadding>
+        <DashboardMenu
+          icon={<IconAssignmetHistory color="var(--black)" />}
+          primaryText={t('tr_assignmentHistory')}
+          path="/territories/history"
+        />
+      </ListItem>
+      {isTerritoryEditor && (
+        <ListItem disablePadding>
+          <DashboardMenu
             icon={<IconStatsYear color="var(--black)" />}
-            primaryText="Statistics"
+            primaryText={t('tr_statistics')}
             path="/territories/statistics"
           />
         </ListItem>

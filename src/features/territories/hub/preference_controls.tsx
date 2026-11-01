@@ -1,4 +1,6 @@
 import { useAtom } from 'jotai';
+import { TerritoryCardFormat } from '@definition/territory';
+import { MAP_FORMATS } from '@features/territories/details/card_formats';
 import { Stack } from '@mui/material';
 import { Select, Typography } from '@components/index';
 import MenuItem from '@components/menuitem';
@@ -8,6 +10,7 @@ import {
   territoriesShowHouseholdsState,
   territoriesShowDoNotCallCountState,
   territoriesShowDoNotCallMapState,
+  territoryCardFormatState,
 } from '@states/territories';
 
 export const TerritoryDisplaySettings = () => {
@@ -19,8 +22,27 @@ export const TerritoryDisplaySettings = () => {
   const [doNotCallMap, setDoNotCallMap] = useAtom(
     territoriesShowDoNotCallMapState
   );
+  const [cardFormat, setCardFormat] = useAtom(territoryCardFormatState);
   return (
     <Stack spacing="16px">
+      <Stack spacing="8px">
+        <Select
+          label={t('tr_territoryCardFormat')}
+          value={cardFormat}
+          onChange={(event) =>
+            setCardFormat(event.target.value as TerritoryCardFormat)
+          }
+        >
+          {MAP_FORMATS.map((item) => (
+            <MenuItem key={item.id} value={item.id}>
+              {t(item.name)}
+            </MenuItem>
+          ))}
+        </Select>
+        <Typography className="body-small-regular" color="var(--grey-400)">
+          {t('tr_territoryCardFormatDescription')}
+        </Typography>
+      </Stack>
       <SwitchWithLabel
         label={t('tr_territoryHouseholds')}
         helper={t('tr_territoryHouseholdsDescription')}

@@ -1,3 +1,5 @@
+import AppIconButton from '@components/icon_button';
+import { useAppTranslation } from '@hooks/index';
 import {
   cloneElement,
   ReactElement,
@@ -32,10 +34,16 @@ import {
   IconUndo,
 } from '@icons/index';
 import { MapColor, PinType } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
-import { MAP_COLOR_LABEL, MAP_COLORS, PIN_TYPES } from './constants';
-import PinIcon from './pin_icon';
-import useMapEditor, { MapItemKind, MapTool } from './useMapEditor';
+import {
+  MAP_COLOR_LABEL,
+  MAP_COLORS,
+  PIN_TYPES,
+} from '@features/territories/map/constants';
+import PinIcon from '@features/territories/map/pin_icon';
+import useMapEditor, {
+  MapItemKind,
+  MapTool,
+} from '@features/territories/map/useMapEditor';
 
 type Editor = ReturnType<typeof useMapEditor>;
 
@@ -54,7 +62,7 @@ const SHELL = {
 const IconButton = ({
   label,
   icon,
-  active = false,
+  active,
   disabled = false,
   danger = false,
   placement = 'right',
@@ -78,7 +86,7 @@ const IconButton = ({
   return (
     <Tooltip title={label} placement={placement} delaySpeed="fast">
       <span>
-        <ButtonBase
+        <AppIconButton
           disableRipple
           disabled={disabled}
           aria-label={label}
@@ -86,11 +94,14 @@ const IconButton = ({
           data-tool={tool}
           onClick={onClick}
           sx={{
+            margin: 0,
             width: '36px',
             height: '36px',
             borderRadius: 'var(--radius-m)',
             backgroundColor: active ? 'var(--accent-150)' : 'transparent',
-            transition: 'background-color 0.15s ease',
+            transition:
+              'background-color var(--motion-fast) var(--ease-standard)',
+            '@media (pointer: coarse)': { width: '44px', height: '44px' },
             '&:hover': {
               backgroundColor: danger
                 ? 'var(--red-secondary)'
@@ -100,7 +111,7 @@ const IconButton = ({
           }}
         >
           {cloneElement(icon, { color })}
-        </ButtonBase>
+        </AppIconButton>
       </span>
     </Tooltip>
   );
@@ -128,34 +139,37 @@ export const IdleRail = ({
   onCongregation: VoidFunction;
   checking: boolean;
   onCheck: VoidFunction;
-}) => (
-  <Stack direction="column" sx={SHELL}>
-    <IconButton
-      label={tx('Move the map')}
-      icon={<IconMoveAround />}
-      active
-      onClick={() => undefined}
-    />
-    <Divider vertical />
-    <IconButton
-      label={tx('New map')}
-      icon={<IconMapAdd />}
-      onClick={onNewTerritory}
-    />
-    <IconButton
-      label={tx('Congregation area')}
-      icon={<IconCropFree />}
-      onClick={onCongregation}
-    />
-    <Divider vertical />
-    <IconButton
-      label={tx('Gaps and overlaps')}
-      icon={<IconFrameInspect />}
-      active={checking}
-      onClick={onCheck}
-    />
-  </Stack>
-);
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <Stack direction="column" sx={SHELL}>
+      <IconButton
+        label={t('tr_territoryMoveTheMap')}
+        icon={<IconMoveAround />}
+        active
+        onClick={() => undefined}
+      />
+      <Divider vertical />
+      <IconButton
+        label={t('tr_territoryNewMap')}
+        icon={<IconMapAdd />}
+        onClick={onNewTerritory}
+      />
+      <IconButton
+        label={t('tr_territoryCongregationArea')}
+        icon={<IconCropFree />}
+        onClick={onCongregation}
+      />
+      <Divider vertical />
+      <IconButton
+        label={t('tr_territoryGapsAndOverlaps')}
+        icon={<IconFrameInspect />}
+        active={checking}
+        onClick={onCheck}
+      />
+    </Stack>
+  );
+};
 
 // the tools, Figma-like: down the left on a wide screen, along the bottom on a phone
 export const EditRail = ({
@@ -165,6 +179,8 @@ export const EditRail = ({
   editor: Editor;
   vertical: boolean;
 }) => {
+  const { t } = useAppTranslation();
+
   const congregation = editor.scope === 'congregation';
   const hasBorder = !!editor.draft.boundary?.length;
   const placement = vertical ? 'right' : 'top';
@@ -191,17 +207,17 @@ export const EditRail = ({
     <Stack direction={vertical ? 'column' : 'row'} sx={SHELL}>
       {hasBorder ? (
         <>
-          {tool('move', tx('Move items'), <IconMoveAround />)}
+          {tool('move', t('tr_territoryMoveItems'), <IconMoveAround />)}
           {tool(
             'points',
-            tx('Adjust points'),
+            t('tr_territoryAdjustPoints'),
             <IconPolyline />,
             editor.adjustBorder
           )}
         </>
       ) : (
         <IconButton
-          label={tx('Border')}
+          label={t('tr_territoryBorder')}
           icon={<IconDrawShape />}
           placement={placement}
           active
@@ -212,25 +228,25 @@ export const EditRail = ({
       {!congregation && (
         <>
           <Divider vertical={vertical} />
-          {tool('shape', tx('Area'), <IconActivityZone />)}
-          {tool('line', tx('Line'), <IconDrawLine />)}
-          {tool('pin', tx('Pin'), <IconAddPin />)}
-          {tool('text', tx('Text'), <IconTypeText />)}
+          {tool('shape', t('tr_territoryArea'), <IconActivityZone />)}
+          {tool('line', t('tr_territoryLine'), <IconDrawLine />)}
+          {tool('pin', t('tr_territoryPin'), <IconAddPin />)}
+          {tool('text', t('tr_territoryText'), <IconTypeText />)}
           <Divider vertical={vertical} />
-          {tool('split', tx('Split'), <IconContentCut />)}
-          {tool('merge', tx('Merge'), <IconCellMerge />)}
+          {tool('split', t('tr_territorySplit'), <IconContentCut />)}
+          {tool('merge', t('tr_territoryCombine'), <IconCellMerge />)}
         </>
       )}
 
       <Divider vertical={vertical} />
       <IconButton
-        label={tx('Undo')}
+        label={t('tr_territoryUndo')}
         icon={<IconUndo />}
         placement={placement}
         onClick={editor.undo}
       />
       <IconButton
-        label={tx('Redo')}
+        label={t('tr_territoryRedo')}
         icon={<IconRedo />}
         placement={placement}
         onClick={editor.redo}
@@ -273,6 +289,8 @@ const ColorPicker = ({
   allowNone: boolean;
   onPick: (color: MapColor | 'transparent') => void;
 }) => {
+  const { t } = useAppTranslation();
+
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const choices = allowNone ? (['transparent', ...COLORS] as const) : COLORS;
 
@@ -320,7 +338,7 @@ const ColorPicker = ({
           <Tooltip
             key={color}
             title={
-              color === 'transparent' ? tx('None') : tx(MAP_COLOR_LABEL[color])
+              color === 'transparent' ? t('tr_none') : t(MAP_COLOR_LABEL[color])
             }
             placement="bottom"
             delaySpeed="fast"
@@ -329,8 +347,8 @@ const ColorPicker = ({
               disableRipple
               aria-label={
                 color === 'transparent'
-                  ? tx('None')
-                  : tx(MAP_COLOR_LABEL[color])
+                  ? t('tr_none')
+                  : t(MAP_COLOR_LABEL[color])
               }
               aria-pressed={value === color}
               onClick={() => {
@@ -360,24 +378,27 @@ const DashToggle = ({
 }: {
   dashed: boolean;
   onPick: (dashed: boolean) => void;
-}) => (
-  <>
-    <IconButton
-      label={tx('Solid')}
-      icon={<IconSolidLine />}
-      placement="top"
-      active={!dashed}
-      onClick={() => onPick(false)}
-    />
-    <IconButton
-      label={tx('Dashed')}
-      icon={<IconDashedLine />}
-      placement="top"
-      active={dashed}
-      onClick={() => onPick(true)}
-    />
-  </>
-);
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <>
+      <IconButton
+        label={t('tr_territorySolid')}
+        icon={<IconSolidLine />}
+        placement="top"
+        active={!dashed}
+        onClick={() => onPick(false)}
+      />
+      <IconButton
+        label={t('tr_territoryDashed')}
+        icon={<IconDashedLine />}
+        placement="top"
+        active={dashed}
+        onClick={() => onPick(true)}
+      />
+    </>
+  );
+};
 
 const PinTypes = ({
   value,
@@ -385,39 +406,44 @@ const PinTypes = ({
 }: {
   value: PinType;
   onPick: (type: PinType) => void;
-}) => (
-  <>
-    {PIN_TYPES.map((item) => (
-      <Tooltip
-        key={item.id}
-        title={tx(item.label)}
-        placement="top"
-        delaySpeed="fast"
-      >
-        <ButtonBase
-          disableRipple
-          aria-label={tx(item.label)}
-          aria-pressed={value === item.id}
-          onClick={() => onPick(item.id)}
-          sx={{
-            width: '32px',
-            height: '32px',
-            borderRadius: 'var(--radius-m)',
-            backgroundColor:
-              value === item.id ? 'var(--accent-150)' : 'transparent',
-            '&:hover': { backgroundColor: 'var(--accent-100)' },
-          }}
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <>
+      {PIN_TYPES.map((item) => (
+        <Tooltip
+          key={item.id}
+          title={t(item.label)}
+          placement="top"
+          delaySpeed="fast"
         >
-          <PinIcon
-            type={item.id}
-            color={value === item.id ? 'var(--accent-dark)' : 'var(--grey-400)'}
-            size={18}
-          />
-        </ButtonBase>
-      </Tooltip>
-    ))}
-  </>
-);
+          <ButtonBase
+            disableRipple
+            aria-label={t(item.label)}
+            aria-pressed={value === item.id}
+            onClick={() => onPick(item.id)}
+            sx={{
+              width: '32px',
+              height: '32px',
+              borderRadius: 'var(--radius-m)',
+              backgroundColor:
+                value === item.id ? 'var(--accent-150)' : 'transparent',
+              '&:hover': { backgroundColor: 'var(--accent-100)' },
+            }}
+          >
+            <PinIcon
+              type={item.id}
+              color={
+                value === item.id ? 'var(--accent-dark)' : 'var(--grey-400)'
+              }
+              size={18}
+            />
+          </ButtonBase>
+        </Tooltip>
+      ))}
+    </>
+  );
+};
 
 // the pin types for the next pin, with their names, beside the pin tool
 const PinFlyout = ({
@@ -427,6 +453,8 @@ const PinFlyout = ({
   editor: Editor;
   map?: maplibregl.Map | null;
 }) => {
+  const { t } = useAppTranslation();
+
   const [spot, setSpot] = useState<{ top: number; left: number }>();
 
   useEffect(() => {
@@ -483,7 +511,7 @@ const PinFlyout = ({
               color={picked ? 'var(--accent-dark)' : 'var(--black)'}
               noWrap
             >
-              {tx(item.label)}
+              {t(item.label)}
             </Typography>
           </ButtonBase>
         );
@@ -509,12 +537,12 @@ const useAnchor = (editor: Editor, map?: maplibregl.Map | null) => {
         : undefined;
       if (!feature) return setAnchor(undefined);
 
-      const coordinates =
-        feature.geometry.type === 'Polygon'
-          ? (feature.geometry.coordinates[0] as number[][])
-          : feature.geometry.type === 'LineString'
-            ? (feature.geometry.coordinates as number[][])
-            : [feature.geometry.coordinates as number[]];
+      let coordinates: number[][];
+      if (feature.geometry.type === 'Polygon')
+        coordinates = feature.geometry.coordinates[0] as number[][];
+      else if (feature.geometry.type === 'LineString')
+        coordinates = feature.geometry.coordinates as number[][];
+      else coordinates = [feature.geometry.coordinates as number[]];
       const points = coordinates.map((c) => map.project(c as [number, number]));
       // a drawing larger than the view, like the congregation's border,
       // centres the bar on the part that shows
@@ -541,6 +569,89 @@ const BAR_GAP = 14;
 // the rail's width and the gaps around it
 const RAIL_SPACE = 72;
 
+const drawingStyleOptions = (
+  editor: Editor,
+  kind: MapItemKind | undefined,
+  finished: ReactNode,
+  t: ReturnType<typeof useAppTranslation>['t']
+) => {
+  let content: ReactNode = null;
+  const activeShape =
+    !kind && editor.tool === 'shape' ? editor.shape : undefined;
+  const activeLine = !kind && editor.tool === 'line' ? editor.line : undefined;
+  const shape = kind === 'shape' ? editor.selectedStyle : activeShape;
+  const line = kind === 'line' ? editor.selectedLine : activeLine;
+
+  if (shape) {
+    content = (
+      <>
+        <ColorPicker
+          label={t('tr_territoryOutline')}
+          value={shape.border}
+          allowNone
+          onPick={(border) => editor.pickShape({ border })}
+        />
+        {shape.border !== 'transparent' && (
+          <DashToggle
+            dashed={!!shape.dashed}
+            onPick={(dashed) => editor.pickShape({ dashed })}
+          />
+        )}
+        <ColorPicker
+          label={t('tr_territoryFill')}
+          value={shape.fill}
+          allowNone
+          onPick={(fill) => editor.pickShape({ fill })}
+        />
+        {kind && finished}
+      </>
+    );
+  } else if (line) {
+    content = (
+      <>
+        <DashToggle
+          dashed={line.style === 'dashed'}
+          onPick={(dashed) =>
+            editor.pickLine({ style: dashed ? 'dashed' : 'solid' })
+          }
+        />
+        <ColorPicker
+          label={t('tr_territoryColour')}
+          value={line.color}
+          allowNone={false}
+          onPick={(color) =>
+            color !== 'transparent' && editor.pickLine({ color })
+          }
+        />
+        {kind && finished}
+      </>
+    );
+  } else if (kind === 'pin') {
+    const current = (editor.draft.markers.find(
+      (m) => m.id === String(editor.selected)
+    )?.pinType ?? 'normal') as PinType;
+    content = (
+      <>
+        <PinTypes value={current} onPick={editor.pickPinType} />
+        {finished}
+      </>
+    );
+  } else if (kind === 'text') {
+    content = (
+      <>
+        <IconButton
+          label={t('tr_territoryEditText')}
+          icon={<IconEdit />}
+          placement="top"
+          onClick={() => editor.editLabel()}
+        />
+        {finished}
+      </>
+    );
+  }
+  return content;
+};
+
 // the options of what is picked, or of the tool about to draw, next to the drawing
 export const StyleBar = ({
   editor,
@@ -556,6 +667,8 @@ export const StyleBar = ({
   canSave: boolean;
   onSave: VoidFunction;
 }) => {
+  const { t } = useAppTranslation();
+
   const anchor = useAnchor(editor, map);
   const [size, setSize] = useState({ width: 0, height: 46 });
   // its own size, so it ends above the drawing and stays inside the map
@@ -581,7 +694,7 @@ export const StyleBar = ({
 
   const remove = (
     <IconButton
-      label={tx('Delete')}
+      label={t('tr_delete')}
       icon={<IconDelete />}
       placement="top"
       danger
@@ -592,7 +705,7 @@ export const StyleBar = ({
   // done with this drawing; the tool stays
   const done = (
     <IconButton
-      label={tx('Done')}
+      label={t('tr_done')}
       icon={<IconCheck />}
       placement="top"
       onClick={editor.deselect}
@@ -623,14 +736,14 @@ export const StyleBar = ({
         onClick={editor.deleteVertex}
         sx={{ minHeight: '32px' }}
       >
-        {tx('Delete point')}
+        {t('tr_territoryDeletePoint')}
       </Button>
     );
   } else if (kind === 'boundary') {
     content = (
       <>
         <ColorPicker
-          label={tx('Outline')}
+          label={t('tr_territoryOutline')}
           value={editor.boundaryStyle.border}
           allowNone={false}
           onPick={(border) => editor.pickBoundary({ border })}
@@ -644,7 +757,7 @@ export const StyleBar = ({
         )}
         {!congregation && (
           <ColorPicker
-            label={tx('Fill')}
+            label={t('tr_territoryFill')}
             value={editor.boundaryStyle.fill}
             allowNone
             onPick={(fill) => editor.pickBoundary({ fill })}
@@ -653,14 +766,14 @@ export const StyleBar = ({
         <Divider vertical={false} />
         {/* the border goes, and drawing a new one starts */}
         <IconButton
-          label={tx('Delete border')}
+          label={t('tr_territoryDeleteBorder')}
           icon={<IconDelete />}
           placement="top"
           danger
           onClick={editor.redrawBorder}
         />
         <IconButton
-          label={tx('Save')}
+          label={t('tr_save')}
           icon={<IconCheck />}
           placement="top"
           disabled={!canSave}
@@ -669,86 +782,7 @@ export const StyleBar = ({
       </>
     );
   } else {
-    const shape =
-      kind === 'shape'
-        ? editor.selectedStyle
-        : !kind && editor.tool === 'shape'
-          ? editor.shape
-          : undefined;
-    const line =
-      kind === 'line'
-        ? editor.selectedLine
-        : !kind && editor.tool === 'line'
-          ? editor.line
-          : undefined;
-
-    if (shape) {
-      content = (
-        <>
-          <ColorPicker
-            label={tx('Outline')}
-            value={shape.border}
-            allowNone
-            onPick={(border) => editor.pickShape({ border })}
-          />
-          {shape.border !== 'transparent' && (
-            <DashToggle
-              dashed={!!shape.dashed}
-              onPick={(dashed) => editor.pickShape({ dashed })}
-            />
-          )}
-          <ColorPicker
-            label={tx('Fill')}
-            value={shape.fill}
-            allowNone
-            onPick={(fill) => editor.pickShape({ fill })}
-          />
-          {kind && finished}
-        </>
-      );
-    } else if (line) {
-      content = (
-        <>
-          <DashToggle
-            dashed={line.style === 'dashed'}
-            onPick={(dashed) =>
-              editor.pickLine({ style: dashed ? 'dashed' : 'solid' })
-            }
-          />
-          <ColorPicker
-            label={tx('Colour')}
-            value={line.color}
-            allowNone={false}
-            onPick={(color) =>
-              color !== 'transparent' && editor.pickLine({ color })
-            }
-          />
-          {kind && finished}
-        </>
-      );
-    } else if (kind === 'pin') {
-      const current = (editor.draft.markers.find(
-        (m) => m.id === String(editor.selected)
-      )?.pinType ?? 'normal') as PinType;
-      content = (
-        <>
-          <PinTypes value={current} onPick={editor.pickPinType} />
-          {kind && finished}
-        </>
-      );
-    } else if (kind === 'text') {
-      content = (
-        <>
-          <IconButton
-            label={tx('Edit text')}
-            icon={<IconEdit />}
-            placement="top"
-            onClick={() => editor.editLabel()}
-          />
-          {finished}
-        </>
-      );
-    }
+    content = drawingStyleOptions(editor, kind, finished, t);
   }
 
   if (!content) return null;
@@ -842,6 +876,8 @@ export const EditHeader = ({
   onUp?: VoidFunction;
   onCancel: VoidFunction;
 }) => {
+  const { t } = useAppTranslation();
+
   return (
     <Stack spacing="6px" sx={{ alignItems: 'flex-start', minWidth: 0 }}>
       <Stack
@@ -871,7 +907,7 @@ export const EditHeader = ({
                 color="var(--accent-main)"
                 noWrap
               >
-                {tx('Congregation area')}
+                {t('tr_territoryCongregationArea')}
               </Typography>
             </ButtonBase>
             <Typography className="body-small-regular" color="var(--grey-350)">
@@ -897,7 +933,7 @@ export const EditHeader = ({
           onClick={onCancel}
           sx={{ minHeight: '32px', padding: '4px 10px' }}
         >
-          {tx('Cancel')}
+          {t('tr_cancel')}
         </Button>
       </Stack>
     </Stack>
@@ -922,6 +958,8 @@ export const MapContextMenu = ({
   spot?: ContextSpot;
   onClose: VoidFunction;
 }) => {
+  const { t } = useAppTranslation();
+
   if (!spot) return null;
 
   const hasBorder = !!editor.draft.boundary?.length;
@@ -937,7 +975,7 @@ export const MapContextMenu = ({
 
   if (spot.corner) {
     entries.push({
-      label: tx('Delete point'),
+      label: t('tr_territoryDeletePoint'),
       icon: <IconDelete />,
       danger: true,
       run: editor.deleteVertex,
@@ -951,35 +989,35 @@ export const MapContextMenu = ({
       item.kind === 'line'
     ) {
       entries.push({
-        label: tx('Adjust points'),
+        label: t('tr_territoryAdjustPoints'),
         icon: <IconPolyline />,
         run: () => editor.selectItem(item.id, true),
       });
     }
     if (item.kind !== 'boundary') {
       entries.push({
-        label: tx('Move items'),
+        label: t('tr_territoryMoveItems'),
         icon: <IconMoveAround />,
         run: () => editor.selectItem(item.id),
       });
     }
     if (item.kind === 'text') {
       entries.push({
-        label: tx('Edit text'),
+        label: t('tr_territoryEditText'),
         icon: <IconEdit />,
         run: () => editor.editLabel(item.id),
       });
     }
     if (item.kind === 'boundary') {
       entries.push({
-        label: tx('Delete border'),
+        label: t('tr_territoryDeleteBorder'),
         icon: <IconDelete />,
         danger: true,
         run: editor.redrawBorder,
       });
     } else {
       entries.push({
-        label: tx('Delete'),
+        label: t('tr_delete'),
         icon: <IconDelete />,
         danger: true,
         run: () => editor.deleteItem(item.id),
@@ -988,22 +1026,22 @@ export const MapContextMenu = ({
   } else if (hasBorder && !congregation) {
     entries.push(
       {
-        label: tx('Add pin here'),
+        label: t('tr_territoryAddPinHere'),
         icon: <IconAddPin />,
         run: () => editor.addMarkerAt('pin', spot.at),
       },
       {
-        label: tx('Add text here'),
+        label: t('tr_territoryAddTextHere'),
         icon: <IconTypeText />,
         run: () => editor.addMarkerAt('text', spot.at),
       },
       {
-        label: tx('Draw an area'),
+        label: t('tr_territoryDrawAnArea'),
         icon: <IconActivityZone />,
         run: () => editor.pickTool('shape'),
       },
       {
-        label: tx('Draw a line'),
+        label: t('tr_territoryDrawALine'),
         icon: <IconDrawLine />,
         run: () => editor.pickTool('line'),
       }

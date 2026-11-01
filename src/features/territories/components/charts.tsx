@@ -149,6 +149,7 @@ export const Gauge = ({ value, label }: { value: number; label: string }) => {
       }}
     >
       <svg
+        aria-hidden="true"
         width={size}
         height={size / 2 + 12}
         viewBox={`0 0 ${size} ${size / 2 + 12}`}
@@ -192,9 +193,11 @@ export const Gauge = ({ value, label }: { value: number; label: string }) => {
 export const ColumnChart = ({
   values,
   labels,
+  monthIds,
 }: {
   values: number[];
   labels: string[];
+  monthIds: string[];
 }) => {
   const height = 150;
   const max = Math.max(...values, 1);
@@ -211,10 +214,10 @@ export const ColumnChart = ({
         spacing={spacing}
         sx={{ alignItems: 'flex-end', height: `${height}px` }}
       >
-        {/* month names repeat in a range over a year, so the place is the key */}
+        {/* Calendar month IDs stay stable when the selected date range changes. */}
         {values.map((value, index) => (
           <Box
-            key={index}
+            key={monthIds[index]}
             title={`${labels[index]}: ${value}`}
             sx={{
               flex: 1,
@@ -249,7 +252,7 @@ export const ColumnChart = ({
       <Stack direction="row" spacing={spacing}>
         {labels.map((label, index) => (
           <Typography
-            key={index}
+            key={monthIds[index]}
             className="label-small-regular"
             color="var(--grey-350)"
             sx={{

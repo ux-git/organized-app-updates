@@ -1,3 +1,4 @@
+import { useAppTranslation } from '@hooks/index';
 import { useMemo, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Stack } from '@mui/material';
@@ -11,13 +12,14 @@ import {
   mapDownloads,
   OfflineRegion,
 } from '@services/maps/offline';
-import { tx } from '@services/i18n/translation';
 import { tileUrls } from '@services/maps/tiles';
 import { shortDateFormatState } from '@states/settings';
 import { formatDate } from '@utils/date';
-import { boundaryBounds } from './helpers';
+import { boundaryBounds } from '@features/territories/map/helpers';
 
 const OfflineSettings = ({ provider }: { provider: string }) => {
+  const { t } = useAppTranslation();
+
   const state = useAtomValue(offlineMapState);
   const dateFormat = useAtomValue(shortDateFormatState);
   const boundary = useAtomValue(congregationBoundaryState);
@@ -55,11 +57,11 @@ const OfflineSettings = ({ provider }: { provider: string }) => {
   // the action sits beside the text it belongs to; what follows from it goes below
   const action = state.busy ? (
     <Button variant="secondary" onClick={() => mapDownloads()?.cancel()}>
-      {tx('Cancel')}
+      {t('tr_cancel')}
     </Button>
   ) : (
     <Button variant="secondary" disabled={!area.length} onClick={download}>
-      {state.region ? tx('Update') : tx('Download')}
+      {state.region ? t('tr_update') : t('tr_download')}
     </Button>
   );
 
@@ -67,26 +69,23 @@ const OfflineSettings = ({ provider }: { provider: string }) => {
     <Stack spacing="8px">
       <Stack direction="row" sx={{ alignItems: 'center', gap: '16px' }}>
         <Stack spacing="4px" sx={{ flex: 1, minWidth: 0 }}>
-          <Typography className="h4">{tx('Offline map')}</Typography>
+          <Typography className="h4">{t('tr_territoryOfflineMap')}</Typography>
           <Typography className="body-small-regular" color="var(--grey-400)">
-            {tx(
-              'Download streets and both map themes for offline use. Stored on this device, outside backups.'
-            )}
+            {t('tr_territoryDownloadStreetsAndBothMapThemesForOfflineUse')}
           </Typography>
         </Stack>
         <Stack sx={{ flexShrink: 0 }}>{action}</Stack>
       </Stack>
       {estimate !== null && !state.region && (
         <Typography className="label-small-regular" color="var(--grey-400)">
-          {tx(
-            'Estimated download: {{size}} MB. Actual size depends on map detail (maximum 300 MB).',
-            { size: estimate }
-          )}
+          {t('tr_territoryEstimatedDownloadMBActualSizeDependsOnMapDetail', {
+            size: estimate,
+          })}
         </Typography>
       )}
       {state.region && (
         <Typography className="body-small-regular">
-          {tx('Downloaded {{date}} · {{size}} MB', {
+          {t('tr_territoryDownloadedMB', {
             date: formatDate(new Date(state.region.date), dateFormat),
             size: (state.region.bytes / 1024 / 1024).toFixed(1),
           })}
@@ -94,7 +93,7 @@ const OfflineSettings = ({ provider }: { provider: string }) => {
       )}
       {state.busy && (
         <Typography role="status" className="body-small-regular">
-          {tx('Downloading map: {{done}} / {{total}}', {
+          {t('tr_territoryDownloadingMap', {
             done: state.done,
             total: state.total || '…',
           })}
@@ -102,12 +101,16 @@ const OfflineSettings = ({ provider }: { provider: string }) => {
       )}
       {(error || state.error) && (
         <Typography role="alert" color="var(--red-main)">
-          {tx(error || state.error!)}
+          {t(error || state.error!, {
+            defaultValue: t(
+              'tr_territoryTheOfflineMapCouldNotBeUpdatedTryAgain'
+            ),
+          })}
         </Typography>
       )}
       {!state.busy && !area.length && (
         <Typography className="body-small-regular" color="var(--grey-400)">
-          {tx('Draw a territory or congregation boundary first.')}
+          {t('tr_territoryDrawATerritoryOrCongregationBoundaryFirst')}
         </Typography>
       )}
       {!state.busy && state.region && (
@@ -120,7 +123,7 @@ const OfflineSettings = ({ provider }: { provider: string }) => {
               .catch((error) => setError((error as Error).message))
           }
         >
-          {tx('Remove download')}
+          {t('tr_territoryRemoveDownload')}
         </Button>
       )}
     </Stack>

@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import usePhoneSelection from './usePhoneSelection';
+import usePhoneSelection from '@features/territories/components/usePhoneSelection';
 import { Box, Menu, Stack } from '@mui/material';
 import MenuItem from '@components/menuitem';
 import { dropdownPaper } from '@components/select/index.styles';
@@ -22,21 +22,28 @@ import {
 } from '@icons/index';
 import { useAtomValue } from 'jotai';
 import Tooltip from '@components/tooltip';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { shortDateFormatState } from '@states/settings';
-import { displayDate, parseDate, emptyListMessage } from '../helpers';
-import { currentPublisherState } from '../assignees';
-import { isCoverage } from '../coverage_rate';
-import { territoryCampaignsState } from '../campaigns';
-import { campaignEnded } from '../campaign_filter';
+import {
+  displayDate,
+  parseDate,
+  emptyListMessage,
+} from '@features/territories/helpers';
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
+import { isCoverage } from '@features/territories/coverage_rate';
+import { territoryCampaignsState } from '@features/territories/campaigns';
+import { campaignEnded } from '@features/territories/campaign_filter';
 import {
   STATUS_LABEL,
   Territory,
   TerritoryStatus,
 } from '@definition/territory';
-import AssignButton from './assign_button';
-import { clickableRow, rowStates } from './table_styles';
-import TruncatedText from './truncated_text';
+import AssignButton from '@features/territories/components/assign_button';
+import {
+  clickableRow,
+  rowStates,
+} from '@features/territories/components/table_styles';
+import TruncatedText from '@features/territories/components/truncated_text';
 import {
   AssignedTwiceBadge,
   CardLostBadge,
@@ -44,9 +51,8 @@ import {
   ListDoNotCallBadge as DoNotCallBadge,
   NewNoteBadge,
   RequestBadge,
-} from './territory_badges';
-import { territoryHolderText } from '../group_holder';
-import { tx } from '@services/i18n/translation';
+} from '@features/territories/components/territory_badges';
+import { territoryHolderText } from '@features/territories/group_holder';
 
 type TerritoryTableProps = {
   territories: Territory[];
@@ -89,20 +95,29 @@ type SortKey =
 
 const SORTS: Record<SortKey, { label: string; directions: [string, string] }> =
   {
-    number: { label: 'Number', directions: ['1 → 9', '9 → 1'] },
-    locality: { label: 'Locality', directions: ['A → Z', 'Z → A'] },
-    person: { label: 'Person', directions: ['A → Z', 'Z → A'] },
+    number: {
+      label: 'tr_number',
+      directions: ['tr_territory19', 'tr_territory91'],
+    },
+    locality: {
+      label: 'tr_territoryLocality',
+      directions: ['tr_territoryAZ', 'tr_territoryZA'],
+    },
+    person: {
+      label: 'tr_person',
+      directions: ['tr_territoryAZ', 'tr_territoryZA'],
+    },
     households: {
-      label: 'Households',
-      directions: ['Most first', 'Fewest first'],
+      label: 'tr_territoryHouseholdsLabel',
+      directions: ['tr_territoryMostFirst', 'tr_territoryFewestFirst'],
     },
     status: {
-      label: 'Status',
-      directions: ['Overdue first', 'Available first'],
+      label: 'tr_territoryStatus',
+      directions: ['tr_territoryOverdueFirst', 'tr_territoryAvailableFirst'],
     },
     date: {
-      label: 'Time out',
-      directions: ['Longest first', 'Shortest first'],
+      label: 'tr_territoryTimeOut',
+      directions: ['tr_territoryLongestFirst', 'tr_territoryShortestFirst'],
     },
   };
 
@@ -172,6 +187,8 @@ const StatusLine = ({
   territory: Territory;
   showHolder?: boolean;
 }) => {
+  const { t } = useAppTranslation();
+
   const shortDateFormat = useAtomValue(shortDateFormatState);
   const campaigns = useAtomValue(territoryCampaignsState);
 
@@ -188,7 +205,7 @@ const StatusLine = ({
           color="var(--green-main)"
           noWrap
         >
-          {returned ? date(returned) : tx('Never covered')}
+          {returned ? date(returned) : t('tr_territoryNeverCovered')}
         </Typography>
       </Stack>
     );
@@ -201,8 +218,8 @@ const StatusLine = ({
   // the holder's own row asks for the territory back once its campaign is over
   const status =
     open && campaignEnded(open, campaigns)
-      ? tx('Campaign over – please return')
-      : tx(STATUS_LABEL[territory.status]);
+      ? t('tr_territoryCampaignOverPleaseReturn')
+      : t(STATUS_LABEL[territory.status]);
 
   return (
     <Stack
@@ -344,11 +361,12 @@ const Row = memo(function Row({
     pressable,
     me,
   } = view;
+  const selectionGap = tablet688Up ? '12px' : '8px';
   const selectionSlot = {
     display: 'grid',
     gridTemplateColumns: showCheckboxes ? '1fr' : '0fr',
     opacity: showCheckboxes ? 1 : 0,
-    marginRight: showCheckboxes ? (tablet688Up ? '12px' : '8px') : 0,
+    marginRight: showCheckboxes ? selectionGap : 0,
     transition:
       'grid-template-columns 150ms ease, opacity 150ms ease, margin-right 150ms ease',
     '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
@@ -495,6 +513,72 @@ const Row = memo(function Row({
   );
 });
 
+const PhoneSelectionControls = ({
+  actions,
+  phone,
+  selectionMode,
+  count,
+  onChange,
+}: {
+  actions: boolean;
+  phone: boolean;
+  selectionMode: boolean;
+  count: number;
+  onChange?: (selecting: boolean) => void;
+}) => {
+  const { t } = useAppTranslation();
+  return (
+    <>
+      {' '}
+      {actions && phone && !selectionMode && (
+        <Button
+          variant="small"
+          disableAutoStretch
+          onClick={() => onChange?.(true)}
+          ariaLabel={t('tr_territorySelectTerritories')}
+        >
+          {t('tr_territorySelect')}
+        </Button>
+      )}
+      {actions && phone && selectionMode && count === 0 && (
+        <Button
+          variant="small"
+          disableAutoStretch
+          onClick={() => onChange?.(false)}
+        >
+          {t('tr_cancel')}
+        </Button>
+      )}
+    </>
+  );
+};
+
+const TableHeading = ({
+  title,
+  actions,
+  subHeading,
+  phone,
+  count,
+}: {
+  title?: string;
+  actions: boolean;
+  subHeading: boolean;
+  phone: boolean;
+  count: number;
+}) => {
+  const { t } = useAppTranslation();
+  if (!title) return null;
+  return (
+    <Typography
+      component={actions ? 'div' : 'h2'}
+      className={subHeading ? 'h3' : 'h2'}
+      noWrap={actions}
+    >
+      {phone && count > 0 ? t('tr_territorySelected', { n: count }) : title}
+    </Typography>
+  );
+};
+
 const TerritoryTable = ({
   territories,
   checked,
@@ -518,6 +602,8 @@ const TerritoryTable = ({
   onSelectingChange,
   pool,
 }: TerritoryTableProps) => {
+  const { t } = useAppTranslation();
+
   const { tablet688Up, tablet600Up, laptopUp } = useBreakpoints();
   const phone = !tablet600Up;
   const selectionMode = selecting || checked.size > 0;
@@ -527,7 +613,7 @@ const TerritoryTable = ({
     if (!latest.current.checked.has(id)) latest.current.onCheck(id);
   });
 
-  const me = useAtomValue(currentPublisherState);
+  const { publisher: me } = useTerritoryAccess();
 
   // the rows get stable callbacks that reach the newest props, so a parent
   // render alone does not render all of them again
@@ -656,10 +742,10 @@ const TerritoryTable = ({
   const sortButton = (
     <>
       <Tooltip
-        title={`${tx(SORTS[sortBy].label)} · ${tx(SORTS[sortBy].directions[reversed ? 1 : 0])}`}
+        title={`${t(SORTS[sortBy].label)} · ${t(SORTS[sortBy].directions[reversed ? 1 : 0])}`}
       >
         <IconButton
-          aria-label={tx('Sort')}
+          aria-label={t('tr_territorySort')}
           onClick={(event) => setSortMenu(event.currentTarget)}
           sx={{ padding: '6px', margin: 0, borderRadius: 'var(--radius-m)' }}
         >
@@ -691,7 +777,7 @@ const TerritoryTable = ({
               sx={{ alignItems: 'center', gap: '12px', width: '100%' }}
             >
               <Typography className="body-regular" sx={{ flexGrow: 1 }}>
-                {tx(SORTS[key].label)}
+                {t(SORTS[key].label)}
               </Typography>
               {key === sortBy && arrow}
             </Stack>
@@ -708,16 +794,14 @@ const TerritoryTable = ({
 
   const subHeading = actions && !titleOnTop;
 
-  const heading = title && (
-    <Typography
-      component={actions ? 'div' : 'h2'}
-      className={subHeading ? 'h3' : 'h2'}
-      noWrap={actions}
-    >
-      {phone && checked.size > 0
-        ? tx('Selected: {{n}}', { n: checked.size })
-        : title}
-    </Typography>
+  const heading = (
+    <TableHeading
+      title={title}
+      actions={actions}
+      subHeading={subHeading}
+      phone={phone}
+      count={checked.size}
+    />
   );
 
   if (territories.length === 0 && !pool) {
@@ -767,25 +851,13 @@ const TerritoryTable = ({
           {sortButton}
         </Stack>
 
-        {actions && phone && !selectionMode && (
-          <Button
-            variant="small"
-            disableAutoStretch
-            onClick={() => onSelectingChange?.(true)}
-            ariaLabel={tx('Select territories')}
-          >
-            {tx('Select')}
-          </Button>
-        )}
-        {actions && phone && selectionMode && checked.size === 0 && (
-          <Button
-            variant="small"
-            disableAutoStretch
-            onClick={() => onSelectingChange?.(false)}
-          >
-            {tx('Cancel')}
-          </Button>
-        )}
+        <PhoneSelectionControls
+          actions={actions}
+          phone={phone}
+          selectionMode={selectionMode}
+          count={checked.size}
+          onChange={onSelectingChange}
+        />
         {actions && selectionBar}
 
         {layoutSwitch}

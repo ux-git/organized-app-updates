@@ -1,3 +1,7 @@
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
+import { publisherTerritoryChanges } from '@services/app/territory_access';
+import { territoryNumberKey } from '@utils/territory';
+import { useAppTranslation } from '@hooks/index';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useBlocker, useNavigate, useParams } from 'react-router';
 import { useAtom, useAtomValue } from 'jotai';
@@ -6,12 +10,11 @@ import {
   territoriesWithStatusState,
 } from '@states/territories';
 import { Territory } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
-import { offerUndo } from '../undo';
-import { restoreTerritory } from '../restore';
+import { offerUndo } from '@features/territories/undo';
+import { restoreTerritory } from '@features/territories/restore';
 
 export const blankTerritory = (): Territory => ({
-  id: `t-${Date.now()}`,
+  id: crypto.randomUUID(),
   number: '',
   name: '',
   city: '',
@@ -28,10 +31,18 @@ export const blankTerritory = (): Territory => ({
 export const usableNumber = (draft: Territory, territories: Territory[]) => {
   const number = draft.number.trim();
 
-  return !!number && !territories.some((item) => item.number.trim() === number);
+  return (
+    !!number &&
+    !territories.some(
+      (item) => territoryNumberKey(item.number) === territoryNumberKey(number)
+    )
+  );
 };
 
 const useTerritoryDetails = () => {
+  const { t } = useAppTranslation();
+  const context = useTerritoryAccess();
+
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -57,23 +68,28 @@ const useTerritoryDetails = () => {
     : withStatus.find((item) => item.id === stored?.id);
 
   const handleChange = (next: Territory) => {
-    if (isNew) {
+    if (isNew && context.editor) {
       setDraft(next);
       return;
     }
 
     setTerritories((prev) =>
-      prev.map((item) => (item.id === next.id ? next : item))
+      prev.map((item) => {
+        if (item.id !== next.id) return item;
+        return context.editor
+          ? next
+          : { ...item, ...publisherTerritoryChanges(item, next, context) };
+      })
     );
   };
 
-  const latest = useRef({ isNew, draft, territories });
-  latest.current = { isNew, draft, territories };
+  const latest = useRef({ isNew, draft, territories, editor: context.editor });
+  latest.current = { isNew, draft, territories, editor: context.editor };
 
   // saved when its number is typed in full and usable; every later change saves at once
   const commitNew = useCallback(() => {
     const { isNew: pending, draft: next, territories: list } = latest.current;
-    if (!pending || !usableNumber(next, list)) return;
+    if (!latest.current.editor || !pending || !usableNumber(next, list)) return;
 
     setTerritories((prev) => [next, ...prev]);
   }, [setTerritories]);
@@ -108,13 +124,13 @@ const useTerritoryDetails = () => {
   }, [savedId]);
 
   const handleDelete = () => {
-    if (!territory) return;
+    if (!territory || !context.editor) return;
 
     if (stored) {
       const index = territories.indexOf(stored);
       setTerritories((prev) => prev.filter((item) => item.id !== stored.id));
       offerUndo({
-        text: tx('Territory {{number}} deleted', { number: stored.number }),
+        text: t('tr_territoryTerritoryDeleted', { number: stored.number }),
         revert: () => restoreTerritory(stored, index),
       });
     }

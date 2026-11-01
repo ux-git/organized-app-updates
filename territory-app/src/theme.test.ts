@@ -1,9 +1,25 @@
 import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
-vi.mock('./native', () => ({ hasNearby: () => false, nearby: vi.fn() }));
+const native = vi.hoisted(() => ({
+  available: false,
+  nearby: false,
+  invoke: vi.fn(() => Promise.resolve()),
+  send: vi.fn(),
+}));
+vi.mock('./native', () => ({
+  hasNearby: () => native.nearby,
+  nearby: native.send,
+  isNative: () => native.available,
+  invoke: native.invoke,
+}));
 vi.mock('@utils/common', async (original) => ({
   ...(await original<object>()),
-  getCSSPropertyValue: () => '#fff',
+  getCSSPropertyValue: (key: string) => {
+    const theme = globalThis.document?.documentElement?.dataset.theme ?? '';
+    if (key === '--accent-main-base')
+      return theme.startsWith('green') ? '90, 155, 74' : '80, 101, 208';
+    return theme.endsWith('dark') ? '21, 21, 25' : '248, 249, 255';
+  },
 }));
 
 // the system's dark mode, as matchMedia reports it
@@ -61,6 +77,10 @@ beforeAll(async () => {
 
 beforeEach(() => {
   delete window.__organizedSystemDark;
+  native.available = false;
+  native.nearby = false;
+  native.invoke.mockClear();
+  native.send.mockClear();
 });
 
 describe('following the system', () => {
@@ -121,5 +141,60 @@ describe('not following', () => {
   test('a theme saved as plain text works too', async () => {
     const theme = await start({ theme_follow_os: 'false', theme: 'dark' });
     expect(theme.current()).toBe('dark');
+  });
+});
+
+describe('native appearance', () => {
+  test('updates the desktop window when the user changes themes', async () => {
+    native.available = true;
+    const theme = await start({ theme_follow_os: 'false' });
+    theme.setTheme('dark');
+    await vi.waitFor(() =>
+      expect(native.invoke).toHaveBeenCalledWith('plugin:app|set_app_theme', {
+        theme: 'dark',
+      })
+    );
+    await vi.waitFor(() =>
+      expect(native.invoke).toHaveBeenLastCalledWith(
+        'plugin:window|set_background_color',
+        { value: [21, 21, 25] }
+      )
+    );
+    native.invoke.mockClear();
+    theme.setTheme('light');
+    await vi.waitFor(() =>
+      expect(native.invoke).toHaveBeenCalledWith('plugin:app|set_app_theme', {
+        theme: 'light',
+      })
+    );
+  });
+
+  test('restores native system following instead of pinning the resolved theme', async () => {
+    native.available = true;
+    const theme = await start({ theme_follow_os: 'false' });
+    theme.setFollowSystem(true);
+    await vi.waitFor(() =>
+      expect(native.invoke).toHaveBeenCalledWith('plugin:app|set_app_theme', {
+        theme: null,
+      })
+    );
+  });
+
+  test('propagates accent-only changes to native surfaces', async () => {
+    native.nearby = true;
+    await start({ theme_follow_os: 'false' });
+    native.send.mockClear();
+    const { store } = await import('@states/index');
+    const { colorSchemeState } = await import('@states/app');
+    store.set(colorSchemeState, 'green');
+    system.root.dataset.theme = 'green-light';
+    await vi.waitFor(() =>
+      expect(native.send).toHaveBeenCalledWith('appearance', {
+        dark: false,
+        followSystem: false,
+        background: [248, 249, 255],
+        accent: [90, 155, 74],
+      })
+    );
   });
 });

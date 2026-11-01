@@ -1,6 +1,6 @@
 import { Path, Svg, Text, View } from '@react-pdf/renderer';
-import styles, { CHIP_HEIGHT, COLORS } from '../index.styles';
-import { fitText } from './textWidth';
+import styles, { CHIP_HEIGHT, COLORS } from '@views/territories/index.styles';
+import { fitText } from '@views/territories/shared/textWidth';
 
 const SIZE = 7;
 // padding, border, sign and gap around the text

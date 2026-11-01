@@ -20,12 +20,16 @@ export type DoNotCall = {
   name?: string;
   date: string;
   addedBy: string;
+  addedById?: string;
   // where the house is on the map, when it could be found
   position?: [number, number];
 };
 
 // a closed ring of [longitude, latitude] pairs, in GeoJSON order
 export type TerritoryBoundary = [number, number][];
+
+// the printed card's layout; S-12 alone or on A4, or an A5 card on A4
+export type TerritoryCardFormat = 's12' | 's12a4' | 'a5h' | 'a5v';
 
 export type MapColor = 'red' | 'blue' | 'green' | 'orange' | 'purple' | 'black';
 
@@ -86,6 +90,8 @@ export type TerritoryAssignment = {
   id: string;
   // always a person; empty only on old records that named a group instead
   publisher: string;
+  publisherId?: string;
+  groupId?: string;
   // the field service group it went out for, by name; the publisher took it
   group?: string;
   assignedOn: string;
@@ -109,6 +115,7 @@ export type TerritoryAssignment = {
 export type TerritoryCampaign = {
   id: string;
   name: string;
+  description?: string;
   start: string;
   end: string;
   group?: string;
@@ -123,6 +130,12 @@ export type Territory = {
   status: TerritoryStatus;
   categories: string[];
   holder?: string;
+  holderId?: string;
+  assignedElsewhere?: boolean;
+  requestPending?: boolean;
+  lastReturnedAt?: string;
+  lastCompletedAt?: string;
+  holderGroupId?: string;
   holderGroup?: string;
   daysOut?: number;
   daysSinceCovered: number;
@@ -137,6 +150,7 @@ export type Territory = {
   mapMarkers?: TerritoryMapMarker[];
   phoneNumbers?: string[];
   requestedBy?: string;
+  requestedById?: string;
   reviewNeeded?: boolean;
   // standing information, printed on the card: no names or addresses
   notes?: string;
@@ -148,7 +162,10 @@ export type Territory = {
 export type TerritoryAssignee = { id: string; name: string; group: boolean };
 
 // who a territory goes to: a publisher, for themselves or for a group
-export type AssignmentHolder = Pick<TerritoryAssignment, 'publisher' | 'group'>;
+export type AssignmentHolder = Pick<
+  TerritoryAssignment,
+  'publisher' | 'group' | 'publisherId' | 'groupId'
+>;
 
 export type TerritoryFilters = {
   search: string;
@@ -162,6 +179,12 @@ export type TerritoryFilters = {
   // how the territory is out now; `unknown` for open records without the field
   card: (AssignmentCard | 'unknown')[];
   holder?: string;
+  holderId?: string;
+  assignedElsewhere?: boolean;
+  requestPending?: boolean;
+  lastReturnedAt?: string;
+  lastCompletedAt?: string;
+  holderGroupId?: string;
   // the holder's earlier territories too, not only the ones held now
   holderPast?: boolean;
   // worked for the special campaign, or not yet assigned for it
@@ -190,15 +213,16 @@ export type TerritoryRestrictions = {
 export type TerritoryTab =
   | 'requests'
   | 'recommended'
+  | 'campaign'
   | 'all'
   | 'mine'
   | 'group'
   | 'requested';
 
 export const STATUS_LABEL: Record<TerritoryStatus, string> = {
-  available: 'Available',
-  in_work: 'In work',
-  overdue: 'Overdue',
+  available: 'tr_territoryAvailable',
+  in_work: 'tr_territoryInWork',
+  overdue: 'tr_overdue',
 };
 
 export const STATUS_COLOR: Record<TerritoryStatus, BadgeColor> = {
@@ -208,14 +232,14 @@ export const STATUS_COLOR: Record<TerritoryStatus, BadgeColor> = {
 };
 
 export const TYPE_LABEL: Record<TerritoryType, string> = {
-  door_to_door: 'Door to door',
-  business: 'Business',
-  phone: 'Call',
+  door_to_door: 'tr_territoryTypeDoorToDoor',
+  business: 'tr_territoryTypeBusiness',
+  phone: 'tr_territoryTypeCall',
 };
 
 export const CARD_LABEL: Record<AssignmentCard, string> = {
-  digital: 'Digital map',
-  printed: 'Printed map',
+  digital: 'tr_territoryDigitalMap',
+  printed: 'tr_territoryPrintedMap',
 };
 
 export const DEFAULT_CATEGORIES: TerritoryCategoryOption[] = [
@@ -242,9 +266,9 @@ export const MAX_CATEGORY_NAME = 20;
 export const MAX_NOTE_LENGTH = 500;
 
 export const CATEGORY_COLOR_LABEL: Record<CategoryColor, string> = {
-  blue: 'Blue',
-  green: 'Green',
-  orange: 'Orange',
-  red: 'Red',
-  grey: 'Grey',
+  blue: 'tr_blue',
+  green: 'tr_green',
+  orange: 'tr_orange',
+  red: 'tr_territoryRed',
+  grey: 'tr_slate',
 };

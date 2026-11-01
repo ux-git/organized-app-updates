@@ -1,6 +1,6 @@
 import polygonClipping, { MultiPolygon, Polygon } from 'polygon-clipping';
 import { Territory, TerritoryBoundary } from '@definition/territory';
-import { closedRing } from './helpers';
+import { closedRing } from '@features/territories/map/helpers';
 
 // pieces smaller than this, or thin as a drawing seam, are hand-drawing
 // noise along shared borders, not real gaps or overlaps

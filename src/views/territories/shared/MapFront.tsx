@@ -1,32 +1,15 @@
+import { useAppTranslation } from '@hooks/index';
 import { Image, Text, View } from '@react-pdf/renderer';
-import { TerritoryPrintData } from '../index.types';
-import styles, { CHIP_HEIGHT, COLORS } from '../index.styles';
-import { tx } from '@services/i18n/translation';
-import { titleOf } from './title';
-import Shadow from './Shadow';
-import WarningChip from './WarningChip';
-import { fits, textWidth } from './textWidth';
+import { TerritoryPrintData } from '@views/territories/index.types';
+import styles, { COLORS } from '@views/territories/index.styles';
+import { householdsOf, titleOf } from '@views/territories/shared/title';
+import CardFront, { Chip } from '@views/territories/shared/CardFront';
+import Shadow from '@views/territories/shared/Shadow';
+import WarningChip from '@views/territories/shared/WarningChip';
+import { fits, textWidth } from '@views/territories/shared/textWidth';
 
 const INSET = 9;
 const PADDING = 9;
-
-const Chip = ({ text }: { text: string }) => (
-  <View
-    style={{
-      // a step darker than the screen chip: printers drop the lightest greys
-      backgroundColor: COLORS.divider,
-      borderRadius: 2,
-      height: CHIP_HEIGHT,
-      justifyContent: 'center',
-      paddingLeft: 5,
-      paddingRight: 5,
-    }}
-  >
-    <Text style={[styles.households, { fontSize: 7, fontWeight: 400 }]}>
-      {text}
-    </Text>
-  </View>
-);
 
 // the A5 map fills the card, and a white label floats over its bottom edge
 const MapFront = ({
@@ -38,16 +21,13 @@ const MapFront = ({
   width: number;
   height: number;
 }) => {
+  const { t } = useAppTranslation();
+
   const title = titleOf(territory);
-  const households =
-    territory.showHouseholds !== false && territory.households > 0
-      ? tx('Households: {{n}}', { n: territory.households })
-      : '';
+  const households = householdsOf(territory, t);
   const warning = territory.warning ?? '';
 
-  const titleWidth =
-    textWidth(`${tx('Territory Map Card')}\u2002`, 9) +
-    textWidth(title, 9, true);
+  const titleWidth = textWidth(title, 9, true);
   const householdsWidth = households ? textWidth(households, 7) + 10 + 4 : 0;
   const warningWidth = warning ? textWidth(warning, 7, true) + 20 + 4 : 0;
   // a long title keeps the households beside it; the warning gets its own row
@@ -59,12 +39,23 @@ const MapFront = ({
 
   const warningChip = warning && <WarningChip text={warning} maxWidth={row} />;
 
+  if (territory.type === 'phone') {
+    return (
+      <CardFront
+        territory={territory}
+        width={width}
+        height={height}
+        titleAtBottom
+      />
+    );
+  }
+
   return (
     <View style={{ position: 'relative', width, height }}>
       {territory.mapImage ? (
         <Image
           src={territory.mapImage}
-          style={{ width, height, objectFit: 'cover' }}
+          style={{ width, height, objectFit: 'contain' }}
         />
       ) : (
         <View
@@ -77,7 +68,7 @@ const MapFront = ({
           }}
         >
           <Text style={styles.fine}>
-            {tx('This territory has no borders on the map yet')}
+            {t('tr_territoryThisTerritoryHasNoBordersOnTheMapYet')}
           </Text>
         </View>
       )}
@@ -104,17 +95,13 @@ const MapFront = ({
           <View
             style={{ flexDirection: 'row', alignItems: 'center', columnGap: 8 }}
           >
-            <Text style={{ flexGrow: 1, flexShrink: 1 }}>
-              <Text style={styles.frameTitle}>
-                {tx('Territory Map Card')}
-                {'\u2002'}
-              </Text>
+            <View style={{ flexDirection: 'row', flexShrink: 0, gap: 4 }}>
+              {households && <Chip text={households} />}
+              {warningInline && warningChip}
+            </View>
+            <Text style={{ flexGrow: 1, flexBasis: 0, textAlign: 'right' }}>
               <Text style={styles.frameName}>{title}</Text>
             </Text>
-            <View style={{ flexDirection: 'row', gap: 4 }}>
-              {warningInline && warningChip}
-              {households && <Chip text={households} />}
-            </View>
           </View>
 
           {!warningInline && warningChip && (
@@ -131,9 +118,7 @@ const MapFront = ({
             }}
           >
             <Text style={[styles.frameNote, { flexGrow: 1, flexBasis: 0 }]}>
-              {tx(
-                'Please keep this card in the envelope. Do not soil, mark, or bend it. Each time the territory is covered, please inform the brother who cares for the territory files.'
-              )}
+              {t('tr_territoryPleaseKeepThisCardInTheEnvelopeDoNot')}
             </Text>
           </View>
         </View>

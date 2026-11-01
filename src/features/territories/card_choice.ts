@@ -1,50 +1,26 @@
-import { localStorageGetItem } from '@utils/common';
+import { store } from '@states/index';
+import {
+  territoryCardChoiceState,
+  territoryHolderChoiceState,
+} from '@states/territory_preferences';
 import { AssignmentCard, AssignmentHolder } from '@definition/territory';
 
-// per device, like the map provider: whoever prints the cards keeps printing
-const CARD_KEY = 'territory_assignment_card';
-
-// 'none' when it was left unchosen last time; digital until anything is saved
-export const savedCard = (): AssignmentCard | undefined => {
-  const saved = localStorageGetItem(CARD_KEY);
-  if (saved === 'none') return undefined;
-  return saved === 'printed' ? 'printed' : 'digital';
-};
-
-export const rememberCard = (card?: AssignmentCard) =>
-  localStorage.setItem(CARD_KEY, card ?? 'none');
-
-// the last assign went to a group or a publisher; a group stays picked for the next
-const MODE_KEY = 'territory_assignment_mode';
-const GROUP_KEY = 'territory_assignment_group';
-
 export type HolderMode = 'publisher' | 'group';
-
-const stored = (key: string) => {
-  try {
-    return localStorageGetItem(key) ?? '';
-  } catch {
-    return '';
-  }
-};
-
-export const savedHolder = () => ({
-  mode: (stored(MODE_KEY) === 'group' ? 'group' : 'publisher') as HolderMode,
-  group: stored(GROUP_KEY),
-});
-
-export const rememberHolder = (group?: string) => {
-  try {
-    localStorage.setItem(MODE_KEY, group ? 'group' : 'publisher');
-    if (group) localStorage.setItem(GROUP_KEY, group);
-  } catch {
-    // storage off, as in a private window: the dialog starts from its defaults
-  }
-};
+export const savedCard = () => store.get(territoryCardChoiceState);
+export const rememberCard = (card?: AssignmentCard) =>
+  store.set(territoryCardChoiceState, card);
+export const savedHolder = () => store.get(territoryHolderChoiceState);
+export const rememberHolder = (group?: string) =>
+  store.set(territoryHolderChoiceState, {
+    mode: group ? 'group' : 'publisher',
+    group: group ?? '',
+  });
 
 export type HolderChoice = {
   mode: HolderMode;
   publisher: string | null;
+  publisherId?: string;
+  groupId?: string;
   group: string | null;
 };
 
@@ -55,10 +31,13 @@ export const initialHolder = (
   publisher?: string
 ): HolderChoice => {
   if (current?.publisher || current?.group) {
+    const name = publisher ?? (current.publisher || null);
     return {
       mode: current.group ? 'group' : 'publisher',
+      publisherId: name === current.publisher ? current.publisherId : undefined,
+      groupId: current.groupId,
       group: current.group ?? null,
-      publisher: publisher ?? (current.publisher || null),
+      publisher: name,
     };
   }
 
@@ -81,7 +60,9 @@ export const chosenHolder = ({
   mode,
   publisher,
   group,
+  publisherId,
+  groupId,
 }: HolderChoice): AssignmentHolder =>
   mode === 'group' && group
-    ? { publisher: publisher ?? '', group }
-    : { publisher: publisher ?? '' };
+    ? { publisher: publisher ?? '', group, publisherId, groupId }
+    : { publisher: publisher ?? '', publisherId, groupId: undefined };

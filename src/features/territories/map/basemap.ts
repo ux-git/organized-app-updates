@@ -1,11 +1,14 @@
 import * as maplibregl from 'maplibre-gl';
 import { getCSSPropertyValue } from '@utils/common';
-import { MAP_PROVIDERS, MapProviderKey } from './constants';
+import {
+  MAP_PROVIDERS,
+  MapProviderKey,
+} from '@features/territories/map/constants';
 
 // place icons grouped by their OpenMapTiles class, so a congregation keeps only the useful ones
 export const PLACE_TYPES = {
   shops: {
-    label: 'Shops',
+    label: 'tr_territoryShops',
     classes: [
       'shop',
       'grocery',
@@ -22,24 +25,27 @@ export const PLACE_TYPES = {
     ],
   },
   food: {
-    label: 'Food and drink',
+    label: 'tr_territoryFoodAndDrink',
     classes: ['restaurant', 'fast_food', 'cafe', 'bar', 'beer', 'ice_cream'],
   },
   schools: {
-    label: 'Schools',
+    label: 'tr_territorySchools',
     classes: ['school', 'college', 'kindergarten', 'library'],
   },
-  worship: { label: 'Places of worship', classes: ['place_of_worship'] },
+  worship: {
+    label: 'tr_territoryPlacesOfWorship',
+    classes: ['place_of_worship'],
+  },
   health: {
-    label: 'Health',
+    label: 'tr_territoryHealth',
     classes: ['hospital', 'pharmacy', 'doctors', 'dentist'],
   },
   services: {
-    label: 'Public services',
+    label: 'tr_territoryPublicServices',
     classes: ['town_hall', 'post', 'police', 'fire_station', 'bank', 'atm'],
   },
   leisure: {
-    label: 'Leisure',
+    label: 'tr_territoryLeisure',
     classes: [
       'park',
       'playground',
@@ -58,7 +64,7 @@ export const PLACE_TYPES = {
   // bins, recycling, fuel, charging and everything else without a group
   // every place outside the groups above: recycling points, toilets, bins and the like
   other: {
-    label: 'Everything else, like recycling and toilets',
+    label: 'tr_territoryEverythingElseLikeRecyclingAndToilets',
     classes: [] as string[],
   },
 } as const;
@@ -535,6 +541,44 @@ export const hideStylePlaces = (map: maplibregl.Map) => {
   }
 };
 
+const applyLayerOptions = (
+  map: maplibregl.Map,
+  layer: maplibregl.LayerSpecification,
+  options: BasemapOptions
+) => {
+  const sourceLayer = sourceLayerOf(layer) ?? '';
+
+  // stop and station icons crowd the map; car parks are the only signs we keep.
+  // 3D buildings draw above every flat layer, so they'd poke through the outside fade
+  if (
+    (layer.type === 'symbol' && /transit/.test(layer.id)) ||
+    layer.type === 'fill-extrusion'
+  ) {
+    setVisible(map, layer.id, false);
+  } else if (layer.id.startsWith(PARKING)) {
+    setVisible(map, layer.id, options.parking);
+  } else if (layer.id.startsWith(BUILDINGS)) {
+    setVisible(map, layer.id, options.buildings);
+  } else if (HOUSE_NUMBER_LAYERS.has(sourceLayer)) {
+    map.setLayerZoomRange(
+      layer.id,
+      Math.min(layer.minzoom ?? 0, HOUSE_NUMBERS_FROM),
+      layer.maxzoom ?? 24
+    );
+    setVisible(map, layer.id, options.houseNumbers);
+  } else if (PLACE_LAYERS.has(sourceLayer)) {
+    setVisible(map, layer.id, options.places);
+    if (sourceLayer === 'poi' && layer.type === 'symbol') {
+      filterPlaces(map, layer.id, options.placeTypes);
+    }
+  } else if (STREET_NAME_LAYERS.has(sourceLayer) && layer.type === 'symbol') {
+    setVisible(map, layer.id, options.streetNames);
+    styleStreetName(map, layer);
+  } else if (WATER_LAYERS.has(sourceLayer) && layer.type === 'fill') {
+    tintWater(map, layer.id, options.water);
+  }
+};
+
 export const applyBasemapOptions = (
   map: maplibregl.Map,
   provider: MapProviderKey,
@@ -551,36 +595,6 @@ export const applyBasemapOptions = (
   }
 
   for (const layer of map.getStyle().layers) {
-    const sourceLayer = sourceLayerOf(layer) ?? '';
-
-    // stop and station icons crowd the map; car parks are the only signs we keep.
-    // 3D buildings draw above every flat layer, so they'd poke through the outside fade
-    if (
-      (layer.type === 'symbol' && /transit/.test(layer.id)) ||
-      layer.type === 'fill-extrusion'
-    ) {
-      setVisible(map, layer.id, false);
-    } else if (layer.id.startsWith(PARKING)) {
-      setVisible(map, layer.id, options.parking);
-    } else if (layer.id.startsWith(BUILDINGS)) {
-      setVisible(map, layer.id, options.buildings);
-    } else if (HOUSE_NUMBER_LAYERS.has(sourceLayer)) {
-      map.setLayerZoomRange(
-        layer.id,
-        Math.min(layer.minzoom ?? 0, HOUSE_NUMBERS_FROM),
-        layer.maxzoom ?? 24
-      );
-      setVisible(map, layer.id, options.houseNumbers);
-    } else if (PLACE_LAYERS.has(sourceLayer)) {
-      setVisible(map, layer.id, options.places);
-      if (sourceLayer === 'poi' && layer.type === 'symbol') {
-        filterPlaces(map, layer.id, options.placeTypes);
-      }
-    } else if (STREET_NAME_LAYERS.has(sourceLayer) && layer.type === 'symbol') {
-      setVisible(map, layer.id, options.streetNames);
-      styleStreetName(map, layer);
-    } else if (WATER_LAYERS.has(sourceLayer) && layer.type === 'fill') {
-      tintWater(map, layer.id, options.water);
-    }
+    applyLayerOptions(map, layer, options);
   }
 };

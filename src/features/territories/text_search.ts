@@ -1,5 +1,5 @@
 import type { Territory } from '@definition/territory';
-import { territoryHolderText } from './group_holder';
+import { territoryHolderText } from '@features/territories/group_holder';
 
 // number, name, locality, holder, categories and the territory's notes
 export const matchesText = (territory: Territory, query: string) =>

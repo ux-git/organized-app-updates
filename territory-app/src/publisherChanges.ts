@@ -136,7 +136,18 @@ export const revertedTerritories = (
         )
         .map((item) => [item.id, item])
     );
-    const reverted = revertAssignment(territory, change.old, []);
+    if (
+      [...touched.keys()].some(
+        (id) =>
+          JSON.stringify(
+            territory.assignments.find((item) => item.id === id)
+          ) !==
+          JSON.stringify(change.new.assignments.find((item) => item.id === id))
+      )
+    )
+      return territory;
+    const reverted = revertAssignment(territory, change.old, [], change.new);
+    if (reverted === territory) return territory;
     return {
       ...reverted,
       assignments: reverted.assignments.map(

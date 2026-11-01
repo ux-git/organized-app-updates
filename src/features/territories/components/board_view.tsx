@@ -2,28 +2,31 @@ import { memo, useEffect, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { Box, Stack } from '@mui/material';
 import { ReactSortable } from 'react-sortablejs';
-import { Badge, Typography } from '@components/index';
+import { Badge, InfoNote, Typography } from '@components/index';
 import {
   STATUS_LABEL,
   Territory,
   TerritoryStatus,
   TYPE_LABEL,
 } from '@definition/territory';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { territoryLocalModeState } from '@states/territories';
-import AssignButton from './assign_button';
-import { clickableRow } from './table_styles';
+import AssignButton from '@features/territories/components/assign_button';
+import { clickableRow } from '@features/territories/components/table_styles';
 import {
   AssignedTwiceBadge,
   CardLostBadge,
   CategoryBadges,
   CoveredBadge,
   ListDoNotCallBadge as DoNotCallBadge,
-} from './territory_badges';
-import TruncatedText from './truncated_text';
-import { coveredAge, coveredDays, emptyListMessage } from '../helpers';
-import { territoryHolderText } from '../group_holder';
-import { tx } from '@services/i18n/translation';
+} from '@features/territories/components/territory_badges';
+import TruncatedText from '@features/territories/components/truncated_text';
+import {
+  coveredAge,
+  coveredDays,
+  emptyListMessage,
+} from '@features/territories/helpers';
+import { territoryHolderText } from '@features/territories/group_holder';
 
 type Column = 'available' | 'requested' | 'in_work' | 'overdue';
 
@@ -32,7 +35,7 @@ const COLUMNS: Column[] = ['requested', 'available', 'in_work', 'overdue'];
 
 const COLUMN_LABEL: Record<Column, string> = {
   available: STATUS_LABEL.available,
-  requested: 'Requested',
+  requested: 'tr_territoryRequested',
   in_work: STATUS_LABEL.in_work,
   overdue: STATUS_LABEL.overdue,
 };
@@ -66,6 +69,8 @@ const BoardView = ({
   showHouseholds = true,
   overdueMonths,
 }: BoardViewProps) => {
+  const { t } = useAppTranslation();
+
   const { tablet688Up } = useBreakpoints();
   const localMode = useAtomValue(territoryLocalModeState);
 
@@ -151,7 +156,7 @@ const BoardView = ({
               padding: '16px',
               borderRadius: 'var(--radius-xl)',
               backgroundColor: canDrop ? 'var(--grey-100)' : 'transparent',
-              border: canDrop ? '1px solid' : '1px dashed',
+              border: '1px solid',
               borderColor,
               opacity: dragging && !accepts ? 0.4 : 1,
               transition: 'border-color 0.2s ease, opacity 0.2s ease',
@@ -163,14 +168,14 @@ const BoardView = ({
                   className="body-small-semibold"
                   color="var(--black)"
                 >
-                  {tx(COLUMN_LABEL[status])}
+                  {t(COLUMN_LABEL[status])}
                 </Typography>
                 {status === 'overdue' && overdueMonths && (
                   <Typography
                     className="label-small-regular"
                     color="var(--grey-350)"
                   >
-                    {tx('Out longer than {{n}} months', { n: overdueMonths })}
+                    {t('tr_territoryOutLongerThanMonths', { n: overdueMonths })}
                   </Typography>
                 )}
               </Stack>
@@ -185,24 +190,16 @@ const BoardView = ({
 
             <Box sx={{ position: 'relative', minHeight: '72px', flexGrow: 1 }}>
               {column.length === 0 && (
-                <Stack
+                <InfoNote
+                  message={
+                    canDrop ? t('tr_territoryDropHere') : emptyListMessage()
+                  }
                   sx={{
-                    alignItems: 'center',
-                    justifyContent: 'center',
                     position: 'absolute',
                     inset: 0,
-                    borderRadius: 'var(--radius-m)',
-                    border: '1px dashed var(--accent-300)',
                     pointerEvents: 'none',
                   }}
-                >
-                  <Typography
-                    className="label-small-regular"
-                    color="var(--grey-350)"
-                  >
-                    {canDrop ? tx('Drop here') : emptyListMessage()}
-                  </Typography>
-                </Stack>
+                />
               )}
 
               <ReactSortable
@@ -270,9 +267,9 @@ const BoardView = ({
                       <TruncatedText
                         className="label-small-regular"
                         color="var(--grey-350)"
-                        text={`${territoryHolderText(territory) || tx(TYPE_LABEL[territory.type])}${
+                        text={`${territoryHolderText(territory) || t(TYPE_LABEL[territory.type])}${
                           showHouseholds
-                            ? ` · ${tx('{{n}} households', { n: territory.households })}`
+                            ? ` · ${t('tr_territoryHouseholdCount', { n: territory.households })}`
                             : ''
                         }`}
                       />
@@ -296,7 +293,7 @@ const BoardView = ({
                             days={coveredAge(territory)}
                             label={
                               coveredDays(territory) === null
-                                ? tx('Never covered')
+                                ? t('tr_territoryNeverCovered')
                                 : undefined
                             }
                           />

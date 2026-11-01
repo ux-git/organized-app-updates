@@ -1,9 +1,16 @@
+import formTranslations from '@locales/en/forms-templates.json';
 import importExample from './publisher-import-example.json';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { store } from '@states/index';
 import { campaignsFromBackup, territoryCampaignsState } from './campaigns';
 import { applyImport, planImport, readBackup } from './people';
 import { writeRows } from './persistence';
+
+vi.mock('@services/i18n/translation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@services/i18n/translation')>()),
+  getTranslation: ({ key }: { key: string }) =>
+    formTranslations[key as keyof typeof formTranslations] ?? key,
+}));
 
 vi.mock('./native', () => ({
   invoke: vi.fn(),
@@ -49,6 +56,7 @@ describe('campaigns from a backup', () => {
       {
         id: 'e1',
         name: 'Memorial invitations',
+        description: 'Memorial invitations',
         start: '2026-03-01',
         end: '2026-03-21',
       },
@@ -59,6 +67,27 @@ describe('campaigns from a backup', () => {
     expect(campaignsFromBackup([event('e4', 6)])[0].name).toBe(
       'Special campaign'
     );
+  });
+
+  test('keeps the campaign title separate from its instructions', () => {
+    const named = event('named', 6, 'Visit the east side first.');
+    expect(
+      campaignsFromBackup([
+        {
+          ...named,
+          event_data: { ...named.event_data, custom: 'Autumn invitation' },
+        },
+      ])[0]
+    ).toMatchObject({
+      name: 'Autumn invitation',
+      description: 'Visit the east side first.',
+    });
+  });
+
+  test('ignores campaigns with invalid dates instead of exposing broken ranges', () => {
+    const invalid = event('invalid', 6);
+    invalid.event_data.start = 'not a date';
+    expect(campaignsFromBackup([invalid])).toEqual([]);
   });
 
   test('a backup without events has none', () => {

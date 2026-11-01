@@ -1,17 +1,15 @@
-import { tx } from '@services/i18n/translation';
 import { useState } from 'react';
-import { useAtomValue } from 'jotai';
 import { Box, MenuItem, Stack } from '@mui/material';
 import { Button, Select, TextField, Typography } from '@components/index';
 import DatePicker from '@components/date_picker';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { IconLocation } from '@icons/index';
 import { DoNotCall } from '@definition/territory';
-import { parseDate, toStoredDate } from '../helpers';
-import { currentPublisherState } from '../assignees';
-import EditorHeader from '../components/editor_header';
+import { parseDate, toStoredDate } from '@features/territories/helpers';
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
+import EditorHeader from '@features/territories/components/editor_header';
 
 const DoNotCallEditor = ({
   entry,
@@ -30,15 +28,25 @@ const DoNotCallEditor = ({
   // the address as typed, in the maps app
   onOpenInMaps?: (address: string) => void;
 }) => {
+  const { t } = useAppTranslation();
+
   const { tablet600Up } = useBreakpoints();
 
-  const me = useAtomValue(currentPublisherState);
+  const { publisher: me } = useTerritoryAccess();
 
   const [address, setAddress] = useState(entry?.address ?? '');
   const [name, setName] = useState(entry?.name ?? '');
   const [date, setDate] = useState<Date | null>(
     parseDate(entry?.date) ?? new Date()
   );
+
+  let titleKey = entry
+    ? 'tr_territoryEditDoNotCallAddress'
+    : 'tr_territoryAddDoNotCallAddress';
+  if (numbers)
+    titleKey = entry
+      ? 'tr_territoryEditDoNotCallNumber'
+      : 'tr_territoryAddDoNotCallNumber';
 
   const handleSave = () => {
     onSave({
@@ -57,19 +65,11 @@ const DoNotCallEditor = ({
       open
       header={
         <EditorHeader
-          title={
-            numbers
-              ? entry
-                ? tx('Edit do-not-call number')
-                : tx('Add do-not-call number')
-              : entry
-                ? tx('Edit do-not-call address')
-                : tx('Add do-not-call address')
-          }
+          title={t(titleKey)}
           description={
             numbers
-              ? tx('A number the publishers should not call, and since when.')
-              : tx('An address the publishers should skip, and since when.')
+              ? t('tr_territoryANumberThePublishersShouldNotCallAndSince')
+              : t('tr_territoryAnAddressThePublishersShouldSkipAndSinceWhen')
           }
           onDelete={
             entry && onDelete
@@ -84,7 +84,7 @@ const DoNotCallEditor = ({
     >
       {numbers ? (
         <Select
-          label={tx('Phone number')}
+          label={t('tr_phoneNumber')}
           value={address}
           onChange={(event) => setAddress(event.target.value as string)}
         >
@@ -96,7 +96,7 @@ const DoNotCallEditor = ({
         </Select>
       ) : (
         <TextField
-          label={tx('Address')}
+          label={t('tr_address')}
           autoFocus={!entry}
           value={address}
           onChange={(event) => setAddress(event.target.value)}
@@ -111,7 +111,7 @@ const DoNotCallEditor = ({
         {!numbers && (
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <TextField
-              label={tx('Name')}
+              label={t('tr_name')}
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
@@ -120,7 +120,7 @@ const DoNotCallEditor = ({
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <DatePicker
-            label={tx('Date')}
+            label={t('tr_date')}
             value={date}
             onChange={(value) => setDate(value)}
           />
@@ -136,16 +136,16 @@ const DoNotCallEditor = ({
           onClick={() => onOpenInMaps(address.trim())}
           sx={{ minHeight: '32px', minWidth: 'unset', marginTop: '-8px' }}
         >
-          {tx('Open in maps')}
+          {t('tr_territoryOpenInMaps')}
         </Button>
       )}
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          {tx('Cancel')}
+          {t('tr_cancel')}
         </Button>
         <Button variant="main" disabled={!address.trim()} onClick={handleSave}>
-          {tx('Save')}
+          {t('tr_save')}
         </Button>
       </DialogActions>
     </Dialog>

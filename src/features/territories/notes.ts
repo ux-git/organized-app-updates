@@ -17,11 +17,29 @@ export const latestReturnNote = (assignments: TerritoryAssignment[]) =>
 
 // a note on one line, for a list row
 export const noteLine = (note: string) =>
-  note.trim().replace(/\s*\n+\s*/g, ' · ');
+  note
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' · ');
 
 // an assignment's finding joins the standing notes, a blank line apart
-export const appendNote = (notes: string | undefined, note: string) =>
-  [notes?.trim(), note.trim()].filter(Boolean).join('\n\n');
+export const appendNote = (notes: string | undefined, note: string) => {
+  const existing = notes?.trim() ?? '';
+  const added = note.trim();
+  if (!added || `\n\n${existing}\n\n`.includes(`\n\n${added}\n\n`))
+    return existing;
+  return [existing, added].filter(Boolean).join('\n\n');
+};
 
 export const hasNewNote = (territory: Territory) =>
   !!territory.reviewNeeded && !!latestReturnNote(territory.assignments);
+
+// Omitted means unchanged; an explicitly blank input clears the assignment note.
+export const assignmentNoteUpdate = (note?: string) =>
+  note === undefined ? {} : { note: note.trim() || undefined };
+
+export const currentAssignmentNote = (territory: Territory) =>
+  territory.assignments.find(
+    (item) => !item.returnedOn && item.publisher === territory.holder
+  )?.note;

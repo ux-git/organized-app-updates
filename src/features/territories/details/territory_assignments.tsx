@@ -1,19 +1,28 @@
-import { tx } from '@services/i18n/translation';
+import TerritoryNote from '@features/territories/components/note';
 import { useState } from 'react';
-import { useAtomValue } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
+import { atomWithStorage } from 'jotai/utils';
 import { shortDateFormatState } from '@states/settings';
 import { Box, Stack } from '@mui/material';
-import { Button } from '@components/index';
-import { useBreakpoints } from '@hooks/index';
-import { IconAdd, IconCopy, IconEdit } from '@icons/index';
+import { Button, Typography } from '@components/index';
+import IconButton from '@components/icon_button';
+import Tooltip from '@components/tooltip';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
+import {
+  IconAdd,
+  IconCopy,
+  IconEdit,
+  IconSortDown,
+  IconSortUp,
+} from '@icons/index';
 import { Territory, TerritoryAssignment } from '@definition/territory';
-import RecordList from '../components/record_list';
-import RowAction from '../components/row_action';
+import RecordList from '@features/territories/components/record_list';
+import RowAction from '@features/territories/components/row_action';
 import {
   CampaignBadge,
   CardBadge,
   StatusBadge,
-} from '../components/territory_badges';
+} from '@features/territories/components/territory_badges';
 import {
   assignmentFromDates,
   assignmentIssues,
@@ -21,16 +30,24 @@ import {
   issuesText,
   parseDate,
   emptyListMessage,
-} from '../helpers';
-import { appendNote, noteLine } from '../notes';
-import { holderText, missingPublisher } from '../group_holder';
-import { offerUndo } from '../undo';
-import { restoreAssignment } from '../restore';
-import AssignmentEditor from './assignment_editor';
+} from '@features/territories/helpers';
+import { appendNote } from '@features/territories/notes';
+import {
+  holderText,
+  missingPublisher,
+} from '@features/territories/group_holder';
+import { offerUndo } from '@features/territories/undo';
+import { restoreAssignment } from '@features/territories/restore';
+import AssignmentEditor from '@features/territories/details/assignment_editor';
 
-const newestFirst = (a: TerritoryAssignment, b: TerritoryAssignment) =>
-  (parseDate(b.assignedOn)?.getTime() ?? 0) -
-  (parseDate(a.assignedOn)?.getTime() ?? 0);
+const oldestFirst = (a: TerritoryAssignment, b: TerritoryAssignment) =>
+  (parseDate(a.assignedOn)?.getTime() ?? 0) -
+  (parseDate(b.assignedOn)?.getTime() ?? 0);
+
+const newestFirstState = atomWithStorage(
+  'territoryAssignmentsNewestFirst',
+  false
+);
 
 const blankAssignment = (): TerritoryAssignment =>
   assignmentFromDates(
@@ -58,12 +75,15 @@ const TerritoryAssignments = ({
   // a note worth keeping goes into the territory's notes
   onNotes?: (notes: string) => void;
 }) => {
+  const { t } = useAppTranslation();
+
   const { tablet688Up } = useBreakpoints();
 
   const format = useAtomValue(shortDateFormatState);
 
   const [editing, setEditing] = useState<TerritoryAssignment>();
   const [adding, setAdding] = useState(false);
+  const [newestFirst, setNewestFirst] = useAtom(newestFirstState);
 
   const assignments = territory.assignments;
 
@@ -72,56 +92,106 @@ const TerritoryAssignments = ({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 'var(--radius-m)',
+        }}
+      >
+        <Typography component="h2" className="h3">
+          {t('tr_territoryAssignmentsCount', { count: assignments.length })}
+        </Typography>
+        {assignments.length > 1 && (
+          <Tooltip
+            title={t(
+              newestFirst
+                ? 'tr_territoryNewestFirst'
+                : 'tr_territoryOldestFirst'
+            )}
+          >
+            <IconButton
+              aria-label={t('tr_territorySort')}
+              onClick={() => setNewestFirst(!newestFirst)}
+              sx={{
+                padding: 'var(--radius-xl)',
+                margin: 0,
+                borderRadius: 'var(--radius-m)',
+              }}
+            >
+              {newestFirst ? (
+                <IconSortUp color="var(--black)" width={20} height={20} />
+              ) : (
+                <IconSortDown color="var(--black)" width={20} height={20} />
+              )}
+            </IconButton>
+          </Tooltip>
+        )}
+      </Stack>
       <RecordList
         emptyMessage={emptyListMessage()}
-        items={[...assignments].sort(newestFirst).map((assignment) => ({
-          id: assignment.id,
-          onClick: onChange && (() => setEditing(assignment)),
-          title: holderText(assignment),
-          subtitle: assignment.note ? noteLine(assignment.note) : undefined,
-          date: assignment.returnedOn
-            ? `${displayDate(assignment.assignedOn, format)} – ${displayDate(assignment.returnedOn, format)}`
-            : tx('Since: {{date}}', {
-                date: displayDate(assignment.assignedOn, format),
-              }),
-          warning: [
-            missingPublisher(assignment) && tx('Fill in who it is assigned to'),
-            issuesText(assignmentIssues(assignment)),
-          ]
-            .filter(Boolean)
-            .join(' · '),
-          badge: (!assignment.returnedOn ||
-            assignment.campaign ||
-            assignment.card) && (
-            <Stack direction="row" spacing="4px" sx={{ flexShrink: 0 }}>
-              {!assignment.returnedOn && <StatusBadge status="in_work" />}
-              <CardBadge card={assignment.card} text={tablet688Up} />
-              <CampaignBadge assignment={assignment} />
-            </Stack>
-          ),
-          actions: (onChange || adoptable(assignment.note)) && (
-            <>
-              {adoptable(assignment.note) && (
-                <RowAction
-                  title={tx('Add to territory notes')}
-                  onClick={() =>
-                    onNotes?.(appendNote(territory.notes, assignment.note!))
-                  }
-                >
-                  <IconCopy color="var(--accent-main)" width={18} height={18} />
-                </RowAction>
-              )}
-              {onChange && (
-                <RowAction
-                  title={tx('Edit')}
-                  onClick={() => setEditing(assignment)}
-                >
-                  <IconEdit color="var(--accent-main)" width={18} height={18} />
-                </RowAction>
-              )}
-            </>
-          ),
-        }))}
+        items={[...assignments]
+          .sort((a, b) => (newestFirst ? -1 : 1) * oldestFirst(a, b))
+          .map((assignment) => ({
+            id: assignment.id,
+            onClick: onChange && (() => setEditing(assignment)),
+            title: holderText(assignment),
+            content: (
+              <TerritoryNote kind="assignment" value={assignment.note} />
+            ),
+            date: assignment.returnedOn
+              ? `${displayDate(assignment.assignedOn, format)} – ${displayDate(assignment.returnedOn, format)}`
+              : t('tr_territorySince', {
+                  date: displayDate(assignment.assignedOn, format),
+                }),
+            warning: [
+              missingPublisher(assignment) &&
+                t('tr_territoryFillInWhoItIsAssignedTo'),
+              issuesText(assignmentIssues(assignment)),
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            badge: (!assignment.returnedOn ||
+              assignment.campaign ||
+              assignment.card) && (
+              <Stack direction="row" spacing="4px" sx={{ flexShrink: 0 }}>
+                {!assignment.returnedOn && <StatusBadge status="in_work" />}
+                <CardBadge card={assignment.card} text={tablet688Up} />
+                <CampaignBadge assignment={assignment} />
+              </Stack>
+            ),
+            actions: (onChange || adoptable(assignment.note)) && (
+              <>
+                {adoptable(assignment.note) && (
+                  <RowAction
+                    title={t('tr_territoryAddToTerritoryNotes')}
+                    onClick={() =>
+                      onNotes?.(appendNote(territory.notes, assignment.note!))
+                    }
+                  >
+                    <IconCopy
+                      color="var(--accent-main)"
+                      width={18}
+                      height={18}
+                    />
+                  </RowAction>
+                )}
+                {onChange && (
+                  <RowAction
+                    title={t('tr_edit')}
+                    onClick={() => setEditing(assignment)}
+                  >
+                    <IconEdit
+                      color="var(--accent-main)"
+                      width={18}
+                      height={18}
+                    />
+                  </RowAction>
+                )}
+              </>
+            ),
+          }))}
       />
 
       {onChange && (
@@ -136,7 +206,7 @@ const TerritoryAssignments = ({
             }}
             sx={{ minHeight: '32px', minWidth: 'unset' }}
           >
-            {tx('Add')}
+            {t('tr_add')}
           </Button>
         </Stack>
       )}
@@ -158,13 +228,13 @@ const TerritoryAssignments = ({
             );
             onChange(assignments.filter((item) => item.id !== editing.id));
             offerUndo({
-              text: tx('Assignment deleted'),
+              text: t('tr_territoryAssignmentDeleted'),
               revert: () => restoreAssignment(territory.id, editing, index),
             });
           }}
           onAdoptNote={
-            adoptable(editing.note)
-              ? () => onNotes?.(appendNote(territory.notes, editing.note!))
+            onNotes
+              ? (note) => onNotes(appendNote(territory.notes, note))
               : undefined
           }
           onSave={(next) =>

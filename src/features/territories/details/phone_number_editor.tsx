@@ -1,10 +1,10 @@
-import { tx } from '@services/i18n/translation';
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { Button, TextField } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { IconCall } from '@icons/index';
-import EditorHeader from '../components/editor_header';
+import EditorHeader from '@features/territories/components/editor_header';
 
 const PhoneNumberEditor = ({
   value,
@@ -20,6 +20,8 @@ const PhoneNumberEditor = ({
   // dials the number as typed
   onCall?: (number: string) => void;
 }) => {
+  const { t } = useAppTranslation();
+
   const [number, setNumber] = useState(value ?? '');
 
   return (
@@ -30,11 +32,11 @@ const PhoneNumberEditor = ({
         <EditorHeader
           title={
             value === undefined
-              ? tx('Add phone number')
-              : tx('Edit phone number')
+              ? t('tr_territoryAddPhoneNumber')
+              : t('tr_territoryEditPhoneNumber')
           }
-          description={tx(
-            'A number the publishers call when they work this territory.'
+          description={t(
+            'tr_territoryANumberThePublishersCallWhenTheyWorkThis'
           )}
           onDelete={
             value !== undefined && onDelete
@@ -48,7 +50,7 @@ const PhoneNumberEditor = ({
       }
     >
       <TextField
-        label={tx('Phone number')}
+        label={t('tr_phoneNumber')}
         type="tel"
         autoFocus
         value={number}
@@ -64,13 +66,13 @@ const PhoneNumberEditor = ({
           onClick={() => onCall(number.trim())}
           sx={{ minHeight: '32px', minWidth: 'unset', marginTop: '-8px' }}
         >
-          {tx('Call', { context: 'action' })}
+          {t('tr_territoryTypeCall', { context: 'action' })}
         </Button>
       )}
 
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          {tx('Cancel')}
+          {t('tr_cancel')}
         </Button>
         <Button
           variant="main"
@@ -80,7 +82,7 @@ const PhoneNumberEditor = ({
             onClose();
           }}
         >
-          {tx('Save')}
+          {t('tr_save')}
         </Button>
       </DialogActions>
     </Dialog>

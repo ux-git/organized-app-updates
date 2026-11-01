@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { AssignmentCard, Territory } from '@definition/territory';
-import { CardFilter, cardsOut, matchesCard, openCard } from '../card_filter';
+import {
+  CardFilter,
+  cardsOut,
+  matchesCard,
+  openCard,
+} from '@features/territories/card_filter';
 
 const territory = (
   id: string,

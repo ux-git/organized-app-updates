@@ -5,10 +5,7 @@ import {
   getShortDatePickerFormat,
   getTranslation,
 } from '@services/i18n/translation';
-import {
-  localStorageGetItem,
-  systemBarInset,
-} from '@utils/common';
+import { localStorageGetItem, systemBarInset } from '@utils/common';
 import {
   BackupFileType,
   BeforeInstallPromptEvent,
@@ -62,12 +59,14 @@ export const appThemeState = atom((get) => {
   )?.direction ?? 'ltr') as Direction;
 
   const theme = createTheme({
+    palette: { mode: get(isDarkThemeState) ? 'dark' : 'light' },
     typography: {
       allVariants: {
         fontFamily: font,
       },
     },
     components: {
+      MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
       MuiCssBaseline: {
         styleOverrides: {
           body: {
@@ -83,8 +82,15 @@ export const appThemeState = atom((get) => {
       },
       MuiFormControlLabel: {
         styleOverrides: {
-          // MUI's -11px label offset assumes 9px control padding; ours is 4px
-          root: { marginLeft: '-4px' },
+          root: {
+            // Match the custom radio's 4px padding instead of MUI's 9px.
+            '&.MuiFormControlLabel-labelPlacementEnd:has(.MuiRadio-root)': {
+              marginLeft: '-4px',
+            },
+            '&.MuiFormControlLabel-labelPlacementStart:has(.MuiRadio-root)': {
+              marginRight: '-4px',
+            },
+          },
         },
       },
       MuiDialog: {

@@ -1,6 +1,9 @@
 import * as maplibregl from 'maplibre-gl';
 import { Territory } from '@definition/territory';
-import { DEFAULT_BOUNDARY_STYLE, MAP_COLORS } from './constants';
+import {
+  DEFAULT_BOUNDARY_STYLE,
+  MAP_COLORS,
+} from '@features/territories/map/constants';
 import { mapDetail } from '@services/maps/performance';
 import {
   boundaryCollection,
@@ -8,7 +11,7 @@ import {
   lineCollection,
   shapeCollection,
   labelOpacity,
-} from './helpers';
+} from '@features/territories/map/helpers';
 
 // the dashed lines inside a territory are drawn as thick as its border
 export const BORDER_WIDTH: maplibregl.ExpressionSpecification = [
@@ -51,24 +54,15 @@ export const addBoundaryLayers = (
   });
 };
 
-export const addDrawingLayers = (
-  map: maplibregl.Map,
-  territories: Territory[],
-  prefix = 'drawing',
-  selectedId?: string
-) => {
+const drawingLineLayout = () => {
   const lineJoin = mapDetail().lineJoin;
+  return {
+    'line-join': lineJoin,
+    'line-cap': lineJoin === 'round' ? ('round' as const) : ('butt' as const),
+  };
+};
 
-  map.addSource(`${prefix}-shapes`, {
-    type: 'geojson',
-    data: shapeCollection(territories),
-  });
-
-  map.addSource(`${prefix}-lines`, {
-    type: 'geojson',
-    data: lineCollection(territories, selectedId),
-  });
-
+const addShapeLayers = (map: maplibregl.Map, prefix: string) => {
   map.addLayer({
     id: `${prefix}-shapes-fill`,
     type: 'fill',
@@ -87,10 +81,7 @@ export const addDrawingLayers = (
         ['!=', ['get', 'border'], ''],
         ['==', ['boolean', ['get', 'dashed'], false], dashed],
       ],
-      layout: {
-        'line-join': lineJoin,
-        'line-cap': lineJoin === 'round' ? 'round' : 'butt',
-      },
+      layout: drawingLineLayout(),
       paint: {
         'line-color': ['get', 'border'],
         'line-width': 2.5,
@@ -98,7 +89,9 @@ export const addDrawingLayers = (
       },
     });
   }
+};
 
+const addLineLayers = (map: maplibregl.Map, prefix: string) => {
   // a width that depends on the feature stretches the dashes several times,
   // so each border width gets its own layer with a fixed one
   for (const selected of [false, true]) {
@@ -111,10 +104,7 @@ export const addDrawingLayers = (
         ['==', ['get', 'style'], 'solid'],
         ['==', ['boolean', ['get', 'selected'], false], selected],
       ],
-      layout: {
-        'line-join': lineJoin,
-        'line-cap': lineJoin === 'round' ? 'round' : 'butt',
-      },
+      layout: drawingLineLayout(),
       paint: {
         'line-color': ['get', 'color'],
         'line-width': selected ? 3 : 1.5,
@@ -131,10 +121,7 @@ export const addDrawingLayers = (
         ['==', ['get', 'style'], 'dashed'],
         ['==', ['boolean', ['get', 'selected'], false], selected],
       ],
-      layout: {
-        'line-join': lineJoin,
-        'line-cap': lineJoin === 'round' ? 'round' : 'butt',
-      },
+      layout: drawingLineLayout(),
       paint: {
         'line-color': ['get', 'color'],
         'line-width': selected ? 3 : 1.5,
@@ -153,6 +140,26 @@ export const addDrawingLayers = (
       },
     });
   }
+};
+
+export const addDrawingLayers = (
+  map: maplibregl.Map,
+  territories: Territory[],
+  prefix = 'drawing',
+  selectedId?: string
+) => {
+  map.addSource(`${prefix}-shapes`, {
+    type: 'geojson',
+    data: shapeCollection(territories),
+  });
+
+  map.addSource(`${prefix}-lines`, {
+    type: 'geojson',
+    data: lineCollection(territories, selectedId),
+  });
+
+  addShapeLayers(map, prefix);
+  addLineLayers(map, prefix);
 };
 
 export const setDrawingData = (

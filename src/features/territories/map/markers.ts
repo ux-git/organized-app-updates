@@ -2,8 +2,8 @@ import { createElement } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { createRoot, Root } from 'react-dom/client';
 import { TerritoryMapMarker } from '@definition/territory';
-import { chip } from './helpers';
-import MarkerChip from './marker_chip';
+import { chip } from '@features/territories/map/helpers';
+import MarkerChip from '@features/territories/map/marker_chip';
 
 export type MarkerRegistry = Map<
   string,
@@ -61,12 +61,9 @@ const showFramed = (map: maplibregl.Map) => {
 const showByZoom = (map: maplibregl.Map) => {
   const zoom = map.getZoom();
   const container = map.getContainer();
-  container.dataset.markerZoom =
-    container.dataset.editing || zoom >= MARKER_FULL_ZOOM
-      ? 'full'
-      : zoom >= MARKER_ICON_ZOOM
-        ? 'icon'
-        : 'none';
+  let level = zoom >= MARKER_ICON_ZOOM ? 'icon' : 'none';
+  if (container.dataset.editing || zoom >= MARKER_FULL_ZOOM) level = 'full';
+  container.dataset.markerZoom = level;
 };
 
 const watched = new WeakSet<maplibregl.Map>();

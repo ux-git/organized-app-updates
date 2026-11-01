@@ -1,10 +1,13 @@
+import { paintMapAttribution } from '@services/maps/attribution';
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { JWLangLocaleState } from '@states/settings';
 import * as maplibregl from 'maplibre-gl';
 import { Image, Page, pdf } from '@react-pdf/renderer';
-import { FormControlLabel, Radio, RadioGroup, Stack } from '@mui/material';
-import { Button, Checkbox, Typography } from '@components/index';
+import { FormControlLabel, RadioGroup, Stack } from '@mui/material';
+import IconLoading from '@components/icon_loading';
+import { Button, Checkbox, Radio, Typography } from '@components/index';
 import Dialog from '@components/dialog';
 import DialogActions from '@components/dialog_actions';
 import { Document } from '@views/components';
@@ -12,16 +15,20 @@ import { mapRequest } from '@services/maps/offline';
 import { mapPerformanceOptions } from '@services/maps/performance';
 import { exportFile } from '@services/files/export';
 import { displaySnackNotification } from '@services/states/app';
-import { tx } from '@services/i18n/translation';
 import { MapColor, Territory, TerritoryBoundary } from '@definition/territory';
 import {
   DEFAULT_PROVIDER,
   MAP_COLORS,
+  MAP_EXPORT_PADDING,
   MAP_PROVIDER,
   MAP_PROVIDERS,
-} from './constants';
-import { applyBasemapOptions, DEFAULT_BASEMAP, labelsAbove } from './basemap';
-import { boundaryBounds } from './helpers';
+} from '@features/territories/map/constants';
+import {
+  applyBasemapOptions,
+  DEFAULT_BASEMAP,
+  labelsAbove,
+} from '@features/territories/map/basemap';
+import { boundaryBounds } from '@features/territories/map/helpers';
 
 // ---- the whole congregation's map on paper, from A4 up to a wall poster ----
 
@@ -45,9 +52,9 @@ const TERRITORY_LINE = 1.4;
 const BORDER_LINE = TERRITORY_LINE * 2.5;
 
 const FORMAT_LABEL: Record<Format, string> = {
-  portrait: 'Portrait',
-  landscape: 'Landscape',
-  square: 'Square',
+  portrait: 'tr_portrait',
+  landscape: 'tr_landscape',
+  square: 'tr_territorySquare',
 };
 
 // the map is laid out at this scale, so street names stay a readable size on
@@ -128,6 +135,20 @@ const roomiest = (ring: Spot[]) => {
 
 /** Renders the overview off screen as a JPEG data URL; partial when some of
  * the map didn't load. */
+const styleOverviewLabels = (map: maplibregl.Map) => {
+  for (const layer of map.getStyle().layers) {
+    if (layer.type !== 'symbol') continue;
+    // road numbers like B57 only crowd a territory map
+    if (/shield/.test(layer.id)) {
+      map.setLayoutProperty(layer.id, 'visibility', 'none');
+      continue;
+    }
+    if (layer.layout?.['text-field'] === undefined) continue;
+    map.setPaintProperty(layer.id, 'text-color', '#555555');
+    map.setPaintProperty(layer.id, 'text-halo-color', '#FFFFFF');
+  }
+};
+
 const captureOverview = (
   territories: Territory[],
   areas: GeoJSON.FeatureCollection<GeoJSON.Polygon>,
@@ -150,8 +171,9 @@ const captureOverview = (
     container.style.cssText = `position:fixed;left:-20000px;top:0;width:${width}px;height:${height}px`;
     document.body.appendChild(container);
 
-    // room around the area, so nothing sits where a printer can't reach
-    const margin = Math.round(Math.min(width, height) * 0.05);
+    // Keep the outermost boundaries away from the map edges in every orientation.
+    const horizontalPadding = Math.round(width * MAP_EXPORT_PADDING);
+    const verticalPadding = Math.round(height * MAP_EXPORT_PADDING);
     let map: maplibregl.Map;
     try {
       const tuned = mapPerformanceOptions();
@@ -160,7 +182,14 @@ const captureOverview = (
         // paper is white, whatever the app's theme
         style: MAP_PROVIDER.light,
         bounds: boundaryBounds(extent),
-        fitBoundsOptions: { padding: margin },
+        fitBoundsOptions: {
+          padding: {
+            top: verticalPadding,
+            bottom: verticalPadding,
+            left: horizontalPadding,
+            right: horizontalPadding,
+          },
+        },
         interactive: false,
         transformRequest: mapRequest,
         attributionControl: false,
@@ -185,12 +214,35 @@ const captureOverview = (
       if (done) return;
       done = true;
       window.clearTimeout(timeout);
-      const image = capture
-        ? map.getCanvas().toDataURL('image/jpeg', 0.92)
-        : undefined;
-      map.remove();
-      container.remove();
-      resolve(image ? { image, partial } : undefined);
+      let image: string | undefined;
+      try {
+        if (capture) {
+          const source = map.getCanvas();
+          const canvas = document.createElement('canvas');
+          canvas.width = source.width;
+          canvas.height = source.height;
+          try {
+            const context = canvas.getContext('2d');
+            if (context) {
+              context.drawImage(source, 0, 0);
+              paintMapAttribution(
+                canvas,
+                Math.max(paper.width, paper.height) * POINTS_PER_MM
+              );
+              image = canvas.toDataURL('image/jpeg', 0.92);
+            }
+          } finally {
+            canvas.width = 0;
+            canvas.height = 0;
+          }
+        }
+      } catch {
+        image = undefined;
+      } finally {
+        map.remove();
+        container.remove();
+        resolve(image ? { image, partial } : undefined);
+      }
     };
     // a big sheet loads many tiles; what has come by then still prints
     const timeout = window.setTimeout(() => {
@@ -202,17 +254,7 @@ const captureOverview = (
       styled = true;
       applyBasemapOptions(map, DEFAULT_PROVIDER, DEFAULT_BASEMAP);
 
-      for (const layer of map.getStyle().layers) {
-        if (layer.type !== 'symbol') continue;
-        // road numbers like B57 only crowd a territory map
-        if (/shield/.test(layer.id)) {
-          map.setLayoutProperty(layer.id, 'visibility', 'none');
-          continue;
-        }
-        if (layer.layout?.['text-field'] === undefined) continue;
-        map.setPaintProperty(layer.id, 'text-color', '#555555');
-        map.setPaintProperty(layer.id, 'text-halo-color', '#FFFFFF');
-      }
+      styleOverviewLabels(map);
 
       if (options.territories) {
         map.addSource('print-territories', { type: 'geojson', data: areas });
@@ -329,14 +371,16 @@ const OverviewDocument = ({
   options: OverviewOptions;
   lang: string;
 }) => {
+  const { t } = useAppTranslation();
+
   const paper = sizeOf(options);
   const width = paper.width * POINTS_PER_MM;
   const height = paper.height * POINTS_PER_MM;
-  // printed at home: only the map, edge to edge, on exactly one page
+  // Surrounding map context keeps the boundaries clear of the printed edges.
   return (
-    <Document title={tx('Territory overview')} lang={lang}>
+    <Document title={t('tr_territoryTerritoryOverview')} lang={lang}>
       <Page size={{ width, height }} wrap={false}>
-        <Image src={image} style={{ width, height }} />
+        <Image src={image} style={{ width, height, objectFit: 'contain' }} />
       </Page>
     </Document>
   );
@@ -360,6 +404,8 @@ export const PrintOverviewDialog = ({
   borderColor: MapColor;
   borderDashed: boolean;
 }) => {
+  const { t } = useAppTranslation();
+
   const [options, setOptions] = useState<OverviewOptions>({
     format: 'landscape',
     border: true,
@@ -376,46 +422,52 @@ export const PrintOverviewDialog = ({
     !hasBorder && !territories.some((item) => item.boundary?.length);
 
   const save = async () => {
+    if (busy || empty) return;
     setBusy(true);
     try {
-      const result = await captureOverview(
-        territories,
-        areas,
-        congregation,
-        borderColor,
-        borderDashed,
-        {
-          ...options,
-          border: options.border && hasBorder,
-        }
-      );
-      if (!result) throw new Error(tx('The map could not be drawn.'));
-      const blob = await pdf(
-        <OverviewDocument
-          image={result.image}
-          options={options}
-          lang={locale}
-        />
-      ).toBlob();
+      let partial = false;
       const saved = await exportFile(
-        blob,
-        `${tx('Territory-overview')}-${tx(FORMAT_LABEL[options.format])}.pdf`
+        async () => {
+          const result = await captureOverview(
+            territories,
+            areas,
+            congregation,
+            borderColor,
+            borderDashed,
+            {
+              ...options,
+              border: options.border && hasBorder,
+            }
+          );
+          if (!result) throw new Error(t('tr_territoryTheMapCouldNotBeDrawn'));
+          partial = result.partial;
+          return pdf(
+            <OverviewDocument
+              image={result.image}
+              options={options}
+              lang={locale}
+            />
+          ).toBlob();
+        },
+        `${t('tr_territoryOverviewFilename')}-${t(FORMAT_LABEL[options.format])}.pdf`
       );
-      if (saved && result.partial) {
+      if (saved && partial) {
         displaySnackNotification({
-          header: tx('Parts of the map are missing'),
-          message: tx(
-            'Some map tiles could not be loaded. Print again once you are online.'
-          ),
+          header: t('tr_territoryPartsOfTheMapAreMissing'),
+          message: t('tr_territorySomeMapTilesCouldNotBeLoadedPrintAgain'),
           severity: 'error',
         });
       }
-      onClose();
+      if (saved) onClose();
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         displaySnackNotification({
-          header: tx('Export failed'),
-          message: (error as Error).message,
+          header: t('tr_territoryExportFailed'),
+          message: t((error as Error).message, {
+            defaultValue: t(
+              'tr_territoryTheTerritoryDocumentCouldNotBeGeneratedTryAgain'
+            ),
+          }),
           severity: 'error',
         });
       }
@@ -425,15 +477,15 @@ export const PrintOverviewDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title={tx('Print map')}>
+    <Dialog open={open} onClose={onClose} title={t('tr_territoryPrintMap')}>
       <Stack spacing="16px" sx={{ width: '100%' }}>
         <Stack spacing="8px">
           <Typography className="label-small-medium" color="var(--grey-400)">
-            {tx('Format')}
+            {t('tr_territoryFormat')}
           </Typography>
           <RadioGroup
             row
-            aria-label={tx('Format')}
+            aria-label={t('tr_territoryFormat')}
             value={options.format}
             onChange={(event) => set({ format: event.target.value as Format })}
             sx={{ gap: '0 16px' }}
@@ -443,31 +495,31 @@ export const PrintOverviewDialog = ({
                 key={format}
                 value={format}
                 control={<Radio />}
-                label={<Typography>{tx(FORMAT_LABEL[format])}</Typography>}
+                label={<Typography>{t(FORMAT_LABEL[format])}</Typography>}
               />
             ))}
           </RadioGroup>
         </Stack>
         <Stack spacing="4px">
           <Checkbox
-            label={tx('Congregation border')}
+            label={t('tr_territoryCongregationBorder')}
             checked={options.border && hasBorder}
             disabled={!hasBorder}
             onChange={(event) => set({ border: event.target.checked })}
           />
           <Checkbox
-            label={tx('All territories')}
+            label={t('tr_allTerritories')}
             checked={options.territories}
             onChange={(event) => set({ territories: event.target.checked })}
           />
           <Checkbox
-            label={tx('Territory numbers')}
+            label={t('tr_territoryTerritoryNumbers')}
             checked={options.territories && options.numbers}
             disabled={!options.territories}
             onChange={(event) => set({ numbers: event.target.checked })}
           />
           <Checkbox
-            label={tx('Colours, as on the map')}
+            label={t('tr_territoryColoursAsOnTheMap')}
             checked={options.territories && options.colors}
             disabled={!options.territories}
             onChange={(event) => set({ colors: event.target.checked })}
@@ -475,16 +527,21 @@ export const PrintOverviewDialog = ({
         </Stack>
         {empty && (
           <Typography className="body-small-regular" color="var(--grey-400)">
-            {tx('Draw the congregation border or a territory first.')}
+            {t('tr_territoryDrawTheCongregationBorderOrATerritoryFirst')}
           </Typography>
         )}
       </Stack>
       <DialogActions>
         <Button variant="secondary" onClick={onClose}>
-          {tx('Cancel')}
+          {t('tr_cancel')}
         </Button>
-        <Button variant="main" disabled={busy || empty} onClick={save}>
-          {busy ? tx('Preparing…') : tx('Export')}
+        <Button
+          variant="main"
+          disabled={busy || empty}
+          onClick={save}
+          startIcon={busy ? <IconLoading width={20} height={20} /> : undefined}
+        >
+          {busy ? t('tr_territoryPreparing') : t('tr_export')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -2,35 +2,37 @@ import { atom } from 'jotai';
 import { UpcomingEventCategory } from '@definition/upcoming_events';
 import { TerritoryCampaign } from '@definition/territory';
 import { upcomingEventsState } from '@states/upcoming_events';
-import { fieldServiceGroupsState } from '@states/field_service_groups';
-import { tx } from '@services/i18n/translation';
-import { dayOf } from './campaign_dates';
+import { userDataViewState } from '@states/settings';
+import { getTranslation } from '@services/i18n/translation';
+import {
+  eventVisibleInDataView,
+  upcomingEventTitle,
+} from '@utils/upcoming_events';
 
-// The Special campaign events on the Termine page are the campaigns a
-// territory can be worked for. The territory app swaps this module for its
-// own list, kept in its settings.
+const localDay = (value: string) => {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
 
 export const territoryCampaignsState = atom<TerritoryCampaign[]>((get) => {
-  const groups = get(fieldServiceGroupsState);
-
+  const dataView = get(userDataViewState);
   return get(upcomingEventsState)
     .filter(
       (event) =>
-        event.event_data.category === UpcomingEventCategory.SpecialCampaignWeek
+        eventVisibleInDataView(event, dataView) &&
+        event.event_data.category ===
+          UpcomingEventCategory.SpecialCampaignWeek &&
+        Number.isFinite(Date.parse(event.event_data.start)) &&
+        Number.isFinite(Date.parse(event.event_data.end))
     )
-    .map(({ event_uid, event_data }) => {
-      const group =
-        event_data.type !== 'main'
-          ? groups.find((record) => record.group_id === event_data.type)
-              ?.group_data.name
-          : undefined;
-
-      return {
-        id: event_uid,
-        name: event_data.description?.trim() || tx('Special campaign'),
-        start: dayOf(new Date(event_data.start)),
-        end: dayOf(new Date(event_data.end)),
-        ...(group ? { group } : {}),
-      };
-    });
+    .map(({ event_uid, event_data }) => ({
+      id: event_uid,
+      name: upcomingEventTitle(
+        event_data,
+        getTranslation({ key: 'tr_specialCampaignWeek' })
+      ),
+      description: event_data.description,
+      start: localDay(event_data.start),
+      end: localDay(event_data.end),
+    }));
 });

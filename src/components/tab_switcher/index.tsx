@@ -1,28 +1,10 @@
-import { Box, ButtonBase, keyframes } from '@mui/material';
-import { cloneElement, useState } from 'react';
+import { Box, ButtonBase } from '@mui/material';
+import { cloneElement } from 'react';
 import {
   TabSwitcherOption,
   TabSwitcherProps,
   TabSwitcherSurface,
 } from './index.types';
-
-// the thumb dips in size as it travels and grows back as it lands, in one
-// smooth wave timed with the slide; two names taken in turns restart it on
-// every change
-const stretch = (turn: number) => keyframes`
-  0% { transform: scale(1); animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1); }
-  45% { transform: scale(0.9); animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1); }
-  100% { transform: scale(1); --turn: ${turn}; }
-`;
-const STRETCHES = [stretch(0), stretch(1)];
-
-// a tap on the tab that's already on: a small press and release
-const press = (turn: number) => keyframes`
-  0% { transform: scale(1); animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1); }
-  40% { transform: scale(0.98); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
-  100% { transform: scale(1); --turn: ${turn}; }
-`;
-const PRESSES = [press(0), press(1)];
 
 const PALETTE: Record<
   TabSwitcherSurface,
@@ -58,16 +40,7 @@ const TabSwitcher = <T extends string = string>({
   const palette = PALETTE[surface];
 
   const activeIndex = options.findIndex((option) => option.value === value);
-  const [seen, setSeen] = useState(activeIndex);
-  const [moves, setMoves] = useState(0);
-  // taps on the active tab; reset by a move, so the move's wave plays
-  const [taps, setTaps] = useState(0);
-  if (seen !== activeIndex) {
-    setSeen(activeIndex);
-    setMoves(moves + 1);
-    setTaps(0);
-  }
-  const gap = 4;
+  const gap = 8;
   const collapse = collapseBelow
     ? `@container (max-width: ${collapseBelow}px)`
     : undefined;
@@ -85,6 +58,9 @@ const TabSwitcher = <T extends string = string>({
         backgroundColor: palette.track,
         border: `1px solid ${palette.trackBorder}`,
         ...(collapse && { containerType: 'inline-size' }),
+        '@media (prefers-reduced-motion: reduce)': {
+          '& *': { transition: 'none' },
+        },
         ...sx,
       }}
     >
@@ -96,32 +72,14 @@ const TabSwitcher = <T extends string = string>({
           bottom: '4px',
           left: '4px',
           width: `calc((100% - ${(options.length - 1) * gap + 8}px) / ${options.length})`,
+          borderRadius: 'var(--radius-m)',
+          backgroundColor: palette.thumb,
+          border: `1px solid ${palette.thumbBorder}`,
           transform: `translateX(calc(${Math.max(activeIndex, 0)} * (100% + ${gap}px)))`,
-          // a quick spring: it overshoots a touch and settles
-          // eases off gently and lands softly, never past the track's edge
-          transition: 'transform 0.42s cubic-bezier(0.65, 0, 0.35, 1)',
+          transition: 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
           opacity: activeIndex === -1 ? 0 : 1,
-          // over a tab's hover shade, under its label
-          zIndex: 1,
         }}
-      >
-        <Box
-          sx={{
-            width: '100%',
-            height: '100%',
-            boxSizing: 'border-box',
-            // the track's radius-l less its 4px padding, so both curves run parallel
-            borderRadius: 'var(--radius-s)',
-            backgroundColor: palette.thumb,
-            border: `1px solid ${palette.thumbBorder}`,
-            animation: taps
-              ? `${PRESSES[taps % 2]} 0.28s linear`
-              : moves
-                ? `${STRETCHES[moves % 2]} 0.42s linear`
-                : 'none',
-          }}
-        />
-      </Box>
+      />
 
       {options.map((option: TabSwitcherOption<T>) => {
         const isActive = option.value === value;
@@ -130,16 +88,15 @@ const TabSwitcher = <T extends string = string>({
           <ButtonBase
             key={option.value}
             role="tab"
-            className="body-small-regular"
+            className={isActive ? 'body-small-semibold' : 'body-small-regular'}
             aria-selected={isActive}
             aria-label={iconOnly || collapse ? option.label : undefined}
             disabled={option.disabled}
             disableRipple
-            onClick={() =>
-              isActive ? setTaps(taps + 1) : onChange(option.value)
-            }
+            onClick={() => onChange(option.value)}
             sx={{
               position: 'relative',
+              zIndex: 1,
               flex: 1,
               minWidth: 0,
               display: 'flex',
@@ -148,41 +105,23 @@ const TabSwitcher = <T extends string = string>({
               gap: '6px',
               padding: iconOnly ? '4px 8px' : '4px 12px',
               minHeight: '28px',
-              borderRadius: 'var(--radius-s)',
+              borderRadius: 'var(--radius-m)',
               fontFamily: 'inherit',
               color: isActive ? 'var(--accent-dark)' : 'var(--accent-400)',
-              transition: 'color 0.12s ease-out',
-              '& > *': { position: 'relative', zIndex: 2 },
-              // an inactive tab lightens a shade under the pointer; the
-              // shade lies under the thumb, which may still be sliding off it
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                inset: 0,
-                borderRadius: 'inherit',
-                transition: 'background-color 0.12s ease-out',
-              },
-              ...(!isActive && {
-                '@media (hover: hover)': {
-                  '&:hover::before': {
-                    backgroundColor: `color-mix(in srgb, ${palette.track}, var(--accent-200) 40%)`,
-                  },
-                },
-              }),
+              transition: 'color 0.16s ease-out',
               '&.Mui-disabled': { opacity: 0.5 },
               '& svg, & svg g, & svg g path': {
                 fill: isActive ? 'var(--accent-dark)' : 'var(--accent-400)',
                 transition: 'fill 0.16s ease-out',
               },
-              '&:focus-visible': { outline: 'var(--accent-main) auto 1px' },
               ...(collapse && {
                 [collapse]: {
-                  padding: '4px 8px',
                   '& > span:last-of-type:not(:first-of-type)': {
                     display: 'none',
                   },
                 },
               }),
+              '&:focus-visible': { outline: 'var(--accent-main) auto 1px' },
             }}
           >
             {option.icon && (
@@ -194,42 +133,16 @@ const TabSwitcher = <T extends string = string>({
               </Box>
             )}
             {!iconOnly && (
-              // the bold width is kept free, so the label doesn't jump as its
-              // weight eases from regular to semibold
               <Box
                 component="span"
                 sx={{
-                  display: 'grid',
                   minWidth: 0,
-                  '& > span': {
-                    gridArea: '1 / 1',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    textAlign: 'center',
-                  },
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                <Box
-                  component="span"
-                  sx={{
-                    fontWeight: isActive ? 600 : 400,
-                    // a regular label spaced a touch wider is about as wide as
-                    // its semibold, so the text hardly changes width
-                    letterSpacing: isActive ? 'normal' : '0.02em',
-                    transition:
-                      'font-weight 0.15s ease-out, letter-spacing 0.15s ease-out',
-                  }}
-                >
-                  {option.label}
-                </Box>
-                <Box
-                  component="span"
-                  aria-hidden
-                  sx={{ fontWeight: 600, visibility: 'hidden' }}
-                >
-                  {option.label}
-                </Box>
+                {option.label}
               </Box>
             )}
           </ButtonBase>

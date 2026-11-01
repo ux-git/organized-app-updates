@@ -1,12 +1,17 @@
+import { useAppTranslation } from '@hooks/index';
 import { Image, Text, View } from '@react-pdf/renderer';
-import { TerritoryPrintData } from '../index.types';
-import styles, { CARD, CHIP_HEIGHT, COLORS } from '../index.styles';
-import { tx } from '@services/i18n/translation';
-import { titleOf } from './title';
-import Shadow from './Shadow';
-import WarningChip from './WarningChip';
+import { TerritoryPrintData } from '@views/territories/index.types';
+import styles, {
+  CARD,
+  CHIP_HEIGHT,
+  COLORS,
+} from '@views/territories/index.styles';
+import { householdsOf, titleOf } from '@views/territories/shared/title';
+import Shadow from '@views/territories/shared/Shadow';
+import WarningChip from '@views/territories/shared/WarningChip';
 
-const COLUMNS = 4;
+import { fits, textWidth } from '@views/territories/shared/textWidth';
+import { PHONE_GRID, phoneGridLayout } from '@views/territories/geometry';
 
 const digits = (value: string) => value.replace(/\D/g, '');
 
@@ -14,22 +19,40 @@ const PhoneGrid = ({
   numbers,
   blocked,
   width,
+  height,
 }: {
   numbers: string[];
   // do-not-call numbers, struck through so they read on a black and white print
   blocked: string[];
   width: number;
+  height: number;
 }) => {
-  const cell = (width - (COLUMNS - 1) * 4) / COLUMNS;
+  const { t } = useAppTranslation();
+  // Keep the entire dialable number; narrow cards use fewer columns.
+  const longest = numbers.reduce(
+    (max, number) => Math.max(max, textWidth(number, 10, true)),
+    0
+  );
+  const badge = Math.max(15, textWidth(String(numbers.length), 8, true) + 6);
+  const { columns, shown, remaining } = phoneGridLayout(
+    height,
+    numbers.length,
+    width,
+    longest + badge + 21
+  );
+  const cell = (width - (columns - 1) * PHONE_GRID.gap) / columns;
   const skip = new Set(blocked.map(digits));
 
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-      {numbers.map((number, index) => (
+    <View
+      style={{ flexDirection: 'row', flexWrap: 'wrap', gap: PHONE_GRID.gap }}
+    >
+      {numbers.slice(0, shown).map((number, index) => (
         <View
           key={`${index}-${number}`}
           style={{
             width: cell,
+            height: PHONE_GRID.cellHeight,
             flexDirection: 'row',
             alignItems: 'center',
             gap: 3,
@@ -58,6 +81,7 @@ const PhoneGrid = ({
           <Text
             style={[
               styles.phone,
+              { flexShrink: 1 },
               skip.has(digits(number))
                 ? { color: COLORS.dncText, textDecoration: 'line-through' }
                 : {},
@@ -67,18 +91,33 @@ const PhoneGrid = ({
           </Text>
         </View>
       ))}
+      {remaining > 0 && (
+        <View
+          style={{
+            width: cell,
+            height: PHONE_GRID.cellHeight,
+            justifyContent: 'center',
+            paddingLeft: 4,
+            paddingRight: 4,
+          }}
+        >
+          <Text style={styles.fine}>
+            {t('tr_territoryMoreInTheApp', { n: remaining })}
+          </Text>
+        </View>
+      )}
     </View>
   );
 };
 
-const MapBadge = ({ text }: { text: string }) => (
+const MapBadge = ({ text, radius = 4 }: { text: string; radius?: number }) => (
   <View style={{ position: 'relative' }}>
-    <Shadow radius={4} spread={3} drop={2} />
+    <Shadow radius={radius} spread={3} drop={2} />
     <View
       style={{
         backgroundColor: COLORS.paper,
         border: `0.5px solid ${COLORS.line}`,
-        borderRadius: 4,
+        borderRadius: radius,
         height: CHIP_HEIGHT,
         justifyContent: 'center',
         paddingLeft: 5,
@@ -92,20 +131,94 @@ const MapBadge = ({ text }: { text: string }) => (
   </View>
 );
 
+export const Chip = ({ text }: { text: string }) => (
+  <View
+    style={{
+      // a step darker than the screen chip: printers drop the lightest greys
+      backgroundColor: COLORS.divider,
+      borderRadius: 2,
+      height: CHIP_HEIGHT,
+      justifyContent: 'center',
+      paddingLeft: 5,
+      paddingRight: 5,
+    }}
+  >
+    <Text style={[styles.households, { fontSize: 7, fontWeight: 400 }]}>
+      {text}
+    </Text>
+  </View>
+);
+
 const CardFront = ({
   territory,
   width,
   height,
   printedOn,
+  titleAtBottom = false,
 }: {
   territory: TerritoryPrintData;
   width: number;
   height: number;
   // the A5 card has its date on the back, so only the S-12 shows it here
   printedOn?: string;
+  // A5 titles sit at the outer bottom corner for browsing cards in sleeves.
+  titleAtBottom?: boolean;
 }) => {
+  const { t } = useAppTranslation();
+
   const inner = width - CARD.padding * 2;
   const mapHeight = height - CARD.mapTop - CARD.footerHeight;
+
+  // the A5 title row carries the badges too, as on the vertical card
+  const households = householdsOf(territory, t);
+  const warning = territory.warning ?? '';
+  const warningInline =
+    titleAtBottom &&
+    fits(
+      textWidth(titleOf(territory), 11, true) +
+        8 +
+        (households ? textWidth(households, 7) + 10 + 4 : 0) +
+        (warning ? textWidth(warning, 7, true) + 20 + 4 : 0),
+      inner
+    );
+
+  const heading = (
+    <View
+      style={{
+        height: CARD.mapTop,
+        paddingTop: titleAtBottom ? 0 : 9,
+        alignItems: titleAtBottom ? 'center' : 'flex-start',
+        flexDirection: 'row',
+        columnGap: 8,
+      }}
+    >
+      {titleAtBottom && (
+        <View style={{ flexDirection: 'row', flexShrink: 0, gap: 4 }}>
+          {households && <Chip text={households} />}
+          {warningInline && warning && (
+            <WarningChip text={warning} maxWidth={inner} />
+          )}
+        </View>
+      )}
+      <Text
+        style={{
+          flexGrow: 1,
+          flexBasis: 0,
+          textAlign: titleAtBottom ? 'right' : 'left',
+        }}
+      >
+        {!titleAtBottom && (
+          <Text style={[styles.frameTitle, { fontSize: 11 }]}>
+            {t('tr_territoryTerritoryMapCard')}
+            {'\u2002'}
+          </Text>
+        )}
+        <Text style={[styles.frameName, { fontSize: 11 }]}>
+          {titleOf(territory)}
+        </Text>
+      </Text>
+    </View>
+  );
 
   return (
     <View
@@ -117,23 +230,7 @@ const CardFront = ({
         paddingRight: CARD.padding,
       }}
     >
-      <View
-        style={{
-          height: CARD.mapTop,
-          paddingTop: 9,
-          flexDirection: 'row',
-        }}
-      >
-        <Text>
-          <Text style={[styles.frameTitle, { fontSize: 11 }]}>
-            {tx('Territory Map Card')}
-            {'\u2002'}
-          </Text>
-          <Text style={[styles.frameName, { fontSize: 11 }]}>
-            {titleOf(territory)}
-          </Text>
-        </Text>
-      </View>
+      {!titleAtBottom && heading}
 
       <View
         style={{
@@ -147,6 +244,7 @@ const CardFront = ({
             numbers={territory.phoneNumbers ?? []}
             blocked={territory.doNotCalls.map((entry) => entry.address)}
             width={inner}
+            height={mapHeight}
           />
         )}
 
@@ -156,7 +254,7 @@ const CardFront = ({
             style={{
               width: inner,
               height: mapHeight,
-              objectFit: 'cover',
+              objectFit: 'contain',
               borderRadius: 6,
             }}
           />
@@ -173,48 +271,43 @@ const CardFront = ({
             }}
           >
             <Text style={styles.fine}>
-              {tx('This territory has no borders on the map yet')}
+              {t('tr_territoryThisTerritoryHasNoBordersOnTheMapYet')}
             </Text>
           </View>
         )}
 
-        {territory.type !== 'phone' && (
+        {territory.type !== 'phone' && !(titleAtBottom && warningInline) && (
           <View
             style={{
               position: 'absolute',
               left: 8,
               right: 8,
               bottom: 8,
-              alignItems: 'flex-end',
+              alignItems: titleAtBottom ? 'flex-start' : 'flex-end',
               gap: 4,
             }}
           >
             <View style={{ flexDirection: 'row', gap: 4 }}>
               {printedOn && (
                 <MapBadge
-                  text={tx('Printed on {{date}}', { date: printedOn })}
+                  text={t('tr_territoryPrintedOn', { date: printedOn })}
                 />
               )}
-              {territory.showHouseholds !== false &&
-                territory.households > 0 && (
-                  <MapBadge
-                    text={tx('Households: {{n}}', { n: territory.households })}
-                  />
-                )}
+              {!titleAtBottom && households && <MapBadge text={households} />}
             </View>
             {/* the warning gets the whole bottom row to itself */}
-            {territory.warning && (
+            {warning && (
               <View
                 style={{
                   flexDirection: 'row',
-                  justifyContent: 'flex-end',
+                  justifyContent: titleAtBottom ? 'flex-start' : 'flex-end',
                   width: '100%',
                 }}
               >
                 <WarningChip
-                  text={territory.warning}
+                  text={warning}
                   maxWidth={inner - 16}
-                  radius={4}
+                  radius={titleAtBottom ? 2 : 4}
                 />
               </View>
             )}
@@ -222,11 +315,11 @@ const CardFront = ({
         )}
       </View>
 
+      {titleAtBottom && heading}
+
       <View style={{ height: CARD.footerHeight, justifyContent: 'center' }}>
         <Text style={[styles.a5CareMessage, { width: inner }]}>
-          {tx(
-            'Please keep this card in the envelope. Do not soil, mark, or bend it. Each time the territory is covered, please inform the brother who cares for the territory files.'
-          )}
+          {t('tr_territoryPleaseKeepThisCardInTheEnvelopeDoNot')}
         </Text>
       </View>
     </View>

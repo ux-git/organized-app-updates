@@ -1,12 +1,12 @@
+import { useAppTranslation } from '@hooks/index';
 import { cloneElement, ReactElement } from 'react';
 import { Box, ButtonBase, Stack } from '@mui/material';
 import { Typography } from '@components/index';
 import Tooltip from '@components/tooltip';
 import { IconArrowLink } from '@icons/index';
 import { STATUS_LABEL, Territory } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
-import { territoryHolderText } from '../group_holder';
-import { DoNotCallBadge } from '../components/territory_badges';
+import { territoryHolderText } from '@features/territories/group_holder';
+import { DoNotCallBadge } from '@features/territories/components/territory_badges';
 
 const ToolButton = ({
   label,
@@ -101,12 +101,14 @@ export const ViewToolbar = ({
   // a row of its own, where the name takes the room it needs
   fullWidth?: boolean;
 }) => {
+  const { t } = useAppTranslation();
+
   const drawn = !!selected.boundary?.length;
 
   const info = [
     // the title already names it when the territory is called after its place
     selected.city !== selected.name && selected.city,
-    tx(STATUS_LABEL[selected.status]),
+    t(STATUS_LABEL[selected.status]),
     territoryHolderText(selected),
   ]
     .filter(Boolean)
@@ -141,14 +143,14 @@ export const ViewToolbar = ({
           color={drawn ? 'var(--grey-350)' : 'var(--orange-dark)'}
           noWrap
         >
-          {drawn ? info : tx('No borders drawn yet')}
+          {drawn ? info : t('tr_territoryNoBordersDrawnYet')}
         </Typography>
       </Box>
 
       <DoNotCallBadge territory={selected} />
 
       <ToolButton
-        label={tx('Details')}
+        label={t('tr_details')}
         icon={<IconArrowLink />}
         compact={compact}
         onClick={onDetails}

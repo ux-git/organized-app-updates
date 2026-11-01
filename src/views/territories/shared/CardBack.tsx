@@ -1,15 +1,15 @@
+import { useAppTranslation } from '@hooks/index';
 import { Path, Svg, Text, View } from '@react-pdf/renderer';
 import { INFO_PATH } from '@icons/info_path';
-import { TerritoryPrintData } from '../index.types';
-import styles, { COLORS } from '../index.styles';
+import { TerritoryPrintData } from '@views/territories/index.types';
+import styles, { COLORS } from '@views/territories/index.styles';
 import DoNotCallTable, {
   DoNotCallHeader,
   MoreEntries,
   ROW,
-} from './DoNotCallTable';
-import { titleOf } from './title';
+} from '@views/territories/shared/DoNotCallTable';
+import { titleOf } from '@views/territories/shared/title';
 import { parseDate } from '@features/territories/helpers';
-import { tx } from '@services/i18n/translation';
 
 const PADDING = 12;
 const GAP = 6;
@@ -42,6 +42,8 @@ const CardBack = ({
   notes?: string;
   printedOn: string;
 }) => {
+  const { t } = useAppTranslation();
+
   // oldest at the top, as they are written in by hand; what does not fit are the
   // oldest, which stay in the app
   const entries = [...territory.doNotCalls].sort(
@@ -79,7 +81,7 @@ const CardBack = ({
           {titleOf(territory)}
         </Text>
         <Text style={styles.printedOn}>
-          {tx('Printed on {{date}}', { date: printedOn })}
+          {t('tr_territoryPrintedOn', { date: printedOn })}
         </Text>
       </View>
 

@@ -9,9 +9,12 @@ import {
   TerritoryType,
 } from '@definition/territory';
 import { isTest } from '@constants/index';
-import { currentPublisherState, territoryAssigneesState } from './assignees';
-import { territoryCampaignsState } from './campaigns';
-import { campaignsOn } from './campaign_dates';
+import {
+  currentPublisherState,
+  territoryAssigneesState,
+} from '@features/territories/assignees';
+import { territoryCampaignsState } from '@features/territories/campaigns';
+import { campaignsOn } from '@features/territories/campaign_dates';
 
 const CURRENT_PUBLISHER = 'Mike Wallenter';
 

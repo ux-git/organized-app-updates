@@ -1,11 +1,13 @@
-import { tx } from '@services/i18n/translation';
+import { useAppTranslation } from '@hooks/index';
 import { Box } from '@mui/material';
-import { coveredText } from '../helpers';
-import StatTile from '../components/stat_tile';
+import { coveredText } from '@features/territories/helpers';
+import StatTile from '@features/territories/components/stat_tile';
 import { Territory } from '@definition/territory';
 
 // the do-not-call count is the header badge's
 const TerritoryStats = ({ territory }: { territory: Territory }) => {
+  const { t } = useAppTranslation();
+
   const months = territory.assignments.map((assignment) => assignment.months);
 
   const average = months.length
@@ -15,18 +17,18 @@ const TerritoryStats = ({ territory }: { territory: Territory }) => {
   const stats = [
     {
       id: 'covered',
-      label: tx('Last covered'),
+      label: t('tr_territoryLastCovered'),
       value: coveredText(territory),
     },
     {
       id: 'households',
-      label: tx('Households'),
+      label: t('tr_territoryHouseholdsLabel'),
       value: String(territory.households),
     },
     average && {
       id: 'duration',
-      label: tx('Usual duration'),
-      value: tx('{{n}} mo', { n: average }),
+      label: t('tr_territoryUsualDuration'),
+      value: t('tr_territoryMo', { n: average }),
     },
   ].filter(Boolean) as { id: string; label: string; value: string }[];
 

@@ -16,7 +16,9 @@ const StatTile = ({ label, value }: { label: string; value: string }) => (
     <Typography className="label-small-regular" color="var(--accent-400)">
       {label}
     </Typography>
-    <Typography className="body-small-semibold">{value}</Typography>
+    <Typography className="body-small-semibold" noWrap title={value}>
+      {value}
+    </Typography>
   </Box>
 );
 

@@ -1,4 +1,4 @@
-import { tx } from '@services/i18n/translation';
+import { useAppTranslation } from '@hooks/index';
 import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { shortDateFormatState } from '@states/settings';
@@ -6,19 +6,19 @@ import { Box, Stack } from '@mui/material';
 import { Button } from '@components/index';
 import { IconAdd, IconEdit } from '@icons/index';
 import { DoNotCall, Territory } from '@definition/territory';
-import RecordList from '../components/record_list';
-import RowAction from '../components/row_action';
+import RecordList from '@features/territories/components/record_list';
+import RowAction from '@features/territories/components/row_action';
 import {
   displayDate,
   parseDate,
   upsertById,
   emptyListMessage,
   isDoNotCallNumber,
-} from '../helpers';
-import { currentPublisherState } from '../assignees';
-import DoNotCallEditor from './do_not_call_editor';
-import { offerUndo } from '../undo';
-import { restoreDoNotCall } from '../restore';
+} from '@features/territories/helpers';
+import useTerritoryAccess from '@features/territories/useTerritoryAccess';
+import DoNotCallEditor from '@features/territories/details/do_not_call_editor';
+import { offerUndo } from '@features/territories/undo';
+import { restoreDoNotCall } from '@features/territories/restore';
 
 const newestFirst = (a: DoNotCall, b: DoNotCall) =>
   (parseDate(b.date)?.getTime() ?? 0) - (parseDate(a.date)?.getTime() ?? 0);
@@ -35,8 +35,10 @@ const DoNotCallPanel = ({
   onChange: (entries: DoNotCall[]) => void;
   access?: DoNotCallAccess;
 }) => {
+  const { t } = useAppTranslation();
+
   const format = useAtomValue(shortDateFormatState);
-  const me = useAtomValue(currentPublisherState);
+  const { publisher: me, publisherId } = useTerritoryAccess();
 
   const [editing, setEditing] = useState<DoNotCall | 'new'>();
 
@@ -45,7 +47,11 @@ const DoNotCallPanel = ({
   const isPhone = territory.type === 'phone';
 
   const canEdit = (entry: DoNotCall) =>
-    access === 'all' || (access === 'own' && entry.addedBy === me);
+    access === 'all' ||
+    (access === 'own' &&
+      (entry.addedById
+        ? entry.addedById === publisherId
+        : entry.addedBy === me));
 
   const openEntry = (entry: DoNotCall) =>
     canEdit(entry) ? () => setEditing(entry) : undefined;
@@ -70,7 +76,7 @@ const DoNotCallPanel = ({
           subtitle: isPhone ? undefined : entry.name,
           date: displayDate(entry.date, format),
           actions: canEdit(entry) && (
-            <RowAction title={tx('Edit')} onClick={() => setEditing(entry)}>
+            <RowAction title={t('tr_edit')} onClick={() => setEditing(entry)}>
               <IconEdit color="var(--accent-main)" width={18} height={18} />
             </RowAction>
           ),
@@ -86,7 +92,7 @@ const DoNotCallPanel = ({
             onClick={() => setEditing('new')}
             sx={{ minHeight: '32px', minWidth: 'unset' }}
           >
-            {tx('Add')}
+            {t('tr_add')}
           </Button>
         </Stack>
       )}
@@ -102,7 +108,9 @@ const DoNotCallPanel = ({
             const index = entries.findIndex((item) => item.id === editing.id);
             onChange(entries.filter((item) => item.id !== editing.id));
             offerUndo({
-              text: isPhone ? tx('Number deleted') : tx('Address deleted'),
+              text: isPhone
+                ? t('tr_territoryNumberDeleted')
+                : t('tr_territoryAddressDeleted'),
               revert: () => restoreDoNotCall(territory.id, editing, index),
             });
           }}

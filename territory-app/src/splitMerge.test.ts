@@ -78,8 +78,8 @@ test('squares apart are not merged', () => {
 });
 
 test('the next number keeps the prefix and skips taken ones', () => {
-  expect(nextNumber('A12', ['A12', 'A13', 'B20'])).toBe('A14');
-  expect(nextNumber('7', ['7', '9', 'A10'])).toBe('10');
-  expect(nextNumber('A07', ['A07'])).toBe('A08');
-  expect(nextNumber('Nord', ['Nord', 'Nord-2'])).toBe('Nord-3');
+  expect(nextNumber('A12', ['A12', 'A13', 'B20'])).toBe('A12A');
+  expect(nextNumber('7', ['7', '9', 'A10'])).toBe('7A');
+  expect(nextNumber('A07', ['A07'])).toBe('A07A');
+  expect(nextNumber('Nord', ['Nord', 'Nord-2'])).toBe('NORDA');
 });

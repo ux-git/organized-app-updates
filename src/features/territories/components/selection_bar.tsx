@@ -1,10 +1,9 @@
 import { Box, Stack } from '@mui/material';
 import { Button, Typography } from '@components/index';
-import { useBreakpoints } from '@hooks/index';
+import { useAppTranslation, useBreakpoints } from '@hooks/index';
 import { Territory } from '@definition/territory';
-import { tx } from '@services/i18n/translation';
-import { selectionActions } from './selection_actions';
-import { DONE_COLOR } from './done_color';
+import { selectionActions } from '@features/territories/components/selection_actions';
+import { DONE_COLOR } from '@features/territories/components/done_color';
 
 const done = { ...DONE_COLOR, color: 'var(--done)' };
 
@@ -21,6 +20,8 @@ const SelectionBar = ({
   onReturnMany,
   onClear,
 }: SelectionBarProps) => {
+  const { t } = useAppTranslation();
+
   const { tablet600Up } = useBreakpoints();
   if (!selected.length) return null;
   // 2px inset keeps the bar exactly as tall as the title row it joins
@@ -50,7 +51,7 @@ const SelectionBar = ({
           color="var(--accent-400)"
           sx={{ padding: '0 10px', whiteSpace: 'nowrap' }}
         >
-          {tx('Selected: {{n}}', { n: selected.length })}
+          {t('tr_territorySelected', { n: selected.length })}
         </Typography>
       )}
       {selectionActions(selected).map(({ kind, count }) => (
@@ -62,9 +63,14 @@ const SelectionBar = ({
           onClick={kind === 'assign' ? onAssignMany : onReturnMany}
           sx={kind === 'return' ? { ...button, ...done } : button}
         >
-          {tx(kind === 'assign' ? 'Assign: {{n}}' : 'Return: {{n}}', {
-            n: count,
-          })}
+          {t(
+            kind === 'assign'
+              ? 'tr_territoryAssignSelected'
+              : 'tr_territoryReturnSelected',
+            {
+              n: count,
+            }
+          )}
         </Button>
       ))}
       <Box
@@ -76,7 +82,7 @@ const SelectionBar = ({
         }}
       />
       <Button variant="small" disableAutoStretch onClick={onClear} sx={button}>
-        {tx('Deselect all')}
+        {t('tr_territoryDeselectAll')}
       </Button>
     </Stack>
   );

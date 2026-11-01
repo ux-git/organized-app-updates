@@ -1,3 +1,4 @@
+import type { TerritoryAccessContext } from '@definition/territory_access';
 import type {
   Territory,
   TerritoryRecommendations,
@@ -5,7 +6,7 @@ import type {
   TerritoryTab,
 } from '@definition/territory';
 import { addMonths } from 'date-fns';
-import { coveredAge } from './helpers';
+import { coveredAge } from '@features/territories/coverage_rate';
 
 export const NO_RESTRICTIONS: TerritoryRestrictions = {
   categories: [],
@@ -26,6 +27,8 @@ export const pastCooldown = (
   now = new Date()
 ) => {
   if (!months) return true;
+  if (territory.lastReturnedAt)
+    return addMonths(new Date(territory.lastReturnedAt), months) <= now;
   const returned = territory.assignments
     .flatMap((item) => {
       if (!item.returnedOn) return [];
@@ -46,7 +49,9 @@ const recommendedTerritories = (
     .filter(
       (territory) =>
         territory.status === 'available' &&
+        !territory.cardLost &&
         !territory.requestedBy &&
+        !territory.requestPending &&
         isOffered(territory, restricted) &&
         (!recommendations ||
           (isOffered(territory, recommendations) &&
@@ -62,11 +67,23 @@ export const forTab = (
   isEditor = true,
   groupHolder?: string,
   restricted: TerritoryRestrictions = NO_RESTRICTIONS,
-  recommendations?: TerritoryRecommendations
-) => {
+  options: {
+    recommendations?: TerritoryRecommendations;
+    identity?: Pick<
+      TerritoryAccessContext,
+      'publisherId' | 'groupId' | 'legacyIdentitySafe'
+    >;
+  } = {}
+): Territory[] => {
+  const { recommendations, identity } = options;
   if (tab === 'group') {
     return groupHolder
-      ? territories.filter((territory) => territory.holderGroup === groupHolder)
+      ? territories.filter((territory) =>
+          territory.holderGroupId
+            ? territory.holderGroupId === identity?.groupId
+            : territory.holderGroup === groupHolder ||
+              territory.holder === groupHolder
+        )
       : [];
   }
 
@@ -75,7 +92,13 @@ export const forTab = (
   }
 
   if (tab === 'requested') {
-    return territories.filter((territory) => territory.requestedBy === me);
+    return territories.filter((territory) =>
+      territory.requestedById
+        ? territory.requestedById === identity?.publisherId
+        : identity?.legacyIdentitySafe !== false &&
+          !!me &&
+          territory.requestedBy === me
+    );
   }
 
   if (tab === 'recommended') {
@@ -86,6 +109,17 @@ export const forTab = (
     );
   }
 
+  if (tab === 'campaign' && !isEditor) {
+    const ids = new Set(
+      (['all', 'mine', 'group'] as const)
+        .flatMap((view) =>
+          forTab(territories, view, me, false, groupHolder, restricted, options)
+        )
+        .map((item) => item.id)
+    );
+    return territories.filter((item) => ids.has(item.id));
+  }
+
   if (tab === 'all' && !isEditor) {
     return territories.filter(
       (territory) =>
@@ -94,8 +128,45 @@ export const forTab = (
   }
 
   if (tab === 'mine') {
-    return territories.filter((territory) => territory.holder === me);
+    return territories.filter((territory) =>
+      territory.holderId
+        ? territory.holderId === identity?.publisherId
+        : identity?.legacyIdentitySafe !== false &&
+          !!me &&
+          territory.holder === me
+    );
   }
 
   return territories;
+};
+
+export const territoryTabGroups = (
+  context: TerritoryAccessContext,
+  localMode: boolean,
+  hasRequests: boolean,
+  hasCampaigns = false
+): TerritoryTab[][] => {
+  const { editor, access, publisher, eligiblePublisher, groupHolder } = context;
+  const groups: TerritoryTab[][] = [
+    ['recommended', 'all', ...(hasCampaigns ? ['campaign' as const] : [])],
+    ['mine', 'group', 'requested'],
+    ['requests'],
+  ];
+  return groups
+    .map((tabs) =>
+      tabs.filter((tab) => {
+        if (tab === 'group') return !!groupHolder;
+        if (tab === 'recommended' || tab === 'all' || tab === 'campaign')
+          return editor || access !== 'own';
+        if (tab === 'requested')
+          return (
+            !!publisher &&
+            (hasRequests ||
+              (!localMode && eligiblePublisher && access === 'request'))
+          );
+        if (tab === 'requests') return editor && !localMode;
+        return true;
+      })
+    )
+    .filter((tabs) => tabs.length > 0);
 };
